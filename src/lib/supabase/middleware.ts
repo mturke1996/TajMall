@@ -17,9 +17,25 @@ export async function updateSession(request: NextRequest) {
     request: { headers: request.headers },
   });
 
+  // Check if Supabase is configured
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseKey = getSupabasePublicKey();
+  
+  if (!supabaseUrl || !supabaseKey) {
+    // Show configuration error page
+    const url = request.nextUrl;
+    const isPublic = url.pathname === '/setup' || url.pathname.startsWith('/_next') || url.pathname.startsWith('/favicon');
+    
+    if (!isPublic) {
+      return NextResponse.redirect(new URL('/setup', request.url));
+    }
+    
+    return response;
+  }
+
   const supabase = createServerClient(
-    getSupabaseUrl(),
-    getSupabasePublicKey(),
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() {

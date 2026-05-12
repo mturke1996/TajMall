@@ -17,8 +17,9 @@ export const config = {
      * - favicon / icon-* / apple-* assets
      * - bundled fonts
      * - service worker, web manifest, robots, sitemap
+     * - setup page (shown when not configured)
      * - any file ending in a common static extension
      */
-    '/((?!_next/static|_next/image|favicon|icon-|apple-|fonts|sw\\.js|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?|ttf)$).*)',
+    '/((?!_next/static|_next/image|favicon|icon-|apple-|fonts|sw\\.js|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|setup|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?|ttf)$).*)',
   ],
 };
