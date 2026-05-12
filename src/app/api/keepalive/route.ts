@@ -3,11 +3,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 /**
  * Keep-alive endpoint to prevent Supabase free-tier inactivity suspension.
  *
- * Runs every 6 hours via Vercel Cron (see vercel.json) and performs a
- * tiny no-op query against the database to keep the connection warm.
+ * Runs every 6 hours via GitHub Actions (see .github/workflows/keepalive.yml)
+ * and performs a tiny no-op query against the database to keep the connection warm.
  *
- * Protected with KEEPALIVE_SECRET. Vercel cron requests are signed with
- * the user-agent "vercel-cron/1.0" — we accept either path.
+ * Protected with KEEPALIVE_SECRET header from GitHub Actions.
  */
 
 export const runtime = 'nodejs';
@@ -22,9 +21,6 @@ async function pingDatabase() {
 }
 
 function authorized(req: NextRequest): boolean {
-  const userAgent = req.headers.get('user-agent') ?? '';
-  if (userAgent.startsWith('vercel-cron')) return true;
-
   const auth = req.headers.get('authorization') ?? '';
   const secret = process.env.KEEPALIVE_SECRET;
   return Boolean(secret && auth === `Bearer ${secret}`);

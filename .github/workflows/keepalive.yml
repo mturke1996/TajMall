@@ -1,0 +1,31 @@
+name: Keepalive - Database Ping
+
+on:
+  schedule:
+    # Run every 6 hours (0:00, 6:00, 12:00, 18:00 UTC)
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping-database:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Keepalive Endpoint
+        run: |
+          echo "🚀 Pinging keepalive endpoint..."
+          response=$(curl -s -X GET "${{ vars.KEEPALIVE_URL || 'https://taj-mall.vercel.app/api/keepalive' }}" \
+            -H "Authorization: Bearer ${{ secrets.KEEPALIVE_SECRET }}" \
+            -H "User-Agent: github-actions/keepalive")
+          echo "Response: $response"
+          echo "$response" | jq -e '.ok == true' > /dev/null || exit 1
+        shell: bash
+
+      - name: Verify Success
+        if: success()
+        run: echo "✅ Database keepalive ping successful!"
+
+      - name: Handle Failure
+        if: failure()
+        run: |
+          echo "❌ Keepalive ping failed!"
+          exit 1
