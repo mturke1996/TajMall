@@ -1,0 +1,596 @@
+// ============================================================
+// Fluxen SaaS - Database Schema
+// Modelled from the legacy "منظومة الإيرادات والمصروفات" Excel
+// system but normalised, multi-tenant, and double-entry ready.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------- ENUMS ----------
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  INVITED
+  DISABLED
+}
+
+enum PaymentMethod {
+  CASH        // نقدي
+  CHEQUE      // صك
+  TRANSFER    // حوالة
+  CARD        // بطاقة
+}
+
+enum TxKind {
+  REVENUE     // إيراد
+  EXPENSE     // مصروف
+  TRANSFER    // تحويل بين خزائن
+  OPENING     // رصيد افتتاحي
+  ADJUSTMENT  // تسوية
+}
+
+enum TxStatus {
+  DRAFT
+  POSTED
+  VOIDED
+  RECONCILED
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum CashboxKind {
+  CASH        // خزينة نقدية
+  BANK        // حساب مصرفي
+  CARD        // بطاقة
+  OTHER
+}
+
+enum VoucherKind {
+  PAYMENT     // إذن صرف
+  RECEIPT     // إيصال قبض
+}
+
+enum VoucherStatus {
+  DRAFT
+  APPROVED
+  POSTED
+  CANCELLED
+}
+
+enum JournalStatus {
+  DRAFT
+  POSTED
+  REVERSED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  POST
+  VOID
+}
+
+// ---------- TENANCY ----------
+
+model Organization {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  nameAr      String?
+  logoUrl     String?
+  currency    String   @default("LYD")
+  locale      String   @default("ar")
+  fiscalStartMonth Int @default(1)
+  timezone    String   @default("Africa/Tripoli")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  branches    Branch[]
+  users       User[]
+  roles       Role[]
+  accountCategories AccountCategory[]
+  cashboxes   Cashbox[]
+  transactions Transaction[]
+  journals    JournalEntry[]
+  vouchers    Voucher[]
+  attachments Attachment[]
+  auditLogs   AuditLog[]
+  notifications Notification[]
+  settings    Setting[]
+  customers   Customer[]
+  vendors     Vendor[]
+  employees   Employee[]
+
+  @@index([slug])
+}
+
+model Branch {
+  id            String   @id @default(cuid())
+  organizationId String
+  code          String
+  name          String
+  nameAr        String?
+  address       String?
+  phone         String?
+  isHQ          Boolean  @default(false)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions  Transaction[]
+  cashboxes     Cashbox[]
+  vouchers      Voucher[]
+  users         User[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+// ---------- IDENTITY & RBAC ----------
+
+model User {
+  id            String   @id @default(cuid())
+  // Maps to Supabase auth.users.id
+  authUserId    String?  @unique
+  organizationId String
+  branchId      String?
+  email         String   @unique
+  fullName      String
+  fullNameAr    String?
+  phone         String?
+  avatarUrl     String?
+  status        UserStatus @default(ACTIVE)
+  lastSeenAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch        Branch?  @relation(fields: [branchId], references: [id])
+  roles         UserRole[]
+  sessions      Session[]
+  auditLogs     AuditLog[]
+  createdTx     Transaction[] @relation("TxCreatedBy")
+  postedTx      Transaction[] @relation("TxPostedBy")
+  vouchers      Voucher[]
+
+  @@index([organizationId])
+  @@index([email])
+}
+
+model Role {
+  id            String   @id @default(cuid())
+  organizationId String
+  name          String
+  nameAr        String?
+  description   String?
+  isSystem      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  users         UserRole[]
+  permissions   RolePermission[]
+
+  @@unique([organizationId, name])
+}
+
+model Permission {
+  id          String  @id @default(cuid())
+  key         String  @unique // e.g. "revenue.create"
+  group       String  // e.g. "revenue"
+  description String?
+
+  roles       RolePermission[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  @@id([roleId, permissionId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+// ---------- CHART OF ACCOUNTS ----------
+// "البند" in the legacy Excel — categories of revenue and expense.
+
+model AccountCategory {
+  id             String   @id @default(cuid())
+  organizationId String
+  code           String   // e.g. "REV-01", "EXP-MNT"
+  name           String
+  nameAr         String
+  kind           TxKind   // REVENUE or EXPENSE
+  type           AccountType
+  parentId       String?
+  color          String?  // for charts/badges
+  icon           String?
+  active         Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent         AccountCategory?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children       AccountCategory[] @relation("CategoryTree")
+  transactions   Transaction[]
+  journalLines   JournalLine[]
+  voucherLines   VoucherLine[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, kind])
+}
+
+// ---------- CASHBOXES (Cash + Banks) ----------
+
+model Cashbox {
+  id             String   @id @default(cuid())
+  organizationId String
+  branchId       String?
+  code           String
+  name           String
+  nameAr         String
+  kind           CashboxKind
+  currency       String   @default("LYD")
+  bankName       String?
+  accountNumber  String?
+  iban           String?
+  openingBalance Decimal  @default(0) @db.Decimal(18, 3)
+  active         Boolean  @default(true)
+  color          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch         Branch?  @relation(fields: [branchId], references: [id])
+  transactions   Transaction[]
+  vouchers       Voucher[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+// ---------- COUNTERPARTIES ----------
+
+model Customer {
+  id             String   @id @default(cuid())
+  organizationId String
+  code           String
+  name           String
+  nameAr         String?
+  phone          String?
+  email          String?
+  taxNumber      String?
+  address        String?
+  notes          String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions   Transaction[]
+
+  @@unique([organizationId, code])
+}
+
+model Vendor {
+  id             String   @id @default(cuid())
+  organizationId String
+  code           String
+  name           String
+  nameAr         String?
+  phone          String?
+  email          String?
+  taxNumber      String?
+  address        String?
+  notes          String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions   Transaction[]
+  vouchers       Voucher[]
+
+  @@unique([organizationId, code])
+}
+
+model Employee {
+  id             String   @id @default(cuid())
+  organizationId String
+  code           String
+  fullName       String
+  fullNameAr     String?
+  phone          String?
+  email          String?
+  position       String?
+  salary         Decimal? @db.Decimal(18, 3)
+  hiredAt        DateTime?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, code])
+}
+
+// ---------- CORE TRANSACTIONS ----------
+// Single normalised table for both revenues & expenses.
+// In Excel: Rca, Rch, Rcaa, Rcha, etc. all collapse to this.
+
+model Transaction {
+  id             String   @id @default(cuid())
+  organizationId String
+  branchId       String?
+  cashboxId      String
+  categoryId     String
+  customerId     String?
+  vendorId       String?
+
+  // Legacy "رقم القيد" — display reference
+  reference      String?
+  // Sequential internal number per org
+  number         Int      @default(autoincrement())
+
+  kind           TxKind
+  status         TxStatus @default(POSTED)
+  method         PaymentMethod
+  amount         Decimal  @db.Decimal(18, 3)
+  currency       String   @default("LYD")
+  fxRate         Decimal  @default(1) @db.Decimal(18, 6)
+
+  txDate         DateTime
+  description    String?
+  notes          String?
+
+  // Cheque / transfer details
+  chequeNumber   String?
+  chequeBank     String?
+  chequeDate     DateTime?
+
+  createdById    String?
+  postedById     String?
+  postedAt       DateTime?
+  voidedAt       DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch         Branch?  @relation(fields: [branchId], references: [id])
+  cashbox        Cashbox  @relation(fields: [cashboxId], references: [id])
+  category       AccountCategory @relation(fields: [categoryId], references: [id])
+  customer       Customer? @relation(fields: [customerId], references: [id])
+  vendor         Vendor?   @relation(fields: [vendorId], references: [id])
+  createdBy      User?     @relation("TxCreatedBy", fields: [createdById], references: [id])
+  postedBy       User?     @relation("TxPostedBy", fields: [postedById], references: [id])
+  attachments    Attachment[]
+
+  @@index([organizationId, txDate])
+  @@index([organizationId, kind, status])
+  @@index([cashboxId])
+  @@index([categoryId])
+}
+
+// ---------- DOUBLE-ENTRY JOURNAL ----------
+// Maps to legacy PP1..PP12 (شهري) sheets.
+
+model JournalEntry {
+  id             String   @id @default(cuid())
+  organizationId String
+  number         Int      @default(autoincrement())
+  reference      String?  // "رقم القيد" / "رمز القيد"
+  status         JournalStatus @default(DRAFT)
+  entryDate      DateTime
+  description    String?
+  notes          String?
+
+  postedAt       DateTime?
+  reversedAt     DateTime?
+  reversedById   String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lines          JournalLine[]
+
+  @@index([organizationId, entryDate])
+}
+
+model JournalLine {
+  id          String  @id @default(cuid())
+  journalId   String
+  categoryId  String
+  debit       Decimal @default(0) @db.Decimal(18, 3)
+  credit      Decimal @default(0) @db.Decimal(18, 3)
+  description String?
+  sortOrder   Int     @default(0)
+
+  journal     JournalEntry @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  category    AccountCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([journalId])
+}
+
+// ---------- PAYMENT / RECEIPT VOUCHERS ----------
+// Maps to legacy PPA1..PPA12 (إذن صرف).
+
+model Voucher {
+  id             String   @id @default(cuid())
+  organizationId String
+  branchId       String?
+  cashboxId      String?
+  kind           VoucherKind @default(PAYMENT)
+  status         VoucherStatus @default(DRAFT)
+  number         Int      @default(autoincrement())
+  reference      String?  // human-friendly e.g. "إذن صرف 1013"
+
+  payeeName      String?  // يصرف إلى
+  payeeNameAr    String?
+  vendorId       String?
+  accountNumber  String?
+  bankName       String?
+  method         PaymentMethod @default(CASH)
+  totalAmount    Decimal  @db.Decimal(18, 3)
+  currency       String   @default("LYD")
+
+  voucherDate    DateTime
+  description    String?
+  notes          String?
+
+  preparedById   String?
+  approvedAt     DateTime?
+  postedAt       DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch         Branch?  @relation(fields: [branchId], references: [id])
+  cashbox        Cashbox? @relation(fields: [cashboxId], references: [id])
+  vendor         Vendor?  @relation(fields: [vendorId], references: [id])
+  preparedBy     User?    @relation(fields: [preparedById], references: [id])
+  lines          VoucherLine[]
+  attachments    Attachment[]
+
+  @@index([organizationId, voucherDate])
+  @@index([organizationId, status])
+}
+
+model VoucherLine {
+  id          String  @id @default(cuid())
+  voucherId   String
+  categoryId  String
+  amount      Decimal @db.Decimal(18, 3)
+  description String?
+  sortOrder   Int     @default(0)
+
+  voucher     Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  category    AccountCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([voucherId])
+}
+
+// ---------- FILES, ACTIVITY, NOTIFICATIONS ----------
+
+model Attachment {
+  id             String   @id @default(cuid())
+  organizationId String
+  transactionId  String?
+  voucherId      String?
+  fileName       String
+  storagePath    String
+  mimeType       String
+  size           Int
+  uploadedById   String?
+  createdAt      DateTime @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transaction    Transaction? @relation(fields: [transactionId], references: [id])
+  voucher        Voucher?     @relation(fields: [voucherId], references: [id])
+
+  @@index([organizationId])
+  @@index([transactionId])
+  @@index([voucherId])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorId        String?
+  action         AuditAction
+  entityType     String
+  entityId       String
+  metadata       Json?
+  ip             String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor          User?    @relation(fields: [actorId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model Notification {
+  id             String   @id @default(cuid())
+  organizationId String
+  recipientId    String?
+  title          String
+  body           String?
+  href           String?
+  level          String   @default("info") // info | success | warning | error
+  readAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, recipientId])
+}
+
+model Setting {
+  id             String   @id @default(cuid())
+  organizationId String
+  key            String
+  value          Json
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key])
+}

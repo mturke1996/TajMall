@@ -1,0 +1,260 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Fluxen — Editorial Light Theme
+   Warm monochrome canvas, ink typography, restrained sage accent.
+   No glassmorphism, no gradient text, no heavy shadows.
+   ============================================================ */
+
+@layer base {
+  :root {
+    --radius: 10px;
+
+    /* canvas */
+    --background: 40 14% 98%;             /* #FBFBFA warm off-white */
+    --foreground: 210 12% 10%;            /* #15171A warm ink */
+
+    /* surfaces */
+    --card: 0 0% 100%;
+    --card-foreground: 210 12% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 12% 10%;
+
+    /* primary = deep sage (single restrained brand accent) */
+    --primary: 95 19% 22%;                /* #2F3D27 */
+    --primary-foreground: 40 22% 96%;     /* warm cream text on primary */
+
+    /* secondary = warm subtle surface */
+    --secondary: 42 22% 95%;              /* #F2F0E9 */
+    --secondary-foreground: 210 12% 14%;
+
+    /* muted */
+    --muted: 42 22% 94%;
+    --muted-foreground: 115 5% 44%;       /* #6E7470 warm gray */
+
+    --accent: 42 22% 94%;
+    --accent-foreground: 210 12% 14%;
+
+    --destructive: 2 56% 38%;
+    --destructive-foreground: 40 22% 96%;
+
+    /* hairlines */
+    --border: 42 18% 89%;                 /* #ECEAE3 */
+    --input:  42 18% 89%;
+    --ring:   95 19% 32%;                 /* focus ring sage */
+  }
+
+  /* Light theme is the only theme — but we lock .dark to neutral so
+     accidental .dark classes don't break the surface. */
+  .dark {
+    --background: 40 14% 98%;
+    --foreground: 210 12% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 12% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 12% 10%;
+    --primary: 95 19% 22%;
+    --primary-foreground: 40 22% 96%;
+    --secondary: 42 22% 95%;
+    --secondary-foreground: 210 12% 14%;
+    --muted: 42 22% 94%;
+    --muted-foreground: 115 5% 44%;
+    --accent: 42 22% 94%;
+    --accent-foreground: 210 12% 14%;
+    --destructive: 2 56% 38%;
+    --destructive-foreground: 40 22% 96%;
+    --border: 42 18% 89%;
+    --input:  42 18% 89%;
+    --ring:   95 19% 32%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scrollbar-gutter: stable;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1, 'kern' 1, 'ss01' 1, 'cv11' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+
+  /* Smooth, momentum-friendly scrolling on iOS containers */
+  .scroll-smooth-touch {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Remove the default focus halo on touch — keep keyboard halo only */
+  @media (pointer: coarse) {
+    *:focus { outline: none !important; }
+    *:focus-visible { outline: revert; }
+  }
+
+  /* Honour reduced-motion: kill movement, keep opacity */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.12s !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Tabular numbers everywhere by default for accounting */
+  .num,
+  td.num,
+  th.num,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1, 'lnum' 1;
+  }
+
+  /* Subtle, warm selection */
+  ::selection {
+    background: rgba(83, 102, 71, 0.14);
+    color: hsl(var(--foreground));
+  }
+
+  /* Editorial scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(20, 22, 25, 0.10);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(20, 22, 25, 0.16);
+    background-clip: content-box;
+    border: 2px solid transparent;
+  }
+
+  /* Sharp serif numerals for the brand mark */
+  .serif-display {
+    font-family: var(--font-serif), Georgia, serif;
+    letter-spacing: -0.02em;
+    font-feature-settings: 'liga' 1, 'lnum' 1;
+  }
+}
+
+@layer components {
+  /*
+   * The signature editorial surface:
+   * pure white card on warm canvas, single hairline border,
+   * almost imperceptible elevation.
+   */
+  .surface {
+    @apply rounded-xl border border-border bg-card;
+  }
+
+  .surface-sunken {
+    @apply rounded-xl border border-border bg-canvas-sunken;
+  }
+
+  /* Editorial pill / eyebrow */
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.625rem;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+  }
+
+  /* Editorial divider — paper-thin and warm */
+  .divider {
+    height: 1px;
+    width: 100%;
+    background: hsl(var(--border));
+  }
+
+  /* Numeric chip used in keyboard hints */
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 10.5px;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--canvas-sunken, 42 22% 95%));
+    border: 1px solid hsl(var(--border));
+    border-radius: 4px;
+    line-height: 1;
+  }
+
+  /* Skeleton shimmer (warm) */
+  .shimmer {
+    background-image: linear-gradient(
+      90deg,
+      hsl(42 22% 95%) 0%,
+      hsl(42 22% 97%) 50%,
+      hsl(42 22% 95%) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.8s linear infinite;
+  }
+
+  /* Ambient warm wash for hero areas (no glassmorphism) */
+  .paper {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(800px 320px at 100% -10%, rgba(83, 102, 71, 0.04), transparent 60%),
+      radial-gradient(700px 280px at -10% 100%, rgba(168, 146, 83, 0.05), transparent 60%);
+  }
+
+  /* Subtle grid dots — used only for hero areas, low opacity */
+  .grid-dots {
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      rgba(20, 22, 25, 0.06) 1px,
+      transparent 0
+    );
+    background-size: 22px 22px;
+    mask-image: radial-gradient(ellipse 70% 50% at 50% 30%, #000 40%, transparent 80%);
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  /* Press feedback (Emil) */
+  .press {
+    transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .press:active {
+    transform: scale(0.985);
+  }
+}
