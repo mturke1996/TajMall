@@ -43,7 +43,14 @@ export default function EmployeesPage() {
   const enrichedEmployees = useMemo(() => {
     return employees.map(emp => {
       const contact = contacts.find(c => c.id === emp.id);
-      return { ...emp, ...contact, id: emp.id };
+      return {
+        ...emp,
+        name: contact?.name ?? emp.name,
+        phone: contact?.phone ?? emp.phone,
+        job_title: contact?.job_title ?? emp.job_title,
+        department: contact?.department ?? emp.department,
+        salary: contact?.salary ?? emp.salary,
+      };
     });
   }, [employees, contacts]);
 
