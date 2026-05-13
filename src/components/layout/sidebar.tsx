@@ -2,13 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { ChevronsLeft } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { NAV } from './nav-items';
 import { Logo } from '@/components/brand/logo';
 import { SidebarProfile } from './sidebar-profile';
 import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
 
 export function Sidebar({
   collapsed,
@@ -26,18 +24,16 @@ export function Sidebar({
     setMounted(true);
   }, []);
 
-  // Prevent hydration mismatch by not rendering until mounted
+  // Prevent hydration mismatch
   if (!mounted) {
     return (
       <aside
         className={cn(
           'sticky top-0 hidden h-[100dvh] shrink-0 flex-col border-e border-border bg-canvas md:flex',
-          'transition-[width] duration-300',
           collapsed ? 'w-[72px]' : 'w-[256px]',
           className,
         )}
         dir="rtl"
-        suppressHydrationWarning
       />
     );
   }
@@ -46,7 +42,7 @@ export function Sidebar({
     <aside
       className={cn(
         'sticky top-0 hidden h-[100dvh] shrink-0 flex-col border-e border-border bg-canvas md:flex',
-        'transition-[width] duration-300',
+        'transition-[width] duration-200 ease-out',
         collapsed ? 'w-[72px]' : 'w-[256px]',
         className,
       )}
@@ -59,16 +55,23 @@ export function Sidebar({
           <button
             onClick={onToggle}
             className={cn(
-              'me-auto rounded-md p-1.5 text-ink-mute hover:bg-secondary',
+              'me-auto rounded-md p-1.5 text-ink-mute hover:bg-secondary transition-colors',
               collapsed && 'me-0 mx-auto'
             )}
           >
-            <ChevronsLeft className={cn('h-4 w-4 transition-transform', collapsed && 'rotate-180')} />
+            <svg
+              className={cn('h-4 w-4 transition-transform duration-200', collapsed && 'rotate-180')}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
           </button>
         )}
       </div>
 
-      {/* Nav */}
+      {/* Nav - Fast links with prefetch */}
       <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
         {NAV.map((section) => (
           <div key={section.titleAr} className="flex flex-col gap-0.5">
@@ -85,20 +88,17 @@ export function Sidebar({
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={true}
                   className={cn(
-                    'group relative flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-medium transition-colors',
-                    active ? 'text-foreground' : 'text-ink-mute hover:text-foreground hover:bg-secondary'
+                    'group flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-medium transition-all duration-150',
+                    active 
+                      ? 'bg-canvas-sunken text-foreground ring-1 ring-border' 
+                      : 'text-ink-mute hover:text-foreground hover:bg-secondary'
                   )}
                   title={collapsed ? item.labelAr : undefined}
                 >
-                  {active && (
-                    <motion.span
-                      layoutId="nav-active"
-                      className="absolute inset-0 -z-10 rounded-md bg-canvas-sunken ring-1 ring-border"
-                    />
-                  )}
-                  <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-sage-700' : 'text-ink-mute')} />
-                  <span className={cn('flex-1 truncate', collapsed && 'opacity-0 pointer-events-none')}>
+                  <Icon className={cn('h-4 w-4 shrink-0 transition-colors', active ? 'text-sage-700' : 'text-ink-mute group-hover:text-sage-600')} />
+                  <span className={cn('flex-1 truncate transition-opacity', collapsed && 'opacity-0 pointer-events-none w-0')}>
                     {item.labelAr}
                   </span>
                 </Link>
