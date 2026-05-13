@@ -1,4 +1,19 @@
+import { redirect } from 'next/navigation';
+
+/**
+ * Shown only when Supabase browser env is missing at runtime.
+ * If vars are configured (after Vercel redeploy), `/` opens the real app —
+ * hitting `/setup` directly should not trap users forever.
+ */
 export default function SetupPage() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (url && key) {
+    redirect('/');
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50" dir="rtl">
       <div className="max-w-lg w-full bg-white rounded-lg shadow-lg p-8">
@@ -18,7 +33,7 @@ export default function SetupPage() {
             <h2 className="font-semibold text-amber-900 mb-2">المتغيرات المطلوبة على Vercel:</h2>
             <ul className="space-y-2 text-sm text-amber-800 font-mono">
               <li>NEXT_PUBLIC_SUPABASE_URL</li>
-              <li>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</li>
+              <li>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY أو NEXT_PUBLIC_SUPABASE_ANON_KEY</li>
               <li>SUPABASE_SECRET_KEY</li>
               <li>DATABASE_URL</li>
               <li>KEEPALIVE_SECRET</li>
