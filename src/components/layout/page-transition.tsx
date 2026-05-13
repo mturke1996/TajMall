@@ -1,21 +1,30 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 
 /**
  * Page transition wrapper.
  *
- * A subtle 200ms fade + 4px slide between routes. Calibrated so:
- *   - It never feels sluggish (under 220ms).
- *   - It doesn't fight scroll: the new page starts at scroll-top.
- *   - prefers-reduced-motion is honoured by Framer's defaults.
- *
- * Per Emil's framework: route changes happen often, so the motion
- * is restrained — feedback that something happened, not a show.
+ * Animations mount only after hydrate so SSR HTML matches the client's
+ * first paint (avoids text / layout mismatches under Framer Motion).
  */
 export function PageTransition({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div suppressHydrationWarning className="flex min-h-full flex-1 flex-col">
+        {children}
+      </div>
+    );
+  }
 
   return (
     <AnimatePresence mode="wait" initial={false}>
