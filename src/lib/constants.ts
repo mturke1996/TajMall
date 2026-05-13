@@ -9,7 +9,7 @@
 export const APP = {
   name: 'Fluxen',
   nameAr: 'فلاكسن',
-  tagline: 'منصة إدارة الإيرادات والمصروفات الذكية',
+  tagline: 'منصة إدارة المول التجاري — إيرادات ومصروفات وخزائن',
   defaultCurrency: 'LYD',
   defaultLocale: 'ar' as const,
 };
@@ -37,6 +37,14 @@ export const DEFAULT_CATEGORIES: Array<{
   { code: 'REV-SUP', nameAr: 'دعم الخزينة',      name: 'Treasury support',      kind: 'REVENUE', type: 'REVENUE', color: '#536647' },
   { code: 'REV-AST', nameAr: 'بيع أصول ثابتة',   name: 'Sale of fixed assets',  kind: 'REVENUE', type: 'REVENUE', color: '#74866A' },
   { code: 'REV-OTH', nameAr: 'إيرادات أخرى',     name: 'Other revenue',         kind: 'REVENUE', type: 'REVENUE', color: '#9CAB91' },
+  { code: 'REV-RNT', nameAr: 'إيجارات المحلات والوحدات', name: 'Shop & unit rent', kind: 'REVENUE', type: 'REVENUE', color: '#4A5D3F' },
+  { code: 'REV-PRK', nameAr: 'إيرادات مواقف السيارات', name: 'Parking revenue', kind: 'REVENUE', type: 'REVENUE', color: '#5A6B4E' },
+  { code: 'REV-SVC', nameAr: 'رسوم خدمات ومرافق مشتركة', name: 'Service & CAM charges', kind: 'REVENUE', type: 'REVENUE', color: '#677A59' },
+  { code: 'REV-ADV', nameAr: 'إعلانات وإيجار واجهات', name: 'Ads & facade rent', kind: 'REVENUE', type: 'REVENUE', color: '#75866A' },
+  { code: 'REV-KSK', nameAr: 'أكشاك وعربات ونقاط بيع', name: 'Kiosks & carts', kind: 'REVENUE', type: 'REVENUE', color: '#83917A' },
+  { code: 'REV-EVT', nameAr: 'فعاليات ومعارض مؤقتة', name: 'Events & promotions', kind: 'REVENUE', type: 'REVENUE', color: '#91A08B' },
+  { code: 'REV-LIC', nameAr: 'رسوم إدارية وتراخيص', name: 'Administrative fees', kind: 'REVENUE', type: 'REVENUE', color: '#A0AE9D' },
+  { code: 'REV-PEN', nameAr: 'غرامات وتأخير سداد', name: 'Late & penalty fees', kind: 'REVENUE', type: 'REVENUE', color: '#3E4D34' },
 
   // Expense — admin / general
   { code: 'EXP-AST',  nameAr: 'م.أصول ثابتة',        name: 'Fixed assets',          kind: 'EXPENSE', type: 'EXPENSE', color: '#8A2F2D' },
@@ -53,6 +61,9 @@ export const DEFAULT_CATEGORIES: Array<{
   { code: 'EXP-ELC',  nameAr: 'م.كهرباء',              name: 'Electricity',           kind: 'EXPENSE', type: 'EXPENSE', color: '#A47A0D' },
   { code: 'EXP-EQP',  nameAr: 'م.تجهيزات',             name: 'Equipment',             kind: 'EXPENSE', type: 'EXPENSE', color: '#586B5A' },
   { code: 'EXP-BNK',  nameAr: 'م.عمولة مصرفية',       name: 'Bank fees',             kind: 'EXPENSE', type: 'EXPENSE', color: '#4F4E7A' },
+  { code: 'EXP-SEC',  nameAr: 'م.أمن وحراسة',         name: 'Security services',     kind: 'EXPENSE', type: 'EXPENSE', color: '#5C4033' },
+  { code: 'EXP-INS',  nameAr: 'م.تأمينات',            name: 'Insurance',              kind: 'EXPENSE', type: 'EXPENSE', color: '#4A5F7A' },
+  { code: 'EXP-MKT',  nameAr: 'م.تسويق وعلاقات عامة', name: 'Marketing & PR',         kind: 'EXPENSE', type: 'EXPENSE', color: '#6B4C7A' },
   { code: 'EXP-OTH',  nameAr: 'م.أخرى',                name: 'Other',                 kind: 'EXPENSE', type: 'EXPENSE', color: '#6E7470' },
 ];
 

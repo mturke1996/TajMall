@@ -1,65 +1,59 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils';
 
-/**
- * Editorial page header.
- *
- * Mobile-first sizing:
- *   - eyebrow stays at 10.5px (already small)
- *   - title scales 22 → 28 → 32 across breakpoints
- *   - description hidden on the very smallest screens (< 360px)
- *   - actions row scrolls horizontally with a thin fade when overflow
- */
 export function PageHeader({
   eyebrow,
   title,
   description,
   actions,
   className,
+  titleClassName,
 }: {
   eyebrow?: string;
-  title: string;
+  title?: string;
   description?: string;
   actions?: React.ReactNode;
   className?: string;
+  titleClassName?: string;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+    <div className={cn('flex flex-col gap-2 border-b border-border bg-canvas px-4 py-4 sm:px-5 md:px-8 md:py-6', className)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          {eyebrow && (
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-mute">
+              {eyebrow}
+            </span>
+          )}
+          {title && (
+            <h1 className={cn('text-lg font-semibold', titleClassName)}>
+              {title}
+            </h1>
+          )}
+        </div>
+        {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
+      </div>
+      {description && <p className="text-sm text-ink-mute">{description}</p>}
+    </div>
+  );
+}
+
+export function PageHeaderAction({
+  className,
+  asChild,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) {
+  const Comp = asChild ? Slot : 'button';
+  return (
+    <Comp
       className={cn(
-        'flex flex-col gap-4 border-b border-border bg-canvas',
-        'px-4 pb-5 pt-7 md:px-8 md:pb-8 md:pt-10',
-        'md:flex-row md:items-end md:justify-between md:gap-6',
+        'inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-[13px] font-medium text-ink transition-colors',
+        'hover:bg-secondary active:translate-y-[0.5px]',
         className,
       )}
-    >
-      <div className="flex min-w-0 flex-col gap-2">
-        {eyebrow && <span className="eyebrow w-fit">{eyebrow}</span>}
-        <h1 className="text-balance text-[22px] font-semibold leading-[1.15] tracking-tightest text-foreground sm:text-[26px] md:text-[30px] lg:text-[32px]">
-          {title}
-        </h1>
-        {description && (
-          <p className="hidden max-w-2xl text-[13px] leading-[1.55] text-ink-mute sm:block md:text-[14px]">
-            {description}
-          </p>
-        )}
-      </div>
-
-      {actions && (
-        <div
-          className="
-            -mx-4 flex shrink-0 items-center gap-2 overflow-x-auto px-4
-            no-scrollbar
-            md:mx-0 md:flex-wrap md:overflow-visible md:px-0
-          "
-        >
-          {actions}
-        </div>
-      )}
-    </motion.div>
+      {...props}
+    />
   );
 }

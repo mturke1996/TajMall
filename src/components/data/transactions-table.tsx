@@ -1,7 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { ArrowDownLeft, ArrowUpRight, Paperclip, MoreHorizontal, Receipt, Loader2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Receipt, Loader2, Trash2, User, Building2, Briefcase } from 'lucide-react';
 import {
   Table,
   TableHeader,
@@ -73,7 +72,7 @@ export function TransactionsTable({
     return (
       <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-16 text-[12.5px] text-ink-mute">
         <Loader2 className="h-4 w-4 animate-spin stroke-[1.6]" />
-        جارٍ تحميل المعاملات…
+        جارٍ التحميل...
       </div>
     );
   }
@@ -89,7 +88,7 @@ export function TransactionsTable({
               ? 'لا توجد مصروفات بعد'
               : 'لا توجد معاملات بعد'
         }
-        description="ابدأ بإضافة أول معاملة وستظهر التفاصيل والإجماليات هنا تلقائياً."
+        description="ابدأ بإضافة أول معاملة"
         action={emptyHref ? { label: emptyLabel, href: emptyHref } : undefined}
       />
     );
@@ -98,61 +97,56 @@ export function TransactionsTable({
   return (
     <>
       {/* Mobile cards */}
-      <ul className="flex flex-col gap-2.5 md:hidden">
-        {data.map((r, i) => {
+      <ul className="flex flex-col gap-2 md:hidden">
+        {data.map((r) => {
           const positive = r.kind === 'REVENUE';
           const amount = Number(r.amount);
+          const creatorName = r.creator?.full_name_ar ?? r.creator?.full_name ?? '—';
+          const contactName = r.contact?.name;
+          const contactIcon = r.contact?.kind === 'TENANT' ? <Building2 className="h-3 w-3" /> : 
+                             r.contact?.kind === 'EMPLOYEE' ? <Briefcase className="h-3 w-3" /> : 
+                             <User className="h-3 w-3" />;
           return (
-            <motion.li
-              key={r.id}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(i * 0.02, 0.3), duration: 0.3 }}
-              className="surface press flex flex-col gap-3 p-3.5"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span
-                    className={cn(
-                      'grid h-9 w-9 shrink-0 place-items-center rounded-md border',
-                      positive
-                        ? 'border-pastel-greenInk/15 bg-pastel-green text-pastel-greenInk'
-                        : 'border-pastel-redInk/15 bg-pastel-red text-pastel-redInk',
-                    )}
-                  >
-                    {positive ? (
-                      <ArrowDownLeft className="h-4 w-4 stroke-[1.6]" />
-                    ) : (
-                      <ArrowUpRight className="h-4 w-4 stroke-[1.6]" />
-                    )}
+            <li key={r.id} className="surface flex flex-col gap-2 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className={cn(
+                    'grid h-8 w-8 place-items-center rounded',
+                    positive ? 'bg-pastel-green text-pastel-greenInk' : 'bg-pastel-red text-pastel-redInk'
+                  )}>
+                    {positive ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
                   </span>
-                  <div className="flex min-w-0 flex-col">
-                    <span className="truncate text-[14px] font-semibold leading-tight">
-                      {r.description ?? '—'}
-                    </span>
-                    <span className="mt-0.5 truncate text-[11px] text-ink-mute">
-                      {r.category?.name_ar ?? '—'} · {r.cashbox?.name_ar ?? '—'}
-                    </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{r.description || 'بدون وصف'}</p>
+                    <p className="text-xs text-ink-mute">{r.category?.name_ar}</p>
+                    {contactName && (
+                      <p className="text-xs text-sage-600 flex items-center gap-1 mt-0.5">
+                        {contactIcon}
+                        <span className="truncate">{contactName} {r.contact?.shop_number ? `(محل ${r.contact.shop_number})` : ''}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
-                <span
-                  className={cn(
-                    'num shrink-0 text-end font-mono text-[14px] font-semibold tabular-nums',
-                    positive ? 'text-pastel-greenInk' : 'text-pastel-redInk',
-                  )}
-                >
+                <span className={cn(
+                  'font-mono font-semibold shrink-0',
+                  positive ? 'text-pastel-greenInk' : 'text-pastel-redInk'
+                )}>
                   {positive ? '+' : '−'} {formatMoney(amount, currency)}
                 </span>
               </div>
-              <div className="flex items-center justify-between gap-2 border-t border-border pt-3 text-[11px] text-ink-mute">
-                <span className="num font-mono">
-                  {formatShortDate(r.tx_date)} · #{r.reference ?? r.number}
-                </span>
-                <Badge variant={METHOD_TONE[r.method] ?? 'neutral'}>
-                  {METHOD_LABEL[r.method] ?? r.method}
-                </Badge>
+              <div className="flex items-center justify-between text-xs text-ink-mute pt-1 border-t border-border/50">
+                <div className="flex items-center gap-1">
+                  <User className="h-3 w-3" />
+                  <span>{creatorName}</span>
+                </div>
+                <button
+                  onClick={() => handleDelete(r.id)}
+                  className="text-pastel-redInk hover:underline"
+                >
+                  <Trash2 className="h-3 w-3 inline" /> حذف
+                </button>
               </div>
-            </motion.li>
+            </li>
           );
         })}
       </ul>
@@ -161,96 +155,71 @@ export function TransactionsTable({
       <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
         <Table>
           <TableHeader>
-            <TableRow className="bg-canvas-sunken hover:bg-canvas-sunken">
-              <TableHead className="w-[100px]">التاريخ</TableHead>
-              <TableHead className="w-[100px]">رقم القيد</TableHead>
-              <TableHead className="w-[180px]">البند</TableHead>
+            <TableRow className="bg-canvas-sunken">
+              <TableHead>التاريخ</TableHead>
+              <TableHead>البند</TableHead>
               <TableHead>البيان</TableHead>
-              <TableHead className="w-[140px]">الخزينة</TableHead>
-              <TableHead className="w-[110px]">نوع السداد</TableHead>
-              <TableHead className="w-[150px] text-end">المبلغ</TableHead>
-              <TableHead className="w-[48px]" />
+              <TableHead>العميل/المستأجر</TableHead>
+              <TableHead>الخزينة</TableHead>
+              <TableHead>الطريقة</TableHead>
+              <TableHead>المنشئ</TableHead>
+              <TableHead className="text-end">المبلغ</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((r, i) => {
+            {data.map((r) => {
               const positive = r.kind === 'REVENUE';
               const amount = Number(r.amount);
+              const creatorName = r.creator?.full_name_ar ?? r.creator?.full_name ?? '—';
+              const contactName = r.contact?.name;
               return (
-                <motion.tr
-                  key={r.id}
-                  initial={{ opacity: 0, y: 3 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(i * 0.012, 0.3), duration: 0.3 }}
-                  className="border-b border-border transition-colors duration-150 hover:bg-canvas-sunken/60"
-                >
-                  <TableCell className="num font-mono text-[11.5px] text-ink-mute">
-                    {formatShortDate(r.tx_date)}
-                  </TableCell>
-                  <TableCell className="num font-mono text-[11.5px]">
-                    {r.reference ?? r.number}
-                  </TableCell>
+                <TableRow key={r.id} className="border-b border-border">
+                  <TableCell className="text-xs text-ink-mute">{formatShortDate(r.tx_date)}</TableCell>
                   <TableCell>
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px]',
-                        positive
-                          ? 'border-pastel-greenInk/15 bg-pastel-green text-pastel-greenInk'
-                          : 'border-pastel-redInk/15 bg-pastel-red text-pastel-redInk',
-                      )}
-                    >
-                      {positive ? (
-                        <ArrowDownLeft className="h-3 w-3 stroke-[1.6]" />
-                      ) : (
-                        <ArrowUpRight className="h-3 w-3 stroke-[1.6]" />
-                      )}
-                      {r.category?.name_ar ?? '—'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="max-w-md truncate">
-                    {r.description ?? '—'}
-                  </TableCell>
-                  <TableCell className="text-[12px] text-ink-mute">
-                    {r.cashbox?.name_ar ?? '—'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={METHOD_TONE[r.method] ?? 'neutral'}>
-                      {METHOD_LABEL[r.method] ?? r.method}
+                    <Badge variant={positive ? 'success' : 'danger'} className="text-xs">
+                      {r.category?.name_ar}
                     </Badge>
                   </TableCell>
-                  <TableCell
-                    className={cn(
-                      'num text-end font-semibold tabular-nums',
-                      positive ? 'text-pastel-greenInk' : 'text-pastel-redInk',
-                    )}
-                  >
+                  <TableCell className="max-w-xs truncate">{r.description}</TableCell>
+                  <TableCell className="text-xs">
+                    {contactName ? (
+                      <span className="flex items-center gap-1 text-sage-700">
+                        {r.contact?.kind === 'TENANT' ? <Building2 className="h-3 w-3" /> : 
+                         r.contact?.kind === 'EMPLOYEE' ? <Briefcase className="h-3 w-3" /> : 
+                         <User className="h-3 w-3" />}
+                        <span>{contactName} {r.contact?.shop_number ? `(محل ${r.contact.shop_number})` : ''}</span>
+                      </span>
+                    ) : '—'}
+                  </TableCell>
+                  <TableCell className="text-sm text-ink-mute">{r.cashbox?.name_ar}</TableCell>
+                  <TableCell>
+                    <Badge variant={METHOD_TONE[r.method]} className="text-xs">
+                      {METHOD_LABEL[r.method]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs">{creatorName}</TableCell>
+                  <TableCell className={cn(
+                    'text-end font-mono font-semibold',
+                    positive ? 'text-pastel-greenInk' : 'text-pastel-redInk'
+                  )}>
                     {positive ? '+' : '−'} {formatMoney(amount, currency)}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon-sm">
-                          <MoreHorizontal className="stroke-[1.6]" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>عرض التفاصيل</DropdownMenuItem>
-                        <DropdownMenuItem>تعديل</DropdownMenuItem>
-                        <DropdownMenuItem>طباعة PDF</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            handleDelete(r.id);
-                          }}
-                          className="text-pastel-redInk focus:text-pastel-redInk"
-                        >
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => handleDelete(r.id)} className="text-pastel-redInk">
                           حذف
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
-                </motion.tr>
+                </TableRow>
               );
             })}
           </TableBody>

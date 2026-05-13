@@ -16,6 +16,9 @@ import {
   Coins,
   Landmark,
   ArrowLeftRight,
+  Crown,
+  UserCircle,
+  Briefcase,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -148,9 +151,45 @@ export const NAV: NavSection[] = [
     ],
   },
   {
+    titleAr: 'دليل العملاء',
+    title: 'Contacts',
+    items: [
+      {
+        href: '/contacts',
+        labelAr: 'العملاء والمستأجرين',
+        label: 'Contacts',
+        icon: Users,
+      },
+      {
+        href: '/tenants',
+        labelAr: 'المحلات والإيجارات',
+        label: 'Tenants & Rent',
+        icon: Building2,
+      },
+      {
+        href: '/employees',
+        labelAr: 'الموظفين والرواتب',
+        label: 'Employees & Payroll',
+        icon: Briefcase,
+      },
+    ],
+  },
+  {
     titleAr: 'الإدارة',
     title: 'Administration',
     items: [
+      {
+        href: '/boss',
+        labelAr: 'لوحة المدير',
+        label: 'Boss Dashboard',
+        icon: Crown,
+      },
+      {
+        href: '/profile',
+        labelAr: 'ملفي الشخصي',
+        label: 'My Profile',
+        icon: UserCircle,
+      },
       {
         href: '/branches',
         labelAr: 'الفروع',

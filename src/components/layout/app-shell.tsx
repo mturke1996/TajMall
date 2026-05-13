@@ -19,12 +19,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar onOpenMobileNav={() => setMobileOpen(true)} />
-        <main
-          className="
-            flex min-w-0 flex-1 flex-col
-            pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0
-          "
-        >
+        <main className="flex min-w-0 flex-1 flex-col pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0">
           <PageTransition>{children}</PageTransition>
         </main>
       </div>

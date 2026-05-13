@@ -1,53 +1,34 @@
 'use client';
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { useUser } from '@/lib/supabase/use-user';
-import { BRAND } from '@/lib/brand';
-import { initials, cn } from '@/lib/utils';
+import Link from 'next/link';
+import { UserCircle } from 'lucide-react';
+import { useCurrentProfile } from '@/lib/supabase/use-profile';
+import { cn } from '@/lib/utils';
 
-/**
- * Compact profile pill at the bottom of the sidebar.
- * Shows the live Supabase user; falls back to a neutral placeholder
- * if not signed in (matters only on /login while collapsed).
- */
 export function SidebarProfile({ collapsed = false }: { collapsed?: boolean }) {
-  const { user, loading } = useUser();
+  const { user, profile } = useCurrentProfile();
 
-  const displayName =
-    (user?.user_metadata?.full_name as string | undefined) ??
-    user?.email?.split('@')[0] ??
-    'ضيف';
-
-  const secondary = user?.email ?? `${BRAND.region}`;
-  const avatarText = user ? initials(displayName) : BRAND.monogram;
+  const name = profile?.full_name_ar ?? profile?.full_name ?? user?.email?.split('@')[0] ?? 'مستخدم';
+  const initial = name[0] || '?';
 
   return (
-    <div
+    <Link
+      href="/profile"
       className={cn(
-        'flex items-center gap-3 rounded-lg border border-border bg-card p-2',
-        collapsed && 'justify-center border-0 bg-transparent p-1',
+        'flex items-center gap-3 rounded-lg border border-border bg-card p-2 transition-colors hover:bg-secondary',
+        collapsed && 'justify-center border-0 bg-transparent'
       )}
     >
-      <Avatar className="h-8 w-8">
-        <AvatarFallback>{avatarText}</AvatarFallback>
-      </Avatar>
+      <div className="grid h-8 w-8 place-items-center rounded-full bg-sage-100 font-bold text-sage-700">
+        {initial}
+      </div>
       {!collapsed && (
-        <div className="flex min-w-0 flex-1 flex-col">
-          {loading ? (
-            <>
-              <span className="shimmer h-3 w-20 rounded" />
-              <span className="shimmer mt-1.5 h-2.5 w-28 rounded" />
-            </>
-          ) : (
-            <>
-              <span className="truncate text-[13px] font-semibold">
-                {displayName}
-              </span>
-              <span className="truncate text-[11px] text-ink-mute">{secondary}</span>
-            </>
-          )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-semibold">{name}</p>
+          <p className="truncate text-[11px] text-ink-mute">الملف الشخصي</p>
         </div>
       )}
-    </div>
+      {!collapsed && <UserCircle className="h-4 w-4 text-ink-mute" />}
+    </Link>
   );
 }

@@ -1,469 +1,358 @@
 'use client';
 
-import { useEffect, useId, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  Loader2,
-  X,
-  Calendar,
-  Wallet,
-  Receipt,
-  Hash,
-  FileText,
-  AlertCircle,
-} from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { ArrowDownToLine, ArrowUpFromLine, Loader2, X, User, Building2, Briefcase, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useTxDialog, type TxKind } from '@/stores/transaction-dialog';
 import { PAYMENT_METHODS } from '@/lib/constants';
-import { formatMoney, cn } from '@/lib/utils';
-import {
-  useCategories,
-  useCashboxes,
-  useCreateTransaction,
-} from '@/lib/db/queries';
+import { cn } from '@/lib/utils';
+import { useCategories, useCashboxes, useCreateTransaction, useContacts, useCreateContact } from '@/lib/db/queries';
 import { toast } from 'sonner';
 
-/**
- * NewTransactionDialog — single create-flow for revenues and expenses.
- *
- * - Bottom-sheet on mobile, centred dialog on desktop.
- * - Kind switch (Revenue / Expense) filters the category list.
- * - Categories + cashboxes load live from Supabase.
- * - Submit persists via `useCreateTransaction` (Supabase JS + TanStack Query).
- *   Optimistic invalidation refreshes lists + balances on success.
- */
 export function NewTransactionDialog() {
   const { isOpen, defaultKind, close } = useTxDialog();
-  const titleId = useId();
-
+  
   const [kind, setKind] = useState<TxKind>(defaultKind);
   const [amount, setAmount] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [cashboxId, setCashboxId] = useState('');
   const [method, setMethod] = useState<'CASH' | 'CHEQUE' | 'TRANSFER' | 'CARD'>('CASH');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [reference, setReference] = useState('');
   const [description, setDescription] = useState('');
+  const [contactId, setContactId] = useState('');
+  const [contactKind, setContactKind] = useState<'ALL' | 'TENANT' | 'EMPLOYEE' | 'CUSTOMER' | 'VENDOR'>('ALL');
+  const [showNewContact, setShowNewContact] = useState(false);
+  const [newContactName, setNewContactName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const { data: categoriesAll = [], isLoading: catsLoading } = useCategories();
   const { data: cashboxes = [], isLoading: boxLoading } = useCashboxes();
+  const { data: contactsAll = [], isLoading: contactsLoading } = useContacts();
   const createTx = useCreateTransaction();
+  const createContact = useCreateContact();
 
-  const categories = useMemo(
-    () => categoriesAll.filter((c) => c.kind === kind),
-    [categoriesAll, kind],
-  );
+  const categories = categoriesAll.filter((c) => c.kind === kind);
+  const isRevenue = kind === 'REVENUE';
 
-  // Reset when reopened with a different default kind
+  // Filter contacts by kind
+  const contacts = useMemo(() => {
+    if (contactKind === 'ALL') return contactsAll;
+    return contactsAll.filter(c => c.kind === contactKind);
+  }, [contactsAll, contactKind]);
+
   useEffect(() => {
     if (isOpen) {
       setKind(defaultKind);
       setAmount('');
       setCategoryId('');
-      setCashboxId('');
+      setCashboxId(cashboxes[0]?.id ?? '');
       setMethod('CASH');
       setDate(new Date().toISOString().slice(0, 10));
-      setReference('');
       setDescription('');
+      setContactId('');
+      setContactKind('ALL');
+      setShowNewContact(false);
+      setNewContactName('');
       setError(null);
     }
-  }, [isOpen, defaultKind]);
-
-  // Pre-select sensible defaults once data is loaded
-  useEffect(() => {
-    if (!isOpen) return;
-    if (!cashboxId && cashboxes.length > 0) {
-      setCashboxId(cashboxes[0].id);
-    }
-  }, [isOpen, cashboxes, cashboxId]);
-
-  // Lock body scroll while open
-  useEffect(() => {
-    if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [isOpen]);
-
-  // ESC closes
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [isOpen, close]);
-
-  const amountNumber = Number(amount.replace(/[^\d.-]/g, ''));
-  const submitting = createTx.isPending;
-  const isRevenue = kind === 'REVENUE';
+  }, [isOpen, defaultKind, cashboxes]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
-      setError('أدخل مبلغاً صحيحاً أكبر من صفر.');
+    const amountNum = Number(amount.replace(/[^\d.-]/g, ''));
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      setError('أدخل مبلغ صحيح');
       return;
     }
     if (!categoryId) {
-      setError('اختر البند.');
+      setError('اختر البند');
       return;
     }
     if (!cashboxId) {
-      setError('اختر الخزينة أو الحساب المصرفي.');
+      setError('اختر الخزينة');
       return;
     }
 
     try {
       await createTx.mutateAsync({
         kind,
-        amount: amountNumber,
+        amount: amountNum,
         method,
         category_id: categoryId,
         cashbox_id: cashboxId,
         tx_date: date,
-        reference: reference || undefined,
         description: description || undefined,
+        contact_id: contactId || undefined,
+        contact_type: contactId ? (isRevenue ? 'PAYER' : 'BENEFICIARY') : undefined,
       });
-      const catName = categories.find((c) => c.id === categoryId)?.name_ar ?? '';
-      toast.success(isRevenue ? 'تم تسجيل الإيراد' : 'تم تسجيل المصروف', {
-        description: `${formatMoney(amountNumber, 'LYD')} · ${catName}`,
-      });
+      toast.success(isRevenue ? 'تم الإيراد' : 'تم الصرف');
       close();
-    } catch (err) {
-      const msg =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message?: string }).message)
-          : 'تعذّر حفظ المعاملة';
-      setError(
-        /relation .* does not exist/i.test(msg)
-          ? 'قاعدة البيانات لم تُهيَّأ بعد. شغّل ملف SQL في Supabase.'
-          : msg,
-      );
+    } catch {
+      setError('فشل الحفظ');
     }
   }
 
+  async function handleCreateContact(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newContactName.trim()) return;
+    
+    try {
+      const newContact = await createContact.mutateAsync({
+        name: newContactName.trim(),
+        kind: (contactKind === 'ALL' ? 'CUSTOMER' : contactKind) as any,
+        code: null,
+        name_en: null,
+        phone: null,
+        phone2: null,
+        email: null,
+        address: null,
+        id_number: null,
+        tax_number: null,
+        shop_number: null,
+        floor: null,
+        area_sqm: null,
+        contract_start: null,
+        contract_end: null,
+        monthly_rent: null,
+        job_title: null,
+        department: null,
+        hire_date: null,
+        salary: null,
+        is_active: true,
+        notes: null,
+      });
+      setContactId(newContact.id);
+      setShowNewContact(false);
+      setNewContactName('');
+      toast.success('تم إضافة العميل');
+    } catch {
+      toast.error('فشل إضافة العميل');
+    }
+  }
+
+  if (!isOpen) return null;
+
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            onClick={close}
-            className="fixed inset-0 z-50 bg-ink/30 backdrop-blur-[2px]"
-            aria-hidden="true"
-          />
+    <div className="fixed inset-0 z-50" dir="rtl">
+      <div className="absolute inset-0 bg-black/30" onClick={close} />
+      <div className="absolute bottom-0 left-0 right-0 mx-auto max-w-lg rounded-t-2xl bg-card sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl border shadow-xl">
+        {/* Header */}
+        <div className="flex items-center gap-3 border-b p-4">
+          <div className={cn(
+            'grid h-9 w-9 place-items-center rounded',
+            isRevenue ? 'bg-pastel-green text-pastel-greenInk' : 'bg-pastel-red text-pastel-redInk'
+          )}>
+            {isRevenue ? <ArrowDownToLine className="h-4 w-4" /> : <ArrowUpFromLine className="h-4 w-4" />}
+          </div>
+          <h2 className="font-semibold">{isRevenue ? 'إيراد جديد' : 'مصروف جديد'}</h2>
+          <button onClick={close} className="mr-auto rounded p-1 hover:bg-secondary">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            initial={{ opacity: 0, y: 24, scale: 0.985 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 24, scale: 0.985 }}
-            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="
-              fixed bottom-0 z-50 flex w-full max-h-[92dvh] flex-col
-              overflow-hidden rounded-t-2xl border border-border bg-card
-              shadow-lift
-              left-0 right-0 mx-auto
-              sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:right-auto sm:max-w-xl
-              sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl
-            "
-            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-            dir="rtl"
-          >
-            <header className="flex items-center gap-3 border-b border-border px-5 py-4">
-              <div
-                className={cn(
-                  'grid h-9 w-9 place-items-center rounded-md border',
-                  isRevenue
-                    ? 'border-pastel-greenInk/15 bg-pastel-green text-pastel-greenInk'
-                    : 'border-pastel-redInk/15 bg-pastel-red text-pastel-redInk',
-                )}
-              >
-                {isRevenue ? (
-                  <ArrowDownToLine className="h-4 w-4 stroke-[1.6]" />
-                ) : (
-                  <ArrowUpFromLine className="h-4 w-4 stroke-[1.6]" />
-                )}
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-ink-mute">
-                  معاملة جديدة
-                </span>
-                <h2 id={titleId} className="text-[16px] font-semibold tracking-tight">
-                  {isRevenue ? 'تسجيل إيراد' : 'تسجيل مصروف'}
-                </h2>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="me-auto"
-                onClick={close}
-                aria-label="إغلاق"
-              >
-                <X className="stroke-[1.5]" />
-              </Button>
-            </header>
-
-            <form
-              onSubmit={onSubmit}
-              className="flex flex-1 flex-col overflow-y-auto px-5 py-4"
-            >
-              {/* Kind switch */}
-              <div className="grid grid-cols-2 gap-1.5 rounded-md border border-border bg-canvas-sunken p-1">
-                {(['REVENUE', 'EXPENSE'] as const).map((k) => {
-                  const active = kind === k;
-                  return (
-                    <button
-                      key={k}
-                      type="button"
-                      onClick={() => {
-                        setKind(k);
-                        setCategoryId('');
-                      }}
-                      className={cn(
-                        'press inline-flex items-center justify-center gap-2 rounded-sm py-1.5 text-[13px] font-medium transition-colors duration-150',
-                        active
-                          ? k === 'REVENUE'
-                            ? 'bg-pastel-green text-pastel-greenInk'
-                            : 'bg-pastel-red text-pastel-redInk'
-                          : 'text-ink-mute hover:text-foreground',
-                      )}
-                    >
-                      {k === 'REVENUE' ? (
-                        <ArrowDownToLine className="h-3.5 w-3.5 stroke-[1.6]" />
-                      ) : (
-                        <ArrowUpFromLine className="h-3.5 w-3.5 stroke-[1.6]" />
-                      )}
-                      {k === 'REVENUE' ? 'إيراد' : 'مصروف'}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Amount */}
-              <div className="mt-5 flex flex-col gap-1.5">
-                <Label htmlFor="tx-amount">المبلغ</Label>
-                <div className="relative">
-                  <Input
-                    id="tx-amount"
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="h-12 ps-4 pe-16 text-[20px] font-semibold tabular-nums"
-                    autoFocus
-                  />
-                  <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-[12px] font-medium text-ink-mute">
-                    د.ل
-                  </span>
-                </div>
-              </div>
-
-              {/* Grid: category + cashbox */}
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field icon={Receipt} label="البند" htmlFor="tx-cat">
-                  <Select
-                    value={categoryId}
-                    onValueChange={setCategoryId}
-                    disabled={catsLoading}
-                  >
-                    <SelectTrigger id="tx-cat">
-                      <SelectValue
-                        placeholder={catsLoading ? 'جارٍ التحميل…' : 'اختر البند'}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.length === 0 && !catsLoading ? (
-                        <div className="px-2 py-4 text-center text-[12px] text-ink-mute">
-                          لا توجد بنود — شغّل ملف SQL
-                        </div>
-                      ) : (
-                        categories.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name_ar}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </Field>
-
-                <Field icon={Wallet} label="الخزينة" htmlFor="tx-box">
-                  <Select
-                    value={cashboxId}
-                    onValueChange={setCashboxId}
-                    disabled={boxLoading}
-                  >
-                    <SelectTrigger id="tx-box">
-                      <SelectValue
-                        placeholder={boxLoading ? 'جارٍ التحميل…' : 'اختر الحساب'}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cashboxes.length === 0 && !boxLoading ? (
-                        <div className="px-2 py-4 text-center text-[12px] text-ink-mute">
-                          لا توجد خزائن — شغّل ملف SQL
-                        </div>
-                      ) : (
-                        cashboxes.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name_ar}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
-
-              {/* Grid: method + date */}
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="نوع السداد" htmlFor="tx-method">
-                  <Select
-                    value={method}
-                    onValueChange={(v) =>
-                      setMethod(v as 'CASH' | 'CHEQUE' | 'TRANSFER' | 'CARD')
-                    }
-                  >
-                    <SelectTrigger id="tx-method">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PAYMENT_METHODS.map((m) => (
-                        <SelectItem key={m.value} value={m.value}>
-                          {m.labelAr}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-
-                <Field icon={Calendar} label="التاريخ" htmlFor="tx-date">
-                  <Input
-                    id="tx-date"
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                  />
-                </Field>
-              </div>
-
-              <Field
-                icon={Hash}
-                label="رقم القيد (اختياري)"
-                htmlFor="tx-ref"
-                className="mt-4"
-              >
-                <Input
-                  id="tx-ref"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="مثال: 1958"
-                  value={reference}
-                  onChange={(e) => setReference(e.target.value)}
-                />
-              </Field>
-
-              <Field
-                icon={FileText}
-                label="البيان"
-                htmlFor="tx-desc"
-                className="mt-4"
-              >
-                <textarea
-                  id="tx-desc"
-                  rows={2}
-                  placeholder="وصف موجز للمعاملة…"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="
-                    flex w-full resize-none rounded-md border border-border bg-card
-                    px-3 py-2 text-sm text-foreground
-                    placeholder:text-muted-foreground/70
-                    transition-[border-color,box-shadow] duration-200 ease-out-quint
-                    focus-visible:outline-none focus-visible:border-sage-500
-                    focus-visible:shadow-focus
-                    disabled:cursor-not-allowed disabled:opacity-50
-                  "
-                />
-              </Field>
-
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 flex items-start gap-2 rounded-md border border-pastel-redInk/15 bg-pastel-red px-3 py-2 text-[12.5px] text-pastel-redInk"
-                >
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 stroke-[1.7]" />
-                  <span>{error}</span>
-                </motion.div>
+        {/* Form */}
+        <form onSubmit={onSubmit} className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
+          {/* النوع */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => { setKind('REVENUE'); setCategoryId(''); }}
+              className={cn(
+                'rounded-md py-2 text-sm font-medium',
+                kind === 'REVENUE' ? 'bg-pastel-green text-pastel-greenInk' : 'bg-canvas-sunken'
               )}
-            </form>
+            >
+              إيراد
+            </button>
+            <button
+              type="button"
+              onClick={() => { setKind('EXPENSE'); setCategoryId(''); }}
+              className={cn(
+                'rounded-md py-2 text-sm font-medium',
+                kind === 'EXPENSE' ? 'bg-pastel-red text-pastel-redInk' : 'bg-canvas-sunken'
+              )}
+            >
+              مصروف
+            </button>
+          </div>
 
-            <footer className="flex items-center justify-between gap-3 border-t border-border bg-canvas px-5 py-3.5">
-              <Button type="button" variant="ghost" onClick={close} disabled={submitting}>
-                إلغاء
-              </Button>
-              <Button
-                type="submit"
-                onClick={onSubmit}
-                disabled={submitting}
-                className="gap-1.5 min-w-[140px]"
+          {/* المبلغ */}
+          <div>
+            <Label>المبلغ (د.ل)</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="0"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="text-lg"
+              autoFocus
+            />
+          </div>
+
+          {/* البند والخزينة */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>البند</Label>
+              <select
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="h-10 w-full rounded border px-2 text-sm"
+                disabled={catsLoading}
               >
-                {submitting && <Loader2 className="animate-spin stroke-[1.6]" />}
-                {isRevenue ? 'حفظ الإيراد' : 'حفظ المصروف'}
-              </Button>
-            </footer>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
-}
+                <option value="">اختر</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name_ar}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label>الخزينة</Label>
+              <select
+                value={cashboxId}
+                onChange={(e) => setCashboxId(e.target.value)}
+                className="h-10 w-full rounded border px-2 text-sm"
+                disabled={boxLoading}
+              >
+                <option value="">اختر</option>
+                {cashboxes.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name_ar}</option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-function Field({
-  icon: Icon,
-  label,
-  htmlFor,
-  children,
-  className,
-}: {
-  icon?: React.ComponentType<{ className?: string }>;
-  label: string;
-  htmlFor: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn('flex flex-col gap-1.5', className)}>
-      <Label htmlFor={htmlFor} className="inline-flex items-center gap-1.5">
-        {Icon && <Icon className="h-3.5 w-3.5 stroke-[1.6] text-ink-mute" />}
-        {label}
-      </Label>
-      {children}
+          {/* طريقة الدفع والتاريخ */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>الطريقة</Label>
+              <select
+                value={method}
+                onChange={(e) => setMethod(e.target.value as any)}
+                className="h-10 w-full rounded border px-2 text-sm"
+              >
+                {PAYMENT_METHODS.map((m) => (
+                  <option key={m.value} value={m.value}>{m.labelAr}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label>التاريخ</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+          </div>
+
+          {/* البيان */}
+          <div>
+            <Label>البيان (اختياري)</Label>
+            <Input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="وصف المعاملة"
+            />
+          </div>
+
+          {/* العميل / المستأجر / الموظف */}
+          <div className="border rounded-md p-3 space-y-2 bg-canvas-sunken/30">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1.5">
+                <User className="h-3.5 w-3.5 text-ink-mute" />
+                {isRevenue ? 'المسدد' : 'المستفيد'} (اختياري)
+              </Label>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setContactKind('ALL')}
+                  className={cn(
+                    'px-2 py-0.5 text-[10px] rounded',
+                    contactKind === 'ALL' ? 'bg-sage-100 text-sage-700' : 'text-ink-mute'
+                  )}
+                >
+                  الكل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContactKind('TENANT')}
+                  className={cn(
+                    'px-2 py-0.5 text-[10px] rounded',
+                    contactKind === 'TENANT' ? 'bg-sage-100 text-sage-700' : 'text-ink-mute'
+                  )}
+                >
+                  <Building2 className="h-3 w-3 inline" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContactKind('EMPLOYEE')}
+                  className={cn(
+                    'px-2 py-0.5 text-[10px] rounded',
+                    contactKind === 'EMPLOYEE' ? 'bg-sage-100 text-sage-700' : 'text-ink-mute'
+                  )}
+                >
+                  <Briefcase className="h-3 w-3 inline" />
+                </button>
+              </div>
+            </div>
+
+            {showNewContact ? (
+              <form onSubmit={handleCreateContact} className="flex gap-2">
+                <Input
+                  value={newContactName}
+                  onChange={(e) => setNewContactName(e.target.value)}
+                  placeholder="اسم جديد..."
+                  className="flex-1 h-9"
+                />
+                <Button type="submit" size="sm" className="h-9 px-2">
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Button type="button" variant="ghost" size="sm" className="h-9 px-2" onClick={() => setShowNewContact(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </form>
+            ) : (
+              <div className="flex gap-2">
+                <select
+                  value={contactId}
+                  onChange={(e) => setContactId(e.target.value)}
+                  className="h-9 flex-1 rounded border px-2 text-sm bg-card"
+                  disabled={contactsLoading}
+                >
+                  <option value="">-- اختر --</option>
+                  {contacts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.shop_number ? `(محل ${c.shop_number})` : ''} {c.job_title ? `- ${c.job_title}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-9 px-2"
+                  onClick={() => setShowNewContact(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          {/* Buttons */}
+          <div className="flex gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={close} className="flex-1">
+              إلغاء
+            </Button>
+            <Button type="submit" disabled={createTx.isPending} className="flex-1">
+              {createTx.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'حفظ'}
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

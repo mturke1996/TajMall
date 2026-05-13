@@ -8,6 +8,7 @@ export type TxStatus = 'DRAFT' | 'POSTED' | 'VOIDED' | 'RECONCILED';
 export type PaymentMethod = 'CASH' | 'CHEQUE' | 'TRANSFER' | 'CARD';
 export type CashboxKind = 'CASH' | 'BANK' | 'CARD' | 'OTHER';
 export type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+export type ContactKind = 'CUSTOMER' | 'TENANT' | 'EMPLOYEE' | 'VENDOR' | 'OTHER';
 
 export type ProfileRow = {
   id: string;
@@ -80,6 +81,34 @@ export type CashboxBalanceRow = {
   month_outflow: string;
 };
 
+export type ContactRow = {
+  id: string;
+  code: string | null;
+  kind: ContactKind;
+  name: string;
+  name_en: string | null;
+  phone: string | null;
+  phone2: string | null;
+  email: string | null;
+  address: string | null;
+  id_number: string | null;
+  tax_number: string | null;
+  shop_number: string | null;
+  floor: string | null;
+  area_sqm: string | null;
+  contract_start: string | null;
+  contract_end: string | null;
+  monthly_rent: string | null;
+  job_title: string | null;
+  department: string | null;
+  hire_date: string | null;
+  salary: string | null;
+  is_active: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type TransactionRow = {
   id: string;
   number: number;
@@ -109,6 +138,8 @@ export type TransactionRow = {
 export type TransactionWithRelations = TransactionRow & {
   category: Pick<CategoryRow, 'id' | 'code' | 'name_ar' | 'kind' | 'color'> | null;
   cashbox: Pick<CashboxRow, 'id' | 'code' | 'name_ar' | 'kind'> | null;
+  creator: Pick<ProfileRow, 'id' | 'full_name_ar' | 'full_name'> | null;
+  contact: Pick<ContactRow, 'id' | 'name' | 'kind' | 'shop_number'> | null;
 };
 
 export type NewTransactionInput = {
@@ -122,4 +153,6 @@ export type NewTransactionInput = {
   reference?: string;
   notes?: string;
   branch_id?: string;
+  contact_id?: string;
+  contact_type?: 'PAYER' | 'RECEIVER' | 'BENEFICIARY';
 };

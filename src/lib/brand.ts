@@ -55,7 +55,7 @@ export const BRAND: Brand = {
   name: 'تاج مول',
   fullName: 'تاج مول · Taj Mall',
   nameLatin: 'Taj Mall',
-  tagline: 'منظومة الإيرادات والمصروفات',
+  tagline: 'منظومة إدارة المول التجاري — إيرادات، مصروفات، وخزائن',
   monogram: 'ت',
   currency: 'LYD',
   region: 'طرابلس · ليبيا',

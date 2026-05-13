@@ -12,7 +12,7 @@
  * Versioned by SW_VERSION — bump to force a fresh cache.
  */
 
-const SW_VERSION = 'fluxen-v1';
+const SW_VERSION = 'fluxen-v2';
 const SHELL_CACHE = `${SW_VERSION}-shell`;
 const ASSETS_CACHE = `${SW_VERSION}-assets`;
 

@@ -1,115 +1,54 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState } from 'react';
-import { Loader2, LogOut, User as UserIcon, Settings, Shield } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+import { LogOut, Settings, UserCircle } from 'lucide-react';
+import { useSupabase } from '@/lib/supabase/use-supabase';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useUser } from '@/lib/supabase/use-user';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
-import { BRAND } from '@/lib/brand';
-import { initials } from '@/lib/utils';
-import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 
-/**
- * Authenticated user dropdown.
- * - Avatar shows real initials when logged in, brand monogram otherwise.
- * - Menu items are quick links + a real sign-out via Supabase.
- */
 export function UserMenu() {
+  const supabase = useSupabase();
   const router = useRouter();
-  const { user } = useUser();
-  const [signingOut, setSigningOut] = useState(false);
+  const [signOutLoading, setSignOutLoading] = useState(false);
 
-  const displayName =
-    (user?.user_metadata?.full_name as string | undefined) ??
-    user?.email?.split('@')[0] ??
-    'الحساب';
-
-  const avatarText = user ? initials(displayName) : BRAND.monogram;
-
-  async function signOut() {
-    if (signingOut) return;
-    setSigningOut(true);
-    try {
-      const supabase = createSupabaseBrowserClient();
-      await supabase.auth.signOut();
-      toast.success('تم تسجيل الخروج');
-      router.push('/login');
-      router.refresh();
-    } catch (err) {
-      console.error(err);
-      toast.error('تعذّر تسجيل الخروج');
-      setSigningOut(false);
+  async function handleSignOut() {
+    setSignOutLoading(true);
+    const { error } = await supabase.auth.signOut();
+    setSignOutLoading(false);
+    if (error) {
+      toast.error('فشل تسجيل الخروج');
+      return;
     }
+    router.push('/login');
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-full" aria-label="الحساب">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback>{avatarText}</AvatarFallback>
-          </Avatar>
+        <Button variant="ghost" size="icon-sm" className="rounded-full">
+          <UserCircle className="h-5 w-5" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-60">
-        {user ? (
-          <DropdownMenuLabel className="normal-case tracking-normal">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[13px] font-semibold text-foreground">
-                {displayName}
-              </span>
-              <span className="truncate text-[11px] font-normal text-ink-mute">
-                {user.email}
-              </span>
-            </div>
-          </DropdownMenuLabel>
-        ) : (
-          <DropdownMenuLabel>الحساب</DropdownMenuLabel>
-        )}
-
-        <DropdownMenuSeparator />
-
+      <DropdownMenuContent align="end">
         <DropdownMenuItem asChild>
-          <Link href="/settings">
-            <UserIcon />
+          <Link href="/profile" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
             الملف الشخصي
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/roles">
-            <Shield />
-            الفريق والصلاحيات
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/settings">
-            <Settings />
-            الإعدادات
-          </Link>
-        </DropdownMenuItem>
-
         <DropdownMenuSeparator />
-
-        <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault();
-            signOut();
-          }}
-          className="text-pastel-redInk focus:text-pastel-redInk"
-        >
-          {signingOut ? <Loader2 className="animate-spin" /> : <LogOut />}
-          تسجيل الخروج
+        <DropdownMenuItem onClick={handleSignOut} disabled={signOutLoading} className="text-pastel-redInk">
+          <LogOut className="h-4 w-4" />
+          {signOutLoading ? 'جارٍ...' : 'تسجيل الخروج'}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

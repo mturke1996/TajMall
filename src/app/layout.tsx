@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     default: `${BRAND.name} · ${BRAND.tagline}`,
     template: `%s · ${BRAND.name}`,
   },
-  description: `${BRAND.fullName} — منصة محاسبية احترافية لإدارة الإيرادات والمصروفات والخزائن والقيود والتقارير المالية.`,
+  description: `${BRAND.fullName} — منصة لإدارة المول التجاري: إيرادات الإيجارات والخدمات، المصروفات التشغيلية، الخزائن، المستخدمين والصلاحيات، والتقارير المالية.`,
   applicationName: BRAND.name,
   authors: [{ name: BRAND.fullName }],
   manifest: '/manifest.webmanifest',

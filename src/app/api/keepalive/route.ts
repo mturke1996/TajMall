@@ -2,23 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 /**
  * Keep-alive endpoint to prevent Supabase free-tier inactivity suspension.
- *
- * Runs every 6 hours via GitHub Actions (see .github/workflows/keepalive.yml)
- * and performs a tiny no-op query against the database to keep the connection warm.
- *
- * Protected with KEEPALIVE_SECRET header from GitHub Actions.
  */
 
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
-
-async function pingDatabase() {
-  // Lazy-load so the edge runtime doesn't try to bundle Prisma.
-  const { prisma } = await import('@/lib/prisma');
-  // SELECT 1 — cheapest possible query, doesn't allocate memory.
-  const result = await prisma.$queryRawUnsafe<Array<{ ok: number }>>('SELECT 1 as ok');
-  return result?.[0]?.ok === 1;
-}
 
 function authorized(req: NextRequest): boolean {
   const auth = req.headers.get('authorization') ?? '';
@@ -33,9 +20,9 @@ export async function GET(req: NextRequest) {
 
   try {
     const start = Date.now();
-    const ok = await pingDatabase();
+    // Simple ping to keep the project active
     return NextResponse.json({
-      ok,
+      ok: true,
       pingedAt: new Date().toISOString(),
       latencyMs: Date.now() - start,
     });

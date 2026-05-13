@@ -1,11 +1,13 @@
 'use client';
 
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Plus, Users, Check } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SYSTEM_ROLES, PERMISSION_KEYS } from '@/lib/constants';
+import { useProfiles } from '@/lib/db/queries';
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
   owner:      'صلاحيات كاملة لكل وحدات النظام بدون استثناء.',
@@ -38,6 +40,18 @@ const GROUP_LABELS: Record<string, string> = {
 };
 
 export default function RolesPage() {
+  const { data: profiles } = useProfiles();
+
+  const countByRole = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of SYSTEM_ROLES) m.set(r.name, 0);
+    for (const p of profiles ?? []) {
+      const key = (p.role ?? 'viewer').toLowerCase();
+      m.set(key, (m.get(key) ?? 0) + 1);
+    }
+    return m;
+  }, [profiles]);
+
   return (
     <>
       <PageHeader
@@ -68,7 +82,7 @@ export default function RolesPage() {
                 </span>
                 <Badge variant="neutral" className="gap-1 normal-case tracking-normal">
                   <Users className="h-3 w-3 stroke-[1.6]" />
-                  0
+                  {countByRole.get(r.name) ?? 0}
                 </Badge>
               </div>
               <h3 className="text-[15px] font-semibold tracking-tight">{r.nameAr}</h3>
@@ -89,8 +103,8 @@ export default function RolesPage() {
               نظرة سريعة على ما يمكن لكل دور فعله. القيم الافتراضية مقترحة ويمكن تعديلها.
             </p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-[13px]">
+          <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+            <table className="w-full min-w-[720px] text-[13px]">
               <thead>
                 <tr className="bg-canvas-sunken">
                   <th className="px-4 py-2.5 text-start text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-mute">
