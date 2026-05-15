@@ -1,66 +1,107 @@
 // @ts-nocheck
 import React from 'react';
 import { Document, Page, Text, View } from '@react-pdf/renderer';
-import { registerPdfFonts } from './pdfFonts';
-import { ar, arDate } from './arabicPDF';
-import { pdfBase } from './pdfStyles';
-import { BRAND, buildPdfFooterLine } from '@/lib/brand';
-
-registerPdfFonts();
+import { ar, arDateParts } from './arabicPDF';
+import { pdfBase } from './pdfBase';
+import { FluxenPdfFooter, FluxenPdfHeader, PdfLogoMark } from './pdfBrandKit';
+import { BRAND } from '@/lib/brand';
 
 /**
- * Reusable PDF page shell — header (brand + report title), meta strip,
- * the report body (children) and a fixed footer with brand + page number.
+ * هيكل صفحة PDF احترافي للتقارير المالية.
  *
- * Every report in /app/(app)/reports/* renders inside this shell.
+ * - الشعار + الاسم: مثبَّتان بإحداثيات صريحة على يمين الورقة.
+ * - عنوان التقرير: مثبَّت على يسار الورقة، النص يبدأ من الحافة اليسرى تماماً.
+ * - بطاقة ملخص الوثيقة: شريط داكن علوي + خلية تاريخ كبيرة + خلايا KPI مفصولة بخطوط شعرية.
  */
 export function ReportShell({
   title,
   subtitle,
   metaCells = [],
   children,
+  showFooter = true,
+  showHeader = true,
+  headerProps,
 }: {
   title: string;
   subtitle?: string;
   metaCells?: { label: string; value: string }[];
   children: React.ReactNode;
+  showFooter?: boolean;
+  showHeader?: boolean;
+  headerProps?: {
+    titleEn?: string;
+    subtitleAr?: string;
+    refLine?: string;
+    companyInfo?: any;
+  };
 }) {
+  const dateParts = arDateParts(new Date());
+
   return (
-    <Document title={`${BRAND.name} - ${title}`} author={BRAND.fullName} language="ar">
+    <Document title={`${BRAND.name} - ${title}`} author={BRAND.fullName}>
       <Page size="A4" style={pdfBase.page} wrap>
-        {/* HEADER */}
-        <View style={pdfBase.header} fixed>
-          <View style={pdfBase.brandBox}>
-            <Text style={pdfBase.monogram}>{ar(BRAND.monogram)}</Text>
-            <View style={pdfBase.brandTexts}>
-              <Text style={pdfBase.brandName}>{ar(BRAND.fullName)}</Text>
-              <Text style={pdfBase.brandSub}>{ar(BRAND.tagline)}</Text>
+        <View style={pdfBase.pageAccentBar} fixed />
+
+        {/* HEADER — كتلتان مثبتتان لا تتلامسان */}
+        {showHeader && (
+          <View style={pdfBase.header} fixed>
+            <View style={pdfBase.titleBoxAtLeft} wrap={false}>
+              <Text style={pdfBase.reportType}>{ar('تقرير')}</Text>
+              <Text style={pdfBase.reportTitle}>{ar(title)}</Text>
+              {subtitle ? <Text style={pdfBase.reportSub}>{ar(subtitle)}</Text> : null}
+            </View>
+            <View style={pdfBase.brandBoxFixed} wrap={false}>
+              <View style={pdfBase.brandTexts}>
+                <Text style={pdfBase.brandName}>{ar(BRAND.fullName)}</Text>
+                <Text style={pdfBase.brandSub}>{ar(BRAND.tagline)}</Text>
+              </View>
+              <PdfLogoMark size={52} />
             </View>
           </View>
-          <View style={pdfBase.reportTitleBox}>
-            <Text style={pdfBase.reportType}>{ar('تقرير')}</Text>
-            <Text style={pdfBase.reportTitle}>{ar(title)}</Text>
-            {subtitle ? <Text style={pdfBase.reportSub}>{ar(subtitle)}</Text> : null}
-          </View>
-        </View>
+        )}
 
-        {/* CONTACT STRIP */}
-        <View style={pdfBase.contactLine} fixed>
-          <Text style={pdfBase.contactText}>{ar(buildPdfFooterLine())}</Text>
-        </View>
+        {/* Alternative Full Header */}
+        {headerProps && (
+          <FluxenPdfHeader
+            titleEn={headerProps.titleEn || title}
+            subtitleAr={headerProps.subtitleAr || subtitle || ''}
+            refLine={headerProps.refLine}
+            companyInfo={headerProps.companyInfo}
+          />
+        )}
 
-        {/* META */}
+        {/* بطاقة الملخص الفاخرة */}
         {metaCells.length > 0 && (
-          <View style={pdfBase.metaRow}>
-            {metaCells.map((c, i) => (
-              <View key={i} style={pdfBase.metaCell}>
-                <Text style={pdfBase.metaLabel}>{ar(c.label)}</Text>
-                <Text style={pdfBase.metaValue}>{ar(c.value)}</Text>
+          <View style={pdfBase.luxe} wrap={false}>
+            <View style={pdfBase.luxeRibbon}>
+              <Text style={pdfBase.luxeRibbonText}>{ar('ملخّص الوثيقة')}</Text>
+              <Text style={pdfBase.luxeRibbonHint}>{ar(BRAND.fullName)}</Text>
+            </View>
+
+            <View style={pdfBase.luxeRow}>
+              {/* خلية التاريخ — أول الخلايا (يمين الورقة في RTL) */}
+              <View style={pdfBase.luxeDateCell}>
+                <Text style={pdfBase.luxeEyebrow}>{ar('تاريخ إصدار الوثيقة')}</Text>
+                <View style={pdfBase.luxeDateBlock}>
+                  <Text style={pdfBase.luxeDay}>{dateParts.day}</Text>
+                  <View style={pdfBase.luxeDateTexts}>
+                    <Text style={pdfBase.luxeMonthYear}>{ar(dateParts.monthYear)}</Text>
+                    <Text style={pdfBase.luxeWeekday}>{ar(dateParts.weekday)}</Text>
+                  </View>
+                </View>
+                <Text style={pdfBase.luxeGregorian}>
+                  {ar(`ميلادي · ${dateParts.gregorian}`)}
+                </Text>
               </View>
-            ))}
-            <View style={pdfBase.metaCell}>
-              <Text style={pdfBase.metaLabel}>{ar('تاريخ الإصدار')}</Text>
-              <Text style={pdfBase.metaValue}>{arDate(new Date())}</Text>
+
+              {/* خلايا الـ KPI، يفصل بينها خط شعري رأسي */}
+              {metaCells.flatMap((c, i) => [
+                <View key={`luxe-div-${i}`} style={pdfBase.luxeDivider} />,
+                <View key={`luxe-cell-${i}`} style={pdfBase.luxeCell}>
+                  <Text style={pdfBase.luxeEyebrow}>{ar(c.label)}</Text>
+                  <Text style={pdfBase.luxeValue}>{ar(c.value)}</Text>
+                </View>,
+              ])}
             </View>
           </View>
         )}
@@ -69,14 +110,13 @@ export function ReportShell({
         {children}
 
         {/* FOOTER */}
-        <View style={pdfBase.footer} fixed>
-          <Text style={pdfBase.footerBrand}>{ar(BRAND.fullName)}</Text>
-          <Text style={pdfBase.footerText}>{ar(buildPdfFooterLine())}</Text>
-        </View>
+        {showFooter && <FluxenPdfFooter />}
+
+        {/* Page Number */}
         <Text
           style={pdfBase.pageNumber}
           render={({ pageNumber, totalPages }) =>
-            `${pageNumber} / ${totalPages}`
+            ar(`صفحة ${pageNumber ?? 1} من ${totalPages ?? 1}`)
           }
           fixed
         />

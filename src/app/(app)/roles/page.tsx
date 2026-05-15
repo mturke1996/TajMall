@@ -35,7 +35,6 @@ const GROUP_LABELS: Record<string, string> = {
   account:   'الحسابات',
   journal:   'القيود',
   voucher:   'الإذونات',
-  report:    'التقارير',
   org:       'الإدارة',
 };
 
@@ -137,7 +136,7 @@ export default function RolesPage() {
                         hasFull ||
                         r.name === 'viewer' ||
                         (r.name === 'cashier' &&
-                          ['dashboard', 'account', 'report'].includes(group));
+                          ['dashboard', 'account', 'journal'].includes(group));
                       return (
                         <td key={r.name} className="px-4 py-2.5 text-center">
                           {hasFull ? (

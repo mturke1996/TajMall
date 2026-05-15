@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Share, Plus, X } from 'lucide-react';
 import { BRAND } from '@/lib/brand';
@@ -30,9 +31,8 @@ export function InstallHint() {
     const isSafari = /safari/.test(ua) && !/(crios|fxios|opios|edgios)/.test(ua);
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
-      // iOS legacy
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window.navigator as any).standalone === true;
+      ('standalone' in window.navigator &&
+        (window.navigator as Navigator & { standalone?: boolean }).standalone === true);
 
     const dismissed = window.localStorage.getItem(DISMISS_KEY) === '1';
 
@@ -69,8 +69,15 @@ export function InstallHint() {
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 14px)' }}
           dir="rtl"
         >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-sage-700 text-[14px] font-bold text-sand-50">
-            {BRAND.monogram}
+          <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-1 ring-border shadow-whisper">
+            <Image
+              src={BRAND.logoSrc}
+              alt=""
+              width={36}
+              height={36}
+              className="object-cover"
+              priority={false}
+            />
           </span>
 
           <div className="flex flex-1 flex-col gap-1.5">

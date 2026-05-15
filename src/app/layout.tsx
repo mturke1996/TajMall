@@ -51,17 +51,19 @@ export const metadata: Metadata = {
   authors: [{ name: BRAND.fullName }],
   manifest: '/manifest.webmanifest',
 
-  // Multiple icon formats — modern browsers prefer SVG, Apple needs PNG.
   icons: {
-    icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-    ],
-    apple: [
-      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-    ],
-    shortcut: '/favicon.svg',
+    icon: [{ url: '/TajMall-Icon.jpg', type: 'image/jpeg' }],
+    apple: [{ url: '/TajMall-Icon.jpg', sizes: '180x180', type: 'image/jpeg' }],
+    shortcut: '/TajMall-Icon.jpg',
+  },
+
+  openGraph: {
+    type: 'website',
+    locale: 'ar_LY',
+    title: `${BRAND.name} · ${BRAND.tagline}`,
+    description: BRAND.fullName,
+    siteName: BRAND.name,
+    images: [{ url: '/TajMall-Icon.jpg', width: 512, height: 512, alt: BRAND.fullName }],
   },
 
   // iPhone home-screen behaviour
@@ -77,20 +79,12 @@ export const metadata: Metadata = {
     email: false,
     address: false,
   },
-
-  openGraph: {
-    type: 'website',
-    locale: 'ar_LY',
-    title: `${BRAND.name} · ${BRAND.tagline}`,
-    description: BRAND.fullName,
-    siteName: BRAND.name,
-  },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#FBFBFA' },
-    { media: '(prefers-color-scheme: dark)', color: '#FBFBFA' },
+    { media: '(prefers-color-scheme: light)', color: '#171717' },
+    { media: '(prefers-color-scheme: dark)', color: '#171717' },
   ],
   width: 'device-width',
   initialScale: 1,
@@ -117,9 +111,13 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content={BRAND.name} />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+        <link rel="apple-touch-icon" href="/TajMall-Icon.jpg" />
       </head>
-      <body className="min-h-[100dvh] bg-background font-sans text-foreground">
+      <body
+        className="min-h-[100dvh] bg-background font-sans text-foreground"
+        suppressHydrationWarning
+        data-grammarly-disable="true"
+      >
         <Providers>{children}</Providers>
         <Toaster />
         <RegisterServiceWorker />

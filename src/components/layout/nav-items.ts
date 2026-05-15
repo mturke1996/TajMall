@@ -5,7 +5,6 @@ import {
   Wallet,
   BookOpen,
   Receipt,
-  FileBarChart,
   Building2,
   Users,
   Shield,
@@ -13,12 +12,11 @@ import {
   Activity,
   FolderTree,
   Bell,
-  Coins,
   Landmark,
   ArrowLeftRight,
   Crown,
-  UserCircle,
   Briefcase,
+  GitBranch,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -37,9 +35,13 @@ export type NavSection = {
   items: NavItem[];
 };
 
+/**
+ * Fluxen Navigation Structure - Professional SaaS Accounting System
+ * Redesigned for clarity, removing duplicates and grouping logically
+ */
 export const NAV: NavSection[] = [
   {
-    titleAr: 'نظرة عامة',
+    titleAr: 'الرئيسية',
     title: 'Overview',
     items: [
       {
@@ -48,13 +50,6 @@ export const NAV: NavSection[] = [
         label: 'Dashboard',
         icon: LayoutDashboard,
         shortcut: '⌘D',
-      },
-      {
-        href: '/transactions',
-        labelAr: 'المعاملات',
-        label: 'Transactions',
-        icon: ArrowLeftRight,
-        shortcut: '⌘T',
       },
       {
         href: '/activity',
@@ -68,6 +63,13 @@ export const NAV: NavSection[] = [
     titleAr: 'العمليات المالية',
     title: 'Finance',
     items: [
+      {
+        href: '/transactions',
+        labelAr: 'المعاملات',
+        label: 'Transactions',
+        icon: ArrowLeftRight,
+        shortcut: '⌘T',
+      },
       {
         href: '/revenues',
         labelAr: 'الإيرادات',
@@ -104,73 +106,43 @@ export const NAV: NavSection[] = [
   },
   {
     titleAr: 'دليل الحسابات',
-    title: 'Master Data',
+    title: 'Chart of Accounts',
     items: [
       {
         href: '/accounts',
-        labelAr: 'البنود',
-        label: 'Accounts',
+        labelAr: 'البنود المحاسبية',
+        label: 'Account Categories',
         icon: FolderTree,
       },
-      {
-        href: '/customers',
-        labelAr: 'العملاء',
-        label: 'Customers',
-        icon: Coins,
-      },
-      {
-        href: '/vendors',
-        labelAr: 'الموردون',
-        label: 'Vendors',
-        icon: Landmark,
-      },
     ],
   },
   {
-    titleAr: 'التقارير',
-    title: 'Reports',
-    items: [
-      {
-        href: '/reports/trial-balance',
-        labelAr: 'ميزان المراجعة',
-        label: 'Trial Balance',
-        icon: FileBarChart,
-      },
-      {
-        href: '/reports/profit-loss',
-        labelAr: 'الأرباح والخسائر',
-        label: 'P & L',
-        icon: FileBarChart,
-      },
-      {
-        href: '/reports/cash-flow',
-        labelAr: 'التدفقات النقدية',
-        label: 'Cash Flow',
-        icon: FileBarChart,
-      },
-    ],
-  },
-  {
-    titleAr: 'دليل العملاء',
-    title: 'Contacts',
+    titleAr: 'العلاقات التجارية',
+    title: 'Relationships',
     items: [
       {
         href: '/contacts',
-        labelAr: 'العملاء والمستأجرين',
-        label: 'Contacts',
+        labelAr: 'الدليل الشامل',
+        label: 'All Contacts',
         icon: Users,
       },
       {
         href: '/tenants',
-        labelAr: 'المحلات والإيجارات',
+        labelAr: 'المستأجرين والإيجارات',
         label: 'Tenants & Rent',
         icon: Building2,
       },
       {
         href: '/employees',
-        labelAr: 'الموظفين والرواتب',
-        label: 'Employees & Payroll',
+        labelAr: 'الموظفين',
+        label: 'Employees',
         icon: Briefcase,
+      },
+      {
+        href: '/vendors',
+        labelAr: 'الموردين',
+        label: 'Vendors',
+        icon: Landmark,
       },
     ],
   },
@@ -185,28 +157,16 @@ export const NAV: NavSection[] = [
         icon: Crown,
       },
       {
-        href: '/profile',
-        labelAr: 'ملفي الشخصي',
-        label: 'My Profile',
-        icon: UserCircle,
+        href: '/users',
+        labelAr: 'المستخدمون والصلاحيات',
+        label: 'Users & Roles',
+        icon: Shield,
       },
       {
         href: '/branches',
         labelAr: 'الفروع',
         label: 'Branches',
-        icon: Building2,
-      },
-      {
-        href: '/users',
-        labelAr: 'المستخدمون',
-        label: 'Users',
-        icon: Users,
-      },
-      {
-        href: '/roles',
-        labelAr: 'الصلاحيات',
-        label: 'Roles',
-        icon: Shield,
+        icon: GitBranch,
       },
       {
         href: '/notifications',

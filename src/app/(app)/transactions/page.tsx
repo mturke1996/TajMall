@@ -8,8 +8,10 @@ import { TransactionsTable } from '@/components/data/transactions-table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
 import { useTransactions } from '@/lib/db/queries';
+import { FluxenPdfToolbar } from '@/features/pdf/fluxen-pdf-toolbar';
 
 export default function TransactionsPage() {
+  const [tab, setTab] = useState('all');
   const [query, setQuery] = useState('');
   const { data, isLoading } = useTransactions();
 
@@ -28,17 +30,52 @@ export default function TransactionsPage() {
   const revenues = filtered.filter((r) => r.kind === 'REVENUE');
   const expenses = filtered.filter((r) => r.kind === 'EXPENSE');
 
+  const pdfRows =
+    tab === 'all' ? filtered : tab === 'revenues' ? revenues : expenses;
+  const pdfTitleAr =
+    tab === 'all'
+      ? 'كشف المعاملات المالية'
+      : tab === 'revenues'
+        ? 'كشف الإيرادات (من تبويب المعاملات)'
+        : 'كشف المصروفات (من تبويب المعاملات)';
+  const pdfSubtitleAr =
+    tab === 'all'
+      ? `الكل — ${pdfRows.length} قيد`
+      : tab === 'revenues'
+        ? `الإيرادات — ${pdfRows.length} قيد`
+        : `المصروفات — ${pdfRows.length} قيد`;
+
   return (
     <>
       <PageHeader
         eyebrow="المعاملات"
         title="جميع المعاملات"
         description="إيرادات ومصروفات ومعاملات الخزائن في مكان واحد."
-        actions={<NewTransactionButton />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <FluxenPdfToolbar
+              fileName={`معاملات-${tab}-${new Date().toISOString().slice(0, 10)}`}
+              disabled={pdfRows.length === 0}
+              render={async () => {
+                const { TransactionsReportPDF } = await import(
+                  '@/features/pdf/TransactionsReportPDF'
+                );
+                return (
+                  <TransactionsReportPDF
+                    titleAr={pdfTitleAr}
+                    subtitleAr={pdfSubtitleAr}
+                    rows={pdfRows}
+                  />
+                );
+              }}
+            />
+            <NewTransactionButton />
+          </div>
+        }
       />
 
       <div className="flex flex-col gap-5 px-4 py-5 sm:px-5 sm:py-7 md:px-8 md:py-10">
-        <Tabs defaultValue="all">
+        <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
             <TabsTrigger value="all">
               <ArrowLeftRight />

@@ -108,3 +108,21 @@ export function debounce<T extends (...args: any[]) => void>(fn: T, wait = 300) 
 export function clamp(n: number, min: number, max: number) {
   return Math.min(Math.max(n, min), max);
 }
+
+export function formatDateRelative(date: Date | string | number) {
+  const d = new Date(date);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (seconds < 60) return 'الآن';
+  if (minutes < 60) return `منذ ${minutes} دقيقة`;
+  if (hours < 24) return `منذ ${hours} ساعة`;
+  if (days < 7) return `منذ ${days} يوم`;
+  if (days < 30) return `منذ ${Math.floor(days / 7)} أسبوع`;
+  if (days < 365) return `منذ ${Math.floor(days / 30)} شهر`;
+  return `منذ ${Math.floor(days / 365)} سنة`;
+}

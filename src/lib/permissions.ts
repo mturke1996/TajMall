@@ -32,8 +32,6 @@ const ALL: PermissionKey[] = [
   'voucher.approve',
   'voucher.post',
   'voucher.cancel',
-  'report.view',
-  'report.export',
   'org.settings',
   'org.branches',
   'org.users',
@@ -64,7 +62,6 @@ export function can(role: string | null | undefined, key: PermissionKey): boolea
   const g = groupOf(key);
 
   if (r === 'viewer') {
-    if (key === 'report.export') return false;
     const suffix = key.split('.')[1];
     return suffix === 'view' || key === 'dashboard.view';
   }
@@ -80,7 +77,6 @@ export function can(role: string | null | undefined, key: PermissionKey): boolea
     if (g === 'journal') return key === 'journal.view';
     if (g === 'dashboard') return key === 'dashboard.view';
     if (g === 'account') return key === 'account.view';
-    if (g === 'report') return key === 'report.view';
     return false;
   }
 

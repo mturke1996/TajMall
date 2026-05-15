@@ -1,10 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { Plus, Receipt } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/data/empty-state';
-import { DownloadPdfButton } from '@/features/pdf/download-button';
+import { FluxenPdfToolbar } from '@/features/pdf/fluxen-pdf-toolbar';
 import type { VoucherPdfModel } from '@/features/pdf/VoucherPDF';
 
 export default function VouchersPage() {
@@ -32,19 +33,18 @@ export default function VouchersPage() {
         description="إصدار، اعتماد وترحيل إذونات صرف المبالغ النقدية والمصرفية."
         actions={
           <>
-            <DownloadPdfButton
-              variant="outline"
+            <FluxenPdfToolbar
               fileName="إذن-صرف-معاينة"
               render={async () => {
                 const { VoucherPDF } = await import('@/features/pdf/VoucherPDF');
                 return <VoucherPDF voucher={previewVoucher} />;
               }}
-            >
-              معاينة القالب
-            </DownloadPdfButton>
-            <Button size="sm" className="gap-1.5">
-              <Plus className="stroke-[1.6]" />
-              إذن جديد
+            />
+            <Button size="sm" className="gap-1.5" asChild>
+              <Link href="/vouchers/new">
+                <Plus className="stroke-[1.6]" />
+                إذن جديد
+              </Link>
             </Button>
           </>
         }
@@ -55,7 +55,7 @@ export default function VouchersPage() {
           <EmptyState
             icon={Receipt}
             title="لا توجد إذونات صرف بعد"
-            description="إذن الصرف يحدّد المستفيد، المصرف، نوع السداد وقيمة المبالغ الفرعية. يمر بمراحل المسودة والاعتماد والترحيل. زر «معاينة القالب» يُظهر تصميم PDF الكامل."
+            description="إذن الصرف يحدّد المستفيد، المصرف، نوع السداد وقيمة المبالغ الفرعية. يمر بمراحل المسودة والاعتماد والترحيل. استخدم «عرض PDF» أو «تحميل» لمعاينة قالب الإذن."
             action={{ label: 'إنشاء إذن صرف', href: '/vouchers/new' }}
           />
         ) : null}

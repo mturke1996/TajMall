@@ -9,12 +9,13 @@ import { Stat } from '@/components/dashboard/stat';
 import { CategoryBreakdown } from '@/components/dashboard/category-breakdown';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
 import { useTransactions } from '@/lib/db/queries';
+import { FluxenPdfToolbar } from '@/features/pdf/fluxen-pdf-toolbar';
 
 export default function ExpensesPage() {
   const [query, setQuery] = useState('');
   const { data, isLoading } = useTransactions('EXPENSE');
 
-  const rows = data ?? [];
+  const rows = useMemo(() => data ?? [], [data]);
   const filtered = useMemo(() => {
     if (!query) return rows;
     const q = query.toLowerCase();
@@ -51,7 +52,25 @@ export default function ExpensesPage() {
         eyebrow="المصروفات"
         title="إدارة المصروفات"
         description="مصاريف إدارية وعمومية وتشغيلية مرتبة حسب البند."
-        actions={<NewTransactionButton kind="EXPENSE" label="مصروف جديد" />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <FluxenPdfToolbar
+              fileName={`مصروفات-${new Date().toISOString().slice(0, 10)}`}
+              disabled={filtered.length === 0}
+              render={async () => {
+                const { TransactionsReportPDF } = await import('@/features/pdf/TransactionsReportPDF');
+                return (
+                  <TransactionsReportPDF
+                    titleAr="كشف المصروفات"
+                    subtitleAr={`عدد القيود: ${filtered.length} — بحسب عرض القائمة الحالي`}
+                    rows={filtered}
+                  />
+                );
+              }}
+            />
+            <NewTransactionButton kind="EXPENSE" label="مصروف جديد" />
+          </div>
+        }
       />
 
       <div className="flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-7 md:px-8 md:py-10">

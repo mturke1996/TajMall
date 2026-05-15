@@ -4,8 +4,8 @@
 
 /* ============================================================
    Fluxen — Editorial Light Theme
-   Warm monochrome canvas, ink typography, restrained sage accent.
-   No glassmorphism, no gradient text, no heavy shadows.
+   Warm canvas + ink typography — Taj Mall charcoal primary,
+   coral accent (matches circular logo frame). No heavy shadows.
    ============================================================ */
 
 @layer base {
@@ -22,9 +22,9 @@
     --popover: 0 0% 100%;
     --popover-foreground: 210 12% 10%;
 
-    /* primary = deep sage (single restrained brand accent) */
-    --primary: 95 19% 22%;                /* #2F3D27 */
-    --primary-foreground: 40 22% 96%;     /* warm cream text on primary */
+    /* primary = charcoal from logo ring */
+    --primary: 0 0% 9%;                   /* #171717 */
+    --primary-foreground: 0 0% 98%;
 
     /* secondary = warm subtle surface */
     --secondary: 42 22% 95%;              /* #F2F0E9 */
@@ -43,7 +43,7 @@
     /* hairlines */
     --border: 42 18% 89%;                 /* #ECEAE3 */
     --input:  42 18% 89%;
-    --ring:   95 19% 32%;                 /* focus ring sage */
+    --ring:   359 69% 51%;                 /* coral focus ring */
   }
 
   /* Light theme is the only theme — but we lock .dark to neutral so
@@ -55,8 +55,8 @@
     --card-foreground: 210 12% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 210 12% 10%;
-    --primary: 95 19% 22%;
-    --primary-foreground: 40 22% 96%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
     --secondary: 42 22% 95%;
     --secondary-foreground: 210 12% 14%;
     --muted: 42 22% 94%;
@@ -67,7 +67,7 @@
     --destructive-foreground: 40 22% 96%;
     --border: 42 18% 89%;
     --input:  42 18% 89%;
-    --ring:   95 19% 32%;
+    --ring:   359 69% 51%;
   }
 
   * {

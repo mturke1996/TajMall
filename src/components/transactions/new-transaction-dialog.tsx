@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { ArrowDownToLine, ArrowUpFromLine, Loader2, X, User, Building2, Briefcase, Plus } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Loader2, X, User, Building2, Briefcase, Plus, FileStack, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTxDialog, type TxKind } from '@/stores/transaction-dialog';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import { useCategories, useCashboxes, useCreateTransaction, useContacts, useCreateContact } from '@/lib/db/queries';
+import { useCategories, useCashboxes, useCreateTransaction, useContacts, useCreateContact, useTransactionFormDrafts, useSaveTransactionFormDraft, useDeleteTransactionFormDraft } from '@/lib/db/queries';
+import type { TransactionFormDraftRow, PaymentMethod } from '@/lib/db/types';
 import { toast } from 'sonner';
 
 export function NewTransactionDialog() {
@@ -26,6 +27,11 @@ export function NewTransactionDialog() {
   const [showNewContact, setShowNewContact] = useState(false);
   const [newContactName, setNewContactName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+
+  const { data: drafts = [], isLoading: draftsLoading } = useTransactionFormDrafts(kind, isOpen);
+  const saveDraft = useSaveTransactionFormDraft();
+  const deleteDraft = useDeleteTransactionFormDraft();
 
   const { data: categoriesAll = [], isLoading: catsLoading } = useCategories();
   const { data: cashboxes = [], isLoading: boxLoading } = useCashboxes();
@@ -56,6 +62,7 @@ export function NewTransactionDialog() {
       setShowNewContact(false);
       setNewContactName('');
       setError(null);
+      setEditingDraftId(null);
     }
   }, [isOpen, defaultKind, cashboxes]);
 
@@ -89,6 +96,14 @@ export function NewTransactionDialog() {
         contact_id: contactId || undefined,
         contact_type: contactId ? (isRevenue ? 'PAYER' : 'BENEFICIARY') : undefined,
       });
+      if (editingDraftId) {
+        try {
+          await deleteDraft.mutateAsync({ id: editingDraftId, kind });
+        } catch {
+          /* ignore */
+        }
+        setEditingDraftId(null);
+      }
       toast.success(isRevenue ? 'تم الإيراد' : 'تم الصرف');
       close();
     } catch {
@@ -134,6 +149,56 @@ export function NewTransactionDialog() {
     }
   }
 
+  function applyDraft(row: TransactionFormDraftRow) {
+    setEditingDraftId(row.id);
+    const p = row.payload;
+    setAmount(p.amount ?? '');
+    setCategoryId(p.category_id ?? '');
+    setCashboxId(p.cashbox_id ?? cashboxes[0]?.id ?? '');
+    setMethod((p.method as PaymentMethod) ?? 'CASH');
+    setDate(p.tx_date ?? new Date().toISOString().slice(0, 10));
+    setDescription(p.description ?? '');
+    setContactId(p.contact_id ?? '');
+    const ck = p.contact_kind ?? 'ALL';
+    if (ck === 'ALL' || ck === 'TENANT' || ck === 'EMPLOYEE' || ck === 'CUSTOMER' || ck === 'VENDOR') {
+      setContactKind(ck);
+    } else {
+      setContactKind('ALL');
+    }
+    setError(null);
+    toast.success('تم تحميل المسودة', { description: row.label ?? undefined });
+  }
+
+  async function handleSaveDraft() {
+    try {
+      const auto =
+        amount.trim() !== ''
+          ? `${kind === 'REVENUE' ? 'إيراد' : 'مصروف'} ${amount} د.ل`
+          : kind === 'REVENUE'
+            ? 'مسودة إيراد'
+            : 'مسودة مصروف';
+      const row = await saveDraft.mutateAsync({
+        id: editingDraftId ?? undefined,
+        kind,
+        label: `${auto} · ${new Date().toLocaleString('ar-LY')}`,
+        payload: {
+          amount,
+          category_id: categoryId || undefined,
+          cashbox_id: cashboxId || undefined,
+          method,
+          tx_date: date,
+          description: description || undefined,
+          contact_id: contactId || undefined,
+          contact_kind: contactKind,
+        },
+      });
+      setEditingDraftId(row.id);
+      toast.success('تم حفظ المسودة');
+    } catch {
+      toast.error('تعذّر حفظ المسودة — تأكد من تسجيل الدخول وتطبيق ترحيل قاعدة البيانات');
+    }
+  }
+
   if (!isOpen) return null;
 
   return (
@@ -149,6 +214,11 @@ export function NewTransactionDialog() {
             {isRevenue ? <ArrowDownToLine className="h-4 w-4" /> : <ArrowUpFromLine className="h-4 w-4" />}
           </div>
           <h2 className="font-semibold">{isRevenue ? 'إيراد جديد' : 'مصروف جديد'}</h2>
+          {editingDraftId ? (
+            <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+              مسودة محفوظة
+            </span>
+          ) : null}
           <button onClick={close} className="mr-auto rounded p-1 hover:bg-secondary">
             <X className="h-5 w-5" />
           </button>
@@ -156,6 +226,64 @@ export function NewTransactionDialog() {
 
         {/* Form */}
         <form onSubmit={onSubmit} className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
+          {(draftsLoading || drafts.length > 0) && (
+            <div className="rounded-lg border border-border bg-muted/25 p-2 space-y-1.5">
+              <div className="flex items-center justify-between gap-2 px-1">
+                <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                  <FileStack className="h-3.5 w-3.5" />
+                  مسوداتك المحفوظة
+                </span>
+                {draftsLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">{drafts.length}</span>
+                )}
+              </div>
+              {!draftsLoading &&
+                drafts.map((d) => (
+                  <div
+                    key={d.id}
+                    className={cn(
+                      'flex items-stretch gap-1 rounded-md border border-transparent bg-card/80',
+                      editingDraftId === d.id && 'ring-1 ring-primary/30 border-border',
+                    )}
+                  >
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 flex-col items-start gap-0.5 px-2 py-2 text-start text-xs hover:bg-muted/40 rounded-md transition-colors"
+                      onClick={() => applyDraft(d)}
+                    >
+                      <span className="font-medium leading-snug line-clamp-2">{d.label || 'مسودة بدون عنوان'}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(d.updated_at).toLocaleString('ar-LY')}
+                      </span>
+                    </button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-auto shrink-0 rounded-md text-muted-foreground hover:text-destructive"
+                      disabled={deleteDraft.isPending}
+                      onClick={() =>
+                        deleteDraft.mutate(
+                          { id: d.id, kind },
+                          {
+                            onSuccess: () => {
+                              toast.success('تم حذف المسودة');
+                              if (editingDraftId === d.id) setEditingDraftId(null);
+                            },
+                            onError: () => toast.error('تعذّر حذف المسودة'),
+                          },
+                        )
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+            </div>
+          )}
+
           {/* النوع */}
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -343,12 +471,21 @@ export function NewTransactionDialog() {
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           {/* Buttons */}
-          <div className="flex gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={close} className="flex-1">
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={close} className="min-w-[96px] flex-1">
               إلغاء
             </Button>
-            <Button type="submit" disabled={createTx.isPending} className="flex-1">
-              {createTx.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'حفظ'}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleSaveDraft()}
+              disabled={saveDraft.isPending}
+              className="min-w-[96px] flex-1"
+            >
+              {saveDraft.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'حفظ مسودة'}
+            </Button>
+            <Button type="submit" disabled={createTx.isPending} className="min-w-[96px] flex-1">
+              {createTx.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'ترحيل الآن'}
             </Button>
           </div>
         </form>

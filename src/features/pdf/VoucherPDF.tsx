@@ -2,8 +2,8 @@
 import React from 'react';
 import { Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ReportShell } from './ReportShell';
-import { ar, arMoney, arDate } from './arabicPDF';
-import { pdfBase, PDF } from './pdfStyles';
+import { ar, arMoney, arDateMedium } from './arabicPDF';
+import { pdfBase, PDF } from './pdfBase';
 
 export type VoucherLinePdf = { description: string; amount: number };
 
@@ -23,10 +23,12 @@ const s = StyleSheet.create({
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: PDF.rowAlt,
+    backgroundColor: PDF.logoGreenSoft,
     borderWidth: 1,
     borderColor: PDF.border,
-    borderRadius: 6,
+    borderRightWidth: 3,
+    borderRightColor: PDF.logoGreen,
+    borderRadius: 2,
     padding: 14,
     marginBottom: 18,
   },
@@ -35,7 +37,7 @@ const s = StyleSheet.create({
   heroValue: { fontSize: 11, fontWeight: 'bold', color: PDF.text },
 
   th_desc: { flex: 1, textAlign: 'right' },
-  th_amount: { width: 110, textAlign: 'left' },
+  th_amount: { width: 110, textAlign: 'center' },
 
   totalBox: {
     flexDirection: 'row',
@@ -45,7 +47,7 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     backgroundColor: PDF.primary,
-    borderRadius: 6,
+    borderRadius: 2,
   },
   totalLabel: { fontSize: 11, color: '#FBF8F1', fontWeight: 'bold' },
   totalValue: { fontSize: 13, color: '#FBF8F1', fontWeight: 'bold' },
@@ -55,7 +57,7 @@ const s = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: PDF.border,
-    borderRadius: 6,
+    borderRadius: 2,
   },
   notesLabel: { fontSize: 8.5, color: PDF.muted, marginBottom: 4 },
   notesText: { fontSize: 10, color: PDF.text, lineHeight: 1.5 },
@@ -84,7 +86,7 @@ export function VoucherPDF({
       subtitle={`رقم ${voucher.number}`}
       metaCells={[
         { label: 'رقم الإذن', value: voucher.number },
-        { label: 'التاريخ',   value: arDate(voucher.voucherDate) },
+        { label: 'التاريخ', value: arDateMedium(voucher.voucherDate) },
       ]}
     >
       {/* Hero */}
@@ -107,7 +109,7 @@ export function VoucherPDF({
 
       {/* Lines */}
       <View style={pdfBase.tableHead}>
-        <Text style={[pdfBase.th, s.th_amount, { textAlign: 'left' }]}>{ar('القيمة')}</Text>
+        <Text style={[pdfBase.th, s.th_amount, { textAlign: 'center' }]}>{ar('القيمة')}</Text>
         <Text style={[pdfBase.th, s.th_desc]}>{ar('البيـان')}</Text>
       </View>
       {voucher.lines.map((l, i) => (
@@ -119,8 +121,8 @@ export function VoucherPDF({
 
       {/* Total */}
       <View style={s.totalBox}>
-        <Text style={s.totalValue}>{arMoney(voucher.total, currency)}</Text>
         <Text style={s.totalLabel}>{ar('الإجمالي المستحق')}</Text>
+        <Text style={s.totalValue}>{arMoney(voucher.total, currency)}</Text>
       </View>
 
       {/* Notes */}

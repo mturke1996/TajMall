@@ -54,9 +54,9 @@ const config: Config = {
         },
 
         /**
-         * Editorial warm palette
-         * Inspired by the legacy "تاج مول" workbook (sage + cream)
-         * Tinted neutrals — never absolute #fff or #000.
+         * Editorial warm palette + Taj Mall brand remap:
+         * `sage.*` utilities map to charcoal neutrals + coral accent so legacy
+         * class names stay stable without a repo-wide rename.
          */
         canvas: {
           DEFAULT: '#FBFBFA', // warm off-white
@@ -70,18 +70,17 @@ const config: Config = {
           line:    '#ECEAE3',
           subtle:  '#F2F0E9',
         },
-        // Single restrained brand accent — deep sage (taken from legacy palette)
         sage: {
-          50:  '#F2F4F0',
-          100: '#E2E7DE',
-          200: '#C2CCBA',
-          300: '#9CAB91',
-          400: '#74866A',
-          500: '#536647',
-          600: '#3E4D34',
-          700: '#2F3D27',
-          800: '#243020',
-          900: '#1B241A',
+          50:  '#fafafa',
+          100: '#f4f4f5',
+          200: '#e4e4e7',
+          300: '#d4d4d8',
+          400: '#a1a1aa',
+          500: '#D94841',
+          600: '#525252',
+          700: '#171717',
+          800: '#0f0f0f',
+          900: '#0a0a0a',
         },
         // Warm tan secondary tone
         sand: {
@@ -113,7 +112,7 @@ const config: Config = {
         hairline: '0 0 0 1px hsl(var(--border))',
         whisper:  '0 1px 1px rgba(20, 22, 25, 0.025), 0 0 0 1px hsl(var(--border))',
         lift:     '0 1px 2px rgba(20, 22, 25, 0.04), 0 8px 24px -16px rgba(20, 22, 25, 0.06)',
-        focus:    '0 0 0 3px rgba(83, 102, 71, 0.12)',
+        focus:    '0 0 0 3px rgba(211, 47, 47, 0.18)',
       },
       borderRadius: {
         lg: 'var(--radius)',

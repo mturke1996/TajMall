@@ -156,3 +156,32 @@ export type NewTransactionInput = {
   contact_id?: string;
   contact_type?: 'PAYER' | 'RECEIVER' | 'BENEFICIARY';
 };
+
+/** مسودة حقل مصروف/إيراد — يُخزَّن كـ JSON حتى يُستأنف لاحقاً */
+export type TransactionDraftPayload = {
+  amount?: string;
+  category_id?: string;
+  cashbox_id?: string;
+  method?: PaymentMethod;
+  tx_date?: string;
+  description?: string;
+  contact_id?: string;
+  contact_kind?: 'ALL' | ContactKind;
+};
+
+export type TransactionFormDraftRow = {
+  id: string;
+  user_id: string;
+  kind: TxKind;
+  label: string | null;
+  payload: TransactionDraftPayload;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SaveTransactionDraftInput = {
+  id?: string;
+  kind: TxKind;
+  label?: string | null;
+  payload: TransactionDraftPayload;
+};

@@ -1,20 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactElement, type ReactNode } from 'react';
+import { pdf } from '@react-pdf/renderer';
 import { Printer, Loader2 } from 'lucide-react';
 import { Button, type ButtonProps } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { prepareFluxenPdfTree } from './prepare-fluxen-pdf-tree';
+import { registerPdfFonts } from './pdfFonts';
 
 type Props = ButtonProps & {
   /** Suggested file name (without `.pdf` extension). */
   fileName: string;
-  /**
-   * Lazy renderer — returns a React element (the PDF Document).
-   * Loaded only when the user clicks, so the heavy @react-pdf bundle
-   * is excluded from the initial route chunk.
-   */
-  render: () => Promise<React.ReactElement>;
-  children?: React.ReactNode;
+  render: () => Promise<ReactElement>;
+  children?: ReactNode;
 };
 
 /**
@@ -39,14 +37,11 @@ export function DownloadPdfButton({
     if (loading) return;
     setLoading(true);
     try {
-      // Ensure fonts are registered (no-op if already done).
-      await import('./pdfFonts').then((m) => m.registerPdfFonts());
-      const [{ pdf }, element] = await Promise.all([
-        import('@react-pdf/renderer'),
-        render(),
-      ]);
-
-      const blob = await pdf(element).toBlob();
+      registerPdfFonts();
+      const wrapped = await prepareFluxenPdfTree(await render());
+      const instance = pdf();
+      instance.updateContainer(wrapped);
+      const blob = await instance.toBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

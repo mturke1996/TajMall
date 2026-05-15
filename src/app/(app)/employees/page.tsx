@@ -23,12 +23,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useEmployeeSummary, useContacts, useCreateTransaction, useCashboxes } from '@/lib/db/queries';
+import {
+  useEmployeeSummary,
+  useContacts,
+  useCreateTransaction,
+  useCashboxes,
+  type EmployeeSummary,
+} from '@/lib/db/queries';
 import { toast } from 'sonner';
 import { cn, formatMoney } from '@/lib/utils';
 import Link from 'next/link';
-import type { ContactRow } from '@/lib/db/types';
-
 export default function EmployeesPage() {
   const { data: employees = [], isLoading: summaryLoading } = useEmployeeSummary();
   const { data: contacts = [] } = useContacts('EMPLOYEE');
@@ -36,7 +40,7 @@ export default function EmployeesPage() {
   const createTransaction = useCreateTransaction();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedEmployee, setSelectedEmployee] = useState<ContactRow | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeSummary | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
 
   // Combine summary data with full contact details
@@ -80,35 +84,28 @@ export default function EmployeesPage() {
 
   async function handleRecordSalary() {
     if (!selectedEmployee || !paymentAmount) return;
-    
+
+    const amount = Number(paymentAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('أدخل مبلغاً أكبر من صفر');
+      return;
+    }
+
     const defaultCashbox = cashboxes[0]?.id;
     if (!defaultCashbox) {
       toast.error('لا توجد خزينة متاحة');
       return;
     }
 
-    // Find salary expense category
-    const { data: categories } = await createTransaction.mutateAsync({
-      kind: 'EXPENSE',
-      amount: Number(paymentAmount),
-      method: 'CASH',
-      category_id: '', // Will be set below
-      cashbox_id: defaultCashbox,
-      tx_date: new Date().toISOString().slice(0, 10),
-      description: `راتب ${selectedEmployee.name} - ${selectedEmployee.job_title || ''}`,
-      contact_id: selectedEmployee.id,
-      contact_type: 'BENEFICIARY',
-    } as any);
-
-    // Actually create the transaction with the right category
     try {
       const supabase = (await import('@/lib/supabase/client')).createSupabaseBrowserClient();
-      const { data: expenseCat } = await supabase
+      const { data: expenseCat, error: catErr } = await supabase
         .from('categories')
         .select('id')
         .eq('code', 'EXP-SLR')
-        .single();
-      
+        .maybeSingle();
+
+      if (catErr) throw catErr;
       if (!expenseCat) {
         toast.error('فئة المصروفات "المرتبات" غير موجودة');
         return;
@@ -116,7 +113,7 @@ export default function EmployeesPage() {
 
       await createTransaction.mutateAsync({
         kind: 'EXPENSE',
-        amount: Number(paymentAmount),
+        amount,
         method: 'CASH',
         category_id: expenseCat.id,
         cashbox_id: defaultCashbox,
@@ -125,7 +122,7 @@ export default function EmployeesPage() {
         contact_id: selectedEmployee.id,
         contact_type: 'BENEFICIARY',
       });
-      
+
       toast.success('تم تسجيل الراتب بنجاح');
       setSelectedEmployee(null);
       setPaymentAmount('');
@@ -279,7 +276,7 @@ export default function EmployeesPage() {
                       <Button 
                         size="sm" 
                         className="flex-1"
-                        onClick={() => setSelectedEmployee(emp as any)}
+                        onClick={() => setSelectedEmployee(emp)}
                         disabled={salary === 0}
                       >
                         <Plus className="h-4 w-4 mr-1" />

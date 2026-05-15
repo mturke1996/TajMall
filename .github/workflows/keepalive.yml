@@ -2,7 +2,7 @@ name: Keepalive - Database Ping
 
 on:
   schedule:
-    # Run every 6 hours (0:00, 6:00, 12:00, 18:00 UTC)
+    # كل 6 ساعات تقريباً (00:00، 06:00، 12:00، 18:00 بتوقيت UTC)
     - cron: '0 */6 * * *'
   workflow_dispatch:
 
@@ -10,22 +10,42 @@ jobs:
   ping-database:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Keepalive Endpoint
+      - name: Ping keepalive endpoint
+        env:
+          # اختياري: عرّف المتغير KEEPALIVE_URL على مستوى المستودع (Settings → Variables)
+          KEEPALIVE_URL: ${{ vars.KEEPALIVE_URL }}
+          KEEPALIVE_SECRET: ${{ secrets.KEEPALIVE_SECRET }}
         run: |
-          echo "🚀 Pinging keepalive endpoint..."
-          response=$(curl -s -X GET "${{ vars.KEEPALIVE_URL || 'https://taj-mall.vercel.app/api/keepalive' }}" \
-            -H "Authorization: Bearer ${{ secrets.KEEPALIVE_SECRET }}" \
-            -H "User-Agent: github-actions/keepalive")
-          echo "Response: $response"
-          echo "$response" | jq -e '.ok == true' > /dev/null || exit 1
-        shell: bash
+          set -euo pipefail
+          DEFAULT_URL='https://taj-mall.vercel.app/api/keepalive'
+          URL="${KEEPALIVE_URL:-$DEFAULT_URL}"
 
-      - name: Verify Success
-        if: success()
-        run: echo "✅ Database keepalive ping successful!"
+          if [ -z "${KEEPALIVE_SECRET:-}" ]; then
+            echo '::error::KEEPALIVE_SECRET فارغ. أضف السرّ في الإعدادات → Secrets and variables → Actions.'
+            exit 1
+          fi
 
-      - name: Handle Failure
-        if: failure()
-        run: |
-          echo "❌ Keepalive ping failed!"
-          exit 1
+          echo "Pinging: ${URL}"
+
+          HTTP_CODE="$(curl -sS -o /tmp/keepalive_body.json -w '%{http_code}' \
+            -X GET "${URL}" \
+            -H "Authorization: Bearer ${KEEPALIVE_SECRET}" \
+            -H "User-Agent: github-actions/keepalive")"
+
+          echo "HTTP status: ${HTTP_CODE}"
+          cat /tmp/keepalive_body.json
+
+          if [ "${HTTP_CODE}" != '200' ]; then
+            echo "::error::فشل الطلب (HTTP ${HTTP_CODE})"
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          body = Path("/tmp/keepalive_body.json").read_text(encoding="utf-8")
+          data = json.loads(body)
+          assert data.get("ok") is True, data
+          PY
+
+          echo "✓ Keepalive OK"

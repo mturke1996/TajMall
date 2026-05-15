@@ -14,7 +14,7 @@ export default function AccountsPage() {
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'ALL' | 'REVENUE' | 'EXPENSE'>('ALL');
   const { data, isLoading } = useCategories();
-  const source = data ?? [];
+  const source = useMemo(() => data ?? [], [data]);
 
   const filtered = useMemo(() => {
     return source.filter((c) => {

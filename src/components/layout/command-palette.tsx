@@ -1,15 +1,21 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { Command } from 'cmdk';
+import { useRouter } from "next/navigation";
+import { Command } from "cmdk";
 import {
   Dialog,
   DialogContent,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog';
-import { NAV } from './nav-items';
-import { Search, Plus, ArrowDownToLine, ArrowUpFromLine, FileBarChart } from 'lucide-react';
+} from "@/components/ui/dialog";
+import { NAV } from "./nav-items";
+import {
+  Search,
+  Plus,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  BookOpen,
+} from "lucide-react";
 
 export function CommandPalette({
   open,
@@ -38,7 +44,10 @@ export function CommandPalette({
           className="flex flex-col"
           filter={(value, search) => {
             if (!search) return 1;
-            return value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+            if (value.toLowerCase().includes(search.toLowerCase())) return 1;
+            if (search.split(" ").every((s) => value.toLowerCase().includes(s)))
+              return 1;
+            return 0;
           }}
         >
           <div className="flex items-center gap-2 border-b border-border px-4">
@@ -60,26 +69,26 @@ export function CommandPalette({
               className="px-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.18em] [&_[cmdk-group-heading]]:text-ink-mute"
             >
               <Item
-                onSelect={() => go('/revenues/new')}
+                onSelect={() => go("/revenues/new")}
                 icon={<ArrowDownToLine className="text-pastel-greenInk" />}
                 label="إضافة إيراد جديد"
                 shortcut="⌘⇧R"
               />
               <Item
-                onSelect={() => go('/expenses/new')}
+                onSelect={() => go("/expenses/new")}
                 icon={<ArrowUpFromLine className="text-pastel-redInk" />}
                 label="إضافة مصروف جديد"
                 shortcut="⌘⇧E"
               />
               <Item
-                onSelect={() => go('/vouchers/new')}
+                onSelect={() => go("/vouchers/new")}
                 icon={<Plus className="text-sage-700" />}
                 label="إذن صرف جديد"
               />
               <Item
-                onSelect={() => go('/reports/trial-balance')}
-                icon={<FileBarChart className="text-pastel-blueInk" />}
-                label="فتح ميزان المراجعة"
+                onSelect={() => go("/journals")}
+                icon={<BookOpen className="text-pastel-blueInk" />}
+                label="فتح دفتر اليومية"
               />
             </Command.Group>
 

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type {
   CategoryRow,
   CashboxRow,
@@ -11,7 +11,11 @@ import type {
   ProfileRow,
   ContactRow,
   ContactKind,
-} from './types';
+  BranchRow,
+  TxKind,
+  TransactionFormDraftRow,
+  SaveTransactionDraftInput,
+} from "./types";
 
 /**
  * Centralised TanStack Query hooks over Supabase JS.
@@ -20,35 +24,55 @@ import type {
 
 // ── keys ─────────────────────────────────────────────────────────
 export const qk = {
-  categories: ['categories'] as const,
-  cashboxes: ['cashboxes'] as const,
-  cashboxBalances: ['cashbox_balances'] as const,
-  profiles: ['profiles'] as const,
-  contacts: (kind?: ContactKind) => ['contacts', kind ?? 'ALL'] as const,
-  tenants: ['contacts', 'TENANT'] as const,
-  employees: ['contacts', 'EMPLOYEE'] as const,
-  tenantRentSummary: ['tenant_rent_summary'] as const,
-  employeeSummary: ['employee_summary'] as const,
-  monthlySummary: ['monthly_summary'] as const,
-  transactions: (kind?: 'REVENUE' | 'EXPENSE') =>
-    ['transactions', kind ?? 'ALL'] as const,
-  recentTransactions: ['transactions', 'recent'] as const,
-  dashboardStats: ['dashboard_stats'] as const,
-  topExpenseCategories: ['top_expense_categories'] as const,
+  categories: ["categories"] as const,
+  cashboxes: ["cashboxes"] as const,
+  cashboxBalances: ["cashbox_balances"] as const,
+  profiles: ["profiles"] as const,
+  contacts: (kind?: ContactKind) => ["contacts", kind ?? "ALL"] as const,
+  tenants: ["contacts", "TENANT"] as const,
+  employees: ["contacts", "EMPLOYEE"] as const,
+  tenantRentSummary: ["tenant_rent_summary"] as const,
+  employeeSummary: ["employee_summary"] as const,
+  monthlySummary: ["monthly_summary"] as const,
+  transactions: (kind?: "REVENUE" | "EXPENSE") =>
+    ["transactions", kind ?? "ALL"] as const,
+  recentTransactions: ["transactions", "recent"] as const,
+  dashboardStats: ["dashboard_stats"] as const,
+  topExpenseCategories: ["top_expense_categories"] as const,
+  branches: ["branches"] as const,
+  transactionFormDrafts: (kind: TxKind) =>
+    ["transaction_form_drafts", kind] as const,
 };
 
-// ── categories ───────────────────────────────────────────────────
-export function useCategories(kind?: 'REVENUE' | 'EXPENSE') {
-  return useQuery<CategoryRow[]>({
-    queryKey: kind ? ['categories', kind] : qk.categories,
+export function useBranches(includeInactive = false) {
+  return useQuery<BranchRow[]>({
+    queryKey: [...qk.branches, includeInactive],
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       let q = supabase
-        .from('categories')
-        .select('*')
-        .eq('active', true)
-        .order('sort_order', { ascending: true });
-      if (kind) q = q.eq('kind', kind);
+        .from("branches")
+        .select("*")
+        .order("code", { ascending: true });
+      if (!includeInactive) q = q.eq("active", true);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data as BranchRow[]) ?? [];
+    },
+  });
+}
+
+// ── categories ───────────────────────────────────────────────────
+export function useCategories(kind?: "REVENUE" | "EXPENSE") {
+  return useQuery<CategoryRow[]>({
+    queryKey: kind ? ["categories", kind] : qk.categories,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      let q = supabase
+        .from("categories")
+        .select("*")
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+      if (kind) q = q.eq("kind", kind);
       const { data, error } = await q;
       if (error) throw error;
       return (data as CategoryRow[]) ?? [];
@@ -63,10 +87,10 @@ export function useCashboxes() {
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
-        .from('cashboxes')
-        .select('*')
-        .eq('active', true)
-        .order('code', { ascending: true });
+        .from("cashboxes")
+        .select("*")
+        .eq("active", true)
+        .order("code", { ascending: true });
       if (error) throw error;
       return (data as CashboxRow[]) ?? [];
     },
@@ -79,9 +103,9 @@ export function useCashboxBalances() {
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
-        .from('cashbox_balances')
-        .select('*')
-        .order('code', { ascending: true });
+        .from("cashbox_balances")
+        .select("*")
+        .order("code", { ascending: true });
       if (error) throw error;
       return (data as CashboxBalanceRow[]) ?? [];
     },
@@ -95,9 +119,9 @@ export function useProfiles() {
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: true });
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: true });
       if (error) throw error;
       return (data as ProfileRow[]) ?? [];
     },
@@ -107,18 +131,26 @@ export function useProfiles() {
 export function useUpdateProfile() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: string; role?: string; full_name_ar?: string | null }) => {
+    mutationFn: async (input: {
+      id: string;
+      role?: string;
+      full_name_ar?: string | null;
+    }) => {
       const supabase = createSupabaseBrowserClient();
       const patch: Record<string, string | null> = {};
       if (input.role !== undefined) patch.role = input.role;
-      if (input.full_name_ar !== undefined) patch.full_name_ar = input.full_name_ar;
+      if (input.full_name_ar !== undefined)
+        patch.full_name_ar = input.full_name_ar;
       if (!Object.keys(patch).length) return;
-      const { error } = await supabase.from('profiles').update(patch).eq('id', input.id);
+      const { error } = await supabase
+        .from("profiles")
+        .update(patch)
+        .eq("id", input.id);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.profiles });
-      qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ["profile"] });
     },
   });
 }
@@ -130,11 +162,11 @@ export function useContacts(kind?: ContactKind) {
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       let q = supabase
-        .from('contacts')
-        .select('*')
-        .eq('is_active', true)
-        .order('name', { ascending: true });
-      if (kind) q = q.eq('kind', kind);
+        .from("contacts")
+        .select("*")
+        .eq("is_active", true)
+        .order("name", { ascending: true });
+      if (kind) q = q.eq("kind", kind);
       const { data, error } = await q;
       if (error) throw error;
       return (data as ContactRow[]) ?? [];
@@ -143,24 +175,30 @@ export function useContacts(kind?: ContactKind) {
 }
 
 export function useTenants() {
-  return useContacts('TENANT');
+  return useContacts("TENANT");
 }
 
 export function useEmployees() {
-  return useContacts('EMPLOYEE');
+  return useContacts("EMPLOYEE");
 }
 
 export function useCreateContact() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: Omit<ContactRow, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (
+      input: Omit<ContactRow, "id" | "created_at" | "updated_at">,
+    ) => {
       const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase.from('contacts').insert(input).select().single();
+      const { data, error } = await supabase
+        .from("contacts")
+        .insert(input)
+        .select()
+        .single();
       if (error) throw error;
       return data as ContactRow;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.invalidateQueries({ queryKey: ["contacts"] });
     },
   });
 }
@@ -171,12 +209,17 @@ export function useUpdateContact() {
     mutationFn: async (input: { id: string } & Partial<ContactRow>) => {
       const supabase = createSupabaseBrowserClient();
       const { id, ...patch } = input;
-      const { data, error } = await supabase.from('contacts').update(patch).eq('id', id).select().single();
+      const { data, error } = await supabase
+        .from("contacts")
+        .update(patch)
+        .eq("id", id)
+        .select()
+        .single();
       if (error) throw error;
       return data as ContactRow;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.invalidateQueries({ queryKey: ["contacts"] });
     },
   });
 }
@@ -186,11 +229,11 @@ export function useDeleteContact() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.from('contacts').delete().eq('id', id);
+      const { error } = await supabase.from("contacts").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.invalidateQueries({ queryKey: ["contacts"] });
       qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
       qc.invalidateQueries({ queryKey: qk.employeeSummary });
     },
@@ -206,7 +249,7 @@ export type TenantRentSummary = {
   monthly_rent: string | null;
   phone: string | null;
   current_month_paid: string;
-  current_month_status: 'no_rent_set' | 'paid_full' | 'paid_partial' | 'unpaid';
+  current_month_status: "no_rent_set" | "paid_full" | "paid_partial" | "unpaid";
   last_12_months_revenue: string;
   total_balance: string;
 };
@@ -217,9 +260,9 @@ export function useTenantRentSummary() {
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
-        .from('tenant_rent_summary')
-        .select('*')
-        .order('name', { ascending: true });
+        .from("tenant_rent_summary")
+        .select("*")
+        .order("name", { ascending: true });
       if (error) throw error;
       return (data as TenantRentSummary[]) ?? [];
     },
@@ -244,9 +287,9 @@ export function useEmployeeSummary() {
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
-        .from('employee_summary')
-        .select('*')
-        .order('name', { ascending: true });
+        .from("employee_summary")
+        .select("*")
+        .order("name", { ascending: true });
       if (error) throw error;
       return (data as EmployeeSummary[]) ?? [];
     },
@@ -269,9 +312,9 @@ export function useMonthlySummary() {
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
-        .from('monthly_summary')
-        .select('*')
-        .order('month', { ascending: false })
+        .from("monthly_summary")
+        .select("*")
+        .order("month", { ascending: false })
         .limit(12);
       if (error) throw error;
       return (data as MonthlySummary[]) ?? [];
@@ -294,8 +337,8 @@ export function useTopExpenseCategories() {
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
-        .from('top_expense_categories')
-        .select('*')
+        .from("top_expense_categories")
+        .select("*")
         .limit(10);
       if (error) throw error;
       return (data as TopExpenseCategory[]) ?? [];
@@ -315,10 +358,11 @@ export function useRecordRentPayment() {
       description?: string;
     }) => {
       const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase.rpc('record_rent_payment', {
+      const { data, error } = await supabase.rpc("record_rent_payment", {
         tenant_id: input.tenant_id,
         amount: input.amount,
-        payment_date: input.payment_date ?? new Date().toISOString().slice(0, 10),
+        payment_date:
+          input.payment_date ?? new Date().toISOString().slice(0, 10),
         cashbox_id: input.cashbox_id ?? null,
         description: input.description ?? null,
       });
@@ -326,7 +370,7 @@ export function useRecordRentPayment() {
       return data as string; // returns transaction id
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
       qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
       qc.invalidateQueries({ queryKey: qk.cashboxBalances });
       qc.invalidateQueries({ queryKey: qk.dashboardStats });
@@ -337,20 +381,20 @@ export function useRecordRentPayment() {
 
 // ── transactions ─────────────────────────────────────────────────
 const TX_SELECT =
-  '*, category:categories(id,code,name_ar,kind,color), cashbox:cashboxes(id,code,name_ar,kind), creator:profiles(id,full_name_ar,full_name), contact:contacts(id,name,kind,shop_number)';
+  "*, category:categories(id,code,name_ar,kind,color), cashbox:cashboxes(id,code,name_ar,kind), creator:profiles(id,full_name_ar,full_name), contact:contacts(id,name,kind,shop_number)";
 
-export function useTransactions(kind?: 'REVENUE' | 'EXPENSE', limit = 500) {
+export function useTransactions(kind?: "REVENUE" | "EXPENSE", limit = 500) {
   return useQuery<TransactionWithRelations[]>({
     queryKey: qk.transactions(kind),
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       let q = supabase
-        .from('transactions')
+        .from("transactions")
         .select(TX_SELECT)
-        .order('tx_date', { ascending: false })
-        .order('created_at', { ascending: false })
+        .order("tx_date", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(limit);
-      if (kind) q = q.eq('kind', kind);
+      if (kind) q = q.eq("kind", kind);
       const { data, error } = await q;
       if (error) throw error;
       return (data as unknown as TransactionWithRelations[]) ?? [];
@@ -364,12 +408,98 @@ export function useRecentTransactions(limit = 8) {
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
-        .from('transactions')
+        .from("transactions")
         .select(TX_SELECT)
-        .order('created_at', { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(limit);
       if (error) throw error;
       return (data as unknown as TransactionWithRelations[]) ?? [];
+    },
+  });
+}
+
+export function useTransactionFormDrafts(kind: TxKind, enabled = true) {
+  return useQuery<TransactionFormDraftRow[]>({
+    queryKey: qk.transactionFormDrafts(kind),
+    enabled,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user?.id) return [];
+      const { data, error } = await supabase
+        .from("transaction_form_drafts")
+        .select("*")
+        .eq("kind", kind)
+        .eq("user_id", auth.user.id)
+        .order("updated_at", { ascending: false })
+        .limit(40);
+      if (error) throw error;
+      return (data as TransactionFormDraftRow[]) ?? [];
+    },
+  });
+}
+
+export function useSaveTransactionFormDraft() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: SaveTransactionDraftInput) => {
+      const supabase = createSupabaseBrowserClient();
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id;
+      if (!uid) throw new Error("يجب تسجيل الدخول لحفظ المسودة");
+
+      if (input.id) {
+        const { data, error } = await supabase
+          .from("transaction_form_drafts")
+          .update({
+            label: input.label ?? null,
+            payload: input.payload as Record<string, unknown>,
+            kind: input.kind,
+          })
+          .eq("id", input.id)
+          .eq("user_id", uid)
+          .select("*")
+          .single();
+        if (error) throw error;
+        return data as TransactionFormDraftRow;
+      }
+
+      const { data, error } = await supabase
+        .from("transaction_form_drafts")
+        .insert({
+          user_id: uid,
+          kind: input.kind,
+          label: input.label ?? null,
+          payload: input.payload as Record<string, unknown>,
+        })
+        .select("*")
+        .single();
+      if (error) throw error;
+      return data as TransactionFormDraftRow;
+    },
+    onSuccess: (_row, vars) => {
+      qc.invalidateQueries({ queryKey: qk.transactionFormDrafts(vars.kind) });
+    },
+  });
+}
+
+export function useDeleteTransactionFormDraft() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { id: string; kind: TxKind }) => {
+      const supabase = createSupabaseBrowserClient();
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id;
+      if (!uid) throw new Error("يجب تسجيل الدخول");
+      const { error } = await supabase
+        .from("transaction_form_drafts")
+        .delete()
+        .eq("id", vars.id)
+        .eq("user_id", uid);
+      if (error) throw error;
+    },
+    onSuccess: (_void, vars) => {
+      qc.invalidateQueries({ queryKey: qk.transactionFormDrafts(vars.kind) });
     },
   });
 }
@@ -382,10 +512,10 @@ export function useCreateTransaction() {
       const supabase = createSupabaseBrowserClient();
       const { data: auth } = await supabase.auth.getUser();
       const { data, error } = await supabase
-        .from('transactions')
+        .from("transactions")
         .insert({
           ...input,
-          status: 'POSTED',
+          status: "POSTED",
           posted_at: new Date().toISOString(),
           created_by: auth?.user?.id ?? null,
         })
@@ -394,8 +524,36 @@ export function useCreateTransaction() {
       if (error) throw error;
       return data as unknown as TransactionWithRelations;
     },
+    onMutate: async (input) => {
+      // Cancel outgoing queries for transactions
+      await qc.cancelQueries({ queryKey: ["transactions"] });
+
+      // Get previous data for rollback
+      const previousTx = qc.getQueryData(["transactions"]);
+
+      // Optimistically update the transaction list
+      const optimisticTx: TransactionWithRelations = {
+        id: `temp-${Date.now()}`,
+        organization_id: "",
+        created_by: "",
+        status: "POSTED",
+        posted_at: new Date().toISOString(),
+        ...input,
+      } as any;
+
+      qc.setQueryData(["transactions"], (old: any) =>
+        old ? [optimisticTx, ...old] : [optimisticTx],
+      );
+
+      return { previousTx };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousTx) {
+        qc.setQueryData(["transactions"], context.previousTx);
+      }
+    },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
       qc.invalidateQueries({ queryKey: qk.cashboxBalances });
       qc.invalidateQueries({ queryKey: qk.dashboardStats });
     },
@@ -407,13 +565,19 @@ export function useDeleteTransaction() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.from('transactions').delete().eq('id', id);
+      const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
       qc.invalidateQueries({ queryKey: qk.cashboxBalances });
       qc.invalidateQueries({ queryKey: qk.dashboardStats });
+      qc.invalidateQueries({ queryKey: qk.employeeSummary });
+      qc.invalidateQueries({ queryKey: qk.monthlySummary });
+      qc.invalidateQueries({ queryKey: qk.topExpenseCategories });
     },
   });
 }
@@ -429,8 +593,18 @@ export type DashboardStats = {
 };
 
 const AR_MONTHS = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+  "يناير",
+  "فبراير",
+  "مارس",
+  "أبريل",
+  "مايو",
+  "يونيو",
+  "يوليو",
+  "أغسطس",
+  "سبتمبر",
+  "أكتوبر",
+  "نوفمبر",
+  "ديسمبر",
 ];
 
 export function useDashboardStats() {
@@ -442,24 +616,24 @@ export function useDashboardStats() {
 
       // Pull this year's posted transactions with category info for breakdown.
       const { data, error } = await supabase
-        .from('transactions')
-        .select('amount, kind, tx_date, category:categories(name_ar, color)')
-        .eq('status', 'POSTED')
-        .gte('tx_date', `${year}-01-01`)
-        .lt('tx_date', `${year + 1}-01-01`);
+        .from("transactions")
+        .select("amount, kind, tx_date, category:categories(name_ar, color)")
+        .eq("status", "POSTED")
+        .gte("tx_date", `${year}-01-01`)
+        .lt("tx_date", `${year + 1}-01-01`);
       if (error) throw error;
 
       const rows = (data ?? []) as unknown as Array<{
         amount: string;
-        kind: 'REVENUE' | 'EXPENSE' | string;
+        kind: "REVENUE" | "EXPENSE" | string;
         tx_date: string;
         category: { name_ar: string; color: string | null } | null;
       }>;
 
       // Cashbox balances for the "treasury" KPI.
       const { data: balances } = await supabase
-        .from('cashbox_balances')
-        .select('balance');
+        .from("cashbox_balances")
+        .select("balance");
 
       let totalRevenue = 0;
       let totalExpense = 0;
@@ -471,14 +645,14 @@ export function useDashboardStats() {
       for (const r of rows) {
         const n = Number(r.amount);
         const m = new Date(r.tx_date).getMonth();
-        if (r.kind === 'REVENUE') {
+        if (r.kind === "REVENUE") {
           totalRevenue += n;
           monthlyR[m] += n;
-        } else if (r.kind === 'EXPENSE') {
+        } else if (r.kind === "EXPENSE") {
           totalExpense += n;
           monthlyE[m] += n;
-          const label = r.category?.name_ar ?? 'بدون بند';
-          const color = r.category?.color ?? '#6E7470';
+          const label = r.category?.name_ar ?? "بدون بند";
+          const color = r.category?.color ?? "#6E7470";
           const prev = expenseByCat.get(label);
           expenseByCat.set(label, {
             value: (prev?.value ?? 0) + n,
@@ -487,8 +661,10 @@ export function useDashboardStats() {
         }
       }
 
-      const totalCashboxBalance =
-        (balances ?? []).reduce((s: number, b: { balance: string }) => s + Number(b.balance), 0);
+      const totalCashboxBalance = (balances ?? []).reduce(
+        (s: number, b: { balance: string }) => s + Number(b.balance),
+        0,
+      );
 
       const topExpenseCategories = Array.from(expenseByCat.entries())
         .map(([label, { value, color }]) => ({ label, value, color }))

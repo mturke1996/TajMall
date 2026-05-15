@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Sidebar } from './sidebar';
 import { TopBar } from './topbar';
 import { MobileNav } from './mobile-nav';
-import { MobileActionBar } from './mobile-action-bar';
+import { MobileBottomNav } from './mobile-bottom-nav';
 import { PageTransition } from './page-transition';
 import { NewTransactionDialog } from '@/components/transactions/new-transaction-dialog';
 
@@ -24,7 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      <MobileActionBar />
+      <MobileBottomNav />
       <NewTransactionDialog />
     </div>
   );

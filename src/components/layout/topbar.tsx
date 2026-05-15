@@ -5,11 +5,17 @@ import { Menu, Search, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
 import { UserMenu } from './user-menu';
-import { BRAND } from '@/lib/brand';
+import { BrandGlyph } from '@/components/brand/logo';
 
 export function TopBar({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
   return (
-    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-canvas/95 px-3 backdrop-blur-sm">
+    <header
+      className="sticky top-0 z-30 flex min-h-16 shrink-0 items-center gap-2 border-b border-border bg-canvas/95 px-3 backdrop-blur-sm"
+      style={{
+        paddingTop: 'max(env(safe-area-inset-top), 8px)',
+        paddingBottom: '8px',
+      }}
+    >
       {/* Mobile nav button */}
       <Button variant="ghost" size="icon" className="md:hidden" onClick={onOpenMobileNav}>
         <Menu className="h-5 w-5" />
@@ -17,9 +23,7 @@ export function TopBar({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
 
       {/* Mobile brand */}
       <Link href="/dashboard" className="flex items-center gap-2 md:hidden">
-        <span className="grid h-7 w-7 place-items-center rounded-md bg-sage-700 font-bold text-white text-sm">
-          {BRAND.monogram}
-        </span>
+        <BrandGlyph size={28} />
       </Link>
 
       {/* Desktop Search */}

@@ -1,7 +1,10 @@
-import { DashboardContent } from '@/components/dashboard/dashboard-content';
+import { AdvancedDashboard } from '@/components/dashboard/advanced-dashboard';
 
-export const metadata = { title: 'لوحة التحكم' };
+export const metadata = { 
+  title: 'لوحة التحكم',
+  description: 'نظرة عامة على الأداء المالي والتشغيلي'
+};
 
 export default function DashboardPage() {
-  return <DashboardContent />;
+  return <AdvancedDashboard />;
 }

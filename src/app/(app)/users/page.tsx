@@ -41,7 +41,7 @@ export default function UsersPage() {
   const [inviteRole, setInviteRole] = useState<string>('viewer');
   const [inviteBusy, setInviteBusy] = useState(false);
 
-  const rows = profiles ?? [];
+  const rows = useMemo(() => profiles ?? [], [profiles]);
 
   const sorted = useMemo(
     () => [...rows].sort((a, b) => (a.full_name_ar ?? '').localeCompare(b.full_name_ar ?? '', 'ar')),

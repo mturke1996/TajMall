@@ -35,19 +35,29 @@ export type Brand = {
   socials: {
     facebook: string;
   };
-  /** Print-safe palette used by react-pdf templates */
+  /** Absolute web path to circular/wordmark logo (place file under /public). */
+  logoSrc: string;
+  /** Print-safe palette — shared by react-pdf templates */
   pdfPalette: {
     primary: string;
     primaryDark: string;
+    primaryLight: string;
     accent: string;
+    accentLight: string;
+    logoGreen: string;
+    logoGreenSoft: string;
     text: string;
     muted: string;
     border: string;
     rowAlt: string;
     headerBg: string;
+    mutedBg: string;
+    white: string;
+    paleGold: string;
     success: string;
     warning: string;
     danger: string;
+    info: string;
   };
 };
 
@@ -59,6 +69,8 @@ export const BRAND: Brand = {
   monogram: 'ت',
   currency: 'LYD',
   region: 'طرابلس · ليبيا',
+  /** شعار دائري من `/public` — يُستخدم في الواجهة، PDF، واختصار الشاشة الرئيسية (PWA). */
+  logoSrc: '/TajMall-Icon.jpg',
   contact: {
     phone: '',
     phone2: '',
@@ -70,17 +82,28 @@ export const BRAND: Brand = {
     facebook: 'https://www.facebook.com/tajmall.ly/',
   },
   pdfPalette: {
-    primary:     '#2F3D27', // deep sage
-    primaryDark: '#1B241A',
-    accent:      '#8B7943', // warm sand
-    text:        '#15171A',
-    muted:       '#6E7470',
-    border:      '#ECEAE3',
-    rowAlt:      '#FBFBFA',
-    headerBg:    '#2F3D27',
-    success:     '#2F5234',
-    warning:     '#7A5C0F',
-    danger:      '#8A2F2D',
+    /** فحمي من إطار الشعار — بديل عن الأخضر */
+    primary: '#171717',
+    primaryDark: '#0a0a0a',
+    primaryLight: '#404040',
+    /** المثلث الأحمر في الشعار */
+    accent: '#d32f2f',
+    accentLight: '#ffcdd2',
+    /** الحلقة الخضراء في الشعار */
+    logoGreen: '#2f6f44',
+    logoGreenSoft: '#ecf6ef',
+    text: '#141414',
+    muted: '#5c5f66',
+    border: '#e8e6e1',
+    rowAlt: '#f8f7f5',
+    headerBg: '#171717',
+    mutedBg: '#f3f2ef',
+    white: '#ffffff',
+    paleGold: '#fffaf6',
+    success: '#15803d',
+    warning: '#b45309',
+    danger: '#b91c1c',
+    info: '#1d4ed8',
   },
 };
 

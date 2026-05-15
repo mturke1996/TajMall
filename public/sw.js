@@ -12,7 +12,7 @@
  * Versioned by SW_VERSION — bump to force a fresh cache.
  */
 
-const SW_VERSION = 'fluxen-v2';
+const SW_VERSION = 'fluxen-v3';
 const SHELL_CACHE = `${SW_VERSION}-shell`;
 const ASSETS_CACHE = `${SW_VERSION}-assets`;
 
@@ -21,10 +21,7 @@ const APP_SHELL = [
   '/login',
   '/dashboard',
   '/manifest.webmanifest',
-  '/favicon.svg',
-  '/apple-touch-icon.png',
-  '/icon-192.png',
-  '/icon-512.png',
+  '/TajMall-Icon.jpg',
 ];
 
 // ── install / activate ────────────────────────────────────────────

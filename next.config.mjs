@@ -15,6 +15,12 @@ const nextConfig = {
   // sometimes overflows the call stack on large monorepos.
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
+  async redirects() {
+    return [
+      { source: '/reports', destination: '/dashboard', permanent: false },
+      { source: '/reports/:path*', destination: '/dashboard', permanent: false },
+    ];
+  },
   async headers() {
     return [
       {
