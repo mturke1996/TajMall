@@ -15,6 +15,8 @@ import type {
   TxKind,
   TransactionFormDraftRow,
   SaveTransactionDraftInput,
+  DisbursementVoucherWithLines,
+  SaveDisbursementVoucherInput,
 } from "./types";
 
 /**
@@ -42,6 +44,7 @@ export const qk = {
   branches: ["branches"] as const,
   transactionFormDrafts: (kind: TxKind) =>
     ["transaction_form_drafts", kind] as const,
+  disbursementVouchers: ["disbursement_vouchers"] as const,
 };
 
 export function useBranches(includeInactive = false) {
@@ -504,7 +507,6 @@ export function useDeleteTransactionFormDraft() {
   });
 }
 
-// ── mutations ────────────────────────────────────────────────────
 export function useCreateTransaction() {
   const qc = useQueryClient();
   return useMutation({
@@ -578,6 +580,95 @@ export function useDeleteTransaction() {
       qc.invalidateQueries({ queryKey: qk.employeeSummary });
       qc.invalidateQueries({ queryKey: qk.monthlySummary });
       qc.invalidateQueries({ queryKey: qk.topExpenseCategories });
+    },
+  });
+}
+
+/** إذونات الصرف المحفوظة في Supabase (ملخص الوثيقة + بنود) */
+export function useDisbursementVouchers() {
+  return useQuery<DisbursementVoucherWithLines[]>({
+    queryKey: qk.disbursementVouchers,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase
+        .from("disbursement_vouchers")
+        .select(
+          `
+          *,
+          disbursement_voucher_lines (*)
+        `,
+        )
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as DisbursementVoucherWithLines[]) ?? [];
+    },
+  });
+}
+
+export function useCreateDisbursementVoucher() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: SaveDisbursementVoucherInput) => {
+      const supabase = createSupabaseBrowserClient();
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id;
+      if (!uid) throw new Error("يجب تسجيل الدخول");
+
+      const lineRows = input.lines
+        .map((l) => ({
+          description: (l.description ?? "").trim() || "—",
+          amount: Math.max(0, Number(l.amount) || 0),
+        }))
+        .filter((l) => l.amount > 0)
+        .map((l, i) => ({
+          sort_order: i,
+          description: l.description,
+          amount: l.amount,
+        }));
+
+      const total = lineRows.reduce((s, l) => s + l.amount, 0);
+      if (total <= 0) {
+        throw new Error("يجب إدخال بند واحد على الأقل بمبلغ أكبر من صفر");
+      }
+
+      const { data: row, error: insErr } = await supabase
+        .from("disbursement_vouchers")
+        .insert({
+          voucher_number: input.voucher_number.trim(),
+          voucher_date: input.voucher_date,
+          payee: input.payee.trim(),
+          bank_name: input.bank_name?.trim() || null,
+          account_number: input.account_number?.trim() || null,
+          method: input.method,
+          notes: input.notes?.trim() || null,
+          total_amount: total,
+          created_by: uid,
+        })
+        .select("id")
+        .single();
+
+      if (insErr) throw insErr;
+
+      const voucherId = row!.id as string;
+
+      const { error: linesErr } = await supabase.from("disbursement_voucher_lines").insert(
+        lineRows.map((l) => ({
+          voucher_id: voucherId,
+          sort_order: l.sort_order,
+          description: l.description,
+          amount: l.amount,
+        })),
+      );
+
+      if (linesErr) {
+        await supabase.from("disbursement_vouchers").delete().eq("id", voucherId);
+        throw linesErr;
+      }
+
+      return voucherId;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.disbursementVouchers });
     },
   });
 }

@@ -457,7 +457,7 @@ export const pdfBrandStyles = StyleSheet.create({
 });
 
 // ============================================================
-// Logo — يُفضَّل src مضمَّناً كـ data URI (prepareFluxenPdfTree قبل التصدير)
+// Logo — يُفضَّل src مضمَّناً كـ data URI (prepareTajMallPdfTree قبل التصدير)
 // ============================================================
 function PdfLogoFallback({ size }: { size: number }) {
   return (
@@ -554,7 +554,7 @@ export const PdfMoneyText = ({
 // ============================================================
 // Footer Component
 // ============================================================
-export const FluxenPdfFooter = ({
+export const TajMallPdfFooter = ({
   companyName = BRAND.fullName,
   tagline = BRAND.tagline,
   footerNote = 'وثيقة داخلية للاستخدام الإداري — لا تُعتمد أمام الغير دون توثيق رسمي. يُعتد بالنسخ المختومة فقط.',
@@ -590,7 +590,7 @@ type HeaderProps = {
   };
 };
 
-export const FluxenPdfHeader = ({ 
+export const TajMallPdfHeader = ({ 
   titleEn, 
   subtitleAr, 
   refLine,

@@ -2,7 +2,7 @@
 /**
  * نصوص PDF والعربية
  *
- * في debtflow-pro تُكتب الجمل العربية مباشرة داخل `<Text>` مع خط Tajawal (مسجَّل في react-pdf تحت اسم عائلة مثل Cairo أو FluxenPdf)،
+ * في debtflow-pro تُكتب الجمل العربية مباشرة داخل `<Text>` مع خط Tajawal (مسجَّل في react-pdf تحت اسم عائلة مثل Cairo أو TajMallPdf)،
  * دون «تشكيل يدوي + عكس» — react-pdf يضمّن الخط ويعرض Unicode المنطقي بشكل صحيح.
  *
  * النسخة السابقة من `ar()` كانت تعيد تشكيل الحروف وعكس الترتيب، فظهر النص كرموز غير مقروءة
@@ -23,6 +23,15 @@ export function ar(text: string | number | null | undefined): string {
 export function arMoney(amount: number, currency = 'د.ل'): string {
   const formatted = new Intl.NumberFormat('en-US').format(Math.round(amount || 0));
   return `${formatted} ${currency}`;
+}
+
+/**
+ * مبلغ + عملة بترتيب «الرقم ثم العملة» داخل سياق RTL في react-pdf؛ يمنع انقلاب ترتيب البيدي للعملات العربية.
+ */
+export function ltrAmountCurrency(amount: number, currency = 'د.ل'): string {
+  const formatted = new Intl.NumberFormat('en-US').format(Math.round(amount || 0));
+  const curr = String(currency ?? '').trim();
+  return `\u202A${formatted}\u00A0${curr}\u202C`;
 }
 
 /**

@@ -3,8 +3,21 @@ import React from 'react';
 import { Document, Page, Text, View } from '@react-pdf/renderer';
 import { ar, arDateParts } from './arabicPDF';
 import { pdfBase } from './pdfBase';
-import { FluxenPdfFooter, FluxenPdfHeader, PdfLogoMark } from './pdfBrandKit';
+import { TajMallPdfFooter, TajMallPdfHeader, PdfLogoMark, pdfFmtNum } from './pdfBrandKit';
 import { BRAND } from '@/lib/brand';
+
+/**
+ * خلية في ملخص الوثيقة.
+ * — استخدم `moneyAmount` لعرض **العملة يسار المبلغ** (صف LTR صريح داخل خلية rtl).
+ * — أو `value` لنص عادي؛ `valueDirection: 'ltr'` اختياري للنصوص المختلطة.
+ */
+export type ReportShellMetaCell = {
+  label: string;
+  value?: string;
+  moneyAmount?: number;
+  currency?: string;
+  valueDirection?: 'ltr' | 'rtl';
+};
 
 /**
  * هيكل صفحة PDF احترافي للتقارير المالية.
@@ -12,11 +25,16 @@ import { BRAND } from '@/lib/brand';
  * - الشعار + الاسم: مثبَّتان بإحداثيات صريحة على يمين الورقة.
  * - عنوان التقرير: مثبَّت على يسار الورقة، النص يبدأ من الحافة اليسرى تماماً.
  * - بطاقة ملخص الوثيقة: شريط داكن علوي + خلية تاريخ كبيرة + خلايا KPI مفصولة بخطوط شعرية.
+ * - يمكن تمرير `summaryPrimaryDateIso` لعرض **تاريخ الإذن/التقرير** في الخلية الكبرى بدل تاريخ اليوم فقط.
  */
 export function ReportShell({
   title,
   subtitle,
   metaCells = [],
+  /** إن وُجد، تُستخدم الخلية الكبرى في الملخص لهذا التاريخ (مثل تاريخ إذن الصرف) بدل تاريخ اليوم */
+  summaryPrimaryDateIso,
+  /** تسمية الخلية الكبرى — الافتراضي: تاريخ إصدار الوثيقة */
+  summaryPrimaryDateLabel,
   children,
   showFooter = true,
   showHeader = true,
@@ -24,7 +42,9 @@ export function ReportShell({
 }: {
   title: string;
   subtitle?: string;
-  metaCells?: { label: string; value: string }[];
+  metaCells?: ReportShellMetaCell[];
+  summaryPrimaryDateIso?: string;
+  summaryPrimaryDateLabel?: string;
   children: React.ReactNode;
   showFooter?: boolean;
   showHeader?: boolean;
@@ -35,7 +55,18 @@ export function ReportShell({
     companyInfo?: any;
   };
 }) {
-  const dateParts = arDateParts(new Date());
+  const summaryDate =
+    summaryPrimaryDateIso != null && summaryPrimaryDateIso.trim() !== ''
+      ? new Date(
+          summaryPrimaryDateIso.includes('T')
+            ? summaryPrimaryDateIso
+            : `${summaryPrimaryDateIso.slice(0, 10)}T12:00:00`,
+        )
+      : null;
+  const dateParts = arDateParts(
+    summaryDate && !Number.isNaN(summaryDate.getTime()) ? summaryDate : new Date(),
+  );
+  const luxeBigDateLabel = summaryPrimaryDateLabel ?? 'تاريخ إصدار الوثيقة';
 
   return (
     <Document title={`${BRAND.name} - ${title}`} author={BRAND.fullName}>
@@ -62,7 +93,7 @@ export function ReportShell({
 
         {/* Alternative Full Header */}
         {headerProps && (
-          <FluxenPdfHeader
+          <TajMallPdfHeader
             titleEn={headerProps.titleEn || title}
             subtitleAr={headerProps.subtitleAr || subtitle || ''}
             refLine={headerProps.refLine}
@@ -79,9 +110,9 @@ export function ReportShell({
             </View>
 
             <View style={pdfBase.luxeRow}>
-              {/* خلية التاريخ — أول الخلايا (يمين الورقة في RTL) */}
+              {/* خلية التاريخ — يمين بطاقة الملخص (row-reverse في pdfBase.luxeRow) */}
               <View style={pdfBase.luxeDateCell}>
-                <Text style={pdfBase.luxeEyebrow}>{ar('تاريخ إصدار الوثيقة')}</Text>
+                <Text style={pdfBase.luxeEyebrow}>{ar(luxeBigDateLabel)}</Text>
                 <View style={pdfBase.luxeDateBlock}>
                   <Text style={pdfBase.luxeDay}>{dateParts.day}</Text>
                   <View style={pdfBase.luxeDateTexts}>
@@ -99,7 +130,26 @@ export function ReportShell({
                 <View key={`luxe-div-${i}`} style={pdfBase.luxeDivider} />,
                 <View key={`luxe-cell-${i}`} style={pdfBase.luxeCell}>
                   <Text style={pdfBase.luxeEyebrow}>{ar(c.label)}</Text>
-                  <Text style={pdfBase.luxeValue}>{ar(c.value)}</Text>
+                  {c.moneyAmount != null && Number.isFinite(c.moneyAmount) ? (
+                    <View wrap={false} style={pdfBase.luxeMoneyRow}>
+                      <Text style={pdfBase.luxeMoneyCurrency}>
+                        {ar(c.currency ?? 'د.ل')}
+                      </Text>
+                      <Text style={pdfBase.luxeValue}>{pdfFmtNum(c.moneyAmount)}</Text>
+                    </View>
+                  ) : (
+                    <Text
+                      style={[
+                        pdfBase.luxeValue,
+                        c.valueDirection === 'ltr' && {
+                          direction: 'ltr',
+                          textAlign: 'left',
+                        },
+                      ]}
+                    >
+                      {ar(c.value ?? '')}
+                    </Text>
+                  )}
                 </View>,
               ])}
             </View>
@@ -110,7 +160,7 @@ export function ReportShell({
         {children}
 
         {/* FOOTER */}
-        {showFooter && <FluxenPdfFooter />}
+        {showFooter && <TajMallPdfFooter />}
 
         {/* Page Number */}
         <Text

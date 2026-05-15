@@ -1,3 +1,5 @@
+/** مفتاح تخزين محلي لمسودة إذن الصرف (يجب أن يبقى ثابتاً لتجنّب فقدان البيانات عند التحديثات). */
+export const VOUCHER_DRAFT_STORAGE_KEY = 'fluxen:voucher-draft:v1';
 
 export type VoucherDraftSnapshot = {
   number: string;
@@ -38,9 +40,14 @@ export function loadVoucherDraft(): VoucherDraftSnapshot | null {
   }
 }
 
-export function saveVoucherDraft(data: VoucherDraftSnapshot): void {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(VOUCHER_DRAFT_STORAGE_KEY, JSON.stringify(data));
+export function saveVoucherDraft(data: VoucherDraftSnapshot): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    window.localStorage.setItem(VOUCHER_DRAFT_STORAGE_KEY, JSON.stringify(data));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function clearVoucherDraft(): void {

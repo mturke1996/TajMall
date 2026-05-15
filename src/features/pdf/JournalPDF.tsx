@@ -32,6 +32,7 @@ const s = StyleSheet.create({
     overflow: 'hidden',
   },
   entryHeader: {
+    direction: 'rtl',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -78,6 +79,7 @@ const s = StyleSheet.create({
     color: PDF.text,
   },
   tableHead: {
+    direction: 'rtl',
     flexDirection: 'row',
     paddingVertical: 6,
     paddingHorizontal: 12,
@@ -86,6 +88,7 @@ const s = StyleSheet.create({
     borderBottomColor: PDF.border,
   },
   tableRow: {
+    direction: 'rtl',
     flexDirection: 'row',
     paddingVertical: 4,
     paddingHorizontal: 12,
@@ -105,6 +108,7 @@ const s = StyleSheet.create({
   colCredit: { width: 80, textAlign: 'center' },
   colDesc: { flex: 1, textAlign: 'right', paddingRight: 8 },
   totalRow: {
+    direction: 'rtl',
     flexDirection: 'row',
     paddingVertical: 6,
     paddingHorizontal: 12,

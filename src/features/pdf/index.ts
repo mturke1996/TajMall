@@ -1,4 +1,4 @@
-// Fluxen PDF System — Arabic PDF export (journals & shared shell)
+// PDF — تصدير عربي لتاج مول (التقارير والغلاف المشترك)
 // ============================================================
 
 // Core
@@ -6,7 +6,7 @@ export { registerPdfFonts, PDF_FONT_FAMILY } from './pdfFonts';
 export { ar, arMoney, arDate } from './arabicPDF';
 export { ReportShell } from './ReportShell';
 export { DownloadPdfButton } from './download-button';
-export { FluxenPdfToolbar } from './fluxen-pdf-toolbar';
+export { TajMallPdfToolbar } from './taj-mall-pdf-toolbar';
 
 // Brand Kit
 export {
@@ -14,8 +14,8 @@ export {
   LIBYAN_CURRENCY_LABEL,
   pdfBrandStyles,
   PdfLogoMark,
-  FluxenPdfFooter,
-  FluxenPdfHeader,
+  TajMallPdfFooter,
+  TajMallPdfHeader,
   pdfFmtNum,
   pdfFmtDate,
   pdfFmtMoneyLibyan,

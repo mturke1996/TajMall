@@ -4,9 +4,10 @@ import { useState, type ReactElement } from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { FileDown, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { registerPdfFonts } from './pdfFonts';
-import { prepareFluxenPdfTree } from './prepare-fluxen-pdf-tree';
+import { prepareTajMallPdfTree } from './prepare-taj-mall-pdf-tree';
 
 type Props = {
   /** بدون امتداد .pdf */
@@ -15,21 +16,24 @@ type Props = {
   disabled?: boolean;
   /** إظهار زر التحميل بجانب العرض */
   showDownload?: boolean;
+  /** لفيفكس المحيط على الهاتف مع عناصر actions موسَّعة */
+  className?: string;
 };
 
 async function renderPdfBlob(render: () => Promise<ReactElement>): Promise<Blob> {
   registerPdfFonts();
-  const wrapped = await prepareFluxenPdfTree(await render());
+  const wrapped = await prepareTajMallPdfTree(await render());
   const instance = pdf();
   instance.updateContainer(wrapped);
   return instance.toBlob();
 }
 
-export function FluxenPdfToolbar({
+export function TajMallPdfToolbar({
   fileName,
   render,
   disabled,
   showDownload = true,
+  className,
 }: Props) {
   const [openBusy, setOpenBusy] = useState(false);
   const [dlBusy, setDlBusy] = useState(false);
@@ -89,12 +93,12 @@ export function FluxenPdfToolbar({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className={cn('flex flex-wrap items-center gap-2', className)}>
       <Button
         type="button"
         variant="default"
         size="sm"
-        className="gap-1.5 bg-sage-700 hover:bg-sage-800"
+        className="min-h-11 touch-manipulation gap-1.5 bg-sage-700 hover:bg-sage-800 sm:min-h-9"
         disabled={disabled || openBusy}
         onClick={handleOpen}
       >
@@ -110,7 +114,7 @@ export function FluxenPdfToolbar({
           type="button"
           variant="outline"
           size="sm"
-          className="gap-1.5"
+          className="min-h-11 touch-manipulation gap-1.5 sm:min-h-9"
           disabled={disabled || dlBusy}
           onClick={handleDownload}
         >

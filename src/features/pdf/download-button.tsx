@@ -5,7 +5,7 @@ import { pdf } from '@react-pdf/renderer';
 import { Printer, Loader2 } from 'lucide-react';
 import { Button, type ButtonProps } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { prepareFluxenPdfTree } from './prepare-fluxen-pdf-tree';
+import { prepareTajMallPdfTree } from './prepare-taj-mall-pdf-tree';
 import { registerPdfFonts } from './pdfFonts';
 
 type Props = ButtonProps & {
@@ -38,7 +38,7 @@ export function DownloadPdfButton({
     setLoading(true);
     try {
       registerPdfFonts();
-      const wrapped = await prepareFluxenPdfTree(await render());
+      const wrapped = await prepareTajMallPdfTree(await render());
       const instance = pdf();
       instance.updateContainer(wrapped);
       const blob = await instance.toBlob();

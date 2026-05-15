@@ -34,7 +34,7 @@ import {
 } from '@/lib/db/journal-queries';
 import { JournalEntryDialog } from './components/journal-entry-dialog';
 import { JournalDetailDialog } from './components/journal-detail-dialog';
-import { FluxenPdfToolbar } from '@/features/pdf/fluxen-pdf-toolbar';
+import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 
 const STATUS_CONFIG: Record<JournalStatus, {
   label: string;
@@ -155,7 +155,7 @@ export default function JournalsPage() {
         description="نظام القيود المزدوجة - المدين والدائن - مع الترحيل والعكس"
         actions={
           <>
-            <FluxenPdfToolbar
+            <TajMallPdfToolbar
               fileName={`دفتر-اليومية-${new Date().getFullYear()}`}
               render={async () => {
                 const [{ JournalPDF }, { createSupabaseBrowserClient }] =

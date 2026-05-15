@@ -8,7 +8,7 @@ import { TransactionsTable } from '@/components/data/transactions-table';
 import { Stat } from '@/components/dashboard/stat';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
 import { useTransactions } from '@/lib/db/queries';
-import { FluxenPdfToolbar } from '@/features/pdf/fluxen-pdf-toolbar';
+import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 
 export default function RevenuesPage() {
   const [query, setQuery] = useState('');
@@ -42,7 +42,7 @@ export default function RevenuesPage() {
         description="جميع الإيرادات النقدية والمصرفية للمنظومة المالية."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <FluxenPdfToolbar
+            <TajMallPdfToolbar
               fileName={`إيرادات-${new Date().toISOString().slice(0, 10)}`}
               disabled={filtered.length === 0}
               render={async () => {

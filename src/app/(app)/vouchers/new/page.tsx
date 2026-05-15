@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowRight, CheckCircle2, Plus, Save, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -15,19 +16,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FluxenPdfToolbar } from '@/features/pdf/fluxen-pdf-toolbar';
-import type { VoucherPdfModel } from '@/features/pdf/VoucherPDF';
+import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+import { VoucherPDF, type VoucherPdfModel } from '@/features/pdf/VoucherPDF';
 import {
   clearVoucherDraft,
   loadVoucherDraft,
   saveVoucherDraft,
 } from '@/lib/voucher-draft';
+import { voucherUiMethodToPaymentMethod } from '@/lib/voucher-db';
+import { useCreateDisbursementVoucher } from '@/lib/db/queries';
 import { toast } from 'sonner';
 
 const METHODS: VoucherPdfModel['method'][] = ['نقدي', 'صك', 'حوالة'];
 const METHOD_SET = new Set<string>(METHODS);
 
 export default function NewVoucherPage() {
+  const router = useRouter();
+  const createDisbursementVoucher = useCreateDisbursementVoucher();
   const [number, setNumber] = useState('');
   const [voucherDate, setVoucherDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
@@ -53,13 +58,6 @@ export default function NewVoucherPage() {
     setMethod(METHOD_SET.has(d.method) ? (d.method as VoucherPdfModel['method']) : 'نقدي');
     setNotes(d.notes);
     setLines(d.lines.length ? d.lines : [{ description: '', amount: '' }]);
-  }, []);
-
-  /** تحميل مسبق لمكوّن PDF حتى تكون النقرة الأولى فورية. */
-  useEffect(() => {
-    void import('@/features/pdf/VoucherPDF');
-    void import('@/features/pdf/pdfFonts').then((m) => m.registerPdfFonts?.());
-    void import('@react-pdf/renderer');
   }, []);
 
   const datePreview = useMemo(() => {
@@ -92,8 +90,8 @@ export default function NewVoucherPage() {
     [lines],
   );
 
-  function handleSaveDraft() {
-    saveVoucherDraft({
+  function handleSaveLocalDraft() {
+    const ok = saveVoucherDraft({
       number,
       voucherDate,
       payee,
@@ -103,9 +101,70 @@ export default function NewVoucherPage() {
       notes,
       lines,
     });
-    toast.success('تم حفظ إذن الصرف على هذا الجهاز', {
-      description: 'يمكنك الرجوع إليه لاحقاً أو تصدير PDF.',
+    if (!ok) {
+      toast.error('تعذّر الحفظ المحلي', {
+        description:
+          'تحقق من إعدادات المتصفح أو التخزين المحلي (قد يكون ملف تعريف خاص أو مساحة ممتلئة).',
+      });
+      return;
+    }
+    toast.success('تم حفظ مسودة على هذا الجهاز', {
+      description: 'الزر الأخضر يحفظ في قاعدة البيانات للفريق.',
     });
+  }
+
+  async function handlePersistVoucher() {
+    const num = number.trim();
+    if (!num) {
+      toast.error('أدخل رقم الإذن');
+      return;
+    }
+    if (!payee.trim()) {
+      toast.error('أدخل اسم المستفيد');
+      return;
+    }
+
+    const normalizedLines = lines
+      .map((l) => ({
+        description: l.description.trim(),
+        amount: Number(l.amount) || 0,
+      }))
+      .filter((l) => l.description.length > 0 || l.amount > 0);
+
+    const sum = normalizedLines.reduce((s, l) => s + l.amount, 0);
+    if (sum <= 0) {
+      toast.error('أضف بنداً بمبلغ أكبر من صفر');
+      return;
+    }
+
+    try {
+      await createDisbursementVoucher.mutateAsync({
+        voucher_number: num,
+        voucher_date: voucherDate,
+        payee: payee.trim(),
+        bank_name: bank.trim() || null,
+        account_number: account.trim() || null,
+        method: voucherUiMethodToPaymentMethod(method),
+        notes: notes.trim() || null,
+        lines: normalizedLines.map((l) => ({
+          description: l.description || '—',
+          amount: l.amount,
+        })),
+      });
+      clearVoucherDraft();
+      toast.success('تم حفظ إذن الصرف في قاعدة البيانات');
+      router.push('/vouchers');
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string };
+      const msg = typeof err?.message === 'string' ? err.message : '';
+      if (err?.code === '23505' || msg.includes('duplicate key')) {
+        toast.error('رقم الإذن مستخدم بالفعل لهذا التاريخ');
+        return;
+      }
+      toast.error('تعذّر الحفظ في قاعدة البيانات', {
+        description: err?.message ?? 'تحقق من الاتصال وتشغيل ترحيل قاعدة البيانات.',
+      });
+    }
   }
 
   function handleClearDraft() {
@@ -164,28 +223,32 @@ export default function NewVoucherPage() {
       <PageHeader
         eyebrow="إذونات الصرف"
         title="إنشاء إذن صرف"
-        description="عبّئ البيانات ثم احفظ الإذن أو صدّره PDF. الحفظ يحتفظ بنسخة على هذا الجهاز."
+        description="عبّئ البيانات ثم احفظ الإذن في قاعدة البيانات أو صدّره PDF. تُحمَّل آخر مسودة محلية من المتصفح تلقائياً عند فتح الصفحة."
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-stretch gap-2 sm:w-auto sm:items-center">
             <Button
               type="button"
               size="sm"
-              className="gap-1.5 bg-emerald-700 text-white shadow-sm hover:bg-emerald-800"
-              onClick={handleSaveDraft}
+              className="min-h-11 flex-1 gap-1.5 touch-manipulation bg-emerald-700 text-white shadow-sm hover:bg-emerald-800 sm:min-h-9 sm:flex-none"
+              disabled={createDisbursementVoucher.isPending}
+              onClick={handlePersistVoucher}
             >
-              <Save className="h-4 w-4 stroke-[1.8]" />
-              حفظ الإذن
+              <Save className="h-4 w-4 shrink-0 stroke-[1.8]" />
+              {createDisbursementVoucher.isPending ? 'جاري الحفظ…' : 'حفظ في النظام'}
             </Button>
-            <FluxenPdfToolbar
+            <TajMallPdfToolbar
+              className="flex w-full basis-full flex-wrap gap-2 sm:w-auto sm:basis-auto"
               fileName={`إذن-صرف-${voucherModel.number}-${voucherDate}`}
-              render={async () => {
-                const { VoucherPDF } = await import('@/features/pdf/VoucherPDF');
-                return <VoucherPDF voucher={voucherModel} />;
-              }}
+              render={async () => <VoucherPDF voucher={voucherModel} />}
             />
-            <Button variant="outline" size="sm" asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-11 flex-1 touch-manipulation sm:min-h-9 sm:flex-none"
+              asChild
+            >
               <Link href="/vouchers" className="gap-1.5">
-                <ArrowRight className="h-4 w-4 rotate-180 stroke-[1.6]" />
+                <ArrowRight className="h-4 w-4 shrink-0 rotate-180 stroke-[1.6]" />
                 العودة للقائمة
               </Link>
             </Button>
@@ -193,8 +256,8 @@ export default function NewVoucherPage() {
         }
       />
 
-      <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-5 sm:px-5 sm:py-7 md:px-8 md:py-10">
-        <Card className="space-y-5 p-5">
+      <div className="mx-auto flex max-w-3xl flex-col gap-6 px-3 py-4 pb-[calc(env(safe-area-inset-bottom,0px)+5rem)] sm:px-5 sm:py-7 sm:pb-10 md:px-8 md:py-10">
+        <Card className="space-y-5 overflow-hidden p-4 sm:p-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="v-num">رقم الإذن</Label>
@@ -223,8 +286,8 @@ export default function NewVoucherPage() {
               <p className="mb-3 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-emerald-700/90">
                 تاريخ الإذن — معاينة الوثيقة
               </p>
-              <div className="flex items-end gap-4">
-                <span className="text-5xl font-bold leading-none tabular-nums text-ink">
+              <div className="flex items-end gap-4" dir="rtl">
+                <span className="text-4xl font-bold leading-none tabular-nums text-ink sm:text-5xl">
                   {datePreview.day}
                 </span>
                 <div className="pb-1">
@@ -367,7 +430,7 @@ export default function NewVoucherPage() {
           </div>
 
           {/* شريط الإجمالي + زر الحفظ كنداء فعل أساسي داخل الكرت */}
-          <div className="-mx-5 -mb-5 mt-2 flex flex-col gap-3 border-t border-border bg-muted/30 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="-mx-4 -mb-4 mt-2 flex flex-col gap-3 border-t border-border bg-muted/30 px-4 py-4 sm:-mx-5 sm:-mb-5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex items-baseline gap-3">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-mute">
                 إجمالي الإذن
@@ -377,24 +440,34 @@ export default function NewVoucherPage() {
               </span>
               <span className="text-sm font-semibold text-ink-mute">د.ل</span>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-wrap items-stretch gap-2 sm:w-auto sm:flex-nowrap sm:items-center">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={handleClearDraft}
-                className="text-ink-mute hover:text-red-600"
+                className="min-h-11 touch-manipulation text-ink-mute hover:text-red-600 sm:min-h-9"
               >
-                مسح المحفوظ
+                مسح المحفوظ محلياً
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-11 touch-manipulation sm:min-h-9"
+                onClick={handleSaveLocalDraft}
+              >
+                مسودة محلية
               </Button>
               <Button
                 type="button"
                 size="default"
-                className="gap-1.5 bg-emerald-700 text-white shadow-sm hover:bg-emerald-800"
-                onClick={handleSaveDraft}
+                className="min-h-11 flex-1 touch-manipulation gap-1.5 bg-emerald-700 text-white shadow-sm hover:bg-emerald-800 sm:min-h-10 sm:flex-none"
+                disabled={createDisbursementVoucher.isPending}
+                onClick={handlePersistVoucher}
               >
                 <CheckCircle2 className="h-4 w-4 stroke-[1.8]" />
-                حفظ إذن الصرف
+                {createDisbursementVoucher.isPending ? 'جاري الحفظ…' : 'حفظ إذن الصرف'}
               </Button>
             </div>
           </div>

@@ -27,6 +27,7 @@ const KIND_AR: Record<string, string> = {
 
 const col = StyleSheet.create({
   row: {
+    direction: 'rtl',
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
@@ -36,6 +37,7 @@ const col = StyleSheet.create({
   },
   rowAlt: { backgroundColor: PDF.rowAlt },
   head: {
+    direction: 'rtl',
     flexDirection: 'row',
     backgroundColor: PDF.headerBg,
     paddingVertical: 7,
@@ -56,9 +58,11 @@ const col = StyleSheet.create({
   amt: { width: '13%', textAlign: 'center' },
   desc: { flex: 1, textAlign: 'right', paddingRight: 4 },
   foot: {
+    direction: 'ltr',
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    justifyContent: 'flex-start',
+    alignItems: 'baseline',
+    gap: 10,
     marginTop: 10,
     paddingVertical: 10,
     paddingHorizontal: 10,
@@ -83,43 +87,44 @@ export function TransactionsReportPDF({ titleAr, subtitleAr, rows }: Transaction
       subtitle={subtitleAr}
       metaCells={[
         { label: 'عدد القيود', value: pdfFmtNum(rows.length) },
-        { label: 'إجمالي المبالغ', value: `${pdfFmtNum(total)} د.ل` },
+        { label: 'إجمالي المبالغ', moneyAmount: total },
       ]}
     >
       <Text style={pdfBase.sectionTitle}>{ar('تفاصيل المعاملات')}</Text>
 
+      {/* ترتيب الأعمدة يطابق القراءة من اليمين: البيان ← … ← الرقم */}
       <View style={col.head} wrap={false}>
-        <Text style={[col.th, col.num]}>{ar('الرقم')}</Text>
-        <Text style={[col.th, col.date]}>{ar('التاريخ')}</Text>
-        <Text style={[col.th, col.cat]}>{ar('البند')}</Text>
-        <Text style={[col.th, col.box]}>{ar('الخزينة')}</Text>
-        <Text style={[col.th, col.kind]}>{ar('النوع')}</Text>
-        <Text style={[col.th, col.method]}>{ar('الطريقة')}</Text>
-        <Text style={[col.th, col.amt]}>{ar('المبلغ')}</Text>
         <Text style={[col.th, col.desc]}>{ar('البيان')}</Text>
+        <Text style={[col.th, col.amt]}>{ar('المبلغ')}</Text>
+        <Text style={[col.th, col.method]}>{ar('الطريقة')}</Text>
+        <Text style={[col.th, col.kind]}>{ar('النوع')}</Text>
+        <Text style={[col.th, col.box]}>{ar('الخزينة')}</Text>
+        <Text style={[col.th, col.cat]}>{ar('البند')}</Text>
+        <Text style={[col.th, col.date]}>{ar('التاريخ')}</Text>
+        <Text style={[col.th, col.num]}>{ar('الرقم')}</Text>
       </View>
 
       {rows.map((r, i) => (
         <View key={r.id} style={[col.row, i % 2 === 1 ? col.rowAlt : {}]} wrap={false}>
-          <Text style={[col.tdMuted, col.num]}>{pdfFmtNum(r.number)}</Text>
-          <Text style={[col.tdMuted, col.date]}>{pdfFmtDate(r.tx_date)}</Text>
-          <Text style={[col.td, col.cat]}>{ar(r.category?.name_ar ?? '—')}</Text>
-          <Text style={[col.td, col.box]}>{ar(r.cashbox?.name_ar ?? '—')}</Text>
-          <Text style={[col.td, col.kind]}>{ar(KIND_AR[r.kind] ?? r.kind)}</Text>
-          <Text style={[col.td, col.method]}>{ar(METHOD_AR[r.method] ?? r.method)}</Text>
+          <Text style={[col.td, col.desc]}>{ar(r.description ?? '—')}</Text>
           <View style={col.amt}>
             <PdfMoneyText amount={Number(r.amount)} />
           </View>
-          <Text style={[col.td, col.desc]}>{ar(r.description ?? '—')}</Text>
+          <Text style={[col.td, col.method]}>{ar(METHOD_AR[r.method] ?? r.method)}</Text>
+          <Text style={[col.td, col.kind]}>{ar(KIND_AR[r.kind] ?? r.kind)}</Text>
+          <Text style={[col.td, col.box]}>{ar(r.cashbox?.name_ar ?? '—')}</Text>
+          <Text style={[col.td, col.cat]}>{ar(r.category?.name_ar ?? '—')}</Text>
+          <Text style={[col.tdMuted, col.date]}>{pdfFmtDate(r.tx_date)}</Text>
+          <Text style={[col.tdMuted, col.num]}>{pdfFmtNum(r.number)}</Text>
         </View>
       ))}
 
       <View style={col.foot} wrap={false}>
-        <Text style={pdfBase.footLabel}>{ar('الإجمالي')}</Text>
         <PdfMoneyText amount={total} style={{ fontSize: 11, fontWeight: 'bold' }} />
+        <Text style={pdfBase.footLabel}>{ar('الإجمالي')}</Text>
       </View>
 
-      <Text style={pdfBase.caption}>{ar('وثيقة مُولَّدة آلياً من منظومة فلاكسن')}</Text>
+      <Text style={pdfBase.caption}>{ar('وثيقة مُولَّدة آلياً من منظومة تاج مول')}</Text>
     </ReportShell>
   );
 }

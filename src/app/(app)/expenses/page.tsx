@@ -9,7 +9,7 @@ import { Stat } from '@/components/dashboard/stat';
 import { CategoryBreakdown } from '@/components/dashboard/category-breakdown';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
 import { useTransactions } from '@/lib/db/queries';
-import { FluxenPdfToolbar } from '@/features/pdf/fluxen-pdf-toolbar';
+import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 
 export default function ExpensesPage() {
   const [query, setQuery] = useState('');
@@ -54,7 +54,7 @@ export default function ExpensesPage() {
         description="مصاريف إدارية وعمومية وتشغيلية مرتبة حسب البند."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <FluxenPdfToolbar
+            <TajMallPdfToolbar
               fileName={`مصروفات-${new Date().toISOString().slice(0, 10)}`}
               disabled={filtered.length === 0}
               render={async () => {

@@ -8,7 +8,7 @@ import { TransactionsTable } from '@/components/data/transactions-table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
 import { useTransactions } from '@/lib/db/queries';
-import { FluxenPdfToolbar } from '@/features/pdf/fluxen-pdf-toolbar';
+import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 
 export default function TransactionsPage() {
   const [tab, setTab] = useState('all');
@@ -53,7 +53,7 @@ export default function TransactionsPage() {
         description="إيرادات ومصروفات ومعاملات الخزائن في مكان واحد."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <FluxenPdfToolbar
+            <TajMallPdfToolbar
               fileName={`معاملات-${tab}-${new Date().toISOString().slice(0, 10)}`}
               disabled={pdfRows.length === 0}
               render={async () => {

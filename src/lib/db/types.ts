@@ -1,5 +1,5 @@
 /**
- * Database row types — mirror the schema in supabase/migrations/001_init.sql.
+ * Database row types — mirror the schema in `supabase/migrations/` (مثل 001_init و009 إذونات الصرف).
  * Keep these in sync with the SQL definitions.
  */
 
@@ -184,4 +184,44 @@ export type SaveTransactionDraftInput = {
   kind: TxKind;
   label?: string | null;
   payload: TransactionDraftPayload;
+};
+
+/** إذن صرف — يطابق جداول Supabase في migrations/009_disbursement_vouchers.sql */
+export type DisbursementVoucherRow = {
+  id: string;
+  voucher_number: string;
+  voucher_date: string;
+  payee: string;
+  bank_name: string | null;
+  account_number: string | null;
+  method: PaymentMethod;
+  notes: string | null;
+  total_amount: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DisbursementVoucherLineRow = {
+  id: string;
+  voucher_id: string;
+  sort_order: number;
+  description: string;
+  amount: string;
+  created_at: string;
+};
+
+export type DisbursementVoucherWithLines = DisbursementVoucherRow & {
+  disbursement_voucher_lines: DisbursementVoucherLineRow[];
+};
+
+export type SaveDisbursementVoucherInput = {
+  voucher_number: string;
+  voucher_date: string;
+  payee: string;
+  bank_name?: string | null;
+  account_number?: string | null;
+  method: PaymentMethod;
+  notes?: string | null;
+  lines: { description: string; amount: number }[];
 };

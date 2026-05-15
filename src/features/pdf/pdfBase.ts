@@ -1,10 +1,10 @@
 // @ts-nocheck
 /**
- * Base PDF styles for Fluxen Financial System
+ * Base PDF styles — منظومة تاج مول (التقارير والوثائق)
  * Core styling shared across all PDF reports
  *
- * الاتجاه: الصفحة `direction: 'rtl'` للنص والجداول؛ رأس التقرير يثبت الشعار بـ `position: absolute`
- * على يمين الصفحة لأن react-pdf لا يعكس flex مع RTL كالمتصفح.
+ * الاتجاه: الصفحة `direction: 'rtl'` للنص؛ صف «ملخص الوثيقة» يستخدم `row-reverse` + `ltr`
+ * لأن Yoga في react-pdf لا يعكس محور flex مع `direction: 'rtl'` كالمتصفح.
  */
 
 import { PDF_FONT_FAMILY } from './pdfFonts';
@@ -187,12 +187,13 @@ export const pdfBase = {
     backgroundColor: PDF.white,
   },
 
+  /** شريط العنوان: صراحةً من اليمين (العنوان) إلى اليسار (تلميح العلامة) — Yoga لا يعكس flex مثل المتصفح */
   luxeRibbon: {
     backgroundColor: PDF.primary,
     paddingVertical: 6,
     paddingHorizontal: 14,
-    flexDirection: 'row',
-    direction: 'rtl',
+    flexDirection: 'row-reverse',
+    direction: 'ltr',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
@@ -214,9 +215,10 @@ export const pdfBase = {
     textAlign: 'left',
   },
 
+  /** صف الملخص: أول عنصر في JSX = خلية التاريخ → تُرسَم يمين الورقة، ثم الفواصل والخلايا نحو اليسار */
   luxeRow: {
-    direction: 'rtl',
-    flexDirection: 'row',
+    direction: 'ltr',
+    flexDirection: 'row-reverse',
     alignItems: 'stretch',
   },
 
@@ -312,6 +314,23 @@ export const pdfBase = {
     lineHeight: 1.15,
   },
 
+  /** صف عملة + رقم — LTR؛ العملة أيسر والمبلغ على يمينها؛ المحتوى يُحاذى يمين الخلية */
+  luxeMoneyRow: {
+    width: '100%',
+    flexDirection: 'row',
+    direction: 'ltr',
+    alignItems: 'baseline',
+    justifyContent: 'flex-end',
+    gap: 6,
+  },
+
+  luxeMoneyCurrency: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: PDF.primary,
+    letterSpacing: 0.2,
+  },
+
   luxeValueSub: {
     fontSize: 8,
     color: PDF.muted,
@@ -321,6 +340,7 @@ export const pdfBase = {
   },
 
   tableHead: {
+    direction: 'rtl',
     flexDirection: 'row',
     backgroundColor: PDF.headerBg,
     paddingVertical: 8,
@@ -338,6 +358,7 @@ export const pdfBase = {
   },
 
   tableRow: {
+    direction: 'rtl',
     flexDirection: 'row',
     paddingVertical: 7,
     paddingHorizontal: 8,

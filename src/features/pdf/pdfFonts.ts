@@ -6,7 +6,7 @@ import { Font } from '@react-pdf/renderer';
  * اسم العائلة داخل ملف PDF — ليس اسم الخط الظاهر للمستخدم.
  * غيّرنا الاسم عن «Cairo» حتى لا يبقى في ذاكرة المتصفح/HMR تسجيل قديم بلا نسخة italic.
  */
-export const PDF_FONT_FAMILY = 'FluxenPdf';
+export const PDF_FONT_FAMILY = 'TajMallPdf';
 
 /**
  * تسجيل Tajawal مع احتياط italic (نفس ملف Regular/Bold) — react-pdf يطلب أحياناً italic + 400.
