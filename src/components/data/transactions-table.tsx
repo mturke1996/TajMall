@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowDownLeft, ArrowUpRight, Receipt, Loader2, Trash2, User, Building2, Briefcase } from 'lucide-react';
+import Link from 'next/link';
 import {
   Table,
   TableHeader,
@@ -120,10 +121,13 @@ export function TransactionsTable({
                     <p className="font-medium truncate">{r.description || 'بدون وصف'}</p>
                     <p className="text-xs text-ink-mute">{r.category?.name_ar}</p>
                     {contactName && (
-                      <p className="text-xs text-sage-600 flex items-center gap-1 mt-0.5">
+                      <Link
+                        href={`/contacts?id=${r.contact?.id}`}
+                        className="text-xs text-sage-600 hover:text-sage-800 hover:underline flex items-center gap-1 mt-0.5"
+                      >
                         {contactIcon}
                         <span className="truncate">{contactName} {r.contact?.shop_number ? `(محل ${r.contact.shop_number})` : ''}</span>
-                      </p>
+                      </Link>
                     )}
                   </div>
                 </div>
@@ -184,12 +188,15 @@ export function TransactionsTable({
                   <TableCell className="max-w-xs truncate">{r.description}</TableCell>
                   <TableCell className="text-xs">
                     {contactName ? (
-                      <span className="flex items-center gap-1 text-sage-700">
+                      <Link
+                        href={`/contacts?id=${r.contact?.id}`}
+                        className="flex items-center gap-1 text-sage-700 hover:text-sage-900 hover:underline"
+                      >
                         {r.contact?.kind === 'TENANT' ? <Building2 className="h-3 w-3" /> : 
                          r.contact?.kind === 'EMPLOYEE' ? <Briefcase className="h-3 w-3" /> : 
                          <User className="h-3 w-3" />}
                         <span>{contactName} {r.contact?.shop_number ? `(محل ${r.contact.shop_number})` : ''}</span>
-                      </span>
+                      </Link>
                     ) : '—'}
                   </TableCell>
                   <TableCell className="text-sm text-ink-mute">{r.cashbox?.name_ar}</TableCell>

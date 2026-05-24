@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTxDialog } from "@/stores/transaction-dialog";
+import { usePermission } from "@/lib/supabase/use-permission";
 
 const leftNavItems = [
   { href: "/dashboard", label: "الرئيسية", icon: LayoutDashboard },
@@ -27,6 +28,8 @@ const rightNavItems = [
 export function MobileBottomNav() {
   const pathname = usePathname();
   const openTx = useTxDialog((s) => s.open);
+  const { can } = usePermission();
+  const canCreate = can("revenue.create") || can("expense.create");
 
   return (
     <nav
@@ -40,10 +43,14 @@ export function MobileBottomNav() {
 
         <div className="flex w-[68px] shrink-0 items-center justify-center -mt-2">
           <motion.button
-            whileTap={{ scale: 0.94 }}
+            whileTap={canCreate ? { scale: 0.94 } : undefined}
             type="button"
-            onClick={() => openTx("REVENUE")}
-            className="grid h-[52px] w-[52px] place-items-center rounded-full bg-sage-700 text-white shadow-lg ring-4 ring-canvas"
+            onClick={canCreate ? () => openTx("REVENUE") : undefined}
+            disabled={!canCreate}
+            className={cn(
+              "grid h-[52px] w-[52px] place-items-center rounded-full ring-4 ring-canvas shadow-lg transition-all",
+              canCreate ? "bg-sage-700 text-white" : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
+            )}
             aria-label="إضافة معاملة"
           >
             <Plus className="h-6 w-6" />

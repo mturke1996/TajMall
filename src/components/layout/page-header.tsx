@@ -19,18 +19,26 @@ export function PageHeader({
   titleClassName?: string;
 }) {
   return (
-    <div className={cn('flex flex-col gap-2 border-b border-border bg-canvas px-4 py-4 sm:px-5 md:px-8 md:py-6', className)}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+    <div
+      className={cn(
+        'flex flex-col gap-2 border-b border-border bg-canvas px-4 py-4 sm:px-5 md:px-8 md:py-5',
+        className,
+      )}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {eyebrow && (
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-mute">
+            <span className="text-[10.5px] font-semibold uppercase tracking-[0.20em] text-muted-foreground">
               {eyebrow}
             </span>
           )}
           {title && (
-            <h1 className={cn('text-lg font-semibold', titleClassName)}>
+            <h1 className={cn('text-[18px] font-bold tracking-tight leading-snug', titleClassName)}>
               {title}
             </h1>
+          )}
+          {description && (
+            <p className="text-[13px] text-muted-foreground leading-snug mt-0.5">{description}</p>
           )}
         </div>
         {actions && (
@@ -39,7 +47,6 @@ export function PageHeader({
           </div>
         )}
       </div>
-      {description && <p className="text-sm text-ink-mute">{description}</p>}
     </div>
   );
 }

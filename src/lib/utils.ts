@@ -48,7 +48,7 @@ export function formatMoney(
   options?: { compact?: boolean; signed?: boolean },
 ) {
   const n = typeof amount === 'string' ? Number(amount) : Number(amount);
-  if (!Number.isFinite(n)) return '0';
+  if (!Number.isFinite(n)) return `0 ${currency}`;
 
   const sign = options?.signed ? (n > 0 ? '+' : n < 0 ? '−' : '') : '';
   const abs = Math.abs(n);
@@ -111,14 +111,28 @@ export function clamp(n: number, min: number, max: number) {
 
 export function formatDateRelative(date: Date | string | number) {
   const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return '—';
   const now = new Date();
   const diff = now.getTime() - d.getTime();
-  const seconds = Math.floor(diff / 1000);
+  const absDiff = Math.abs(diff);
+  const isFuture = diff < 0;
+
+  const seconds = Math.floor(absDiff / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
   if (seconds < 60) return 'الآن';
+
+  if (isFuture) {
+    if (minutes < 60) return `بعد ${minutes} دقيقة`;
+    if (hours < 24) return `بعد ${hours} ساعة`;
+    if (days < 7) return `بعد ${days} يوم`;
+    if (days < 30) return `بعد ${Math.floor(days / 7)} أسبوع`;
+    if (days < 365) return `بعد ${Math.floor(days / 30)} شهر`;
+    return `بعد ${Math.floor(days / 365)} سنة`;
+  }
+
   if (minutes < 60) return `منذ ${minutes} دقيقة`;
   if (hours < 24) return `منذ ${hours} ساعة`;
   if (days < 7) return `منذ ${days} يوم`;

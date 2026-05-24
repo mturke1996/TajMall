@@ -59,16 +59,16 @@ const config: Config = {
          * class names stay stable without a repo-wide rename.
          */
         canvas: {
-          DEFAULT: '#FBFBFA', // warm off-white
-          raised:  '#FFFFFF',
-          sunken:  '#F5F4EF',
+          DEFAULT: 'hsl(var(--canvas))',
+          raised:  'hsl(var(--canvas-raised))',
+          sunken:  'hsl(var(--canvas-sunken))',
         },
         ink: {
-          DEFAULT: '#15171A', // warm near-black
-          soft:    '#3A3F3A',
-          mute:    '#6E7470',
-          line:    '#ECEAE3',
-          subtle:  '#F2F0E9',
+          DEFAULT: 'hsl(var(--ink))',
+          soft:    'hsl(var(--ink-soft))',
+          mute:    'hsl(var(--ink-mute))',
+          line:    'hsl(var(--border))',
+          subtle:  'hsl(var(--secondary))',
         },
         sage: {
           50:  '#fafafa',

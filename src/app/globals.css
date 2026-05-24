@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 /* ============================================================
-   Fluxen — Editorial Light Theme
-   Warm canvas + ink typography — Taj Mall charcoal primary,
-   coral accent (matches circular logo frame). No heavy shadows.
+   Fluxen — Editorial Theme
+   Light: Warm canvas + ink typography — Taj Mall charcoal primary
+   Dark: Deep charcoal canvas with coral accent
    ============================================================ */
 
 @layer base {
@@ -44,30 +44,56 @@
     --border: 42 18% 89%;                 /* #ECEAE3 */
     --input:  42 18% 89%;
     --ring:   359 69% 51%;                 /* coral focus ring */
+
+    /* canvas variants (missing before) */
+    --canvas: 40 14% 98%;
+    --canvas-raised: 0 0% 100%;
+    --canvas-sunken: 40 11% 95%;          /* #F5F4EF */
+
+    /* ink variants */
+    --ink: 210 12% 10%;
+    --ink-soft: 210 8% 23%;
+    --ink-mute: 115 4% 43%;
   }
 
-  /* Light theme is the only theme — but we lock .dark to neutral so
-     accidental .dark classes don't break the surface. */
+  /* ── DARK MODE ─────────────────────────────────────────────── */
   .dark {
-    --background: 40 14% 98%;
-    --foreground: 210 12% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 210 12% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 210 12% 10%;
-    --primary: 0 0% 9%;
+    --background: 220 15% 8%;             /* Deep charcoal */
+    --foreground: 40 14% 94%;             /* Warm off-white */
+
+    --card: 220 13% 11%;
+    --card-foreground: 40 10% 92%;
+    --popover: 220 13% 11%;
+    --popover-foreground: 40 10% 92%;
+
+    --primary: 359 69% 55%;               /* Coral in dark mode */
     --primary-foreground: 0 0% 98%;
-    --secondary: 42 22% 95%;
-    --secondary-foreground: 210 12% 14%;
-    --muted: 42 22% 94%;
-    --muted-foreground: 115 5% 44%;
-    --accent: 42 22% 94%;
-    --accent-foreground: 210 12% 14%;
-    --destructive: 2 56% 38%;
-    --destructive-foreground: 40 22% 96%;
-    --border: 42 18% 89%;
-    --input:  42 18% 89%;
-    --ring:   359 69% 51%;
+
+    --secondary: 220 12% 16%;
+    --secondary-foreground: 40 10% 88%;
+
+    --muted: 220 12% 14%;
+    --muted-foreground: 40 8% 55%;
+
+    --accent: 220 12% 16%;
+    --accent-foreground: 40 10% 88%;
+
+    --destructive: 2 60% 45%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 10% 20%;
+    --input:  220 10% 20%;
+    --ring:   359 69% 55%;
+
+    /* canvas variants for dark */
+    --canvas: 220 15% 8%;
+    --canvas-raised: 220 13% 11%;
+    --canvas-sunken: 220 16% 6%;
+
+    /* ink variants for dark */
+    --ink: 40 14% 94%;
+    --ink-soft: 40 10% 75%;
+    --ink-mute: 40 6% 52%;
   }
 
   * {
@@ -124,14 +150,14 @@
 
   /* Subtle, warm selection */
   ::selection {
-    background: rgba(83, 102, 71, 0.14);
+    background: rgba(217, 72, 65, 0.12);
     color: hsl(var(--foreground));
   }
 
-  /* Editorial scrollbar */
+  /* Editorial scrollbar — Light */
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
@@ -143,7 +169,19 @@
     background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(20, 22, 25, 0.16);
+    background: rgba(20, 22, 25, 0.18);
+    background-clip: content-box;
+    border: 2px solid transparent;
+  }
+
+  /* Dark mode scrollbar */
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    background-clip: content-box;
+    border: 2px solid transparent;
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.20);
     background-clip: content-box;
     border: 2px solid transparent;
   }
@@ -159,15 +197,27 @@
 @layer components {
   /*
    * The signature editorial surface:
-   * pure white card on warm canvas, single hairline border,
-   * almost imperceptible elevation.
+   * pure white card on warm canvas, single hairline border.
    */
   .surface {
     @apply rounded-xl border border-border bg-card;
   }
 
   .surface-sunken {
-    @apply rounded-xl border border-border bg-canvas-sunken;
+    @apply rounded-xl border border-border;
+    background-color: hsl(var(--canvas-sunken));
+  }
+
+  /* Glass morphism for dark mode modals/popovers */
+  .glass {
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+  }
+  .dark .glass {
+    background: rgba(30, 34, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   /* Editorial pill / eyebrow */
@@ -204,13 +254,13 @@
     font-family: var(--font-mono), ui-monospace, monospace;
     font-size: 10.5px;
     color: hsl(var(--muted-foreground));
-    background: hsl(var(--canvas-sunken, 42 22% 95%));
+    background: hsl(var(--canvas-sunken));
     border: 1px solid hsl(var(--border));
     border-radius: 4px;
     line-height: 1;
   }
 
-  /* Skeleton shimmer (warm) */
+  /* Skeleton shimmer (warm) — light */
   .shimmer {
     background-image: linear-gradient(
       90deg,
@@ -222,11 +272,26 @@
     animation: shimmer 1.8s linear infinite;
   }
 
-  /* Ambient warm wash for hero areas (no glassmorphism) */
+  /* Skeleton shimmer — dark */
+  .dark .shimmer {
+    background-image: linear-gradient(
+      90deg,
+      hsl(220 12% 14%) 0%,
+      hsl(220 12% 18%) 50%,
+      hsl(220 12% 14%) 100%
+    );
+  }
+
+  /* Ambient warm wash for hero areas */
   .paper {
     background-color: hsl(var(--background));
     background-image:
-      radial-gradient(800px 320px at 100% -10%, rgba(83, 102, 71, 0.04), transparent 60%),
+      radial-gradient(800px 320px at 100% -10%, rgba(217, 72, 65, 0.04), transparent 60%),
+      radial-gradient(700px 280px at -10% 100%, rgba(168, 146, 83, 0.04), transparent 60%);
+  }
+  .dark .paper {
+    background-image:
+      radial-gradient(800px 320px at 100% -10%, rgba(217, 72, 65, 0.07), transparent 60%),
       radial-gradient(700px 280px at -10% 100%, rgba(168, 146, 83, 0.05), transparent 60%);
   }
 
@@ -234,11 +299,44 @@
   .grid-dots {
     background-image: radial-gradient(
       circle at 1px 1px,
-      rgba(20, 22, 25, 0.06) 1px,
+      rgba(20, 22, 25, 0.05) 1px,
       transparent 0
     );
     background-size: 22px 22px;
     mask-image: radial-gradient(ellipse 70% 50% at 50% 30%, #000 40%, transparent 80%);
+  }
+  .dark .grid-dots {
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 0
+    );
+  }
+
+  /* Stat card gradient accent bar */
+  .stat-accent-emerald {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  }
+  .dark .stat-accent-emerald {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.08) 100%);
+  }
+  .stat-accent-rose {
+    background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+  }
+  .dark .stat-accent-rose {
+    background: linear-gradient(135deg, rgba(244, 63, 94, 0.12) 0%, rgba(225, 29, 72, 0.08) 100%);
+  }
+  .stat-accent-amber {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  }
+  .dark .stat-accent-amber {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.08) 100%);
+  }
+  .stat-accent-blue {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  }
+  .dark .stat-accent-blue {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(37, 99, 235, 0.08) 100%);
   }
 }
 
@@ -250,11 +348,37 @@
     scrollbar-width: none;
   }
 
-  /* Press feedback (Emil) */
+  /* Press feedback */
   .press {
     transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   .press:active {
     transform: scale(0.985);
+  }
+
+  /* Canvas-aware text utilities */
+  .text-ink {
+    color: hsl(var(--ink));
+  }
+  .text-ink-soft {
+    color: hsl(var(--ink-soft));
+  }
+  .text-ink-mute {
+    color: hsl(var(--ink-mute));
+  }
+  .bg-canvas {
+    background-color: hsl(var(--canvas));
+  }
+  .bg-canvas-raised {
+    background-color: hsl(var(--canvas-raised));
+  }
+  .bg-canvas-sunken {
+    background-color: hsl(var(--canvas-sunken));
+  }
+
+  /* Smooth transitions for theme switching */
+  .theme-transition,
+  .theme-transition * {
+    transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease !important;
   }
 }

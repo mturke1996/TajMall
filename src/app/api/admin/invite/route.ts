@@ -48,10 +48,28 @@ export async function POST(req: Request) {
 
     const origin = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 
-    const { data: invited, error: invErr } = await admin.auth.admin.inviteUserByEmail(email, {
-      data: { full_name_ar, full_name: full_name_ar },
-      redirectTo: `${origin}/login`,
-    });
+    const password = body.password ? String(body.password) : undefined;
+
+    let invitedUser;
+    let invErr;
+
+    if (password) {
+      const { data, error } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name_ar, full_name: full_name_ar },
+      });
+      invitedUser = data;
+      invErr = error;
+    } else {
+      const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+        data: { full_name_ar, full_name: full_name_ar },
+        redirectTo: `${origin}/login`,
+      });
+      invitedUser = data;
+      invErr = error;
+    }
 
     if (invErr) {
       const raw = invErr.message ?? '';
@@ -61,7 +79,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: msg }, { status: 400 });
     }
 
-    const newId = invited?.user?.id;
+    const newId = invitedUser?.user?.id;
     if (newId) {
       await admin.from('profiles').update({ full_name_ar, role }).eq('id', newId);
     }

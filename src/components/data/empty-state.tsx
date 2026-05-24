@@ -4,14 +4,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 /**
- * Editorial empty state.
- *
- * Server-renderable: uses CSS entry animation (animate-fade-up) instead of
- * framer-motion so Server Components can pass LucideIcon refs directly.
- *
- * - Paper-thin dashed border on a sunken background to hint "place for content".
- * - Generous vertical whitespace.
- * - Single inline CTA.
+ * Editorial empty state — redesigned with gradient icon container
+ * and better visual hierarchy.
  */
 export function EmptyState({
   icon: Icon,
@@ -23,34 +17,50 @@ export function EmptyState({
   icon: LucideIcon;
   title: string;
   description?: string;
-  action?: { label: string; href?: string };
+  action?: { label: string; href?: string; onClick?: () => void };
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        'animate-fade-up flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border bg-canvas-sunken/40 px-5 py-12 text-center sm:px-6 sm:py-16',
+        'animate-fade-up flex flex-col items-center justify-center gap-5 rounded-xl',
+        'border border-dashed border-border bg-canvas-sunken/50',
+        'px-5 py-14 text-center sm:px-8 sm:py-20',
         className,
       )}
     >
-      <span className="grid h-12 w-12 place-items-center rounded-md border border-border bg-card text-ink-mute">
-        <Icon className="h-5 w-5 stroke-[1.5]" />
-      </span>
-      <div className="flex max-w-md flex-col gap-1.5 px-2">
-        <h3 className="text-[15px] font-semibold tracking-tight sm:text-[16px]">{title}</h3>
+      {/* Icon container with subtle gradient */}
+      <div className="relative">
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-border/60 to-transparent blur-xl" />
+        <span className="relative grid h-14 w-14 place-items-center rounded-2xl border border-border bg-card shadow-whisper text-muted-foreground">
+          <Icon className="h-6 w-6 stroke-[1.5]" />
+        </span>
+      </div>
+
+      <div className="flex max-w-sm flex-col gap-2">
+        <h3 className="text-[15px] font-semibold tracking-tight sm:text-base">
+          {title}
+        </h3>
         {description && (
-          <p className="text-[12.5px] leading-[1.6] text-ink-mute sm:text-[13px]">
+          <p className="text-[13px] leading-relaxed text-muted-foreground">
             {description}
           </p>
         )}
       </div>
-      {action?.href && (
-        <Button asChild size="sm" className="mt-1 gap-1.5">
-          <Link href={action.href}>
+
+      {action && (
+        action.href ? (
+          <Button asChild size="sm" className="mt-1 gap-1.5">
+            <Link href={action.href}>
+              {action.label}
+              <ArrowLeft className="h-3.5 w-3.5 stroke-[1.6]" />
+            </Link>
+          </Button>
+        ) : (
+          <Button size="sm" className="mt-1 gap-1.5" onClick={action.onClick}>
             {action.label}
-            <ArrowLeft className="stroke-[1.6]" />
-          </Link>
-        </Button>
+          </Button>
+        )
       )}
     </div>
   );

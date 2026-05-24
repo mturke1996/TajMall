@@ -8,6 +8,8 @@ import { isNavActive } from "./nav-active";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
+import { usePermission } from "@/lib/supabase/use-permission";
 
 export function MobileNav({
   open,
@@ -17,20 +19,27 @@ export function MobileNav({
   onClose: () => void;
 }) {
   const pathname = usePathname();
-
-  if (!open) return null;
+  const { can } = usePermission();
 
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/30 md:hidden"
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
+        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] md:hidden"
         onClick={onClose}
       />
 
       {/* Drawer */}
-      <aside
-        className="fixed inset-y-0 end-0 z-50 flex w-[280px] flex-col border-s border-border bg-canvas md:hidden animate-in slide-in-from-right duration-150"
+      <motion.aside
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 25, stiffness: 220 }}
+        className="fixed inset-y-0 end-0 z-50 flex w-[280px] flex-col border-s border-border bg-canvas md:hidden"
         dir="rtl"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
@@ -55,6 +64,9 @@ export function MobileNav({
                 {section.titleAr}
               </span>
               {section.items.map((item) => {
+                if (item.permission && !can(item.permission)) {
+                  return null;
+                }
                 const active = isNavActive(pathname, item.href);
                 const Icon = item.icon;
                 return (
@@ -66,7 +78,7 @@ export function MobileNav({
                     className={cn(
                       "flex items-center gap-3 rounded-md px-3 py-2.5 text-[14px] font-medium transition-colors duration-100",
                       active
-                        ? "bg-canvas-sunken text-foreground ring-1 ring-border"
+                         ? "bg-canvas-sunken text-foreground ring-1 ring-border"
                         : "text-ink-mute hover:bg-secondary hover:text-foreground",
                     )}
                   >
@@ -83,7 +95,7 @@ export function MobileNav({
             </div>
           ))}
         </nav>
-      </aside>
+      </motion.aside>
     </>
   );
 }

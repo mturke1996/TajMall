@@ -8,6 +8,8 @@ import { isNavActive } from "./nav-active";
 import { Logo } from "@/components/brand/logo";
 import { SidebarProfile } from "./sidebar-profile";
 import { cn } from "@/lib/utils";
+import { ChevronRight } from "lucide-react";
+import { usePermission } from "@/lib/supabase/use-permission";
 
 export function Sidebar({
   collapsed,
@@ -20,6 +22,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  const { can } = usePermission();
 
   useEffect(() => {
     setMounted(true);
@@ -43,59 +46,56 @@ export function Sidebar({
     <aside
       className={cn(
         "sticky top-0 z-20 hidden h-[100dvh] shrink-0 flex-col border-e border-border bg-canvas md:flex",
-        "transition-[width] duration-150 ease-out",
+        "transition-[width] duration-200 ease-out-quart",
         collapsed ? "w-[72px]" : "w-[260px]",
         className,
       )}
       dir="rtl"
     >
-      {/* Brand */}
+      {/* Brand header */}
       <div className="flex h-16 items-center gap-3 border-b border-border px-4">
         {collapsed ? <Logo size="sm" /> : <Logo size="md" showTagline />}
         {onToggle && (
           <button
             onClick={onToggle}
             className={cn(
-              "me-auto rounded-md p-1.5 text-ink-mute hover:bg-secondary transition-colors duration-100",
+              "me-auto rounded-lg p-1.5 text-muted-foreground hover:bg-canvas-sunken hover:text-foreground transition-all duration-150 active:scale-95",
               collapsed && "me-0 mx-auto",
             )}
+            aria-label={collapsed ? "توسيع الشريط الجانبي" : "طي الشريط الجانبي"}
           >
-            <svg
+            <ChevronRight
               className={cn(
-                "h-4 w-4 transition-transform duration-100",
-                collapsed && "rotate-180",
+                "h-4 w-4 transition-transform duration-200",
+                !collapsed && "rotate-180",
               )}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
+            />
           </button>
         )}
       </div>
 
-      {/* Nav - Fast links with prefetch */}
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-2 py-3">
+      {/* Navigation */}
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-2 py-3 no-scrollbar">
         {NAV.map((section, si) => (
           <div
             key={section.titleAr}
-            className="flex flex-col gap-0.5 pb-4 last:pb-2"
+            className="flex flex-col gap-0.5 pb-3 last:pb-1"
           >
+            {/* Section label */}
             <span
               className={cn(
-                "px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-mute",
+                "px-3 pb-1.5 pt-0.5 text-[10px] font-bold uppercase tracking-[0.20em] text-muted-foreground/70 transition-opacity duration-150",
                 collapsed && "sr-only",
               )}
             >
               {section.titleAr}
             </span>
+
+            {/* Nav items */}
             {section.items.map((item) => {
+              if (item.permission && !can(item.permission)) {
+                return null;
+              }
               const active = isNavActive(pathname, item.href);
               const Icon = item.icon;
               return (
@@ -103,46 +103,74 @@ export function Sidebar({
                   key={item.href}
                   href={item.href}
                   prefetch={true}
-                  className={cn(
-                    "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors duration-100 active:scale-[0.97]",
-                    active
-                      ? "bg-canvas-sunken text-foreground shadow-sm ring-1 ring-border before:absolute before:inset-y-1 before:start-0 before:w-[3px] before:rounded-full before:bg-sage-600"
-                      : "text-ink-mute hover:bg-secondary/70 hover:text-foreground",
-                  )}
                   title={collapsed ? item.labelAr : undefined}
                   aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-100",
+                    "active:scale-[0.97]",
+                    active
+                      ? [
+                          "bg-canvas-sunken text-foreground shadow-whisper",
+                          "before:absolute before:inset-y-1.5 before:start-0 before:w-[3px] before:rounded-full before:bg-primary dark:before:bg-primary",
+                        ]
+                      : "text-muted-foreground hover:bg-canvas-sunken/70 hover:text-foreground",
+                  )}
                 >
                   <Icon
                     className={cn(
-                      "h-[17px] w-[17px] shrink-0 transition-colors",
+                      "h-[17px] w-[17px] shrink-0 transition-colors duration-100",
                       active
-                        ? "text-sage-700"
-                        : "text-ink-mute group-hover:text-sage-600",
+                        ? "text-foreground"
+                        : "text-muted-foreground/70 group-hover:text-foreground",
                     )}
                   />
                   <span
                     className={cn(
-                      "min-w-0 flex-1 truncate transition-opacity",
+                      "min-w-0 flex-1 truncate transition-all duration-150",
                       collapsed && "pointer-events-none w-0 opacity-0",
                     )}
                   >
                     {item.labelAr}
                   </span>
+
+                  {/* Keyboard shortcut badge */}
+                  {!collapsed && item.shortcut && !active && (
+                    <kbd className="kbd ms-auto opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                      {item.shortcut}
+                    </kbd>
+                  )}
+
+                  {/* Badge */}
+                  {!collapsed && item.badge && (
+                    <span
+                      className={cn(
+                        "ms-auto rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none",
+                        item.badge.tone === 'danger'
+                          ? "bg-rose-500 text-white"
+                          : item.badge.tone === 'success'
+                          ? "bg-emerald-500 text-white"
+                          : item.badge.tone === 'warning'
+                          ? "bg-amber-400 text-amber-900"
+                          : "bg-canvas-sunken text-foreground",
+                      )}
+                    >
+                      {item.badge.text}
+                    </span>
+                  )}
                 </Link>
               );
             })}
-            {si < NAV.length - 1 && !collapsed ? (
-              <div
-                className="mx-3 mt-3 border-b border-border/80"
-                aria-hidden
-              />
-            ) : null}
+
+            {/* Section divider */}
+            {si < NAV.length - 1 && !collapsed && (
+              <div className="mx-3 mt-2 border-b border-border/50" aria-hidden />
+            )}
           </div>
         ))}
       </nav>
 
       {/* Profile */}
-      <div className="border-t border-border p-3">
+      <div className="border-t border-border p-2.5">
         <SidebarProfile collapsed={collapsed} />
       </div>
     </aside>

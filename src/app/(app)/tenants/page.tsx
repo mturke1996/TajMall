@@ -28,6 +28,7 @@ import { useTenantRentSummary, useRecordRentPayment, useCashboxes } from '@/lib/
 import { toast } from 'sonner';
 import { cn, formatMoney } from '@/lib/utils';
 import Link from 'next/link';
+import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 
 const STATUS_CONFIG = {
   paid_full: { 
@@ -119,12 +120,28 @@ export default function TenantsPage() {
         title="المحلات والإيجارات"
         description="متابعة حالة الإيجارات وتسجيل المدفوعات"
         actions={
-          <Button size="sm" asChild>
-            <Link href="/contacts">
-              <Plus className="h-4 w-4 mr-1" />
-              إضافة مستأجر
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <TajMallPdfToolbar
+              fileName={`إيجارات-المستأجرين-${new Date().toISOString().slice(0, 10)}`}
+              disabled={filteredTenants.length === 0}
+              render={async () => {
+                const { TenantsReportPDF } = await import('@/features/pdf/TenantsReportPDF');
+                return (
+                  <TenantsReportPDF
+                    titleAr="تقرير إيجارات المستأجرين"
+                    subtitleAr={`${filteredTenants.length} مستأجر`}
+                    rows={filteredTenants}
+                  />
+                );
+              }}
+            />
+            <Button size="sm" asChild>
+              <Link href="/contacts">
+                <Plus className="h-4 w-4 mr-1" />
+                إضافة مستأجر
+              </Link>
+            </Button>
+          </div>
         }
       />
 

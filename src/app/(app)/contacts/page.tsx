@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import { 
   Plus, 
   Search, 
@@ -34,6 +34,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { ContactKind, ContactRow } from '@/lib/db/types';
+import { useSearchParams } from 'next/navigation';
 
 const KIND_OPTIONS: { value: ContactKind; label: string; icon: typeof Building2; color: string }[] = [
   { value: 'TENANT', label: 'مستأجر / محل', icon: Building2, color: 'text-blue-600' },
@@ -43,16 +44,42 @@ const KIND_OPTIONS: { value: ContactKind; label: string; icon: typeof Building2;
 ];
 
 export default function ContactsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-40 items-center justify-center gap-2 text-[13px] text-ink-mute">
+        <Loader2 className="h-4 w-4 animate-spin stroke-[1.6]" />
+        جارٍ التحميل…
+      </div>
+    }>
+      <ContactsContent />
+    </Suspense>
+  );
+}
+
+function ContactsContent() {
   const { data: contacts = [], isLoading } = useContacts();
   const createContact = useCreateContact();
   const updateContact = useUpdateContact();
   const deleteContact = useDeleteContact();
   const qc = useQueryClient();
+  const searchParams = useSearchParams();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [kindFilter, setKindFilter] = useState<ContactKind | 'ALL'>('ALL');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const highlightId = searchParams.get('id');
+
+  useEffect(() => {
+    if (highlightId && contacts.length > 0) {
+      const match = contacts.find((c) => c.id === highlightId);
+      if (match) {
+        setSearchQuery(match.name);
+        setKindFilter(match.kind);
+      }
+    }
+  }, [highlightId, contacts]);
 
   // Form state
   const [formData, setFormData] = useState<Partial<ContactRow>>({

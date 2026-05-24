@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -10,8 +11,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 30_000,
-            gcTime: 5 * 60 * 1000,
+            staleTime: 60_000,          // 1 minute — fresh enough for finance
+            gcTime: 10 * 60 * 1000,    // 10 minutes garbage collection
             refetchOnWindowFocus: false,
             refetchOnReconnect: true,
             retry: 1,
@@ -28,8 +29,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <QueryClientProvider client={client}>
-      <TooltipProvider delayDuration={80}>{children}</TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="light"
+      enableSystem
+      disableTransitionOnChange={false}
+    >
+      <QueryClientProvider client={client}>
+        <TooltipProvider delayDuration={80}>{children}</TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

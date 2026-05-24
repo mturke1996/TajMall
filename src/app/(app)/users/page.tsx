@@ -28,6 +28,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { SYSTEM_ROLES } from '@/lib/constants';
 import { useUser } from '@/lib/supabase/use-user';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 export default function UsersPage() {
   const { user } = useUser();
@@ -39,7 +40,9 @@ export default function UsersPage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState<string>('viewer');
+  const [invitePassword, setInvitePassword] = useState('');
   const [inviteBusy, setInviteBusy] = useState(false);
+  const [createType, setCreateType] = useState<'DIRECT' | 'INVITE'>('DIRECT');
 
   const rows = useMemo(() => profiles ?? [], [profiles]);
 
@@ -53,6 +56,16 @@ export default function UsersPage() {
       toast.error('أدخل البريد الإلكتروني');
       return;
     }
+    if (createType === 'DIRECT') {
+      if (!invitePassword.trim()) {
+        toast.error('الرجاء إدخال كلمة مرور الحساب الجديد');
+        return;
+      }
+      if (invitePassword.trim().length < 6) {
+        toast.error('يجب أن تكون كلمة المرور 6 أحرف على الأقل');
+        return;
+      }
+    }
     setInviteBusy(true);
     try {
       const res = await fetch('/api/admin/invite', {
@@ -62,18 +75,21 @@ export default function UsersPage() {
           email: inviteEmail.trim(),
           full_name_ar: inviteName.trim() || inviteEmail.split('@')[0],
           role: inviteRole,
+          password: createType === 'DIRECT' ? invitePassword.trim() : undefined,
         }),
       });
       const body = (await res.json()) as { error?: string };
       if (!res.ok) {
-        toast.error(body.error ?? 'تعذّر إرسال الدعوة');
+        toast.error(body.error ?? 'تعذّر إنشاء الحساب');
         return;
       }
-      toast.success('تم إرسال الدعوة إلى البريد');
+      toast.success(createType === 'DIRECT' ? 'تم إنشاء حساب المستخدم وتفعيله بنجاح!' : 'تم إرسال الدعوة إلى البريد');
       setInviteOpen(false);
       setInviteEmail('');
       setInviteName('');
       setInviteRole('viewer');
+      setInvitePassword('');
+      setCreateType('DIRECT');
       await qc.invalidateQueries({ queryKey: qk.profiles });
     } catch {
       toast.error('تعذّر الاتصال بالخادم');
@@ -102,7 +118,7 @@ export default function UsersPage() {
         actions={
           <Button size="sm" className="shrink-0 gap-1.5" onClick={() => setInviteOpen(true)}>
             <Plus className="stroke-[1.6]" />
-            دعوة مستخدم
+            إضافة مستخدم جديد
           </Button>
         }
       />
@@ -225,15 +241,41 @@ export default function UsersPage() {
         </p>
       </div>
 
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+      <Dialog open={inviteOpen} onOpenChange={(open) => { setInviteOpen(open); if(!open) { setInvitePassword(''); setCreateType('DIRECT'); } }}>
         <DialogContent className="max-h-[min(90dvh,640px)] overflow-y-auto sm:max-w-md" dir="rtl">
           <DialogHeader>
-            <DialogTitle>دعوة مستخدم</DialogTitle>
+            <DialogTitle>إضافة مستخدم جديد</DialogTitle>
             <DialogDescription className="text-[13px] leading-relaxed text-ink-mute">
-              يُرسل رابطاً على البريد لإنهاء التسجيل. يتطلب ذلك مفتاح الخدمة وإعداد البريد في
-              المشروع.
+              {createType === 'DIRECT'
+                ? 'قم بإنشاء حساب مستخدم وتعيين كلمة مرور له لتمكينه من الدخول فوراً دون الحاجة لتأكيد البريد.'
+                : 'أدخل البريد الإلكتروني لإرسال دعوة رسمية للمسجل لتسجيل حسابه وتعيين كلمة مروره بنفسه.'}
             </DialogDescription>
           </DialogHeader>
+
+          {/* Toggle Type */}
+          <div className="flex rounded-lg bg-canvas-sunken p-1 text-xs my-2">
+            <button
+              type="button"
+              onClick={() => { setCreateType('DIRECT'); setInvitePassword(''); }}
+              className={cn(
+                "flex-1 py-1.5 font-medium rounded-md transition-all text-center",
+                createType === 'DIRECT' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              إنشاء حساب مباشر
+            </button>
+            <button
+              type="button"
+              onClick={() => { setCreateType('INVITE'); setInvitePassword(''); }}
+              className={cn(
+                "flex-1 py-1.5 font-medium rounded-md transition-all text-center",
+                createType === 'INVITE' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              إرسال دعوة بالبريد
+            </button>
+          </div>
+
           <div className="flex flex-col gap-4 py-1">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="inv-email">البريد الإلكتروني</Label>
@@ -255,6 +297,21 @@ export default function UsersPage() {
                 placeholder="الاسم بالعربية"
               />
             </div>
+            
+            {createType === 'DIRECT' && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="inv-password">كلمة المرور *</Label>
+                <Input
+                  id="inv-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={invitePassword}
+                  onChange={(e) => setInvitePassword(e.target.value)}
+                  placeholder="أدخل 6 أحرف على الأقل"
+                />
+              </div>
+            )}
+
             <div className="flex flex-col gap-1.5">
               <Label>الدور عند أول دخول</Label>
               <Select value={inviteRole} onValueChange={setInviteRole}>
@@ -271,13 +328,13 @@ export default function UsersPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button type="button" variant="outline" onClick={() => { setInviteOpen(false); setInvitePassword(''); setCreateType('DIRECT'); }}>
               إلغاء
             </Button>
             <Button type="button" className="gap-1.5" disabled={inviteBusy} onClick={submitInvite}>
               {inviteBusy && <Loader2 className="h-4 w-4 animate-spin stroke-[1.6]" />}
-              إرسال الدعوة
+              {createType === 'DIRECT' ? 'إنشاء وتفعيل الحساب' : 'إرسال دعوة بالبريد'}
             </Button>
           </DialogFooter>
         </DialogContent>

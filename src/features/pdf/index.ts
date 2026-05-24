@@ -28,3 +28,4 @@ export { PDF, pdfBase } from './pdfBase';
 // Report PDFs (journals)
 export { JournalPDF, type JournalEntryPdfModel } from './JournalPDF';
 export { TransactionsReportPDF } from './TransactionsReportPDF';
+export { TenantsReportPDF } from './TenantsReportPDF';
