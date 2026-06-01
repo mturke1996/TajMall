@@ -13,6 +13,8 @@ import {
   Trash2,
   ChevronLeft,
 } from 'lucide-react';
+import { MobilePageActionBar, MOBILE_PAGE_ACTION_PADDING } from '@/components/layout/mobile-page-action-bar';
+import { MobileContactListItem } from '@/components/contacts/mobile-contact-list-item';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -121,22 +123,17 @@ function ContactActions({
   contact,
   onEdit,
   onDelete,
-  compact,
 }: {
   contact: ContactRow;
   onEdit: (c: ContactRow) => void;
   onDelete: (id: string) => void;
-  compact?: boolean;
 }) {
   return (
-    <div
-      className={cn('flex shrink-0 gap-0.5', compact && 'flex-col sm:flex-row')}
-      onClick={(e) => e.stopPropagation()}
-    >
+    <div className="flex shrink-0 gap-0.5" onClick={(e) => e.stopPropagation()}>
       <Button
         size="icon"
         variant="ghost"
-        className={cn('h-9 w-9 touch-manipulation', compact && 'h-8 w-8')}
+        className="h-9 w-9 touch-manipulation"
         aria-label="تعديل"
         onClick={() => onEdit(contact)}
       >
@@ -145,10 +142,7 @@ function ContactActions({
       <Button
         size="icon"
         variant="ghost"
-        className={cn(
-          'h-9 w-9 text-red-600 touch-manipulation',
-          compact && 'h-8 w-8',
-        )}
+        className="h-9 w-9 text-red-600 touch-manipulation"
         aria-label="حذف"
         onClick={() => onDelete(contact.id)}
       >
@@ -180,10 +174,10 @@ export function ContactsDirectory({
   ];
 
   return (
-    <div className="flex flex-col gap-4 pb-24 md:gap-6 md:pb-10">
+    <div className={cn('flex flex-col gap-4 md:gap-6', MOBILE_PAGE_ACTION_PADDING)}>
       {/* إحصائيات — تمرير أفقي على الجوال */}
       <div className="-mx-4 px-4 md:mx-0 md:px-0">
-        <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory scrollbar-none md:grid md:grid-cols-4 md:overflow-visible">
+        <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-4 md:overflow-visible">
           <StatChip
             label="الإجمالي"
             value={stats.total}
@@ -224,7 +218,7 @@ export function ContactsDirectory({
       </div>
 
       {/* شريط بحث وفلاتر — ثابت على الجوال */}
-      <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/80 md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+      <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/80 md:static md:mx-0 md:z-auto md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
         <div className="relative">
           <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
           <Input
@@ -236,7 +230,7 @@ export function ContactsDirectory({
           />
         </div>
 
-        <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1">
           {filterChips.map((chip) => {
             const Icon = chip.icon;
             const isActive = kindFilter === chip.value;
@@ -265,6 +259,21 @@ export function ContactsDirectory({
               </button>
             );
           })}
+        </div>
+
+        {/* اختصارات إضافة سريعة — جوال */}
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar md:hidden">
+          {KIND_OPTIONS.map((k) => (
+            <button
+              key={k.value}
+              type="button"
+              onClick={() => onAdd(k.value)}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-2 text-[12px] font-medium touch-manipulation active:bg-secondary"
+            >
+              <k.icon className={cn('h-3.5 w-3.5', k.color)} />
+              {k.label.split(' ')[0]}
+            </button>
+          ))}
         </div>
 
         {/* اختصارات إضافة — سطح المكتب */}
@@ -451,62 +460,22 @@ export function ContactsDirectory({
           </div>
 
           {/* قائمة — جوال */}
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card sm:hidden">
-            {filteredContacts.map((contact) => {
-              const kindInfo = KIND_OPTIONS.find((k) => k.value === contact.kind);
-              const styles = KIND_STYLES[contact.kind];
-              const Icon = kindInfo?.icon ?? User;
-              return (
-                <li key={contact.id}>
-                  <div className="flex items-stretch">
-                    <Link
-                      href={`/contacts/${contact.id}`}
-                      className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3.5 active:bg-secondary/40 touch-manipulation"
-                    >
-                      <div
-                        className={cn(
-                          'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
-                          styles.bg,
-                        )}
-                      >
-                        <Icon className={cn('h-5 w-5', styles.icon)} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold leading-tight truncate">{contact.name}</p>
-                        <p className="mt-0.5 text-[12px] text-ink-mute line-clamp-1">
-                          <ContactSubtitle contact={contact} />
-                        </p>
-                        <span
-                          className={cn(
-                            'mt-1.5 inline-block rounded-md border px-1.5 py-0.5 text-[10px] font-medium',
-                            styles.badge,
-                          )}
-                        >
-                          {kindInfo?.label}
-                        </span>
-                      </div>
-                      <ChevronLeft className="h-5 w-5 shrink-0 self-center text-ink-mute" />
-                    </Link>
-                    <div className="flex flex-col justify-center border-r border-border pr-1 pl-0.5">
-                      <ContactActions
-                        contact={contact}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
-                        compact
-                      />
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border sm:hidden">
+            {filteredContacts.map((contact) => (
+              <MobileContactListItem
+                key={contact.id}
+                contact={contact}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            ))}
           </ul>
         </>
       )}
 
-      {/* زر إضافة عائم — جوال */}
-      <div className="fixed bottom-0 inset-x-0 z-30 border-t border-border bg-canvas/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md md:hidden">
+      <MobilePageActionBar>
         <Button
-          className="h-12 w-full gap-2 text-base font-semibold shadow-lg"
+          className="h-12 w-full gap-2 text-base font-semibold shadow-sm touch-manipulation"
           onClick={() => onAdd(kindFilter === 'ALL' ? undefined : kindFilter)}
         >
           <Plus className="h-5 w-5" />
@@ -515,7 +484,7 @@ export function ContactsDirectory({
             ? filterChips.find((c) => c.value === kindFilter)?.label ?? ''
             : 'جديد'}
         </Button>
-      </div>
+      </MobilePageActionBar>
     </div>
   );
 }

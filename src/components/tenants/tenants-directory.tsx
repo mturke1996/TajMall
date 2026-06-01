@@ -16,6 +16,10 @@ import { Card } from '@/components/ui/card';
 import { cn, formatMoney } from '@/lib/utils';
 import type { TenantRentSummary } from '@/lib/db/queries';
 import { TENANT_STATUS_CONFIG, getTenantStatus } from './tenant-status-config';
+import {
+  MobilePageActionBar,
+  MOBILE_PAGE_ACTION_PADDING,
+} from '@/components/layout/mobile-page-action-bar';
 
 export type TenantsDirectoryProps = {
   tenants: TenantRentSummary[];
@@ -92,10 +96,10 @@ export function TenantsDirectory({
   ];
 
   return (
-    <div className="flex flex-col gap-4 pb-24 md:gap-6 md:pb-10">
+    <div className={cn('flex flex-col gap-4 md:gap-6', MOBILE_PAGE_ACTION_PADDING)}>
       {/* إحصائيات — تمرير على الجوال */}
       <div className="-mx-4 px-4 md:mx-0 md:px-0">
-        <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory scrollbar-none md:grid md:grid-cols-4 md:overflow-visible">
+        <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-4 md:overflow-visible">
           {filterChips.slice(1, 4).map((chip) => {
             const cfg = TENANT_STATUS_CONFIG[chip.key as keyof typeof TENANT_STATUS_CONFIG];
             const Icon = cfg.icon;
@@ -136,7 +140,7 @@ export function TenantsDirectory({
       </div>
 
       {/* بحث وفلاتر */}
-      <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur-md md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0">
+      <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur-md md:static md:mx-0 md:z-auto md:border-0 md:bg-transparent md:px-0 md:py-0">
         <div className="relative">
           <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
           <Input
@@ -146,7 +150,7 @@ export function TenantsDirectory({
             className="h-11 pr-10 text-base md:h-10 md:text-sm"
           />
         </div>
-        <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1">
           {filterChips.map((chip) => {
             const Icon = 'icon' in chip ? chip.icon : null;
             return (
@@ -285,54 +289,74 @@ export function TenantsDirectory({
           </div>
 
           {/* قائمة — جوال */}
-          <ul className="divide-y divide-border rounded-xl border border-border bg-card sm:hidden">
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border sm:hidden">
             {filteredTenants.map((tenant) => {
               const status = getTenantStatus(tenant.current_month_status);
               const StatusIcon = status.icon;
               const rent = Number(tenant.monthly_rent) || 0;
               const paid = Number(tenant.current_month_paid) || 0;
+              const remaining = Math.max(0, rent - paid);
               return (
-                <li key={tenant.id}>
+                <li key={tenant.id} className="bg-card">
                   <Link
                     href={`/contacts/${tenant.id}`}
-                    className="flex items-center gap-3 px-3 py-3 active:bg-secondary/40 touch-manipulation"
+                    className="flex min-h-[72px] items-center gap-3 px-3 py-3.5 active:bg-secondary/50 touch-manipulation"
                   >
                     <div
                       className={cn(
-                        'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
+                        'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl',
                         status.bg,
                       )}
                     >
-                      <StatusIcon className={cn('h-5 w-5', status.color)} />
+                      <StatusIcon className={cn('h-6 w-6', status.color)} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold truncate">{tenant.name}</p>
-                      <p className="text-[12px] text-ink-mute">
+                      <p className="font-semibold text-[15px] truncate">{tenant.name}</p>
+                      <p className="mt-0.5 text-[13px] text-ink-mute line-clamp-1">
                         {tenant.shop_number ? `محل ${tenant.shop_number}` : '—'}
-                        {rent > 0 && (
-                          <>
-                            {' · '}
-                            {formatMoney(paid, 'LYD')} / {formatMoney(rent, 'LYD')}
-                          </>
+                        {tenant.phone && (
+                          <span className="mr-1" dir="ltr">
+                            · {tenant.phone}
+                          </span>
                         )}
                       </p>
-                      <span className={cn('text-[10px] font-medium', status.color)}>
+                      {rent > 0 && (
+                        <p className="mt-1 text-[12px] tabular-nums">
+                          <span className="text-green-600">{formatMoney(paid, 'LYD')}</span>
+                          <span className="text-ink-mute"> / {formatMoney(rent, 'LYD')}</span>
+                          {remaining > 0 && (
+                            <span className="text-red-600 mr-1">
+                              · متبقي {formatMoney(remaining, 'LYD')}
+                            </span>
+                          )}
+                        </p>
+                      )}
+                      <span
+                        className={cn(
+                          'mt-1.5 inline-block text-[10px] font-medium',
+                          status.color,
+                        )}
+                      >
                         {status.label}
                       </span>
                     </div>
-                    <ChevronLeft className="h-5 w-5 text-ink-mute shrink-0" />
+                    <ChevronLeft className="h-5 w-5 shrink-0 text-ink-mute" aria-hidden />
                   </Link>
-                  <div className="flex border-t border-border px-2 py-1.5 gap-1">
+                  <div className="flex border-t border-border divide-x divide-border rtl:divide-x-reverse">
                     <Button
-                      size="sm"
-                      className="flex-1 h-9"
+                      variant="ghost"
+                      className="h-11 flex-1 rounded-none gap-1.5 text-[13px] touch-manipulation"
                       disabled={rent === 0}
                       onClick={() => onRecordPayment(tenant)}
                     >
-                      <Plus className="h-4 w-4 ml-1" />
-                      دفع
+                      <Plus className="h-4 w-4" />
+                      دفع إيجار
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1 h-9" asChild>
+                    <Button
+                      variant="ghost"
+                      className="h-11 flex-1 rounded-none gap-1.5 text-[13px] touch-manipulation"
+                      asChild
+                    >
                       <Link href={`/contacts/${tenant.id}`}>الملف</Link>
                     </Button>
                   </div>
@@ -343,15 +367,15 @@ export function TenantsDirectory({
         </>
       )}
 
-      <div className="fixed bottom-0 inset-x-0 z-30 border-t border-border bg-canvas/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden">
+      <MobilePageActionBar>
         <Button
-          className="h-12 w-full gap-2 text-base font-semibold shadow-lg"
+          className="h-12 w-full gap-2 text-base font-semibold shadow-sm touch-manipulation"
           onClick={onAddTenant}
         >
           <Plus className="h-5 w-5" />
           إضافة مستأجر
         </Button>
-      </div>
+      </MobilePageActionBar>
     </div>
   );
 }
