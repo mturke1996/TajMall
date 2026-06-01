@@ -56,7 +56,7 @@ export function JournalDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -144,10 +144,11 @@ export function JournalDetailDialog({
               <div className="divide-y">
                 {/* Table Header */}
                 <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-4 py-2 text-xs font-medium text-ink-mute bg-muted/20">
-                  <div className="col-span-5">البند المحاسبي</div>
+                  <div className="col-span-3">البند المحاسبي</div>
+                  <div className="col-span-3">الجهة / الخزينة</div>
                   <div className="col-span-2 text-left">مدين</div>
                   <div className="col-span-2 text-left">دائن</div>
-                  <div className="col-span-3">البيان</div>
+                  <div className="col-span-2">البيان</div>
                 </div>
 
                 {/* Table Rows */}
@@ -156,7 +157,7 @@ export function JournalDetailDialog({
                     key={line.id}
                     className="flex flex-col gap-2 p-3 sm:grid sm:grid-cols-12 sm:gap-2 sm:px-4 sm:py-3 sm:items-center hover:bg-secondary/30"
                   >
-                    <div className="col-span-5">
+                    <div className="col-span-3">
                       <div className="flex items-center gap-2">
                         {line.category_name && (
                           <>
@@ -171,6 +172,27 @@ export function JournalDetailDialog({
                           </>
                         )}
                       </div>
+                    </div>
+
+                    <div className="col-span-3 flex flex-col gap-0.5 text-xs">
+                      {line.contact_name && (
+                        <span className="text-ink-main font-medium flex items-center gap-1">
+                          <span>👤</span>
+                          <span>{line.contact_name}</span>
+                          <span className="text-ink-mute text-[10px]">
+                            ({line.contact_kind === 'TENANT' ? 'متجر' : line.contact_kind === 'EMPLOYEE' ? 'موظف' : line.contact_kind === 'VENDOR' ? 'مورد' : 'عميل'})
+                          </span>
+                        </span>
+                      )}
+                      {line.cashbox_name_ar && (
+                        <span className="text-sage-700 font-medium flex items-center gap-1">
+                          <span>🏦</span>
+                          <span>{line.cashbox_name_ar}</span>
+                        </span>
+                      )}
+                      {!line.contact_name && !line.cashbox_name_ar && (
+                        <span className="text-ink-mute">—</span>
+                      )}
                     </div>
                     
                     <div className="grid grid-cols-2 gap-2 sm:contents">
@@ -188,7 +210,7 @@ export function JournalDetailDialog({
                       </div>
                     </div>
                     
-                    <div className="sm:col-span-3 text-ink-mute text-xs sm:text-sm">
+                    <div className="sm:col-span-2 text-ink-mute text-xs sm:text-sm">
                       <span className="inline sm:hidden text-xs text-ink-mute font-normal">البيان: </span>
                       {line.description || '—'}
                     </div>
@@ -197,7 +219,8 @@ export function JournalDetailDialog({
 
                 {/* Totals Row */}
                 <div className="flex flex-col gap-2 p-3 sm:grid sm:grid-cols-12 sm:gap-2 sm:px-4 sm:py-3 font-bold bg-muted/30 border-t-2">
-                  <div className="col-span-5">الإجمالي</div>
+                  <div className="col-span-3">الإجمالي</div>
+                  <div className="hidden sm:block col-span-3"></div>
                   <div className="grid grid-cols-2 gap-2 sm:contents">
                     <div className="sm:col-span-2 sm:text-left text-green-700">
                       <span className="inline sm:hidden text-xs text-ink-mute font-normal">إجمالي مدين: </span>
@@ -208,7 +231,7 @@ export function JournalDetailDialog({
                       {formatMoney(Number(entry.total_credit), 'LYD')}
                     </div>
                   </div>
-                  <div className="hidden sm:block sm:col-span-3"></div>
+                  <div className="hidden sm:block sm:col-span-2"></div>
                 </div>
               </div>
             )}

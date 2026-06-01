@@ -45,6 +45,13 @@ export type JournalLineRow = {
   category_type: string | null;
   category_kind: string | null;
   category_color: string | null;
+  contact_id: string | null;
+  contact_name: string | null;
+  contact_kind: string | null;
+  contact_shop_number: string | null;
+  cashbox_id: string | null;
+  cashbox_name_ar: string | null;
+  cashbox_code: string | null;
 };
 
 export type NewJournalEntryInput = {
@@ -57,25 +64,36 @@ export type NewJournalEntryInput = {
     debit: number;
     credit: number;
     description?: string;
+    contact_id?: string | null;
+    cashbox_id?: string | null;
   }>;
 };
 
 // ── Queries ──────────────────────────────────────────────────────
-export function useJournalEntries(status?: JournalStatus, limit = 100) {
+export function useJournalEntries(filters?: {
+  status?: JournalStatus | 'ALL';
+  contactId?: string | 'ALL';
+  cashboxId?: string | 'ALL';
+  search?: string;
+}, limit = 100) {
+  const status = filters?.status && filters.status !== 'ALL' ? filters.status : null;
+  const contactId = filters?.contactId && filters.contactId !== 'ALL' ? filters.contactId : null;
+  const cashboxId = filters?.cashboxId && filters.cashboxId !== 'ALL' ? filters.cashboxId : null;
+  const search = filters?.search || null;
+
   return useQuery<JournalEntryRow[]>({
-    queryKey: status ? [...qk.journalEntries, status] : qk.journalEntries,
+    queryKey: [...qk.journalEntries, { status, contactId, cashboxId, search, limit }],
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
-      let q = supabase
-        .from('journal_entries_with_totals')
-        .select('*')
-        .order('entry_date', { ascending: false })
-        .order('number', { ascending: false })
-        .limit(limit);
       
-      if (status) q = q.eq('status', status);
+      const { data, error } = await supabase.rpc('get_journal_entries_filtered', {
+        p_status: status,
+        p_contact_id: contactId,
+        p_cashbox_id: cashboxId,
+        p_search: search,
+        p_limit: limit
+      });
       
-      const { data, error } = await q;
       if (error) throw error;
       return (data as JournalEntryRow[]) ?? [];
     },
@@ -162,6 +180,8 @@ export function useCreateJournalEntry() {
           credit: line.credit,
           description: line.description || null,
           sort_order: index,
+          contact_id: line.contact_id || null,
+          cashbox_id: line.cashbox_id || null,
         })),
       });
       
@@ -198,6 +218,8 @@ export function useUpdateJournalEntry() {
           credit: line.credit,
           description: line.description || null,
           sort_order: index,
+          contact_id: line.contact_id || null,
+          cashbox_id: line.cashbox_id || null,
         })),
       });
       

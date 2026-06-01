@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { cn, formatMoney } from '@/lib/utils';
-import { useCategories } from '@/lib/db/queries';
+import { useCategories, useContacts, useCashboxes } from '@/lib/db/queries';
 import { useCreateJournalEntry, useUpdateJournalEntry, useJournalLines } from '@/lib/db/journal-queries';
 import { toast } from 'sonner';
 
@@ -32,6 +32,8 @@ type JournalLine = {
   debit: string;
   credit: string;
   description: string;
+  contact_id?: string;
+  cashbox_id?: string;
 };
 
 export function JournalEntryDialog({
@@ -44,6 +46,8 @@ export function JournalEntryDialog({
   editingEntry?: any;
 }) {
   const { data: categories = [] } = useCategories();
+  const { data: contacts = [] } = useContacts();
+  const { data: cashboxes = [] } = useCashboxes();
   const createEntry = useCreateJournalEntry();
   const updateEntry = useUpdateJournalEntry();
 
@@ -52,8 +56,8 @@ export function JournalEntryDialog({
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<JournalLine[]>([
-    { id: '1', category_id: '', debit: '', credit: '', description: '' },
-    { id: '2', category_id: '', debit: '', credit: '', description: '' },
+    { id: '1', category_id: '', debit: '', credit: '', description: '', contact_id: '', cashbox_id: '' },
+    { id: '2', category_id: '', debit: '', credit: '', description: '', contact_id: '', cashbox_id: '' },
   ]);
 
   // Fetch lines for edit mode
@@ -80,6 +84,8 @@ export function JournalEntryDialog({
           debit: Number(l.debit) > 0 ? String(Number(l.debit)) : '',
           credit: Number(l.credit) > 0 ? String(Number(l.credit)) : '',
           description: l.description || '',
+          contact_id: l.contact_id || '',
+          cashbox_id: l.cashbox_id || '',
         }))
       );
     }
@@ -94,6 +100,8 @@ export function JournalEntryDialog({
         debit: '',
         credit: '',
         description: '',
+        contact_id: '',
+        cashbox_id: '',
       },
     ]);
   };
@@ -159,6 +167,8 @@ export function JournalEntryDialog({
         debit: Number(l.debit) || 0,
         credit: Number(l.credit) || 0,
         description: l.description || undefined,
+        contact_id: l.contact_id || undefined,
+        cashbox_id: l.cashbox_id || undefined,
       }));
 
     if (validLines.length < 2) {
@@ -195,16 +205,28 @@ export function JournalEntryDialog({
     setDescription('');
     setNotes('');
     setLines([
-      { id: '1', category_id: '', debit: '', credit: '', description: '' },
-      { id: '2', category_id: '', debit: '', credit: '', description: '' },
+      { id: '1', category_id: '', debit: '', credit: '', description: '', contact_id: '', cashbox_id: '' },
+      { id: '2', category_id: '', debit: '', credit: '', description: '', contact_id: '', cashbox_id: '' },
     ]);
+  };
+
+  const getContactLabel = (c: any) => {
+    const kinds: Record<string, string> = {
+      TENANT: 'متجر',
+      EMPLOYEE: 'موظف',
+      VENDOR: 'مورد',
+      CUSTOMER: 'عميل',
+      OTHER: 'آخر'
+    };
+    const kindLabel = kinds[c.kind] || 'جهة';
+    return `[${kindLabel}] ${c.name} ${c.shop_number ? `(${c.shop_number})` : ''}`;
   };
 
   const isPending = createEntry.isPending || updateEntry.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5" />
@@ -254,9 +276,11 @@ export function JournalEntryDialog({
             </div>
             {/* Table Column Headers - Only visible on desktop */}
             <div className="bg-muted/20 px-4 py-2 text-xs font-semibold text-ink-mute border-b hidden sm:grid sm:grid-cols-12 sm:gap-2">
-              <div className="sm:col-span-5">البند المحاسبي</div>
-              <div className="sm:col-span-2 text-left">مدين</div>
-              <div className="sm:col-span-2 text-left">دائن</div>
+              <div className="sm:col-span-3">الحساب المحاسبي</div>
+              <div className="sm:col-span-2">الجهة/الموظف/المورد</div>
+              <div className="sm:col-span-2">الخزينة/المصرف</div>
+              <div className="sm:col-span-1 text-left">مدين</div>
+              <div className="sm:col-span-1 text-left">دائن</div>
               <div className="sm:col-span-2">البيان</div>
               <div className="sm:col-span-1"></div>
             </div>
@@ -266,8 +290,8 @@ export function JournalEntryDialog({
                   key={line.id} 
                   className="p-4 flex flex-col gap-3 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-start sm:p-3"
                 >
-                  <div className="flex-1 sm:col-span-5">
-                    <Label className="text-xs mb-1 block sm:hidden">البند المحاسبي</Label>
+                  <div className="flex-1 sm:col-span-3">
+                    <Label className="text-xs mb-1 block sm:hidden">الحساب المحاسبي</Label>
                     <Select
                       value={line.category_id}
                       onValueChange={(v) => updateLine(line.id, 'category_id', v)}
@@ -290,9 +314,49 @@ export function JournalEntryDialog({
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <div className="flex-1 sm:col-span-2">
+                    <Label className="text-xs mb-1 block sm:hidden">الجهة/المتجر/الموظف</Label>
+                    <Select
+                      value={line.contact_id || 'none'}
+                      onValueChange={(v) => updateLine(line.id, 'contact_id', v === 'none' ? '' : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="الجهة (اختياري)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">بدون جهة</SelectItem>
+                        {contacts.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {getContactLabel(c)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex-1 sm:col-span-2">
+                    <Label className="text-xs mb-1 block sm:hidden">الخزينة/المصرف</Label>
+                    <Select
+                      value={line.cashbox_id || 'none'}
+                      onValueChange={(v) => updateLine(line.id, 'cashbox_id', v === 'none' ? '' : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="الخزينة (اختياري)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">بدون خزينة</SelectItem>
+                        {cashboxes.map((cb) => (
+                          <SelectItem key={cb.id} value={cb.id}>
+                            {cb.name_ar} {cb.code ? `(${cb.code})` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   
                   <div className="grid grid-cols-2 gap-2 sm:contents">
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-1">
                       <Label className="text-xs mb-1 block sm:hidden">مدين</Label>
                       <Input
                         type="number"
@@ -304,7 +368,7 @@ export function JournalEntryDialog({
                         className="text-left"
                       />
                     </div>
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-1">
                       <Label className="text-xs mb-1 block sm:hidden">دائن</Label>
                       <Input
                         type="number"

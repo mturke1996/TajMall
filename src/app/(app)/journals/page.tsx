@@ -36,6 +36,14 @@ import {
 import { JournalEntryDialog } from './components/journal-entry-dialog';
 import { JournalDetailDialog } from './components/journal-detail-dialog';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useContacts, useCashboxes } from '@/lib/db/queries';
 
 const STATUS_CONFIG: Record<JournalStatus, {
   label: string;
@@ -70,17 +78,26 @@ const STATUS_CONFIG: Record<JournalStatus, {
 export default function JournalsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<JournalStatus | 'ALL'>('ALL');
+  const [contactFilter, setContactFilter] = useState<string | 'ALL'>('ALL');
+  const [cashboxFilter, setCashboxFilter] = useState<string | 'ALL'>('ALL');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntryRow | null>(null);
   const [editingEntry, setEditingEntry] = useState<JournalEntryRow | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const { data: contacts = [] } = useContacts();
+  const { data: cashboxes = [] } = useCashboxes();
 
   const {
     data: entries,
     isLoading: isLoadingEntries,
     isError: entriesQueryError,
     error: entriesQueryErr,
-  } = useJournalEntries(statusFilter === 'ALL' ? undefined : statusFilter);
+  } = useJournalEntries({
+    status: statusFilter,
+    contactId: contactFilter,
+    cashboxId: cashboxFilter,
+  });
   const {
     data: summary,
     isError: summaryQueryError,
@@ -147,6 +164,18 @@ export default function JournalsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('هل أنت متأكد من حذف هذا القيد؟ يمكن حذف المسودات فقط.')) return;
     await deleteEntry.mutateAsync(id);
+  };
+
+  const getContactLabel = (c: any) => {
+    const kinds: Record<string, string> = {
+      TENANT: 'متجر',
+      EMPLOYEE: 'موظف',
+      VENDOR: 'مورد',
+      CUSTOMER: 'عميل',
+      OTHER: 'آخر'
+    };
+    const kindLabel = kinds[c.kind] || 'جهة';
+    return `[${kindLabel}] ${c.name} ${c.shop_number ? `(${c.shop_number})` : ''}`;
   };
 
   return (
@@ -250,18 +279,61 @@ export default function JournalsPage() {
           </div>
         )}
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
-            <Input
-              placeholder="البحث برقم القيد أو الوصف..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pr-10"
-            />
+        {/* Filters and Search Row */}
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+              <Input
+                placeholder="البحث برقم القيد أو الوصف..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pr-10"
+              />
+            </div>
+            
+            {/* Cashbox Filter */}
+            <div>
+              <Select
+                value={cashboxFilter}
+                onValueChange={setCashboxFilter}
+              >
+                <SelectTrigger className="bg-canvas">
+                  <SelectValue placeholder="كل الخزائن والمصارف" />
+                </SelectTrigger>
+                <SelectContent dir="rtl">
+                  <SelectItem value="ALL">كل الخزائن والمصارف</SelectItem>
+                  {cashboxes.map((cb) => (
+                    <SelectItem key={cb.id} value={cb.id}>
+                      🏦 {cb.name_ar} {cb.code ? `(${cb.code})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Contact Filter */}
+            <div>
+              <Select
+                value={contactFilter}
+                onValueChange={setContactFilter}
+              >
+                <SelectTrigger className="bg-canvas">
+                  <SelectValue placeholder="كل الجهات والمستأجرين" />
+                </SelectTrigger>
+                <SelectContent dir="rtl">
+                  <SelectItem value="ALL">كل الجهات (المحلات/الموظفين/الموردين)</SelectItem>
+                  {contacts.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {getContactLabel(c)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="flex gap-1 overflow-x-auto pb-1">
+          <div className="flex gap-1 overflow-x-auto pb-1 mt-1">
             <button
               onClick={() => setStatusFilter('ALL')}
               className={cn(
@@ -520,18 +592,19 @@ function JournalCardLines({ entryId }: { entryId: string }) {
   return (
     <div className="mt-3 border rounded-lg overflow-hidden bg-background">
       <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-3 py-1.5 text-xs font-semibold text-ink-mute bg-muted/30 border-b">
-        <div className="col-span-5">البند المحاسبي</div>
+        <div className="col-span-3">البند المحاسبي</div>
+        <div className="col-span-3">الجهة / الخزينة</div>
         <div className="col-span-2 text-left">مدين</div>
         <div className="col-span-2 text-left">دائن</div>
-        <div className="col-span-3">البيان</div>
+        <div className="col-span-2">البيان</div>
       </div>
       <div className="divide-y text-xs">
         {lines.map((line) => (
           <div 
             key={line.id} 
-            className="flex flex-col gap-1 p-3 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-center sm:px-3 sm:py-2"
+            className="flex flex-col gap-1.5 p-3 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-center sm:px-3 sm:py-2"
           >
-            <div className="col-span-5 flex items-center gap-1.5">
+            <div className="col-span-3 flex items-center gap-1.5">
               {line.category_name && (
                 <>
                   <span
@@ -543,6 +616,27 @@ function JournalCardLines({ entryId }: { entryId: string }) {
                     <span className="text-[10px] text-ink-mute ms-1">({line.category_code})</span>
                   </div>
                 </>
+              )}
+            </div>
+
+            <div className="col-span-3 flex flex-col gap-0.5 text-[10px]">
+              {line.contact_name && (
+                <span className="text-ink-main font-medium flex items-center gap-1">
+                  <span>👤</span>
+                  <span>{line.contact_name}</span>
+                  <span className="text-ink-mute text-[9px]">
+                    ({line.contact_kind === 'TENANT' ? 'متجر' : line.contact_kind === 'EMPLOYEE' ? 'موظف' : line.contact_kind === 'VENDOR' ? 'مورد' : 'عميل'})
+                  </span>
+                </span>
+              )}
+              {line.cashbox_name_ar && (
+                <span className="text-sage-700 font-medium flex items-center gap-1">
+                  <span>🏦</span>
+                  <span>{line.cashbox_name_ar}</span>
+                </span>
+              )}
+              {!line.contact_name && !line.cashbox_name_ar && (
+                <span className="text-ink-mute">—</span>
               )}
             </div>
             
@@ -561,7 +655,7 @@ function JournalCardLines({ entryId }: { entryId: string }) {
               </div>
             </div>
             
-            <div className="sm:col-span-3 text-ink-mute mt-0.5 sm:mt-0">
+            <div className="sm:col-span-2 text-ink-mute mt-0.5 sm:mt-0">
               {line.description || '—'}
             </div>
           </div>
