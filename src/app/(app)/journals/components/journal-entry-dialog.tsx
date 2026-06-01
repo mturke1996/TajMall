@@ -146,6 +146,36 @@ export function JournalEntryDialog({
   const isBalanced = Math.abs(totals.debit - totals.credit) < 0.001 && totals.debit > 0;
   const difference = totals.debit - totals.credit;
 
+  const autoBalance = () => {
+    if (difference === 0) return;
+    setLines((prev) => {
+      if (prev.length === 0) return prev;
+      const lastLineIndex = prev.length - 1;
+      const lastLine = prev[lastLineIndex];
+      const absDiff = Math.abs(difference);
+      const isDebitMore = difference > 0;
+      
+      const updatedLines = [...prev];
+      if (isDebitMore) {
+        // We need more Credit to balance
+        updatedLines[lastLineIndex] = {
+          ...lastLine,
+          credit: String(Number(lastLine.credit || 0) + absDiff),
+          debit: ''
+        };
+      } else {
+        // We need more Debit to balance
+        updatedLines[lastLineIndex] = {
+          ...lastLine,
+          debit: String(Number(lastLine.debit || 0) + absDiff),
+          credit: ''
+        };
+      }
+      return updatedLines;
+    });
+    toast.success('تمت الموازنة التلقائية للقيد');
+  };
+
   const handleSubmit = async () => {
     const hasDoubleEntryOnSingleLine = lines.some(
       (l) => Number(l.debit) > 0 && Number(l.credit) > 0
@@ -439,10 +469,21 @@ export function JournalEntryDialog({
                   </div>
                 </div>
                 {!isBalanced && difference !== 0 && (
-                  <p className="text-xs text-red-600 mt-1">
-                    الفرق: {formatMoney(Math.abs(difference), 'LYD')} {' '}
-                    {difference > 0 ? '(مدين أكثر)' : '(دائن أكثر)'}
-                  </p>
+                  <div className="flex flex-col sm:flex-row items-center gap-2 mt-1 select-none">
+                    <p className="text-xs text-red-600 font-bold">
+                      الفرق: {formatMoney(Math.abs(difference), 'LYD')} {' '}
+                      {difference > 0 ? '(مدين أكثر)' : '(دائن أكثر)'}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={autoBalance}
+                      className="h-6 px-2 text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200"
+                    >
+                      موازنة تلقائية للقيد
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>

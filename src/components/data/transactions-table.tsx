@@ -122,7 +122,7 @@ export function TransactionsTable({
                     <p className="text-xs text-ink-mute">{r.category?.name_ar}</p>
                     {contactName && (
                       <Link
-                        href={`/contacts?id=${r.contact?.id}`}
+                        href={`/contacts/${r.contact?.id}`}
                         className="text-xs text-sage-600 hover:text-sage-800 hover:underline flex items-center gap-1 mt-0.5"
                       >
                         {contactIcon}
@@ -189,7 +189,7 @@ export function TransactionsTable({
                   <TableCell className="text-xs">
                     {contactName ? (
                       <Link
-                        href={`/contacts?id=${r.contact?.id}`}
+                        href={`/contacts/${r.contact?.id}`}
                         className="flex items-center gap-1 text-sage-700 hover:text-sage-900 hover:underline"
                       >
                         {r.contact?.kind === 'TENANT' ? <Building2 className="h-3 w-3" /> : 

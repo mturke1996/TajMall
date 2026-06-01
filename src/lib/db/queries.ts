@@ -31,6 +31,8 @@ export const qk = {
   cashboxBalances: ["cashbox_balances"] as const,
   profiles: ["profiles"] as const,
   contacts: (kind?: ContactKind) => ["contacts", kind ?? "ALL"] as const,
+  contact: (id: string) => ["contacts", "detail", id] as const,
+  contactTransactions: (id: string) => ["contacts", id, "transactions"] as const,
   tenants: ["contacts", "TENANT"] as const,
   employees: ["contacts", "EMPLOYEE"] as const,
   tenantRentSummary: ["tenant_rent_summary"] as const,
@@ -177,6 +179,40 @@ export function useContacts(kind?: ContactKind) {
   });
 }
 
+export function useContact(id: string) {
+  return useQuery<ContactRow>({
+    queryKey: qk.contact(id),
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase
+        .from("contacts")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+      return data as ContactRow;
+    },
+    enabled: !!id,
+  });
+}
+
+export function useTenantRentForContact(contactId: string) {
+  return useQuery<TenantRentSummary | null>({
+    queryKey: [...qk.tenantRentSummary, contactId],
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase
+        .from("tenant_rent_summary")
+        .select("*")
+        .eq("id", contactId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as TenantRentSummary) ?? null;
+    },
+    enabled: !!contactId,
+  });
+}
+
 export function useTenants() {
   return useContacts("TENANT");
 }
@@ -185,23 +221,52 @@ export function useEmployees() {
   return useContacts("EMPLOYEE");
 }
 
+export type ContactUpsertInput = {
+  kind: ContactKind;
+  name: string;
+  phone?: string | null;
+  phone2?: string | null;
+  email?: string | null;
+  address?: string | null;
+  shop_number?: string | null;
+  floor?: string | null;
+  area_sqm?: string | null;
+  monthly_rent?: string | null;
+  job_title?: string | null;
+  department?: string | null;
+  salary?: string | null;
+  notes?: string | null;
+  name_en?: string | null;
+  id_number?: string | null;
+  tax_number?: string | null;
+  contract_start?: string | null;
+  contract_end?: string | null;
+  hire_date?: string | null;
+  is_active?: boolean;
+};
+
 export function useCreateContact() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (
-      input: Omit<ContactRow, "id" | "created_at" | "updated_at">,
-    ) => {
+    mutationFn: async (input: ContactUpsertInput) => {
       const supabase = createSupabaseBrowserClient();
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth?.user) {
+        throw new Error("يجب تسجيل الدخول لإضافة جهة تعامل");
+      }
+
       const { data, error } = await supabase
         .from("contacts")
-        .insert(input)
-        .select()
+        .insert({ ...input, is_active: input.is_active ?? true })
+        .select("*")
         .single();
       if (error) throw error;
       return data as ContactRow;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
+      if (data?.id) qc.invalidateQueries({ queryKey: qk.contact(data.id) });
     },
   });
 }
@@ -221,8 +286,9 @@ export function useUpdateContact() {
       if (error) throw error;
       return data as ContactRow;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
+      if (data?.id) qc.invalidateQueries({ queryKey: qk.contact(data.id) });
     },
   });
 }
@@ -372,12 +438,16 @@ export function useRecordRentPayment() {
       if (error) throw error;
       return data as string; // returns transaction id
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["transactions"] });
       qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
       qc.invalidateQueries({ queryKey: qk.cashboxBalances });
       qc.invalidateQueries({ queryKey: qk.dashboardStats });
       qc.invalidateQueries({ queryKey: qk.monthlySummary });
+      qc.invalidateQueries({ queryKey: qk.contact(variables.tenant_id) });
+      qc.invalidateQueries({
+        queryKey: qk.contactTransactions(variables.tenant_id),
+      });
     },
   });
 }
@@ -402,6 +472,25 @@ export function useTransactions(kind?: "REVENUE" | "EXPENSE", limit = 500) {
       if (error) throw error;
       return (data as unknown as TransactionWithRelations[]) ?? [];
     },
+  });
+}
+
+export function useContactTransactions(contactId: string, limit = 200) {
+  return useQuery<TransactionWithRelations[]>({
+    queryKey: qk.contactTransactions(contactId),
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase
+        .from("transactions")
+        .select(TX_SELECT)
+        .eq("contact_id", contactId)
+        .order("tx_date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return (data as unknown as TransactionWithRelations[]) ?? [];
+    },
+    enabled: !!contactId,
   });
 }
 

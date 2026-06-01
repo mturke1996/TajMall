@@ -74,7 +74,7 @@ export function RegisterServiceWorker() {
         // Register for background sync if available
         if ('sync' in registration) {
           try {
-            await registration.sync.register('sync-transactions');
+            await (registration as any).sync.register('sync-transactions');
           } catch (syncError) {
             console.log('[PWA] Background sync not available');
           }
@@ -118,7 +118,7 @@ export function RegisterServiceWorker() {
       // Trigger sync when back online
       if ('serviceWorker' in navigator && 'sync' in navigator.serviceWorker) {
         navigator.serviceWorker.ready.then((registration) => {
-          registration.sync.register('sync-transactions');
+          (registration as any).sync.register('sync-transactions');
         });
       }
     };

@@ -25,7 +25,11 @@ export {
 // Base Styles
 export { PDF, pdfBase } from './pdfBase';
 
-// Report PDFs (journals)
+// Report PDFs (journals & business)
 export { JournalPDF, type JournalEntryPdfModel } from './JournalPDF';
 export { TransactionsReportPDF } from './TransactionsReportPDF';
 export { TenantsReportPDF } from './TenantsReportPDF';
+export { ContactDossierPDF } from './ContactDossierPDF';
+export { TrialBalanceReportPDF } from './TrialBalanceReportPDF';
+export { ProfitLossReportPDF } from './ProfitLossReportPDF';
+export { CashFlowReportPDF } from './CashFlowReportPDF';

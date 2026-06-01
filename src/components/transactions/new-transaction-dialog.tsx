@@ -118,27 +118,8 @@ export function NewTransactionDialog() {
     try {
       const newContact = await createContact.mutateAsync({
         name: newContactName.trim(),
-        kind: (contactKind === 'ALL' ? 'CUSTOMER' : contactKind) as any,
-        code: null,
-        name_en: null,
-        phone: null,
-        phone2: null,
-        email: null,
-        address: null,
-        id_number: null,
-        tax_number: null,
-        shop_number: null,
-        floor: null,
-        area_sqm: null,
-        contract_start: null,
-        contract_end: null,
-        monthly_rent: null,
-        job_title: null,
-        department: null,
-        hire_date: null,
-        salary: null,
+        kind: contactKind === 'ALL' ? 'CUSTOMER' : contactKind,
         is_active: true,
-        notes: null,
       });
       setContactId(newContact.id);
       setShowNewContact(false);

@@ -14,6 +14,7 @@ export async function POST(req: Request) {
       email?: string;
       full_name_ar?: string;
       role?: string;
+      password?: string;
     };
 
     const email = String(body.email ?? '').trim();

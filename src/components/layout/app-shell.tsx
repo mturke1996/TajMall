@@ -11,6 +11,7 @@ import { NewTransactionDialog } from '@/components/transactions/new-transaction-
 import { AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { NAV } from './nav-items';
+import { GlobalPrefetch } from './global-prefetch';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -66,6 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <MobileBottomNav />
       <NewTransactionDialog />
+      <GlobalPrefetch />
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
     </div>
   );

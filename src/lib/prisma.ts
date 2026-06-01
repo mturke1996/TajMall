@@ -12,11 +12,6 @@ const createPrismaClient = () => {
   }
 
   return new PrismaClient({
-    datasources: {
-      db: {
-        url: databaseUrl,
-      },
-    },
     log:
       process.env.NODE_ENV === 'development'
         ? ['warn', 'error']

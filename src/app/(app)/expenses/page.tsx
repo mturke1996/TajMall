@@ -8,13 +8,16 @@ import { TransactionsTable } from '@/components/data/transactions-table';
 import { Stat } from '@/components/dashboard/stat';
 import { CategoryBreakdown } from '@/components/dashboard/category-breakdown';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
-import { useTransactions } from '@/lib/db/queries';
+import { useTransactions, useCategories } from '@/lib/db/queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 
 export default function ExpensesPage() {
   const [query, setQuery] = useState('');
   const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('ALL');
+
   const { data, isLoading } = useTransactions('EXPENSE');
+  const { data: categories = [] } = useCategories('EXPENSE');
 
   const rows = useMemo(() => data ?? [], [data]);
 
@@ -40,12 +43,18 @@ export default function ExpensesPage() {
     );
   }, [dateFiltered, query]);
 
-  // Stats from date-filtered rows
-  const total = dateFiltered.reduce((s, r) => s + Number(r.amount), 0);
-  const count = dateFiltered.length;
+  // Apply category dropdown filter
+  const categoryFiltered = useMemo(() => {
+    if (selectedCategoryId === 'ALL') return filtered;
+    return filtered.filter((r) => r.category_id === selectedCategoryId);
+  }, [filtered, selectedCategoryId]);
+
+  // Stats from category-filtered rows
+  const total = categoryFiltered.reduce((s, r) => s + Number(r.amount), 0);
+  const count = categoryFiltered.length;
   const avg = count ? Math.round(total / count) : 0;
 
-  // Breakdown by category (from date-filtered rows)
+  // Breakdown by category (from date-filtered rows, so it shows general ratios)
   const byCategory = useMemo(() => {
     const map = new Map<string, { value: number; color: string }>();
     for (const r of dateFiltered) {
@@ -60,6 +69,11 @@ export default function ExpensesPage() {
       .slice(0, 6);
   }, [dateFiltered]);
 
+  const selectedCategoryName = useMemo(() => {
+    if (selectedCategoryId === 'ALL') return null;
+    return categories.find((c) => c.id === selectedCategoryId)?.name_ar ?? null;
+  }, [selectedCategoryId, categories]);
+
   return (
     <>
       <PageHeader
@@ -69,15 +83,19 @@ export default function ExpensesPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <TajMallPdfToolbar
-              fileName={`مصروفات-${new Date().toISOString().slice(0, 10)}`}
-              disabled={filtered.length === 0}
+              fileName={
+                selectedCategoryName
+                  ? `مصروفات-${selectedCategoryName}-${new Date().toISOString().slice(0, 10)}`
+                  : `مصروفات-${new Date().toISOString().slice(0, 10)}`
+              }
+              disabled={categoryFiltered.length === 0}
               render={async () => {
                 const { TransactionsReportPDF } = await import('@/features/pdf/TransactionsReportPDF');
                 return (
                   <TransactionsReportPDF
-                    titleAr="كشف المصروفات"
-                    subtitleAr={`عدد القيود: ${filtered.length} — بحسب عرض القائمة الحالي`}
-                    rows={filtered}
+                    titleAr={selectedCategoryName ? `كشف مصروفات: ${selectedCategoryName}` : "كشف المصروفات العمومية"}
+                    subtitleAr={`عدد القيود: ${categoryFiltered.length} — بحسب عرض القائمة المصفاة`}
+                    rows={categoryFiltered}
                   />
                 );
               }}
@@ -133,18 +151,31 @@ export default function ExpensesPage() {
           </article>
         </section>
 
-        {/* Toolbar with search + date filter */}
+        {/* Toolbar with search + date filter + category filter */}
         <DataToolbar
           searchPlaceholder="ابحث في المصروفات…"
-          count={filtered.length}
+          count={categoryFiltered.length}
           onSearch={setQuery}
           onExport={() => {}}
           datePreset={datePreset}
           onDatePreset={setDatePreset}
-        />
+        >
+          <select
+            value={selectedCategoryId}
+            onChange={(e) => setSelectedCategoryId(e.target.value)}
+            className="h-9 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-semibold focus:ring-1 focus:ring-sage-700 outline-none select-none max-w-[180px] cursor-pointer"
+          >
+            <option value="ALL">جميع بنود المصروفات</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name_ar}
+              </option>
+            ))}
+          </select>
+        </DataToolbar>
 
         <TransactionsTable
-          rows={filtered}
+          rows={categoryFiltered}
           loading={isLoading}
           kindFilter="EXPENSE"
         />

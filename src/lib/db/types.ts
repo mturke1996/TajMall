@@ -225,3 +225,80 @@ export type SaveDisbursementVoucherInput = {
   notes?: string | null;
   lines: { description: string; amount: number }[];
 };
+
+export type FiscalPeriodRow = {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_closed: boolean;
+  closed_at: string | null;
+  closed_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MallUnitRow = {
+  id: string;
+  unit_number: string;
+  floor: string;
+  area_sqm: string;
+  status: 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE';
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LeaseContractRow = {
+  id: string;
+  tenant_id: string;
+  unit_id: string;
+  start_date: string;
+  end_date: string;
+  monthly_rent: string;
+  services_amount: string;
+  deposit_amount: string;
+  status: 'ACTIVE' | 'EXPIRED' | 'TERMINATED';
+  created_at: string;
+  updated_at: string;
+};
+
+export type LeaseContractWithRelations = LeaseContractRow & {
+  unit?: Pick<MallUnitRow, 'id' | 'unit_number' | 'floor' | 'area_sqm'> | null;
+  tenant?: { id: string; name: string; phone: string | null } | null;
+};
+
+export type TenantChargeRow = {
+  id: string;
+  contract_id: string;
+  amount: string;
+  due_date: string;
+  type: 'RENT' | 'SERVICE' | 'FINE' | 'OTHER';
+  description: string;
+  status: 'UNPAID' | 'PARTIAL' | 'PAID';
+  total_paid: string;
+  journal_entry_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TenantChargeWithRelations = TenantChargeRow & {
+  contract?: LeaseContractWithRelations | null;
+};
+
+export type TenantChargeAllocationRow = {
+  id: string;
+  charge_id: string;
+  transaction_id: string;
+  amount: string;
+  allocated_at: string;
+};
+
+export type AccountMappingRow = {
+  id: string;
+  source_type: 'RENT_REVENUE' | 'SERVICE_REVENUE' | 'DEPOSIT_LIABILITY' | 'EXPENSE_CASH_ASSET' | 'REVENUE_CASH_ASSET';
+  category_id: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+};

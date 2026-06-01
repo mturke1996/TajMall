@@ -262,6 +262,7 @@ model AccountCategory {
   transactions Transaction[]
   journalLines JournalLine[]
   voucherLines VoucherLine[]
+  accountMappings AccountMapping[]
 
   @@unique([organizationId, code])
   @@index([organizationId, kind])
@@ -448,6 +449,18 @@ model JournalEntry {
   organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   lines        JournalLine[]
 
+  periodId           String?       @map("period_id")
+  sourceType         String?       @map("source_type")
+  sourceId           String?       @map("source_id")
+  postingVersion     Int           @default(1) @map("posting_version")
+  reversalOfEntryId  String?       @map("reversal_of_entry_id")
+  createdByUserId    String?       @map("created_by_user_id")
+
+  period             FiscalPeriod? @relation(fields: [periodId], references: [id])
+  reversalOf         JournalEntry? @relation("ReversalRelation", fields: [reversalOfEntryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reversalEntries    JournalEntry[] @relation("ReversalRelation")
+  tenantCharges      TenantCharge[]
+
   @@index([organizationId, entryDate])
 }
 
@@ -596,4 +609,99 @@ model Setting {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, key])
+}
+
+model FiscalPeriod {
+  id        String   @id @default(cuid())
+  name      String
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  isClosed  Boolean  @default(false) @map("is_closed")
+  closedAt  DateTime? @map("closed_at")
+  closedBy  String?   @map("closed_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  journals  JournalEntry[]
+
+  @@map("fiscal_periods")
+}
+
+model MallUnit {
+  id         String   @id @default(cuid())
+  unitNumber String   @unique @map("unit_number")
+  floor      String
+  areaSqm    Decimal  @map("area_sqm") @db.Decimal(10, 2)
+  status     String   @default("AVAILABLE") // AVAILABLE, OCCUPIED, MAINTENANCE
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  contracts  LeaseContract[]
+
+  @@map("mall_units")
+}
+
+model LeaseContract {
+  id             String   @id @default(cuid())
+  tenantId       String   @map("tenant_id")
+  unitId         String   @map("unit_id")
+  startDate      DateTime @map("start_date")
+  endDate        DateTime @map("end_date")
+  monthlyRent    Decimal  @map("monthly_rent") @db.Decimal(18, 3)
+  servicesAmount Decimal  @default(0) @map("services_amount") @db.Decimal(18, 3)
+  depositAmount  Decimal  @default(0) @map("deposit_amount") @db.Decimal(18, 3)
+  status         String   @default("ACTIVE") // ACTIVE, EXPIRED, TERMINATED
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  unit           MallUnit @relation(fields: [unitId], references: [id])
+  charges        TenantCharge[]
+
+  @@map("lease_contracts")
+}
+
+model TenantCharge {
+  id             String   @id @default(cuid())
+  contractId     String   @map("contract_id")
+  amount         Decimal  @map("amount") @db.Decimal(18, 3)
+  dueDate        DateTime @map("due_date")
+  type           String   // RENT, SERVICE, FINE, OTHER
+  description    String
+  status         String   @default("UNPAID") // UNPAID, PARTIAL, PAID
+  totalPaid      Decimal  @default(0) @map("total_paid") @db.Decimal(18, 3)
+  journalEntryId String?  @map("journal_entry_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  contract       LeaseContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  allocations    TenantChargeAllocation[]
+
+  @@map("tenant_charges")
+}
+
+model TenantChargeAllocation {
+  id            String   @id @default(cuid())
+  chargeId      String   @map("charge_id")
+  transactionId String   @map("transaction_id")
+  amount        Decimal  @map("amount") @db.Decimal(18, 3)
+  allocatedAt   DateTime @default(now()) @map("allocated_at")
+
+  charge        TenantCharge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_charge_allocations")
+}
+
+model AccountMapping {
+  id          String   @id @default(cuid())
+  sourceType  String   @unique @map("source_type")
+  categoryId  String   @map("category_id")
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  category    AccountCategory @relation(fields: [categoryId], references: [id])
+
+  @@map("account_mappings")
 }

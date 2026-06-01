@@ -288,7 +288,7 @@ export default function EmployeesPage() {
                         asChild
                         className="flex-1"
                       >
-                        <Link href={`/contacts?id=${emp.id}`}>
+                        <Link href={`/contacts/${emp.id}`}>
                           <ArrowUpRight className="h-4 w-4 mr-1" />
                           التفاصيل
                         </Link>
