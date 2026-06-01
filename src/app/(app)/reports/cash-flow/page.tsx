@@ -1,21 +1,88 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import {
-  Wallet,
-  ArrowRightLeft,
-  Loader2,
-  AlertTriangle,
-  ArrowDownLeft,
-  ArrowUpRight,
-  TrendingUp
-} from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatMoney } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { useCashFlow } from '@/lib/db/mall-queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
+import { AccountingYearPicker } from '@/components/accounting/accounting-year-picker';
+import { AccountingFilterCard } from '@/components/accounting/accounting-filter-card';
+import { AccountingSummaryGrid } from '@/components/accounting/accounting-summary-grid';
+import {
+  AccountingEmpty,
+  AccountingError,
+  AccountingLoading,
+} from '@/components/accounting/accounting-states';
+
+type CashFlowItem = {
+  category: string;
+  description: string;
+  amount: number;
+  isPositive: boolean;
+};
+
+function ActivityCard({
+  title,
+  description,
+  items,
+  netAmount,
+}: {
+  title: string;
+  description: string;
+  items: CashFlowItem[];
+  netAmount: number;
+}) {
+  return (
+    <Card className="flex flex-col h-full">
+      <CardHeader className="pb-3 border-b border-border">
+        <CardTitle className="text-base font-bold">{title}</CardTitle>
+        <CardDescription className="text-xs leading-relaxed">{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="pt-4 flex flex-col flex-1 justify-between gap-4">
+        <ul className="space-y-3">
+          {items.length === 0 ? (
+            <li className="text-sm text-muted-foreground text-center py-4">لا توجد بنود</li>
+          ) : (
+            items.map((item, idx) => (
+              <li key={idx} className="flex justify-between items-start gap-3 text-sm">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold leading-snug">{item.category}</p>
+                  {item.description && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                  )}
+                </div>
+                <span
+                  className={cn(
+                    'shrink-0 font-mono font-semibold tabular-nums text-sm',
+                    item.isPositive ? 'text-emerald-700' : 'text-red-600',
+                  )}
+                >
+                  {item.isPositive ? '+' : '−'}
+                  {formatMoney(item.amount, '')}
+                </span>
+              </li>
+            ))
+          )}
+        </ul>
+        <div className="pt-3 border-t border-border flex justify-between items-center gap-2 text-sm font-bold">
+          <span className="text-muted-foreground">الصافي</span>
+          <span
+            className={cn(
+              'font-mono tabular-nums',
+              netAmount >= 0 ? 'text-emerald-700' : 'text-red-600',
+            )}
+          >
+            {formatMoney(netAmount, 'LYD')}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function CashFlowPage() {
   const currentYear = new Date().getFullYear();
@@ -25,52 +92,42 @@ export default function CashFlowPage() {
 
   const cashFlowData = useMemo(() => {
     if (!rawCashFlow) return null;
-    const data = rawCashFlow as any;
+    const data = rawCashFlow as Record<string, unknown>;
+    const parseNum = (val: unknown) => Number(val || 0);
+    const mapItems = (list: unknown) =>
+      ((list as unknown[]) || []).map((item) => {
+        const row = item as Record<string, unknown>;
+        return {
+          category: row.category as string,
+          description: row.description as string,
+          amount: parseNum(row.amount),
+          isPositive: Boolean(row.is_positive),
+        };
+      });
 
-    const parseNum = (val: any) => Number(val || 0);
+    const summary = data.summary as Record<string, unknown> | undefined;
 
     return {
-      operating: (data.operating || []).map((item: any) => ({
-        category: item.category,
-        description: item.description,
-        amount: parseNum(item.amount),
-        isPositive: item.is_positive,
-      })),
-      investing: (data.investing || []).map((item: any) => ({
-        category: item.category,
-        description: item.description,
-        amount: parseNum(item.amount),
-        isPositive: item.is_positive,
-      })),
-      financing: (data.financing || []).map((item: any) => ({
-        category: item.category,
-        description: item.description,
-        amount: parseNum(item.amount),
-        isPositive: item.is_positive,
-      })),
+      operating: mapItems(data.operating),
+      investing: mapItems(data.investing),
+      financing: mapItems(data.financing),
       summary: {
-        openingBalance: parseNum(data.summary?.opening_balance),
-        closingBalance: parseNum(data.summary?.closing_balance),
-        operatingInflow: parseNum(data.summary?.operating_inflow),
-        operatingOutflow: parseNum(data.summary?.operating_outflow),
-        netOperating: parseNum(data.summary?.net_operating),
-        investingInflow: parseNum(data.summary?.investing_inflow),
-        investingOutflow: parseNum(data.summary?.investing_outflow),
-        netInvesting: parseNum(data.summary?.net_investing),
-        financingInflow: parseNum(data.summary?.financing_inflow),
-        financingOutflow: parseNum(data.summary?.financing_outflow),
-        netFinancing: parseNum(data.summary?.net_financing),
-        netChange: parseNum(data.summary?.net_change),
-      }
+        openingBalance: parseNum(summary?.opening_balance),
+        closingBalance: parseNum(summary?.closing_balance),
+        netOperating: parseNum(summary?.net_operating),
+        netInvesting: parseNum(summary?.net_investing),
+        netFinancing: parseNum(summary?.net_financing),
+        netChange: parseNum(summary?.net_change),
+      },
     };
   }, [rawCashFlow]);
 
   return (
-    <div className="space-y-6">
+    <>
       <PageHeader
         eyebrow="المحاسبة والتقارير"
         title="قائمة التدفقات النقدية"
-        description="توضيح مصادر المقبوضات النقدية واستخدامات المدفوعات مقسمة إلى أنشطة تشغيلية، استثمارية وتمويلية"
+        description="مصادر المقبوضات واستخدامات المدفوعات — تشغيلية، استثمارية، وتمويلية"
         actions={
           <TajMallPdfToolbar
             fileName={`التدفقات-النقدية-${selectedYear}`}
@@ -78,181 +135,76 @@ export default function CashFlowPage() {
             render={async () => {
               const { CashFlowReportPDF } = await import('@/features/pdf/CashFlowReportPDF');
               return (
-                <CashFlowReportPDF
-                  year={selectedYear}
-                  data={cashFlowData!}
-                />
+                <CashFlowReportPDF year={selectedYear} data={cashFlowData!} />
               );
             }}
           />
         }
       />
 
-      {/* Toolbar */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-600">عرض السنة المالية:</span>
-            <div className="flex gap-1.5">
-              {[currentYear - 2, currentYear - 1, currentYear, currentYear + 1].map((year) => (
-                <Button
-                  key={year}
-                  variant={selectedYear === year ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedYear(year)}
-                  className={selectedYear === year ? 'bg-emerald-700 hover:bg-emerald-800 text-white' : ''}
-                >
-                  {year}
-                </Button>
-              ))}
+      <AccountingPageBody>
+        <AccountingFilterCard>
+          <AccountingYearPicker value={selectedYear} onChange={setSelectedYear} />
+        </AccountingFilterCard>
+
+        {isLoading && <AccountingLoading />}
+
+        {isError && (
+          <AccountingError
+            title="فشل تحميل التدفقات النقدية"
+            message={(error as Error)?.message}
+          />
+        )}
+
+        {!isLoading && !isError && !cashFlowData && (
+          <AccountingEmpty
+            icon={TrendingUp}
+            title={`لا توجد بيانات لعام ${selectedYear}`}
+            description="تظهر التدفقات بعد تسجيل وترحيل المعاملات النقدية."
+          />
+        )}
+
+        {!isLoading && !isError && cashFlowData && (
+          <>
+            <AccountingSummaryGrid
+              stats={[
+                { label: 'الرصيد الافتتاحي', value: cashFlowData.summary.openingBalance },
+                {
+                  label: 'صافي التغير',
+                  value: cashFlowData.summary.netChange,
+                  tone: cashFlowData.summary.netChange >= 0 ? 'positive' : 'negative',
+                },
+                {
+                  label: 'الرصيد الختامي',
+                  value: cashFlowData.summary.closingBalance,
+                  tone: 'positive',
+                },
+              ]}
+            />
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <ActivityCard
+                title="أنشطة التشغيل"
+                description="المبيعات والمصاريف التشغيلية اليومية"
+                items={cashFlowData.operating}
+                netAmount={cashFlowData.summary.netOperating}
+              />
+              <ActivityCard
+                title="أنشطة الاستثمار"
+                description="شراء أو بيع الأصول طويلة الأجل"
+                items={cashFlowData.investing}
+                netAmount={cashFlowData.summary.netInvesting}
+              />
+              <ActivityCard
+                title="أنشطة التمويل"
+                description="رأس المال والتزامات الملاك"
+                items={cashFlowData.financing}
+                netAmount={cashFlowData.summary.netFinancing}
+              />
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {isLoading ? (
-        <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-        </div>
-      ) : isError ? (
-        <div className="flex h-64 flex-col items-center justify-center gap-2 text-red-600 bg-red-50 rounded-lg p-4">
-          <AlertTriangle className="h-8 w-8" />
-          <p className="font-semibold">فشل تحميل قائمة التدفقات النقدية</p>
-          <p className="text-sm text-red-500">{(error as any)?.message}</p>
-        </div>
-      ) : !cashFlowData ? (
-        <div className="text-center py-12 text-slate-400">
-          لا تتوفر بيانات للتدفقات النقدية في السنة المالية {selectedYear}
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Summary Balance Cards */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="py-4">
-                <span className="text-xs text-slate-500 font-medium">الرصيد النقدي الافتتاحي</span>
-                <CardTitle className="text-2xl font-mono font-bold text-slate-700 mt-1">
-                  {formatMoney(cashFlowData.summary.openingBalance, 'LYD')}
-                </CardTitle>
-              </CardHeader>
-            </Card>
-
-            <Card>
-              <CardHeader className="py-4">
-                <span className="text-xs text-slate-500 font-medium">صافي التغير النقدي</span>
-                <CardTitle className={`text-2xl font-mono font-bold mt-1 ${
-                  cashFlowData.summary.netChange >= 0 ? 'text-emerald-700' : 'text-red-600'
-                }`}>
-                  {cashFlowData.summary.netChange >= 0 ? '+' : ''}
-                  {formatMoney(cashFlowData.summary.netChange, 'LYD')}
-                </CardTitle>
-              </CardHeader>
-            </Card>
-
-            <Card className="border-emerald-100 bg-emerald-50/20">
-              <CardHeader className="py-4">
-                <span className="text-xs text-emerald-800 font-medium">الرصيد النقدي الختامي</span>
-                <CardTitle className="text-2xl font-mono font-bold text-emerald-950 mt-1">
-                  {formatMoney(cashFlowData.summary.closingBalance, 'LYD')}
-                </CardTitle>
-              </CardHeader>
-            </Card>
-          </div>
-
-          {/* Activities Breakdown */}
-          <div className="grid gap-6 md:grid-cols-3">
-            {/* Operating Activities */}
-            <Card className="flex flex-col h-full">
-              <CardHeader className="pb-3 border-b border-slate-100">
-                <CardTitle className="text-md font-bold text-slate-900">أنشطة التشغيل</CardTitle>
-                <CardDescription>التدفقات النقدية الناتجة عن المبيعات والمصاريف المعتادة</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-4 flex-grow flex flex-col justify-between">
-                <div className="space-y-4">
-                  {cashFlowData.operating.map((item: { category: string; description: string; amount: number; isPositive: boolean }, idx: number) => (
-                    <div key={idx} className="flex justify-between items-center text-sm">
-                      <div>
-                        <p className="font-bold text-slate-900">{item.category}</p>
-                        <p className="text-xs text-slate-400">{item.description}</p>
-                      </div>
-                      <span className={`font-mono font-semibold ${item.isPositive ? 'text-emerald-700' : 'text-red-600'}`}>
-                        {item.isPositive ? '+' : '-'}
-                        {formatMoney(item.amount, '')}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center font-bold text-slate-800 text-sm">
-                  <span>صافي نقد أنشطة التشغيل</span>
-                  <span className={cashFlowData.summary.netOperating >= 0 ? 'text-emerald-700 font-mono' : 'text-red-600 font-mono'}>
-                    {formatMoney(cashFlowData.summary.netOperating, 'LYD')}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Investing Activities */}
-            <Card className="flex flex-col h-full">
-              <CardHeader className="pb-3 border-b border-slate-100">
-                <CardTitle className="text-md font-bold text-slate-900">أنشطة الاستثمار</CardTitle>
-                <CardDescription>تدفقات ناتجة عن شراء أو تصريف الأصول غير المتداولة</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-4 flex-grow flex flex-col justify-between">
-                <div className="space-y-4">
-                  {cashFlowData.investing.map((item: { category: string; description: string; amount: number; isPositive: boolean }, idx: number) => (
-                    <div key={idx} className="flex justify-between items-center text-sm">
-                      <div>
-                        <p className="font-bold text-slate-900">{item.category}</p>
-                        <p className="text-xs text-slate-400">{item.description}</p>
-                      </div>
-                      <span className={`font-mono font-semibold ${item.isPositive ? 'text-emerald-700' : 'text-red-600'}`}>
-                        {item.isPositive ? '+' : '-'}
-                        {formatMoney(item.amount, '')}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center font-bold text-slate-800 text-sm">
-                  <span>صافي نقد أنشطة الاستثمار</span>
-                  <span className={cashFlowData.summary.netInvesting >= 0 ? 'text-emerald-700 font-mono' : 'text-red-600 font-mono'}>
-                    {formatMoney(cashFlowData.summary.netInvesting, 'LYD')}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Financing Activities */}
-            <Card className="flex flex-col h-full">
-              <CardHeader className="pb-3 border-b border-slate-100">
-                <CardTitle className="text-md font-bold text-slate-900">أنشطة التمويل</CardTitle>
-                <CardDescription>تدفقات ناتجة عن رأس المال وتأمين العقود والتزامات الملاك</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-4 flex-grow flex flex-col justify-between">
-                <div className="space-y-4">
-                  {cashFlowData.financing.map((item: { category: string; description: string; amount: number; isPositive: boolean }, idx: number) => (
-                    <div key={idx} className="flex justify-between items-center text-sm">
-                      <div>
-                        <p className="font-bold text-slate-900">{item.category}</p>
-                        <p className="text-xs text-slate-400">{item.description}</p>
-                      </div>
-                      <span className={`font-mono font-semibold ${item.isPositive ? 'text-emerald-700' : 'text-red-600'}`}>
-                        {item.isPositive ? '+' : '-'}
-                        {formatMoney(item.amount, '')}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center font-bold text-slate-800 text-sm">
-                  <span>صافي نقد أنشطة التمويل</span>
-                  <span className={cashFlowData.summary.netFinancing >= 0 ? 'text-emerald-700 font-mono' : 'text-red-600 font-mono'}>
-                    {formatMoney(cashFlowData.summary.netFinancing, 'LYD')}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
-    </div>
+          </>
+        )}
+      </AccountingPageBody>
+    </>
   );
 }

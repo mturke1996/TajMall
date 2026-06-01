@@ -24,7 +24,7 @@ import {
   saveVoucherDraft,
 } from '@/lib/voucher-draft';
 import { voucherUiMethodToPaymentMethod } from '@/lib/voucher-db';
-import { useCreateDisbursementVoucher } from '@/lib/db/queries';
+import { useCreateDisbursementVoucher, useCashboxes, useCategories } from '@/lib/db/queries';
 import { toast } from 'sonner';
 
 const METHODS: VoucherPdfModel['method'][] = ['نقدي', 'صك', 'حوالة'];
@@ -33,6 +33,10 @@ const METHOD_SET = new Set<string>(METHODS);
 export default function NewVoucherPage() {
   const router = useRouter();
   const createDisbursementVoucher = useCreateDisbursementVoucher();
+  const { data: cashboxes = [] } = useCashboxes();
+  const { data: expenseCategories = [] } = useCategories('EXPENSE');
+  const [cashboxId, setCashboxId] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const [number, setNumber] = useState('');
   const [voucherDate, setVoucherDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
@@ -59,6 +63,11 @@ export default function NewVoucherPage() {
     setNotes(d.notes);
     setLines(d.lines.length ? d.lines : [{ description: '', amount: '' }]);
   }, []);
+
+  useEffect(() => {
+    if (cashboxes.length && !cashboxId) setCashboxId(cashboxes[0]!.id);
+    if (expenseCategories.length && !categoryId) setCategoryId(expenseCategories[0]!.id);
+  }, [cashboxes, expenseCategories, cashboxId, categoryId]);
 
   const datePreview = useMemo(() => {
     if (!voucherDate) return null;
@@ -146,6 +155,8 @@ export default function NewVoucherPage() {
         account_number: account.trim() || null,
         method: voucherUiMethodToPaymentMethod(method),
         notes: notes.trim() || null,
+        cashbox_id: cashboxId || null,
+        category_id: categoryId || null,
         lines: normalizedLines.map((l) => ({
           description: l.description || '—',
           amount: l.amount,
@@ -304,6 +315,39 @@ export default function NewVoucherPage() {
               </p>
             </div>
           ) : null}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>الخزينة / المصرف (للترحيل المحاسبي)</Label>
+              <Select value={cashboxId} onValueChange={setCashboxId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="اختر الخزينة" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cashboxes.map((cb) => (
+                    <SelectItem key={cb.id} value={cb.id}>
+                      {cb.name_ar}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>بند المصروف (للترحيل المحاسبي)</Label>
+              <Select value={categoryId} onValueChange={setCategoryId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="اختر البند" />
+                </SelectTrigger>
+                <SelectContent>
+                  {expenseCategories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name_ar} ({c.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="v-payee">يصرف إلى (المستفيد)</Label>

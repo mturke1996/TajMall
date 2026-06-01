@@ -42,10 +42,18 @@ export type ContactsDirectoryProps = {
   onSearchChange: (q: string) => void;
   kindFilter: ContactKind | 'ALL';
   onKindFilterChange: (k: ContactKind | 'ALL') => void;
-  stats: { total: number; tenants: number; employees: number; customers: number };
+  stats: {
+    total: number;
+    tenants: number;
+    employees: number;
+    customers: number;
+    vendors?: number;
+  };
   onAdd: (kind?: ContactKind) => void;
   onEdit: (contact: ContactRow) => void;
   onDelete: (id: string) => void;
+  /** إخفاء شرائح التصفية عند استخدام تبويب فرعي في المول */
+  hideKindFilters?: boolean;
 };
 
 function ContactSubtitle({ contact }: { contact: ContactRow }) {
@@ -164,18 +172,25 @@ export function ContactsDirectory({
   onAdd,
   onEdit,
   onDelete,
+  hideKindFilters = false,
 }: ContactsDirectoryProps) {
+  const vendorCount = stats.vendors ?? contacts.filter((c) => c.kind === 'VENDOR').length;
   const filterChips: { value: ContactKind | 'ALL'; label: string; count: number; icon?: typeof User }[] = [
     { value: 'ALL', label: 'الكل', count: stats.total },
     { value: 'TENANT', label: 'مستأجر', count: stats.tenants, icon: Building2 },
     { value: 'EMPLOYEE', label: 'موظف', count: stats.employees, icon: Briefcase },
     { value: 'CUSTOMER', label: 'عميل', count: stats.customers, icon: User },
-    { value: 'VENDOR', label: 'مورد', count: contacts.filter((c) => c.kind === 'VENDOR').length, icon: Store },
+    { value: 'VENDOR', label: 'مورد', count: vendorCount, icon: Store },
   ];
+
+  const quickAddKinds =
+    kindFilter === 'ALL'
+      ? KIND_OPTIONS
+      : KIND_OPTIONS.filter((k) => k.value === kindFilter);
 
   return (
     <div className={cn('flex flex-col gap-4 md:gap-6', MOBILE_PAGE_ACTION_PADDING)}>
-      {/* إحصائيات — تمرير أفقي على الجوال */}
+      {!hideKindFilters && (
       <div className="-mx-4 px-4 md:mx-0 md:px-0">
         <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-4 md:overflow-visible">
           <StatChip
@@ -216,6 +231,7 @@ export function ContactsDirectory({
           />
         </div>
       </div>
+      )}
 
       {/* شريط بحث وفلاتر — ثابت على الجوال */}
       <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/80 md:static md:mx-0 md:z-auto md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
@@ -230,6 +246,7 @@ export function ContactsDirectory({
           />
         </div>
 
+        {!hideKindFilters && (
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1">
           {filterChips.map((chip) => {
             const Icon = chip.icon;
@@ -260,10 +277,11 @@ export function ContactsDirectory({
             );
           })}
         </div>
+        )}
 
         {/* اختصارات إضافة سريعة — جوال */}
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar md:hidden">
-          {KIND_OPTIONS.map((k) => (
+          {quickAddKinds.map((k) => (
             <button
               key={k.value}
               type="button"
@@ -278,7 +296,7 @@ export function ContactsDirectory({
 
         {/* اختصارات إضافة — سطح المكتب */}
         <div className="hidden flex-wrap gap-2 md:flex">
-          {KIND_OPTIONS.map((k) => (
+          {quickAddKinds.map((k) => (
             <Button
               key={k.value}
               type="button"

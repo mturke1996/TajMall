@@ -1,14 +1,23 @@
 import type { ContactRow } from '@/lib/db/types';
 
+/** قيمة من Supabase قد تكون number (numeric) أو string */
+function toFormString(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'boolean') return value ? 'true' : '';
+  return String(value);
+}
+
 /** يحوّل النص الفارغ إلى null لتجنّب أخطاء قاعدة البيانات */
-export function emptyToNull(value?: string | null): string | null {
+export function emptyToNull(value?: string | null | number): string | null {
   if (value == null) return null;
-  const trimmed = value.trim();
+  const trimmed = toFormString(value).trim();
   return trimmed === '' ? null : trimmed;
 }
 
 /** يحوّل الحقل الرقمي الفارغ إلى null */
-export function numericOrNull(value?: string | null): string | null {
+export function numericOrNull(value?: string | null | number): string | null {
   const s = emptyToNull(value);
   if (s == null) return null;
   const n = Number(s);
@@ -52,21 +61,22 @@ export const defaultContactFormState = (
 });
 
 export function contactToFormState(contact: ContactRow): ContactFormState {
+  const row = contact as ContactRow & Record<string, unknown>;
   return {
     kind: contact.kind,
-    name: contact.name,
-    phone: contact.phone ?? '',
-    phone2: contact.phone2 ?? '',
-    email: contact.email ?? '',
-    address: contact.address ?? '',
-    shop_number: contact.shop_number ?? '',
-    floor: contact.floor ?? '',
-    area_sqm: contact.area_sqm ?? '',
-    monthly_rent: contact.monthly_rent ?? '',
-    job_title: contact.job_title ?? '',
-    department: contact.department ?? '',
-    salary: contact.salary ?? '',
-    notes: contact.notes ?? '',
+    name: toFormString(contact.name),
+    phone: toFormString(contact.phone),
+    phone2: toFormString(contact.phone2),
+    email: toFormString(contact.email),
+    address: toFormString(contact.address),
+    shop_number: toFormString(contact.shop_number),
+    floor: toFormString(contact.floor),
+    area_sqm: toFormString(row.area_sqm),
+    monthly_rent: toFormString(row.monthly_rent),
+    job_title: toFormString(contact.job_title),
+    department: toFormString(contact.department),
+    salary: toFormString(row.salary),
+    notes: toFormString(contact.notes),
   };
 }
 
@@ -101,7 +111,7 @@ export function buildContactPayload(form: ContactFormState): ContactUpsertPayloa
 
   return {
     kind: form.kind,
-    name: form.name.trim(),
+    name: toFormString(form.name).trim(),
     phone: emptyToNull(form.phone),
     phone2: simpleProfile ? null : emptyToNull(form.phone2),
     email: simpleProfile ? null : emptyToNull(form.email),

@@ -155,6 +155,14 @@ export type NewTransactionInput = {
   branch_id?: string;
   contact_id?: string;
   contact_type?: 'PAYER' | 'RECEIVER' | 'BENEFICIARY';
+  /** false = skip FIFO auto allocation (use charge_allocations) */
+  auto_allocate_charges?: boolean;
+  charge_allocations?: ChargeAllocationInput[];
+};
+
+export type ChargeAllocationInput = {
+  charge_id: string;
+  amount: number;
 };
 
 /** مسودة حقل مصروف/إيراد — يُخزَّن كـ JSON حتى يُستأنف لاحقاً */
@@ -223,6 +231,8 @@ export type SaveDisbursementVoucherInput = {
   account_number?: string | null;
   method: PaymentMethod;
   notes?: string | null;
+  cashbox_id?: string | null;
+  category_id?: string | null;
   lines: { description: string; amount: number }[];
 };
 

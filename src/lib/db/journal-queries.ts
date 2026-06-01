@@ -10,6 +10,7 @@ export const qk = {
   journalEntry: (id: string) => ['journal_entry', id] as const,
   journalLines: (journalId: string) => ['journal_lines', journalId] as const,
   journalSummary: ['journal_summary'] as const,
+  journalFormDrafts: ['journal_form_drafts'] as const,
 };
 
 // ── Types ────────────────────────────────────────────────────────
@@ -30,7 +31,57 @@ export type JournalEntryRow = {
   total_debit: string;
   total_credit: string;
   line_count: number;
+  source_type?: string | null;
+  source_id?: string | null;
+  reversal_of_entry_id?: string | null;
+  period_id?: string | null;
 };
+
+export type JournalDraftLinePayload = {
+  category_id: string;
+  side: 'debit' | 'credit';
+  amount: string;
+  description?: string;
+  contact_id?: string;
+  cashbox_id?: string;
+};
+
+export type JournalDraftPayload = {
+  entry_date?: string;
+  description?: string;
+  notes?: string;
+  lines?: JournalDraftLinePayload[];
+};
+
+export type JournalFormDraftRow = {
+  id: string;
+  user_id: string;
+  label: string | null;
+  payload: JournalDraftPayload;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SaveJournalDraftInput = {
+  id?: string;
+  label?: string | null;
+  payload: JournalDraftPayload;
+};
+
+function invalidateJournalCaches(qc: ReturnType<typeof useQueryClient>, journalId?: string) {
+  qc.invalidateQueries({ queryKey: qk.journalEntries });
+  qc.invalidateQueries({ queryKey: qk.journalSummary });
+  qc.invalidateQueries({ queryKey: ['journal_next_reference'] });
+  qc.invalidateQueries({ queryKey: ['journal_year_count'] });
+  qc.invalidateQueries({ queryKey: ['ledger'] });
+  qc.invalidateQueries({ queryKey: ['transactions'] });
+  qc.invalidateQueries({ queryKey: ['cashbox_balances'] });
+  qc.invalidateQueries({ queryKey: ['monthly_summary'] });
+  if (journalId) {
+    qc.invalidateQueries({ queryKey: qk.journalEntry(journalId) });
+    qc.invalidateQueries({ queryKey: qk.journalLines(journalId) });
+  }
+}
 
 export type JournalLineRow = {
   id: string;
@@ -85,17 +136,59 @@ export function useJournalEntries(filters?: {
     queryKey: [...qk.journalEntries, { status, contactId, cashboxId, search, limit }],
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
-      
+
       const { data, error } = await supabase.rpc('get_journal_entries_filtered', {
         p_status: status,
         p_contact_id: contactId,
         p_cashbox_id: cashboxId,
         p_search: search,
-        p_limit: limit
+        p_limit: limit,
       });
-      
-      if (error) throw error;
-      return (data as JournalEntryRow[]) ?? [];
+
+      if (!error) return (data as JournalEntryRow[]) ?? [];
+
+      // Fallback when RPC not deployed (schema cache / missing migration)
+      const msg = error.message ?? '';
+      const rpcMissing =
+        msg.includes('get_journal_entries_filtered') ||
+        msg.includes('schema cache') ||
+        error.code === 'PGRST202';
+
+      if (!rpcMissing) throw error;
+
+      let q = supabase
+        .from('journal_entries_with_totals')
+        .select('*')
+        .order('entry_date', { ascending: false })
+        .order('number', { ascending: false })
+        .limit(limit);
+
+      if (status) q = q.eq('status', status);
+      if (search?.trim()) {
+        const s = search.trim().replace(/[%_,]/g, '');
+        q = q.or(`reference.ilike.%${s}%,description.ilike.%${s}%`);
+      }
+
+      const { data: rows, error: viewError } = await q;
+      if (viewError) throw viewError;
+
+      let list = (rows as JournalEntryRow[]) ?? [];
+
+      if (contactId || cashboxId) {
+        const ids = list.map((e) => e.id);
+        if (ids.length === 0) return [];
+
+        let lineQ = supabase.from('journal_lines').select('journal_id').in('journal_id', ids);
+        if (contactId) lineQ = lineQ.eq('contact_id', contactId);
+        if (cashboxId) lineQ = lineQ.eq('cashbox_id', cashboxId);
+
+        const { data: lineRows, error: lineErr } = await lineQ;
+        if (lineErr) throw lineErr;
+        const allowed = new Set((lineRows ?? []).map((r) => r.journal_id as string));
+        list = list.filter((e) => allowed.has(e.id));
+      }
+
+      return list;
     },
   });
 }
@@ -161,6 +254,43 @@ export function useJournalSummary() {
   });
 }
 
+/** Preview next auto reference (JY-YYYY-NNNNN) — single lightweight RPC */
+export function useNextJournalReference(entryDate: string, enabled = true) {
+  return useQuery<string>({
+    queryKey: ['journal_next_reference', entryDate],
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc('peek_next_journal_reference', {
+        p_entry_date: entryDate,
+      });
+      if (error) throw error;
+      return data as string;
+    },
+    enabled: enabled && !!entryDate,
+    staleTime: 30_000,
+  });
+}
+
+/** Fallback when peek RPC is not deployed — count-only, no row payload */
+export function useJournalYearCount(entryDate: string, enabled = true) {
+  const year = entryDate ? new Date(entryDate + 'T12:00:00').getFullYear() : 0;
+  return useQuery<number>({
+    queryKey: ['journal_year_count', year],
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { count, error } = await supabase
+        .from('journal_entries')
+        .select('id', { count: 'exact', head: true })
+        .gte('entry_date', `${year}-01-01`)
+        .lte('entry_date', `${year}-12-31`);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: enabled && year > 0,
+    staleTime: 30_000,
+  });
+}
+
 // ── Mutations ────────────────────────────────────────────────────
 export function useCreateJournalEntry() {
   const qc = useQueryClient();
@@ -170,7 +300,7 @@ export function useCreateJournalEntry() {
       const supabase = createSupabaseBrowserClient();
       
       const { data, error } = await supabase.rpc('create_journal_entry', {
-        p_reference: input.reference || null,
+        p_reference: input.reference?.trim() || null,
         p_entry_date: input.entry_date,
         p_description: input.description || null,
         p_notes: input.notes || null,
@@ -189,8 +319,7 @@ export function useCreateJournalEntry() {
       return data as string; // returns journal entry id
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: qk.journalEntries });
-      qc.invalidateQueries({ queryKey: qk.journalSummary });
+      invalidateJournalCaches(qc);
       toast.success('تم إنشاء القيد بنجاح');
     },
     onError: (error: any) => {
@@ -226,10 +355,7 @@ export function useUpdateJournalEntry() {
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
-      qc.invalidateQueries({ queryKey: qk.journalEntries });
-      qc.invalidateQueries({ queryKey: qk.journalEntry(variables.id) });
-      qc.invalidateQueries({ queryKey: qk.journalLines(variables.id) });
-      qc.invalidateQueries({ queryKey: qk.journalSummary });
+      invalidateJournalCaches(qc, variables.id);
       toast.success('تم تعديل القيد بنجاح');
     },
     onError: (error: any) => {
@@ -253,12 +379,7 @@ export function usePostJournalEntry() {
       return data;
     },
     onSuccess: (_, id) => {
-      qc.invalidateQueries({ queryKey: qk.journalEntries });
-      qc.invalidateQueries({ queryKey: qk.journalEntry(id) });
-      qc.invalidateQueries({ queryKey: qk.journalSummary });
-      qc.invalidateQueries({ queryKey: ['transactions'] });
-      qc.invalidateQueries({ queryKey: ['cashbox_balances'] });
-      qc.invalidateQueries({ queryKey: ['monthly_summary'] });
+      invalidateJournalCaches(qc, id);
       toast.success('تم ترحيل القيد بنجاح');
     },
     onError: (error: any) => {
@@ -282,11 +403,7 @@ export function useReverseJournalEntry() {
       return data;
     },
     onSuccess: (_, id) => {
-      qc.invalidateQueries({ queryKey: qk.journalEntries });
-      qc.invalidateQueries({ queryKey: qk.journalEntry(id) });
-      qc.invalidateQueries({ queryKey: qk.journalSummary });
-      qc.invalidateQueries({ queryKey: ['transactions'] });
-      qc.invalidateQueries({ queryKey: ['cashbox_balances'] });
+      invalidateJournalCaches(qc, id);
       toast.success('تم عكس القيد بنجاح');
     },
     onError: (error: any) => {
@@ -311,12 +428,121 @@ export function useDeleteJournalEntry() {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: qk.journalEntries });
-      qc.invalidateQueries({ queryKey: qk.journalSummary });
+      invalidateJournalCaches(qc);
       toast.success('تم حذف القيد بنجاح');
     },
     onError: (error: any) => {
       toast.error(error.message || 'فشل حذف القيد - يمكن حذف القيود المسودة فقط');
+    },
+  });
+}
+
+// ── Form drafts ────────────────────────────────────────────────────
+export function useJournalFormDrafts(enabled = true) {
+  return useQuery<JournalFormDraftRow[]>({
+    queryKey: qk.journalFormDrafts,
+    enabled,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user?.id) return [];
+      const { data, error } = await supabase
+        .from('journal_form_drafts')
+        .select('*')
+        .eq('user_id', auth.user.id)
+        .order('updated_at', { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      return (data as JournalFormDraftRow[]) ?? [];
+    },
+  });
+}
+
+export function useSaveJournalFormDraft() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: SaveJournalDraftInput) => {
+      const supabase = createSupabaseBrowserClient();
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id;
+      if (!uid) throw new Error('يجب تسجيل الدخول لحفظ المسودة');
+
+      if (input.id) {
+        const { data, error } = await supabase
+          .from('journal_form_drafts')
+          .update({
+            label: input.label ?? null,
+            payload: input.payload as Record<string, unknown>,
+          })
+          .eq('id', input.id)
+          .eq('user_id', uid)
+          .select('*')
+          .single();
+        if (error) throw error;
+        return data as JournalFormDraftRow;
+      }
+
+      const { data, error } = await supabase
+        .from('journal_form_drafts')
+        .insert({
+          user_id: uid,
+          label: input.label ?? null,
+          payload: input.payload as Record<string, unknown>,
+        })
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data as JournalFormDraftRow;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.journalFormDrafts });
+      toast.success('تم حفظ مسودة القيد');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'تعذّر حفظ المسودة');
+    },
+  });
+}
+
+export function useDeleteJournalFormDraft() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createSupabaseBrowserClient();
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id;
+      if (!uid) throw new Error('يجب تسجيل الدخول');
+      const { error } = await supabase
+        .from('journal_form_drafts')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', uid);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.journalFormDrafts });
+      toast.success('تم حذف المسودة');
+    },
+  });
+}
+
+export function useDuplicateJournalEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (journalId: string) => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc('duplicate_journal_entry', {
+        p_journal_id: journalId,
+      });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => {
+      invalidateJournalCaches(qc);
+      toast.success('تم إنشاء نسخة كمسودة جديدة');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'تعذّر نسخ القيد');
     },
   });
 }

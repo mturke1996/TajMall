@@ -1,32 +1,21 @@
 'use client';
 
-import { useState, type ReactElement } from 'react';
-import { pdf } from '@react-pdf/renderer';
+import { useState, useRef, useCallback, type ReactElement } from 'react';
 import { FileDown, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { registerPdfFonts } from './pdfFonts';
-import { prepareTajMallPdfTree } from './prepare-taj-mall-pdf-tree';
+import { renderPdfBlob, savePdfBlob, shouldUseInAppPdfViewer } from './pdf-blob-utils';
+import { PdfPreviewDialog } from './pdf-preview-dialog';
 
 type Props = {
   /** بدون امتداد .pdf */
   fileName: string;
   render: () => Promise<ReactElement>;
   disabled?: boolean;
-  /** إظهار زر التحميل بجانب العرض */
   showDownload?: boolean;
-  /** لفيفكس المحيط على الهاتف مع عناصر actions موسَّعة */
   className?: string;
 };
-
-async function renderPdfBlob(render: () => Promise<ReactElement>): Promise<Blob> {
-  registerPdfFonts();
-  const wrapped = await prepareTajMallPdfTree(await render());
-  const instance = pdf();
-  instance.updateContainer(wrapped);
-  return instance.toBlob();
-}
 
 export function TajMallPdfToolbar({
   fileName,
@@ -37,24 +26,67 @@ export function TajMallPdfToolbar({
 }: Props) {
   const [openBusy, setOpenBusy] = useState(false);
   const [dlBusy, setDlBusy] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const blobRef = useRef<Blob | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
+
+  const canShareFiles =
+    typeof navigator !== 'undefined' &&
+    typeof navigator.share === 'function' &&
+    typeof navigator.canShare === 'function';
+
+  const revokePreviewUrl = useCallback(() => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    setPreviewUrl(null);
+  }, []);
+
+  const closePreview = useCallback(
+    (open: boolean) => {
+      setPreviewOpen(open);
+      if (!open) {
+        revokePreviewUrl();
+        blobRef.current = null;
+      }
+    },
+    [revokePreviewUrl],
+  );
+
+  async function ensureBlob(): Promise<Blob> {
+    if (blobRef.current) return blobRef.current;
+    const blob = await renderPdfBlob(render);
+    blobRef.current = blob;
+    return blob;
+  }
 
   async function handleOpen() {
     if (openBusy || disabled) return;
     setOpenBusy(true);
     const id = toast.loading('جاري إنشاء ملف PDF…');
     try {
-      const blob = await renderPdfBlob(render);
-      const url = URL.createObjectURL(blob);
-      const tab = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!tab) {
-        toast.error('المتصفح منع فتح النافذة — اسمح بالنوافذ المنبثقة أو استخدم «تحميل»', {
-          id,
-        });
-        URL.revokeObjectURL(url);
-        return;
+      const blob = await ensureBlob();
+
+      if (!shouldUseInAppPdfViewer()) {
+        const popupUrl = URL.createObjectURL(blob);
+        const tab = window.open(popupUrl, '_blank', 'noopener,noreferrer');
+        if (tab) {
+          toast.success('تم فتح PDF', { id });
+          setTimeout(() => URL.revokeObjectURL(popupUrl), 120_000);
+          return;
+        }
+        URL.revokeObjectURL(popupUrl);
       }
-      toast.success('تم فتح PDF', { id });
-      setTimeout(() => URL.revokeObjectURL(url), 120_000);
+
+      revokePreviewUrl();
+      const url = URL.createObjectURL(blob);
+      previewUrlRef.current = url;
+      setPreviewUrl(url);
+      setPreviewOpen(true);
+      toast.success('تم تجهيز PDF للعرض', { id });
     } catch (e) {
       console.error(e);
       toast.error('تعذّر إنشاء PDF', {
@@ -71,16 +103,12 @@ export function TajMallPdfToolbar({
     setDlBusy(true);
     const id = toast.loading('جاري تجهيز التحميل…');
     try {
-      const blob = await renderPdfBlob(render);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${fileName}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 400);
-      toast.success('تم تنزيل الملف', { id });
+      const blob = await ensureBlob();
+      const mode = await savePdfBlob(blob, fileName);
+      toast.success(
+        mode === 'share' ? 'اختر «حفظ في الملفات» من قائمة المشاركة' : 'تم تنزيل الملف',
+        { id },
+      );
     } catch (e) {
       console.error(e);
       toast.error('تعذّر تنزيل PDF', {
@@ -92,40 +120,70 @@ export function TajMallPdfToolbar({
     }
   }
 
+  async function handleShare() {
+    if (shareBusy || disabled) return;
+    setShareBusy(true);
+    try {
+      const blob = await ensureBlob();
+      await savePdfBlob(blob, fileName);
+    } catch (e) {
+      console.error(e);
+      if (!(e instanceof Error && e.name === 'AbortError')) {
+        toast.error('تعذّر مشاركة الملف');
+      }
+    } finally {
+      setShareBusy(false);
+    }
+  }
+
   return (
-    <div className={cn('flex flex-wrap items-center gap-2', className)}>
-      <Button
-        type="button"
-        variant="default"
-        size="sm"
-        className="min-h-11 touch-manipulation gap-1.5 bg-sage-700 hover:bg-sage-800 sm:min-h-9"
-        disabled={disabled || openBusy}
-        onClick={handleOpen}
-      >
-        {openBusy ? (
-          <Loader2 className="h-4 w-4 animate-spin stroke-[1.6]" />
-        ) : (
-          <FileText className="h-4 w-4 stroke-[1.6]" />
-        )}
-        عرض PDF
-      </Button>
-      {showDownload ? (
+    <>
+      <div className={cn('flex flex-wrap items-center gap-2', className)}>
         <Button
           type="button"
-          variant="outline"
+          variant="default"
           size="sm"
-          className="min-h-11 touch-manipulation gap-1.5 sm:min-h-9"
-          disabled={disabled || dlBusy}
-          onClick={handleDownload}
+          className="min-h-11 touch-manipulation gap-1.5 bg-sage-700 hover:bg-sage-800 sm:min-h-9"
+          disabled={disabled || openBusy}
+          onClick={handleOpen}
         >
-          {dlBusy ? (
+          {openBusy ? (
             <Loader2 className="h-4 w-4 animate-spin stroke-[1.6]" />
           ) : (
-            <FileDown className="h-4 w-4 stroke-[1.6]" />
+            <FileText className="h-4 w-4 stroke-[1.6]" />
           )}
-          تحميل
+          عرض PDF
         </Button>
-      ) : null}
-    </div>
+        {showDownload ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-11 touch-manipulation gap-1.5 sm:min-h-9"
+            disabled={disabled || dlBusy}
+            onClick={handleDownload}
+          >
+            {dlBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin stroke-[1.6]" />
+            ) : (
+              <FileDown className="h-4 w-4 stroke-[1.6]" />
+            )}
+            تحميل
+          </Button>
+        ) : null}
+      </div>
+
+      <PdfPreviewDialog
+        open={previewOpen}
+        onOpenChange={closePreview}
+        url={previewUrl}
+        fileName={fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`}
+        onDownload={handleDownload}
+        downloadBusy={dlBusy}
+        canShare={canShareFiles}
+        onShare={handleShare}
+        shareBusy={shareBusy}
+      />
+    </>
   );
 }

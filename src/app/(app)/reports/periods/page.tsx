@@ -8,7 +8,6 @@ import {
   Unlock,
   Loader2,
   RefreshCw,
-  AlertTriangle,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -17,12 +16,19 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatDate } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import {
   useFiscalPeriods,
   useCreateFiscalPeriod,
   useCloseFiscalPeriod,
-  useBackfillTransactions
+  useBackfillTransactions,
 } from '@/lib/db/mall-queries';
+import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
+import {
+  AccountingEmpty,
+  AccountingError,
+  AccountingLoading,
+} from '@/components/accounting/accounting-states';
 
 export default function FiscalPeriodsPage() {
   const { data: periods = [], isLoading, isError, error } = useFiscalPeriods();
@@ -49,8 +55,6 @@ export default function FiscalPeriodsPage() {
       setNewName('');
       setNewStart('');
       setNewEnd('');
-    } catch (err) {
-      // toast is already handled by hook
     } finally {
       setIsSubmitting(false);
     }
@@ -63,20 +67,25 @@ export default function FiscalPeriodsPage() {
   };
 
   const handleBackfill = async () => {
-    if (!confirm('هل تريد ترحيل كافة المعاملات القديمة التي لم يتم ترحيلها بعد بالكامل إلى دفتر اليومية؟ قد يستغرق هذا الإجراء بضع ثوانٍ.')) return;
+    if (
+      !confirm(
+        'هل تريد ترحيل كافة المعاملات القديمة غير المرحّلة إلى دفتر اليومية؟ قد يستغرق بضع ثوانٍ.',
+      )
+    )
+      return;
     await backfillTx.mutateAsync();
   };
 
   return (
-    <div className="space-y-6">
+    <>
       <PageHeader
         eyebrow="المحاسبة والتقارير"
         title="الفترات المالية"
-        description="إدارة وإغلاق الفترات المحاسبية الشهرية أو السنوية لمنع التعديلات التاريخية"
+        description="إدارة وإغلاق الفترات لمنع التعديل على السجلات التاريخية"
         actions={
           <Button
             variant="outline"
-            className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+            className="gap-2 w-full sm:w-auto min-h-11 touch-manipulation border-sage-200 text-sage-800"
             onClick={handleBackfill}
             disabled={backfillTx.isPending}
           >
@@ -85,149 +94,157 @@ export default function FiscalPeriodsPage() {
             ) : (
               <RefreshCw className="h-4 w-4" />
             )}
-            الترحيل التراكمي للمعاملات السابقة
+            <span className="truncate">ترحيل المعاملات السابقة</span>
           </Button>
         }
       />
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* New Period Form */}
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle className="text-lg font-bold">إنشاء فترة مالية جديدة</CardTitle>
-            <CardDescription>
-              تحديد التواريخ واسم الفترة لبدء الترحيل المحاسبي
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleCreatePeriod} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="period-name">اسم الفترة (مثال: 2026-06)</Label>
-                <Input
-                  id="period-name"
-                  placeholder="2026-06"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="start-date">تاريخ البدء</Label>
-                <Input
-                  id="start-date"
-                  type="date"
-                  value={newStart}
-                  onChange={(e) => setNewStart(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="end-date">تاريخ الانتهاء</Label>
-                <Input
-                  id="end-date"
-                  type="date"
-                  value={newEnd}
-                  onChange={(e) => setNewEnd(e.target.value)}
-                  required
-                />
-              </div>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full gap-2 bg-emerald-700 hover:bg-emerald-800 text-white"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4" />
-                )}
-                إنشاء الفترة
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Periods List */}
-        <div className="md:col-span-2 space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-bold">الفترات المالية الحالية</CardTitle>
-              <CardDescription>
-                الفترة المغلقة تمنع أي إضافات أو تعديلات على المعاملات أو الفواتير الواقعة ضمن تواريخها.
+      <AccountingPageBody>
+        <div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
+          <Card className="h-fit lg:sticky lg:top-[3.5rem]">
+            <CardHeader>
+              <CardTitle className="text-base font-bold sm:text-lg">
+                فترة مالية جديدة
+              </CardTitle>
+              <CardDescription className="text-xs leading-relaxed">
+                حدّد الاسم وتواريخ البدء والانتهاء
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <div className="flex h-32 items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              <form onSubmit={handleCreatePeriod} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="period-name">اسم الفترة</Label>
+                  <Input
+                    id="period-name"
+                    placeholder="2026-06"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    className="min-h-11"
+                    required
+                  />
                 </div>
-              ) : isError ? (
-                <div className="flex h-32 flex-col items-center justify-center gap-2 text-red-600 bg-red-50 rounded-lg p-4">
-                  <AlertTriangle className="h-8 w-8" />
-                  <p className="font-semibold">فشل تحميل الفترات المالية</p>
-                  <p className="text-sm text-red-500">{(error as any)?.message}</p>
+                <div className="space-y-2">
+                  <Label htmlFor="start-date">تاريخ البدء</Label>
+                  <Input
+                    id="start-date"
+                    type="date"
+                    value={newStart}
+                    onChange={(e) => setNewStart(e.target.value)}
+                    className="min-h-11 touch-manipulation"
+                    required
+                  />
                 </div>
-              ) : periods.length === 0 ? (
-                <div className="flex h-32 flex-col items-center justify-center text-slate-400">
-                  <CalendarRange className="h-10 w-10 mb-2 opacity-50" />
-                  <p>لا توجد فترات مالية مسجلة بعد</p>
+                <div className="space-y-2">
+                  <Label htmlFor="end-date">تاريخ الانتهاء</Label>
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={newEnd}
+                    onChange={(e) => setNewEnd(e.target.value)}
+                    className="min-h-11 touch-manipulation"
+                    required
+                  />
                 </div>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {periods.map((period) => (
-                    <div
-                      key={period.id}
-                      className="flex items-center justify-between py-4 first:pt-0 last:pb-0"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900">{period.name}</span>
-                          {period.is_closed ? (
-                            <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700 font-medium">
-                              مغلقة
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700 font-medium">
-                              مفتوحة نشطة
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-500">
-                          من {formatDate(period.start_date)} إلى {formatDate(period.end_date)}
-                        </p>
-                        {period.is_closed && period.closed_at && (
-                          <p className="text-[10px] text-slate-400">
-                            أغلقت في {formatDate(period.closed_at)}
-                          </p>
-                        )}
-                      </div>
-                      <Button
-                        variant={period.is_closed ? 'outline' : 'destructive'}
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={() => handleTogglePeriod(period.id, period.is_closed)}
-                        disabled={toggleClosePeriod.isPending}
-                      >
-                        {period.is_closed ? (
-                          <>
-                            <Unlock className="h-3.5 w-3.5" />
-                            إعادة فتح الفتح
-                          </>
-                        ) : (
-                          <>
-                            <Lock className="h-3.5 w-3.5" />
-                            إغلاق الفترة
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full gap-2 min-h-11 touch-manipulation bg-sage-700 hover:bg-sage-800"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  إنشاء الفترة
+                </Button>
+              </form>
             </CardContent>
           </Card>
+
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-bold sm:text-lg">
+                  الفترات الحالية
+                </CardTitle>
+                <CardDescription className="text-xs leading-relaxed">
+                  الفترة المغلقة تمنع إضافة أو تعديل معاملات ضمن تواريخها.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <AccountingLoading className="min-h-[8rem]" />
+                ) : isError ? (
+                  <AccountingError
+                    title="فشل تحميل الفترات"
+                    message={(error as Error)?.message}
+                  />
+                ) : periods.length === 0 ? (
+                  <AccountingEmpty
+                    icon={CalendarRange}
+                    title="لا توجد فترات مسجلة"
+                    description="أنشئ فترة مالية جديدة من النموذج."
+                  />
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {periods.map((period) => (
+                      <li
+                        key={period.id}
+                        className="flex flex-col gap-3 py-4 first:pt-0 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-bold">{period.name}</span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                'text-xs',
+                                period.is_closed
+                                  ? 'border-red-200 bg-red-50 text-red-700'
+                                  : 'border-green-200 bg-green-50 text-green-700',
+                              )}
+                            >
+                              {period.is_closed ? 'مغلقة' : 'مفتوحة'}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            من {formatDate(period.start_date)} إلى{' '}
+                            {formatDate(period.end_date)}
+                          </p>
+                          {period.is_closed && period.closed_at && (
+                            <p className="text-[10px] text-muted-foreground">
+                              أُغلقت {formatDate(period.closed_at)}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          variant={period.is_closed ? 'outline' : 'destructive'}
+                          size="sm"
+                          className="w-full sm:w-auto gap-1.5 min-h-10 touch-manipulation shrink-0"
+                          onClick={() => handleTogglePeriod(period.id, period.is_closed)}
+                          disabled={toggleClosePeriod.isPending}
+                        >
+                          {period.is_closed ? (
+                            <>
+                              <Unlock className="h-3.5 w-3.5" />
+                              إعادة فتح الفترة
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="h-3.5 w-3.5" />
+                              إغلاق الفترة
+                            </>
+                          )}
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
-    </div>
+      </AccountingPageBody>
+    </>
   );
 }

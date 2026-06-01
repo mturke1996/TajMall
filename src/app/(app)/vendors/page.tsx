@@ -1,35 +1,29 @@
-import { Plus, Landmark } from 'lucide-react';
-import { PageHeader } from '@/components/layout/page-header';
-import { Button } from '@/components/ui/button';
-import { EmptyState } from '@/components/data/empty-state';
+'use client';
 
-export default function VendorsPage() {
-  const vendors: Array<{ id: string }> = [];
+import { Suspense, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
+import { peopleSegmentHref } from '@/lib/mall/routes';
+
+function VendorsRedirectInner() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace(peopleSegmentHref('VENDOR', { add: 'VENDOR' }));
+  }, [router]);
 
   return (
-    <>
-      <PageHeader
-        eyebrow="بيانات أساسية"
-        title="الموردون"
-        description="قاعدة بيانات الموردين وأرصدة الذمم الدائنة."
-        actions={
-          <Button size="sm" className="gap-1.5">
-            <Plus className="stroke-[1.6]" />
-            مورد جديد
-          </Button>
-        }
-      />
+    <div className="flex h-48 items-center justify-center gap-2 text-ink-mute">
+      <Loader2 className="h-5 w-5 animate-spin" />
+      جارٍ التحويل…
+    </div>
+  );
+}
 
-      <div className="flex flex-col gap-6 px-5 py-7 md:px-8 md:py-10">
-        {vendors.length === 0 ? (
-          <EmptyState
-            icon={Landmark}
-            title="لا يوجد موردون بعد"
-            description="أضف موردي البضائع والخدمات لتربط بهم المصروفات وإذونات الصرف وتدير ذممهم."
-            action={{ label: 'إضافة مورد جديد', href: '/vendors/new' }}
-          />
-        ) : null}
-      </div>
-    </>
+export default function VendorsRedirectPage() {
+  return (
+    <Suspense fallback={null}>
+      <VendorsRedirectInner />
+    </Suspense>
   );
 }

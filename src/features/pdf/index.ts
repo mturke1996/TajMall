@@ -33,3 +33,6 @@ export { ContactDossierPDF } from './ContactDossierPDF';
 export { TrialBalanceReportPDF } from './TrialBalanceReportPDF';
 export { ProfitLossReportPDF } from './ProfitLossReportPDF';
 export { CashFlowReportPDF } from './CashFlowReportPDF';
+export { BalanceSheetReportPDF } from './BalanceSheetReportPDF';
+export { TenantArAgingReportPDF } from './TenantArAgingReportPDF';
+export { TenantChargeInvoicePDF } from './TenantChargeInvoicePDF';

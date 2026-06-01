@@ -49,6 +49,8 @@ type ContactFormDialogProps = {
   editingId: string | null;
   onSubmit: (e: React.FormEvent) => void;
   isPending: boolean;
+  /** منع تغيير النوع عند التعديل (مثلاً مستأجر مرتبط بعقد) */
+  lockKind?: boolean;
 };
 
 export function ContactFormDialog({
@@ -59,6 +61,7 @@ export function ContactFormDialog({
   editingId,
   onSubmit,
   isPending,
+  lockKind = false,
 }: ContactFormDialogProps) {
   const [showOptional, setShowOptional] = useState(false);
   const isTenant = formData.kind === 'TENANT';
@@ -80,27 +83,38 @@ export function ContactFormDialog({
           </p>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4 py-2">
-          <div>
-            <Label>النوع</Label>
-            <div className="grid grid-cols-2 gap-2 mt-1">
-              {KIND_OPTIONS.map((k) => (
-                <button
-                  key={k.value}
-                  type="button"
-                  onClick={() => onFormChange({ ...formData, kind: k.value })}
-                  className={cn(
-                    'flex items-center gap-2 p-2 rounded-md border text-sm',
-                    formData.kind === k.value
-                      ? 'border-sage-500 bg-sage-50 text-sage-700'
-                      : 'border-border hover:bg-secondary',
-                  )}
-                >
-                  <k.icon className={cn('h-4 w-4', k.color)} />
-                  {k.label}
-                </button>
-              ))}
+          {lockKind && editingId ? (
+            <div className="rounded-lg border border-border bg-canvas-sunken/50 px-3 py-2 text-sm">
+              <span className="text-ink-mute">النوع: </span>
+              <span className="font-medium">
+                {KIND_OPTIONS.find((k) => k.value === formData.kind)?.label ?? formData.kind}
+              </span>
             </div>
-          </div>
+          ) : (
+            <div>
+              <Label>النوع</Label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                {KIND_OPTIONS.map((k) => (
+                  <button
+                    key={k.value}
+                    type="button"
+                    disabled={lockKind}
+                    onClick={() => onFormChange({ ...formData, kind: k.value })}
+                    className={cn(
+                      'flex items-center gap-2 p-2 rounded-md border text-sm touch-manipulation',
+                      formData.kind === k.value
+                        ? 'border-sage-500 bg-sage-50 text-sage-700'
+                        : 'border-border hover:bg-secondary',
+                      lockKind && 'opacity-60 cursor-not-allowed',
+                    )}
+                  >
+                    <k.icon className={cn('h-4 w-4', k.color)} />
+                    {k.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <Label>الاسم *</Label>

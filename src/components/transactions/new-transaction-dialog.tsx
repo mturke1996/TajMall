@@ -9,7 +9,9 @@ import { useTxDialog, type TxKind } from '@/stores/transaction-dialog';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { useCategories, useCashboxes, useCreateTransaction, useContacts, useCreateContact, useTransactionFormDrafts, useSaveTransactionFormDraft, useDeleteTransactionFormDraft } from '@/lib/db/queries';
-import type { TransactionFormDraftRow, PaymentMethod } from '@/lib/db/types';
+import type { TransactionFormDraftRow, PaymentMethod, ChargeAllocationInput } from '@/lib/db/types';
+import { RentChargeAllocationFields } from './rent-charge-allocation-fields';
+import { isRentCategoryCode } from '@/lib/charge-invoice';
 import { toast } from 'sonner';
 
 export function NewTransactionDialog() {
@@ -28,6 +30,8 @@ export function NewTransactionDialog() {
   const [newContactName, setNewContactName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [allocationMode, setAllocationMode] = useState<'AUTO' | 'MANUAL'>('AUTO');
+  const [chargeAllocations, setChargeAllocations] = useState<ChargeAllocationInput[]>([]);
 
   const { data: drafts = [], isLoading: draftsLoading } = useTransactionFormDrafts(kind, isOpen);
   const saveDraft = useSaveTransactionFormDraft();
@@ -63,8 +67,20 @@ export function NewTransactionDialog() {
       setNewContactName('');
       setError(null);
       setEditingDraftId(null);
+      setAllocationMode('AUTO');
+      setChargeAllocations([]);
     }
   }, [isOpen, defaultKind, cashboxes]);
+
+  const selectedCategory = categoriesAll.find((c) => c.id === categoryId);
+  const selectedContact = contactsAll.find((c) => c.id === contactId);
+  const showRentAllocation =
+    isRevenue &&
+    !!contactId &&
+    selectedContact?.kind === 'TENANT' &&
+    isRentCategoryCode(selectedCategory?.code);
+
+  const amountNumPreview = Number(amount.replace(/[^\d.-]/g, '')) || 0;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -84,6 +100,18 @@ export function NewTransactionDialog() {
       return;
     }
 
+    if (showRentAllocation && allocationMode === 'MANUAL') {
+      if (chargeAllocations.length === 0) {
+        setError('اختر مطالبة واحدة على الأقل للتخصيص اليدوي');
+        return;
+      }
+      const allocSum = chargeAllocations.reduce((s, a) => s + a.amount, 0);
+      if (allocSum <= 0 || allocSum > amountNum) {
+        setError('مجموع التخصيص يجب أن يكون أكبر من صفر ولا يتجاوز المبلغ');
+        return;
+      }
+    }
+
     try {
       await createTx.mutateAsync({
         kind,
@@ -95,6 +123,9 @@ export function NewTransactionDialog() {
         description: description || undefined,
         contact_id: contactId || undefined,
         contact_type: contactId ? (isRevenue ? 'PAYER' : 'BENEFICIARY') : undefined,
+        auto_allocate_charges: allocationMode === 'AUTO',
+        charge_allocations:
+          showRentAllocation && allocationMode === 'MANUAL' ? chargeAllocations : undefined,
       });
       if (editingDraftId) {
         try {
@@ -448,6 +479,17 @@ export function NewTransactionDialog() {
               </div>
             )}
           </div>
+
+          {showRentAllocation && (
+            <RentChargeAllocationFields
+              tenantId={contactId}
+              paymentAmount={amountNumPreview}
+              mode={allocationMode}
+              onModeChange={setAllocationMode}
+              allocations={chargeAllocations}
+              onAllocationsChange={setChargeAllocations}
+            />
+          )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 

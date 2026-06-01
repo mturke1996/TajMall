@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, keepPreviousData } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -11,8 +11,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 60_000,          // 1 minute — fresh enough for finance
-            gcTime: 10 * 60 * 1000,    // 10 minutes garbage collection
+            staleTime: 5 * 60_000,       // 5 min — بيانات جاهزة عند التنقل
+            gcTime: 30 * 60 * 1000,     // 30 min في الذاكرة
+            placeholderData: keepPreviousData,
             refetchOnWindowFocus: false,
             refetchOnReconnect: true,
             retry: 1,

@@ -2,6 +2,8 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
+import { mqk } from "@/lib/db/mall-queries";
 import type {
   CategoryRow,
   CashboxRow,
@@ -81,6 +83,81 @@ export function useCategories(kind?: "REVENUE" | "EXPENSE") {
       const { data, error } = await q;
       if (error) throw error;
       return (data as CategoryRow[]) ?? [];
+    },
+  });
+}
+
+export type CreateCategoryInput = {
+  code: string;
+  name: string;
+  name_ar: string;
+  type: CategoryRow["type"];
+  kind: CategoryRow["kind"];
+  color?: string | null;
+  sort_order?: number;
+};
+
+export function useCreateCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateCategoryInput) => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase
+        .from("categories")
+        .insert({
+          code: input.code.trim().toUpperCase(),
+          name: input.name.trim(),
+          name_ar: input.name_ar.trim(),
+          type: input.type,
+          kind: input.kind,
+          color: input.color ?? null,
+          sort_order: input.sort_order ?? 100,
+          active: true,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data as CategoryRow;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.categories });
+      toast.success("تم إضافة البند المحاسبي");
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message ?? "تعذّر إضافة البند");
+    },
+  });
+}
+
+export function useUpdateCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: Partial<CreateCategoryInput> & { id: string; active?: boolean }) => {
+      const supabase = createSupabaseBrowserClient();
+      const patch: Record<string, unknown> = {};
+      if (input.code !== undefined) patch.code = input.code.trim().toUpperCase();
+      if (input.name !== undefined) patch.name = input.name.trim();
+      if (input.name_ar !== undefined) patch.name_ar = input.name_ar.trim();
+      if (input.type !== undefined) patch.type = input.type;
+      if (input.kind !== undefined) patch.kind = input.kind;
+      if (input.color !== undefined) patch.color = input.color;
+      if (input.sort_order !== undefined) patch.sort_order = input.sort_order;
+      if (input.active !== undefined) patch.active = input.active;
+      const { data, error } = await supabase
+        .from("categories")
+        .update(patch)
+        .eq("id", input.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data as CategoryRow;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.categories });
+      toast.success("تم تحديث البند");
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message ?? "تعذّر التحديث");
     },
   });
 }
@@ -266,6 +343,8 @@ export function useCreateContact() {
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
+      qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
+      qc.invalidateQueries({ queryKey: qk.employeeSummary });
       if (data?.id) qc.invalidateQueries({ queryKey: qk.contact(data.id) });
     },
   });
@@ -288,7 +367,14 @@ export function useUpdateContact() {
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
-      if (data?.id) qc.invalidateQueries({ queryKey: qk.contact(data.id) });
+      qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
+      qc.invalidateQueries({ queryKey: qk.employeeSummary });
+      qc.invalidateQueries({ queryKey: mqk.leaseContracts });
+      qc.invalidateQueries({ queryKey: mqk.mallUnits });
+      if (data?.id) {
+        qc.invalidateQueries({ queryKey: qk.contact(data.id) });
+        qc.invalidateQueries({ queryKey: [...qk.tenantRentSummary, data.id] });
+      }
     },
   });
 }
@@ -602,10 +688,14 @@ export function useCreateTransaction() {
     mutationFn: async (input: NewTransactionInput) => {
       const supabase = createSupabaseBrowserClient();
       const { data: auth } = await supabase.auth.getUser();
+      const { charge_allocations, auto_allocate_charges, ...rest } = input;
+      const manualAlloc = (charge_allocations?.length ?? 0) > 0;
+
       const { data, error } = await supabase
         .from("transactions")
         .insert({
-          ...input,
+          ...rest,
+          auto_allocate_charges: manualAlloc ? false : (auto_allocate_charges ?? true),
           status: "POSTED",
           posted_at: new Date().toISOString(),
           created_by: auth?.user?.id ?? null,
@@ -613,6 +703,15 @@ export function useCreateTransaction() {
         .select(TX_SELECT)
         .single();
       if (error) throw error;
+
+      if (manualAlloc && data?.id) {
+        const { error: allocErr } = await supabase.rpc("apply_charge_allocations", {
+          p_transaction_id: data.id,
+          p_allocations: charge_allocations,
+        });
+        if (allocErr) throw allocErr;
+      }
+
       return data as unknown as TransactionWithRelations;
     },
     onMutate: async (input) => {
@@ -647,6 +746,9 @@ export function useCreateTransaction() {
       qc.invalidateQueries({ queryKey: ["transactions"] });
       qc.invalidateQueries({ queryKey: qk.cashboxBalances });
       qc.invalidateQueries({ queryKey: qk.dashboardStats });
+      qc.invalidateQueries({ queryKey: ["tenant_charges"] });
+      qc.invalidateQueries({ queryKey: ["tenant_ar_aging"] });
+      qc.invalidateQueries({ queryKey: ["journal_entries"] });
     },
   });
 }
@@ -731,6 +833,8 @@ export function useCreateDisbursementVoucher() {
           method: input.method,
           notes: input.notes?.trim() || null,
           total_amount: total,
+          cashbox_id: input.cashbox_id || null,
+          category_id: input.category_id || null,
           created_by: uid,
         })
         .select("id")
@@ -758,6 +862,8 @@ export function useCreateDisbursementVoucher() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.disbursementVouchers });
+      qc.invalidateQueries({ queryKey: ["journal_entries"] });
+      qc.invalidateQueries({ queryKey: ["ledger"] });
     },
   });
 }

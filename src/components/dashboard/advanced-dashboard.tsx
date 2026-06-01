@@ -601,8 +601,8 @@ export function AdvancedDashboard() {
 
         {/* ── Info Cards Row ───────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          <InfoCard icon={Users} title="الدليل الشامل" description="جهات الاتصال والعملاء والموردين" href="/contacts" />
-          <InfoCard icon={Building2} title="المحلات" description="متابعة الإيجارات والمستأجرين" href="/tenants" />
+          <InfoCard icon={Building2} title="إدارة المول" description="المحلات، المستأجرين، العقود، والرسوم" href="/mall" />
+          <InfoCard icon={Users} title="الدليل الشامل" description="جميع جهات التعامل داخل المول" href="/mall?tab=people" />
           <InfoCard icon={ArrowLeftRight} title="المعاملات" description="سجل الإيرادات والمصروفات" href="/transactions" />
           <InfoCard icon={Calendar} title="دفتر اليومية" description="القيود المحاسبية المزدوجة" href="/journals" />
         </div>

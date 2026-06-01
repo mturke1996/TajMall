@@ -11,7 +11,7 @@ import { NewTransactionDialog } from '@/components/transactions/new-transaction-
 import { AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { NAV } from './nav-items';
-import { GlobalPrefetch } from './global-prefetch';
+import { AppDataBootstrap } from './app-data-bootstrap';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -61,13 +61,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onOpenSearch={() => setCmdOpen(true)}
         />
         <main className="flex min-w-0 flex-1 flex-col pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0">
-          <PageTransition>{children}</PageTransition>
+          <AppDataBootstrap>
+            <PageTransition>{children}</PageTransition>
+          </AppDataBootstrap>
         </main>
       </div>
 
       <MobileBottomNav />
       <NewTransactionDialog />
-      <GlobalPrefetch />
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
     </div>
   );

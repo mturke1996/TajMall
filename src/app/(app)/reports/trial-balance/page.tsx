@@ -1,51 +1,57 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import {
-  Scale,
-  Calendar,
-  Loader2,
-  AlertTriangle,
-  CheckCircle,
-  XCircle
-} from 'lucide-react';
+import { Scale, CheckCircle, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatMoney } from '@/lib/utils';
-import { useTrialBalance, useBackfillTransactions } from '@/lib/db/mall-queries';
+import { cn } from '@/lib/utils';
+import { useTrialBalance } from '@/lib/db/mall-queries';
+import { AccountingBackfillBanner } from '@/components/accounting/accounting-backfill-banner';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
+import { AccountingYearPicker } from '@/components/accounting/accounting-year-picker';
+import { AccountingFilterCard } from '@/components/accounting/accounting-filter-card';
+import {
+  AccountingEmpty,
+  AccountingError,
+  AccountingLoading,
+} from '@/components/accounting/accounting-states';
+import {
+  TrialBalanceDesktopTable,
+  TrialBalanceMobileList,
+  type TrialBalanceRowView,
+} from '@/components/accounting/trial-balance-mobile-list';
 
 export default function TrialBalancePage() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
 
   const { data: rawBalanceData, isLoading, isError, error } = useTrialBalance(selectedYear);
-  const backfillTx = useBackfillTransactions();
 
-  // Parse and cast balances
-  const balanceData = useMemo(() => {
-    const list = (rawBalanceData as any)?.rows || [];
-    return list.map((row: any) => ({
-      code: row.category_code,
-      name_ar: row.category_name,
-      type: row.category_type,
-      total_debit: Number(row.period_debit || 0),
-      total_credit: Number(row.period_credit || 0),
-      balance: Number(row.closing_balance || 0),
-    }));
+  const balanceData = useMemo((): TrialBalanceRowView[] => {
+    const list = (rawBalanceData as { rows?: unknown[] })?.rows || [];
+    return list.map((row) => {
+      const r = row as Record<string, unknown>;
+      return {
+        category_id: r.category_id as string,
+        code: r.category_code as string,
+        name_ar: r.category_name as string,
+        type: r.category_type as string,
+        total_debit: Number(r.period_debit || 0),
+        total_credit: Number(r.period_credit || 0),
+        balance: Number(r.closing_balance || 0),
+      };
+    });
   }, [rawBalanceData]);
 
-  // Compute total sums
   const { totalDebits, totalCredits, difference } = useMemo(() => {
     let debits = 0;
     let credits = 0;
-
-    balanceData.forEach((row: any) => {
+    balanceData.forEach((row) => {
       debits += row.total_debit;
       credits += row.total_credit;
     });
-
     return {
       totalDebits: debits,
       totalCredits: credits,
@@ -56,152 +62,129 @@ export default function TrialBalancePage() {
   const isBalanced = difference < 0.01;
 
   return (
-    <div className="space-y-6">
+    <>
       <PageHeader
         eyebrow="المحاسبة والتقارير"
         title="ميزان المراجعة"
-        description="تقرير إجمالي يلخص كافة الأرصدة المدينة والدائنة للحسابات للتأكد من توازن الدفاتر"
+        description="ملخص الأرصدة المدينة والدائنة للتحقق من توازن الدفاتر"
         actions={
           <TajMallPdfToolbar
             fileName={`ميزان-المراجعة-${selectedYear}`}
             disabled={balanceData.length === 0}
             render={async () => {
-              const { TrialBalanceReportPDF } = await import('@/features/pdf/TrialBalanceReportPDF');
+              const { TrialBalanceReportPDF } = await import(
+                '@/features/pdf/TrialBalanceReportPDF'
+              );
               return (
-                <TrialBalanceReportPDF
-                  year={selectedYear}
-                  rows={balanceData}
-                />
+                <TrialBalanceReportPDF year={selectedYear} rows={balanceData} />
               );
             }}
           />
         }
       />
 
-      {/* Toolbar */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-slate-600">عرض السنة المالية:</span>
-              <div className="flex gap-1.5">
-                {[currentYear - 2, currentYear - 1, currentYear, currentYear + 1].map((year) => (
-                  <Button
-                    key={year}
-                    variant={selectedYear === year ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedYear(year)}
-                    className={selectedYear === year ? 'bg-emerald-700 hover:bg-emerald-800 text-white' : ''}
-                  >
-                    {year}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Balancing Status Badge */}
+      <AccountingPageBody>
+        <AccountingFilterCard>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <AccountingYearPicker
+              value={selectedYear}
+              onChange={setSelectedYear}
+              className="flex-1 min-w-0"
+            />
             {!isLoading && !isError && balanceData.length > 0 && (
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold ${
-                isBalanced
-                  ? 'bg-green-50 border-green-200 text-green-700'
-                  : 'bg-red-50 border-red-200 text-red-700'
-              }`}>
+              <div
+                className={cn(
+                  'flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shrink-0',
+                  isBalanced
+                    ? 'bg-green-50 border-green-200 text-green-800'
+                    : 'bg-red-50 border-red-200 text-red-800',
+                )}
+              >
                 {isBalanced ? (
                   <>
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    الميزان متوازن بنجاح
+                    <CheckCircle className="h-4 w-4 shrink-0" />
+                    <span>الميزان متوازن</span>
                   </>
                 ) : (
                   <>
-                    <XCircle className="h-4 w-4 text-red-600" />
-                    الميزان غير متوازن! الفارق: {formatMoney(difference, 'LYD')}
+                    <XCircle className="h-4 w-4 shrink-0" />
+                    <span className="break-words">
+                      غير متوازن — فارق {formatMoney(difference, 'LYD')}
+                    </span>
                   </>
                 )}
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </AccountingFilterCard>
 
-      {/* Trial Balance Table Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-bold">حالة الحسابات للسنة المالية {selectedYear}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex h-64 items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-            </div>
-          ) : isError ? (
-            <div className="flex h-64 flex-col items-center justify-center gap-2 text-red-600 bg-red-50 rounded-lg p-4">
-              <AlertTriangle className="h-8 w-8" />
-              <p className="font-semibold">فشل تحميل ميزان المراجعة</p>
-              <p className="text-sm text-red-500">{(error as any)?.message}</p>
-            </div>
-          ) : balanceData.length === 0 ? (
-            <div className="flex h-64 flex-col items-center justify-center text-slate-400 gap-2">
-              <Scale className="h-12 w-12 mb-1 opacity-50 text-slate-400" />
-              <p className="font-medium text-slate-600 text-center">لا توجد حركات محاسبية مرحلة للسنة المالية {selectedYear}</p>
-              <p className="text-xs text-slate-400 text-center">قد تحتاج إلى تشغيل الترحيل التراكمي لجلب المعاملات القديمة إلى دفتر اليومية.</p>
-              <Button
-                onClick={() => backfillTx.mutate()}
-                disabled={backfillTx.isPending}
-                className="mt-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold gap-2"
+        {!isLoading && !isError && balanceData.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:hidden">
+            <Card className="p-3">
+              <p className="text-[10px] text-muted-foreground">إجمالي مدين</p>
+              <p className="font-mono text-sm font-bold text-emerald-800 mt-0.5">
+                {formatMoney(totalDebits, 'LYD')}
+              </p>
+            </Card>
+            <Card className="p-3">
+              <p className="text-[10px] text-muted-foreground">إجمالي دائن</p>
+              <p className="font-mono text-sm font-bold text-red-700 mt-0.5">
+                {formatMoney(totalCredits, 'LYD')}
+              </p>
+            </Card>
+            <Card className="p-3 col-span-2 sm:col-span-1">
+              <p className="text-[10px] text-muted-foreground">الحالة</p>
+              <p
+                className={cn(
+                  'text-sm font-bold mt-0.5',
+                  isBalanced ? 'text-emerald-700' : 'text-red-700',
+                )}
               >
-                {backfillTx.isPending ? 'جاري الترحيل...' : 'تشغيل الترحيل التراكمي وتحديث التقارير'}
-              </Button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-right text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 pb-3 text-slate-500 font-semibold">
-                    <th className="pb-3 pr-2 text-right">رمز الحساب</th>
-                    <th className="pb-3 text-right">اسم الحساب</th>
-                    <th className="pb-3 text-right">نوع الحساب</th>
-                    <th className="pb-3 text-left">مجموع المدين (Debit)</th>
-                    <th className="pb-3 text-left">مجموع الدائن (Credit)</th>
-                    <th className="pb-3 pl-2 text-left">صافي الرصيد</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {balanceData.map((row: any, idx: number) => (
-                    <tr key={idx} className="hover:bg-slate-50/50">
-                      <td className="py-3 pr-2 font-mono text-slate-600 font-medium">{row.code}</td>
-                      <td className="py-3 text-slate-900 font-bold">{row.name_ar}</td>
-                      <td className="py-3 text-slate-500 font-medium">{row.type}</td>
-                      <td className="py-3 text-left font-mono font-medium text-emerald-700">
-                        {row.total_debit > 0 ? formatMoney(row.total_debit, '') : '-'}
-                      </td>
-                      <td className="py-3 text-left font-mono font-medium text-red-600">
-                        {row.total_credit > 0 ? formatMoney(row.total_credit, '') : '-'}
-                      </td>
-                      <td className="py-3 pl-2 text-left font-mono font-bold text-slate-800">
-                        {formatMoney(row.balance, 'LYD')}
-                      </td>
-                    </tr>
-                  ))}
+                {isBalanced ? 'متوازن' : 'غير متوازن'}
+              </p>
+            </Card>
+          </div>
+        )}
 
-                  {/* Totals Summary Row */}
-                  <tr className="border-t-2 border-slate-200 bg-slate-50/70 font-bold text-slate-900">
-                    <td colSpan={3} className="py-4 pr-2 text-right">الإجمالي العام للدفاتر</td>
-                    <td className="py-4 text-left font-mono text-emerald-800">
-                      {formatMoney(totalDebits, 'LYD')}
-                    </td>
-                    <td className="py-4 text-left font-mono text-red-700">
-                      {formatMoney(totalCredits, 'LYD')}
-                    </td>
-                    <td className={`py-4 pl-2 text-left font-mono ${isBalanced ? 'text-green-700' : 'text-red-700'}`}>
-                      {isBalanced ? 'متوازن' : `فارق: ${formatMoney(difference, '')}`}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-bold sm:text-lg">
+              حسابات السنة {selectedYear}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-2 pb-4 sm:pb-5">
+            {isLoading ? (
+              <AccountingLoading />
+            ) : isError ? (
+              <AccountingError
+                title="فشل تحميل ميزان المراجعة"
+                message={(error as Error)?.message}
+              />
+            ) : balanceData.length === 0 ? (
+              <div className="space-y-4">
+                <AccountingEmpty
+                  icon={Scale}
+                  title={`لا توجد حركات مرحّلة لعام ${selectedYear}`}
+                  description="بعد ترحيل القيود من دفتر اليومية يظهر الميزان تلقائياً."
+                />
+                <AccountingBackfillBanner />
+              </div>
+            ) : (
+              <>
+                <TrialBalanceMobileList rows={balanceData} year={selectedYear} />
+                <TrialBalanceDesktopTable
+                  rows={balanceData}
+                  year={selectedYear}
+                  totalDebits={totalDebits}
+                  totalCredits={totalCredits}
+                  isBalanced={isBalanced}
+                  difference={difference}
+                />
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </AccountingPageBody>
+    </>
   );
 }

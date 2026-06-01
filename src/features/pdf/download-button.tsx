@@ -1,12 +1,10 @@
 'use client';
 
 import { useState, type ReactElement, type ReactNode } from 'react';
-import { pdf } from '@react-pdf/renderer';
 import { Printer, Loader2 } from 'lucide-react';
 import { Button, type ButtonProps } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { prepareTajMallPdfTree } from './prepare-taj-mall-pdf-tree';
-import { registerPdfFonts } from './pdfFonts';
+import { renderPdfBlob, savePdfBlob } from './pdf-blob-utils';
 
 type Props = ButtonProps & {
   /** Suggested file name (without `.pdf` extension). */
@@ -37,21 +35,14 @@ export function DownloadPdfButton({
     if (loading) return;
     setLoading(true);
     try {
-      registerPdfFonts();
-      const wrapped = await prepareTajMallPdfTree(await render());
-      const instance = pdf();
-      instance.updateContainer(wrapped);
-      const blob = await instance.toBlob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${fileName}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      // Revoke after a tick so Safari finishes the download.
-      setTimeout(() => URL.revokeObjectURL(url), 250);
-      toast.success('تم إنشاء ملف PDF', { description: fileName + '.pdf' });
+      const blob = await renderPdfBlob(render);
+      const mode = await savePdfBlob(blob, fileName);
+      toast.success(
+        mode === 'share'
+          ? 'اختر «حفظ في الملفات» من قائمة المشاركة'
+          : 'تم إنشاء ملف PDF',
+        { description: fileName + '.pdf' },
+      );
     } catch (err) {
       console.error(err);
       toast.error('تعذّر إنشاء ملف PDF', {

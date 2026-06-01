@@ -23,6 +23,8 @@ export const mqk = {
     ['profit_loss', year, period, quarter ?? 'none', month ?? 'none'] as const,
   cashFlow: (year: number) => ['cash_flow', year] as const,
   ledger: (categoryId: string, start?: string, end?: string) => ['ledger', categoryId, start ?? '', end ?? ''] as const,
+  balanceSheet: (asOf: string) => ['balance_sheet', asOf] as const,
+  tenantArAging: (asOf: string) => ['tenant_ar_aging', asOf] as const,
 };
 
 // ── Fiscal Periods ────────────────────────────────────────────────
@@ -199,6 +201,27 @@ export function useLeaseContracts() {
   });
 }
 
+export function useTenantLeaseContracts(tenantId: string | undefined) {
+  return useQuery<LeaseContractWithRelations[]>({
+    queryKey: [...mqk.leaseContracts, 'tenant', tenantId ?? ''],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase
+        .from('lease_contracts')
+        .select(`
+          *,
+          unit:mall_units(id, unit_number, floor, area_sqm),
+          tenant:contacts(id, name, phone)
+        `)
+        .eq('tenant_id', tenantId!)
+        .order('start_date', { ascending: false });
+      if (error) throw error;
+      return (data as LeaseContractWithRelations[]) ?? [];
+    },
+  });
+}
+
 export function useCreateLeaseContract() {
   const qc = useQueryClient();
   return useMutation({
@@ -214,10 +237,26 @@ export function useCreateLeaseContract() {
       if (err) throw err;
 
       // 2. Mark unit as occupied
+      const { data: unit } = await supabase
+        .from('mall_units')
+        .select('unit_number, floor')
+        .eq('id', input.unit_id)
+        .single();
+
       await supabase
         .from('mall_units')
         .update({ status: 'OCCUPIED' })
         .eq('id', input.unit_id);
+
+      // 2b. مزامنة بيانات الإيجار والمحل على ملف المستأجر
+      await supabase
+        .from('contacts')
+        .update({
+          monthly_rent: input.monthly_rent,
+          shop_number: unit?.unit_number ?? null,
+          floor: unit?.floor ?? null,
+        })
+        .eq('id', input.tenant_id);
 
       // 3. For security deposits: if deposit_amount > 0, generate a deposit transaction
       // and let the DB triggers post it to journal_entries.
@@ -262,6 +301,8 @@ export function useCreateLeaseContract() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: mqk.leaseContracts });
       qc.invalidateQueries({ queryKey: mqk.mallUnits });
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.invalidateQueries({ queryKey: ['tenant_rent_summary'] });
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['journal_entries'] });
       qc.invalidateQueries({ queryKey: ['cashbox_balances'] });
@@ -317,7 +358,7 @@ export function useTenantCharges(contractId?: string) {
             end_date,
             monthly_rent,
             unit:mall_units(id, unit_number, floor),
-            tenant:contacts(id, name)
+            tenant:contacts(id, name, phone)
           )
         `)
         .order('due_date', { ascending: false });
@@ -461,50 +502,128 @@ export function useCashFlow(year: number) {
   });
 }
 
+export type GeneralLedgerLineRow = {
+  debit: number;
+  credit: number;
+  description: string | null;
+  entry_date: string;
+  journal_number: number;
+  journal_reference: string | null;
+  journal_id: string;
+};
+
 export function useGeneralLedger(categoryId: string, startDate?: string, endDate?: string) {
-  return useQuery({
+  return useQuery<GeneralLedgerLineRow[]>({
     queryKey: mqk.ledger(categoryId, startDate, endDate),
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
-      let query = supabase
-        .from('journal_lines_with_categories')
-        .select(`
-          debit,
-          credit,
-          description,
-          journal:journal_entries(number, entry_date, reference, status)
-        `)
-        .eq('category_id', categoryId)
-        .eq('journal.status', 'POSTED'); // only show posted entries
-      
-      if (startDate) {
-        query = query.gte('journal.entry_date', startDate);
-      }
-      if (endDate) {
-        query = query.lte('journal.entry_date', endDate);
-      }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      
-      // Filter out rows where journal is null (due to date filtering on join)
-      const filtered = (data as any[] ?? []).filter(item => item.journal !== null);
-      
-      // Sort by date and entry number
-      filtered.sort((a, b) => {
-        const dateA = new Date(a.journal.entry_date).getTime();
-        const dateB = new Date(b.journal.entry_date).getTime();
-        if (dateA !== dateB) return dateA - dateB;
-        return a.journal.number - b.journal.number;
+      const { data, error } = await supabase.rpc('get_general_ledger_lines', {
+        p_category_id: categoryId,
+        p_start_date: startDate || null,
+        p_end_date: endDate || null,
       });
 
-      return filtered;
+      if (!error) {
+        return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+          debit: Number(row.debit ?? 0),
+          credit: Number(row.credit ?? 0),
+          description: (row.line_description as string) ?? null,
+          entry_date: row.entry_date as string,
+          journal_number: Number(row.journal_number ?? 0),
+          journal_reference: (row.journal_reference as string) ?? null,
+          journal_id: row.journal_id as string,
+        }));
+      }
+
+      const msg = error.message ?? '';
+      const rpcMissing =
+        msg.includes('get_general_ledger_lines') ||
+        msg.includes('schema cache') ||
+        error.code === 'PGRST202';
+
+      if (!rpcMissing) throw error;
+
+      // Fallback: manual join via two queries
+      const { data: lines, error: linesErr } = await supabase
+        .from('journal_lines')
+        .select('debit, credit, description, journal_id')
+        .eq('category_id', categoryId);
+
+      if (linesErr) throw linesErr;
+      if (!lines?.length) return [];
+
+      const journalIds = [...new Set(lines.map((l) => l.journal_id as string))];
+      let jq = supabase
+        .from('journal_entries')
+        .select('id, number, reference, entry_date, status')
+        .in('id', journalIds)
+        .eq('status', 'POSTED');
+
+      if (startDate) jq = jq.gte('entry_date', startDate);
+      if (endDate) jq = jq.lte('entry_date', endDate);
+
+      const { data: journals, error: jErr } = await jq;
+      if (jErr) throw jErr;
+
+      const jMap = new Map((journals ?? []).map((j) => [j.id as string, j]));
+
+      const merged: GeneralLedgerLineRow[] = [];
+      for (const l of lines) {
+        const j = jMap.get(l.journal_id as string);
+        if (!j) continue;
+        merged.push({
+          debit: Number(l.debit ?? 0),
+          credit: Number(l.credit ?? 0),
+          description: l.description as string | null,
+          entry_date: j.entry_date as string,
+          journal_number: Number(j.number ?? 0),
+          journal_reference: (j.reference as string) ?? null,
+          journal_id: j.id as string,
+        });
+      }
+
+      merged.sort((a, b) => {
+        const da = new Date(a.entry_date).getTime();
+        const db = new Date(b.entry_date).getTime();
+        if (da !== db) return da - db;
+        return a.journal_number - b.journal_number;
+      });
+
+      return merged;
     },
     enabled: !!categoryId,
   });
 }
 
+export function useBalanceSheet(asOf: string) {
+  return useQuery({
+    queryKey: mqk.balanceSheet(asOf),
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc('get_balance_sheet', { p_as_of: asOf });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!asOf,
+  });
+}
+
+export function useTenantArAging(asOf: string) {
+  return useQuery({
+    queryKey: mqk.tenantArAging(asOf),
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc('get_tenant_ar_aging', { p_as_of: asOf });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!asOf,
+  });
+}
+
 export function useBackfillTransactions() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
       const supabase = createSupabaseBrowserClient();
@@ -514,9 +633,18 @@ export function useBackfillTransactions() {
     },
     onSuccess: (res) => {
       toast.success(res);
+      qc.invalidateQueries({ queryKey: ['trial_balance'] });
+      qc.invalidateQueries({ queryKey: ['profit_loss'] });
+      qc.invalidateQueries({ queryKey: ['cash_flow'] });
+      qc.invalidateQueries({ queryKey: ['ledger'] });
+      qc.invalidateQueries({ queryKey: ['journal_entries'] });
+      qc.invalidateQueries({ queryKey: ['journal_summary'] });
+      qc.invalidateQueries({ queryKey: ['balance_sheet'] });
+      qc.invalidateQueries({ queryKey: ['tenant_ar_aging'] });
+      qc.invalidateQueries({ queryKey: ['tenant_charges'] });
     },
-    onError: (err: any) => {
+    onError: (err: { message?: string }) => {
       toast.error(err.message || 'فشل الترحيل التراكمي');
-    }
+    },
   });
 }

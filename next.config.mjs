@@ -17,8 +17,8 @@ const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
   async redirects() {
     return [
-      { source: '/reports', destination: '/dashboard', permanent: false },
-      { source: '/reports/:path*', destination: '/dashboard', permanent: false },
+      // /reports alone → default report (do NOT redirect /reports/* to dashboard)
+      { source: '/reports', destination: '/reports/ledger', permanent: false },
     ];
   },
   async headers() {

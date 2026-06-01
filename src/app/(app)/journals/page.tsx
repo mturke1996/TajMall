@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Plus,
   BookOpen,
@@ -16,7 +17,10 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  Copy,
+  BookMarked,
 } from 'lucide-react';
+import Link from 'next/link';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,12 +33,16 @@ import {
   usePostJournalEntry,
   useReverseJournalEntry,
   useDeleteJournalEntry,
+  useDuplicateJournalEntry,
   useJournalLines,
   type JournalEntryRow,
   type JournalStatus,
 } from '@/lib/db/journal-queries';
 import { JournalEntryDialog } from './components/journal-entry-dialog';
 import { JournalDetailDialog } from './components/journal-detail-dialog';
+import { JournalConfirmSheet } from './components/journal-confirm-sheet';
+import { JournalSourceBadge } from './components/journal-source-badge';
+import { usePermission } from '@/lib/supabase/use-permission';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import {
   Select,
@@ -44,6 +52,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useContacts, useCashboxes } from '@/lib/db/queries';
+import { MOBILE_PAGE_ACTION_PADDING } from '@/components/layout/mobile-page-action-bar';
 
 const STATUS_CONFIG: Record<JournalStatus, {
   label: string;
@@ -76,6 +85,23 @@ const STATUS_CONFIG: Record<JournalStatus, {
 };
 
 export default function JournalsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-48 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-sage-600" />
+        </div>
+      }
+    >
+      <JournalsPageInner />
+    </Suspense>
+  );
+}
+
+function JournalsPageInner() {
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get('highlight');
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<JournalStatus | 'ALL'>('ALL');
   const [contactFilter, setContactFilter] = useState<string | 'ALL'>('ALL');
@@ -84,7 +110,14 @@ export default function JournalsPage() {
   const [selectedEntry, setSelectedEntry] = useState<JournalEntryRow | null>(null);
   const [editingEntry, setEditingEntry] = useState<JournalEntryRow | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'post' | 'reverse' | 'delete';
+    entryId: string;
+    entryNumber: number;
+  } | null>(null);
 
+  const { can, loading: permLoading } = usePermission();
   const { data: contacts = [] } = useContacts();
   const { data: cashboxes = [] } = useCashboxes();
 
@@ -107,6 +140,19 @@ export default function JournalsPage() {
   const postEntry = usePostJournalEntry();
   const reverseEntry = useReverseJournalEntry();
   const deleteEntry = useDeleteJournalEntry();
+  const duplicateEntry = useDuplicateJournalEntry();
+
+  useEffect(() => {
+    if (!highlightId) return;
+    setExpandedId(highlightId);
+    const timer = window.setTimeout(() => {
+      document.getElementById(`journal-entry-${highlightId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [highlightId]);
 
   const filteredEntries = useMemo(() => {
     const entryList = entries ?? [];
@@ -151,19 +197,38 @@ export default function JournalsPage() {
     ];
   }, [summary]);
 
-  const handlePost = async (id: string) => {
-    if (!confirm('هل أنت متأكد من ترحيل هذا القيد؟ لا يمكن التراجع بعد الترحيل.')) return;
-    await postEntry.mutateAsync(id);
+  const runConfirmAction = async () => {
+    if (!confirmAction) return;
+    const { type, entryId } = confirmAction;
+    try {
+      if (type === 'post') await postEntry.mutateAsync(entryId);
+      if (type === 'reverse') await reverseEntry.mutateAsync(entryId);
+      if (type === 'delete') await deleteEntry.mutateAsync(entryId);
+      setExpandedId(null);
+    } finally {
+      setConfirmAction(null);
+    }
   };
 
-  const handleReverse = async (id: string) => {
-    if (!confirm('هل أنت متأكد من عكس هذا القيد؟ سيتم إنشاء قيد معكوس جديد.')) return;
-    await reverseEntry.mutateAsync(id);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا القيد؟ يمكن حذف المسودات فقط.')) return;
-    await deleteEntry.mutateAsync(id);
+  const confirmCopy = {
+    post: {
+      title: 'ترحيل القيد',
+      description: 'بعد الترحيل يُسجَّل القيد في الدفاتر ولا يمكن تعديله. هل تريد المتابعة؟',
+      confirmLabel: 'ترحيل',
+      variant: 'default' as const,
+    },
+    reverse: {
+      title: 'عكس القيد',
+      description: 'سيُنشأ قيد معكوس جديد ويُعلَّم القيد الحالي كمعكوس. هل تريد المتابعة؟',
+      confirmLabel: 'عكس',
+      variant: 'danger' as const,
+    },
+    delete: {
+      title: 'حذف المسودة',
+      description: 'سيتم حذف القيد نهائياً. لا يمكن التراجع.',
+      confirmLabel: 'حذف',
+      variant: 'danger' as const,
+    },
   };
 
   const getContactLabel = (c: any) => {
@@ -181,11 +246,17 @@ export default function JournalsPage() {
   return (
     <>
       <PageHeader
-        eyebrow="القيود المحاسبية"
+        eyebrow="المحاسبة والتقارير"
         title="دفتر اليومية"
         description="نظام القيود المزدوجة - المدين والدائن - مع الترحيل والعكس"
         actions={
           <>
+            <Button variant="outline" size="sm" className="gap-1.5 hidden sm:inline-flex" asChild>
+              <Link href="/reports/ledger">
+                <BookMarked className="h-4 w-4" />
+                دفتر الأستاذ
+              </Link>
+            </Button>
             <TajMallPdfToolbar
               fileName={`دفتر-اليومية-${new Date().getFullYear()}`}
               render={async () => {
@@ -238,22 +309,39 @@ export default function JournalsPage() {
                 );
               }}
             />
-            <Button size="sm" onClick={() => setIsCreateOpen(true)} className="gap-1.5">
-              <Plus className="h-4 w-4" />
-              قيد جديد
-            </Button>
+            {can('journal.create') && (
+              <Button
+                size="sm"
+                onClick={() => setIsCreateOpen(true)}
+                className="gap-1.5 hidden sm:inline-flex"
+              >
+                <Plus className="h-4 w-4" />
+                قيد جديد
+              </Button>
+            )}
           </>
         }
       />
 
-      <div className="flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-7 md:px-8 md:py-10">
+      <div
+        className={cn(
+          'flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-7 md:px-8 md:py-10',
+          MOBILE_PAGE_ACTION_PADDING,
+        )}
+      >
+        {!permLoading && !can('journal.view') && (
+          <Card className="border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+            ليس لديك صلاحية عرض دفتر اليومية. تواصل مع المسؤول لتفعيل صلاحية journal.view.
+          </Card>
+        )}
+
         {(entriesQueryError || summaryQueryError) && (
           <Card className="border border-red-200 bg-red-50 p-4 text-sm text-red-900">
             <p className="font-semibold">تعذّر تحميل بيانات دفتر اليومية</p>
             <p className="mt-2 text-red-800/90 leading-relaxed">
               {(entriesQueryErr as Error)?.message ??
                 (summaryQueryErr as Error)?.message ??
-                'غالباً الجداول أو الـ views غير مُنشأة في Supabase. طبّق هجرة journal (مثل 007_create_journal_tables) وتحقق من سياسات RLS.'}
+                'طبّق هجرات Supabase بالترتيب: 007 ثم 012 ثم 015–017 (خصوصاً 017_fix_journal_rpc_and_ledger.sql) ثم أعد تحميل الصفحة.'}
             </p>
           </Card>
         )}
@@ -279,66 +367,24 @@ export default function JournalsPage() {
           </div>
         )}
 
-        {/* Filters and Search Row */}
+        {/* Search + status chips (always visible on mobile) */}
         <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
-              <Input
-                placeholder="البحث برقم القيد أو الوصف..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pr-10"
-              />
-            </div>
-            
-            {/* Cashbox Filter */}
-            <div>
-              <Select
-                value={cashboxFilter}
-                onValueChange={setCashboxFilter}
-              >
-                <SelectTrigger className="bg-canvas">
-                  <SelectValue placeholder="كل الخزائن والمصارف" />
-                </SelectTrigger>
-                <SelectContent dir="rtl">
-                  <SelectItem value="ALL">كل الخزائن والمصارف</SelectItem>
-                  {cashboxes.map((cb) => (
-                    <SelectItem key={cb.id} value={cb.id}>
-                      🏦 {cb.name_ar} {cb.code ? `(${cb.code})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Contact Filter */}
-            <div>
-              <Select
-                value={contactFilter}
-                onValueChange={setContactFilter}
-              >
-                <SelectTrigger className="bg-canvas">
-                  <SelectValue placeholder="كل الجهات والمستأجرين" />
-                </SelectTrigger>
-                <SelectContent dir="rtl">
-                  <SelectItem value="ALL">كل الجهات (المحلات/الموظفين/الموردين)</SelectItem>
-                  {contacts.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {getContactLabel(c)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="relative">
+            <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+            <Input
+              placeholder="بحث: رقم، مرجع، وصف..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pr-10 h-11 touch-manipulation"
+            />
           </div>
-          <div className="flex gap-1 overflow-x-auto pb-1 mt-1">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 snap-x snap-mandatory scroll-smooth-touch">
             <button
+              type="button"
               onClick={() => setStatusFilter('ALL')}
               className={cn(
-                'px-3 py-2 text-sm rounded-md whitespace-nowrap flex items-center gap-1.5',
-                statusFilter === 'ALL' ? 'bg-sage-700 text-white' : 'bg-canvas-sunken'
+                'snap-center px-3 py-2.5 text-sm rounded-lg whitespace-nowrap flex items-center gap-1.5 touch-manipulation min-h-11',
+                statusFilter === 'ALL' ? 'bg-sage-700 text-white' : 'bg-canvas-sunken',
               )}
             >
               <Filter className="h-3.5 w-3.5" />
@@ -349,10 +395,11 @@ export default function JournalsPage() {
               return (
                 <button
                   key={status}
+                  type="button"
                   onClick={() => setStatusFilter(status)}
                   className={cn(
-                    'px-3 py-2 text-sm rounded-md whitespace-nowrap flex items-center gap-1.5',
-                    statusFilter === status ? 'bg-sage-700 text-white' : 'bg-canvas-sunken'
+                    'snap-center px-3 py-2.5 text-sm rounded-lg whitespace-nowrap flex items-center gap-1.5 touch-manipulation min-h-11',
+                    statusFilter === status ? 'bg-sage-700 text-white' : 'bg-canvas-sunken',
                   )}
                 >
                   <config.icon className="h-3.5 w-3.5" />
@@ -360,6 +407,53 @@ export default function JournalsPage() {
                 </button>
               );
             })}
+          </div>
+
+          {/* Advanced filters — collapsed on phone */}
+          <button
+            type="button"
+            className="md:hidden flex w-full items-center justify-between rounded-lg border bg-card px-3 py-2.5 text-sm touch-manipulation min-h-11"
+            onClick={() => setFiltersOpen((o) => !o)}
+          >
+            <span className="font-medium">فلاتر الخزينة والجهة</span>
+            {filtersOpen ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+          <div
+            className={cn(
+              'grid grid-cols-1 gap-3',
+              !filtersOpen && 'hidden md:grid md:grid-cols-2',
+            )}
+          >
+            <Select value={cashboxFilter} onValueChange={setCashboxFilter}>
+              <SelectTrigger className="bg-canvas h-11 touch-manipulation">
+                <SelectValue placeholder="كل الخزائن" />
+              </SelectTrigger>
+              <SelectContent dir="rtl" className="max-h-[min(20rem,50vh)]">
+                <SelectItem value="ALL">كل الخزائن والمصارف</SelectItem>
+                {cashboxes.map((cb) => (
+                  <SelectItem key={cb.id} value={cb.id}>
+                    {cb.name_ar} {cb.code ? `(${cb.code})` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={contactFilter} onValueChange={setContactFilter}>
+              <SelectTrigger className="bg-canvas h-11 touch-manipulation">
+                <SelectValue placeholder="كل الجهات" />
+              </SelectTrigger>
+              <SelectContent dir="rtl" className="max-h-[min(20rem,50vh)]">
+                <SelectItem value="ALL">كل الجهات</SelectItem>
+                {contacts.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {getContactLabel(c)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -389,56 +483,65 @@ export default function JournalsPage() {
               const isBalanced = Number(entry.total_debit) === Number(entry.total_credit);
 
               return (
-                <Card key={entry.id} className="overflow-hidden">
+                <Card
+                  key={entry.id}
+                  id={`journal-entry-${entry.id}`}
+                  className={cn(
+                    'overflow-hidden transition-shadow',
+                    highlightId === entry.id && 'ring-2 ring-sage-600 shadow-md',
+                  )}
+                >
                   {/* Header */}
                   <div
-                    className="p-4 cursor-pointer hover:bg-secondary/50 transition-colors"
+                    className="p-4 cursor-pointer hover:bg-secondary/50 transition-colors touch-manipulation active:bg-secondary/70"
                     onClick={() => setExpandedId(isExpanded ? null : entry.id)}
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-center gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                      <div className="flex items-start gap-3 min-w-0">
                         <div className={cn(
                           'h-10 w-10 rounded-lg flex items-center justify-center shrink-0',
                           status.bg, status.border
                         )}>
                           <StatusIcon className={cn('h-5 w-5', status.color)} />
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">قيد رقم {entry.number}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium">قيد #{entry.number}</span>
+                            {entry.reference && (
+                              <span className="font-mono text-xs text-sage-800 bg-sage-50 border border-sage-200 rounded px-1.5 py-0.5 truncate max-w-[140px] sm:max-w-none">
+                                {entry.reference}
+                              </span>
+                            )}
                             <Badge variant="outline" className={cn('text-xs', status.bg, status.color)}>
                               {status.label}
                             </Badge>
+                            <JournalSourceBadge entry={entry} />
                             {!isBalanced && entry.status === 'DRAFT' && (
                               <Badge variant="danger" className="text-xs">
                                 غير متوازن
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-ink-mute mt-0.5">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {formatDate(entry.entry_date)}
-                            {entry.reference && (
-                              <>
-                                <span>•</span>
-                                <span>مرجع: {entry.reference}</span>
-                              </>
-                            )}
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-ink-mute mt-0.5">
+                            <span className="inline-flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5 shrink-0" />
+                              {formatDate(entry.entry_date)}
+                            </span>
+                            <span className="hidden sm:inline text-ink-mute/50">•</span>
+                            <span>{entry.line_count} بنود</span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <div className="text-left">
-                          <p className="text-sm font-medium">{formatMoney(Number(entry.total_debit), 'LYD')}</p>
-                          <p className="text-xs text-ink-mute">
-                            {entry.line_count} بنود
-                          </p>
+                      <div className="flex items-center justify-between sm:justify-end gap-3 border-t border-border/50 pt-2 sm:border-0 sm:pt-0">
+                        <div className="text-start sm:text-left">
+                          <p className="text-sm font-semibold">{formatMoney(Number(entry.total_debit), 'LYD')}</p>
+                          <p className="text-[11px] text-ink-mute">إجمالي القيد</p>
                         </div>
                         {isExpanded ? (
-                          <ChevronUp className="h-4 w-4 text-ink-mute" />
+                          <ChevronUp className="h-5 w-5 text-ink-mute shrink-0" />
                         ) : (
-                          <ChevronDown className="h-4 w-4 text-ink-mute" />
+                          <ChevronDown className="h-5 w-5 text-ink-mute shrink-0" />
                         )}
                       </div>
                     </div>
@@ -453,14 +556,43 @@ export default function JournalsPage() {
                     <div className="border-t px-4 py-4 bg-canvas-sunken/30">
                       <JournalCardLines entryId={entry.id} />
                       
-                      <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t">
+                      <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t sm:flex sm:flex-wrap">
                         {entry.status === 'DRAFT' && (
                           <>
+                            {can('journal.create') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  duplicateEntry.mutate(entry.id, {
+                                    onSuccess: () => setExpandedId(null),
+                                  });
+                                }}
+                                disabled={duplicateEntry.isPending}
+                                className="gap-1.5 h-11 touch-manipulation"
+                              >
+                                {duplicateEntry.isPending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
+                                نسخ
+                              </Button>
+                            )}
+                            {can('journal.post') && (
                             <Button
                               size="sm"
-                              onClick={() => handlePost(entry.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmAction({
+                                  type: 'post',
+                                  entryId: entry.id,
+                                  entryNumber: entry.number,
+                                });
+                              }}
                               disabled={!isBalanced || postEntry.isPending}
-                              className="gap-1.5"
+                              className="gap-1.5 h-11 col-span-2 sm:col-span-1 touch-manipulation"
                             >
                               {postEntry.isPending ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -469,30 +601,47 @@ export default function JournalsPage() {
                               )}
                               ترحيل
                             </Button>
+                            )}
+                            {can('journal.create') && (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setEditingEntry(entry)}
-                              className="gap-1.5"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingEntry(entry);
+                              }}
+                              className="gap-1.5 h-11 touch-manipulation"
                             >
                               <FileText className="h-4 w-4" />
                               تعديل
                             </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setSelectedEntry(entry)}
-                              className="gap-1.5"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedEntry(entry);
+                              }}
+                              className="gap-1.5 h-11 touch-manipulation"
                             >
                               <FileText className="h-4 w-4" />
                               التفاصيل
                             </Button>
+                            {can('journal.create') && (
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleDelete(entry.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmAction({
+                                  type: 'delete',
+                                  entryId: entry.id,
+                                  entryNumber: entry.number,
+                                });
+                              }}
                               disabled={deleteEntry.isPending}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-1.5"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-1.5 h-11 col-span-2 sm:col-span-1 touch-manipulation"
                             >
                               {deleteEntry.isPending ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -501,6 +650,7 @@ export default function JournalsPage() {
                               )}
                               حذف
                             </Button>
+                            )}
                           </>
                         )}
                         {entry.status === 'POSTED' && (
@@ -508,18 +658,29 @@ export default function JournalsPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setSelectedEntry(entry)}
-                              className="gap-1.5"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedEntry(entry);
+                              }}
+                              className="gap-1.5 h-11 touch-manipulation"
                             >
                               <FileText className="h-4 w-4" />
                               التفاصيل
                             </Button>
+                            {can('journal.reverse') && (
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleReverse(entry.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmAction({
+                                  type: 'reverse',
+                                  entryId: entry.id,
+                                  entryNumber: entry.number,
+                                });
+                              }}
                               disabled={reverseEntry.isPending}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-1.5"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-1.5 h-11 touch-manipulation"
                             >
                               {reverseEntry.isPending ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -528,14 +689,18 @@ export default function JournalsPage() {
                               )}
                               عكس القيد
                             </Button>
+                            )}
                           </>
                         )}
                         {entry.status === 'REVERSED' && (
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setSelectedEntry(entry)}
-                            className="gap-1.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEntry(entry);
+                            }}
+                            className="gap-1.5 h-11 w-full sm:w-auto touch-manipulation"
                           >
                             <FileText className="h-4 w-4" />
                             التفاصيل
@@ -569,6 +734,32 @@ export default function JournalsPage() {
           onClose={() => setSelectedEntry(null)}
         />
       )}
+
+      {can('journal.create') && (
+        <Button
+          size="lg"
+          onClick={() => setIsCreateOpen(true)}
+          className="fixed z-40 h-14 w-14 rounded-full shadow-lg bg-sage-700 hover:bg-sage-800 text-white sm:hidden p-0 touch-manipulation left-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))]"
+          aria-label="قيد جديد"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      )}
+
+      {confirmAction && (
+        <JournalConfirmSheet
+          open
+          title={confirmCopy[confirmAction.type].title}
+          description={`قيد #${confirmAction.entryNumber}. ${confirmCopy[confirmAction.type].description}`}
+          confirmLabel={confirmCopy[confirmAction.type].confirmLabel}
+          variant={confirmCopy[confirmAction.type].variant}
+          loading={
+            postEntry.isPending || reverseEntry.isPending || deleteEntry.isPending
+          }
+          onConfirm={runConfirmAction}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
     </>
   );
 }
@@ -590,7 +781,7 @@ function JournalCardLines({ entryId }: { entryId: string }) {
   }
 
   return (
-    <div className="mt-3 border rounded-lg overflow-hidden bg-background">
+    <div className="mt-3 space-y-2 sm:border sm:rounded-lg sm:overflow-hidden sm:bg-background">
       <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-3 py-1.5 text-xs font-semibold text-ink-mute bg-muted/30 border-b">
         <div className="col-span-3">البند المحاسبي</div>
         <div className="col-span-3">الجهة / الخزينة</div>
@@ -598,11 +789,11 @@ function JournalCardLines({ entryId }: { entryId: string }) {
         <div className="col-span-2 text-left">دائن</div>
         <div className="col-span-2">البيان</div>
       </div>
-      <div className="divide-y text-xs">
+      <div className="space-y-2 sm:divide-y sm:space-y-0 text-xs">
         {lines.map((line) => (
           <div 
             key={line.id} 
-            className="flex flex-col gap-1.5 p-3 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-center sm:px-3 sm:py-2"
+            className="rounded-lg border bg-card p-3 flex flex-col gap-2 sm:rounded-none sm:border-0 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-center sm:px-3 sm:py-2"
           >
             <div className="col-span-3 flex items-center gap-1.5">
               {line.category_name && (

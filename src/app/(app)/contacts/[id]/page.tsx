@@ -53,6 +53,8 @@ import { toast } from 'sonner';
 import { RecordRentPaymentDialog } from '@/components/tenants/record-rent-payment-dialog';
 import { TenantRentHistory } from '@/components/tenants/tenant-rent-history';
 import { getTenantStatus } from '@/components/tenants/tenant-status-config';
+import { contactBackHref, mallTabHref } from '@/lib/mall/routes';
+import { ContactRentLinks } from '@/components/contacts/contact-rent-links';
 
 const KIND_ICON: Record<ContactKind, typeof Building2> = {
   TENANT: Building2,
@@ -124,7 +126,7 @@ export default function ContactDetailPage() {
       <div className="px-8 py-16 text-center">
         <p className="text-ink-mute">رابط غير صالح</p>
         <Button variant="outline" className="mt-4" asChild>
-          <Link href="/contacts">العودة للدليل</Link>
+          <Link href={contactBackHref('CUSTOMER')}>العودة</Link>
         </Button>
       </div>
     );
@@ -144,7 +146,7 @@ export default function ContactDetailPage() {
       <div className="px-8 py-16 text-center">
         <p className="text-ink-mute">لم يُعثر على السجل</p>
         <Button variant="outline" className="mt-4" asChild>
-          <Link href="/contacts">العودة للدليل</Link>
+          <Link href={contactBackHref('CUSTOMER')}>العودة</Link>
         </Button>
       </div>
     );
@@ -173,7 +175,7 @@ export default function ContactDetailPage() {
     );
   }
 
-  const backHref = contact.kind === 'TENANT' ? '/tenants' : '/contacts';
+  const backHref = contactBackHref(contact.kind);
 
   return (
     <>
@@ -254,7 +256,8 @@ export default function ContactDetailPage() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="p-4 lg:col-span-1 order-2 lg:order-none">
+          <div className="flex flex-col gap-4 order-2 lg:order-none">
+          <Card className="p-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="h-12 w-12 rounded-xl bg-sage-100 flex items-center justify-center">
                 <Icon className={cn('h-6 w-6', kindInfo?.color)} />
@@ -306,22 +309,18 @@ export default function ContactDetailPage() {
                   </p>
                 )}
             </dl>
-            {isTenant && (
-              <div className="mt-4 flex flex-col gap-2">
-                {canRecordRent && rent && (
-                  <Button className="w-full" size="sm" onClick={() => setIsPayOpen(true)}>
-                    <Plus className="h-4 w-4 ml-1" />
-                    تسجيل دفع إيجار
-                  </Button>
-                )}
-                <Button className="w-full" size="sm" variant="outline" asChild>
-                  <Link href="/tenants">قائمة المستأجرين</Link>
-                </Button>
-              </div>
-            )}
           </Card>
+          {isTenant && (
+            <ContactRentLinks
+              contact={contactRecord}
+              onRecordPayment={
+                canRecordRent && rent ? () => setIsPayOpen(true) : undefined
+              }
+            />
+          )}
+          </div>
 
-          <Card className="p-4 lg:col-span-2 min-w-0 order-1 lg:order-none">
+          <Card className="p-4 lg:col-span-2 min-w-0 order-1">
             <Tabs
               defaultValue={isTenant ? 'rent' : 'transactions'}
               dir="rtl"
@@ -472,6 +471,7 @@ export default function ContactDetailPage() {
         editingId={id}
         onSubmit={handleSubmit}
         isPending={updateContact.isPending}
+        lockKind
       />
 
       {isTenant && rent && (
