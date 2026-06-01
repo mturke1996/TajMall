@@ -57,7 +57,7 @@ export function MobileNav({
         </div>
 
         {/* Nav - Fast links */}
-        <nav className="flex flex-1 flex-col gap-5 overflow-y-auto p-3">
+        <nav className="flex flex-1 flex-col gap-5 overflow-y-auto p-3 pb-[calc(88px+env(safe-area-inset-bottom))]">
           {NAV.map((section) => (
             <div key={section.titleAr} className="flex flex-col gap-0.5">
               <span className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-mute">

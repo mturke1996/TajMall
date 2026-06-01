@@ -40,13 +40,11 @@ export type JournalLineRow = {
   credit: string;
   description: string | null;
   sort_order: number;
-  category: {
-    id: string;
-    code: string;
-    name_ar: string;
-    type: string;
-    kind: string;
-  } | null;
+  category_code: string | null;
+  category_name: string | null;
+  category_type: string | null;
+  category_kind: string | null;
+  category_color: string | null;
 };
 
 export type NewJournalEntryInput = {
@@ -177,6 +175,43 @@ export function useCreateJournalEntry() {
     },
     onError: (error: any) => {
       toast.error(error.message || 'فشل إنشاء القيد');
+    },
+  });
+}
+
+export function useUpdateJournalEntry() {
+  const qc = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (input: { id: string } & NewJournalEntryInput) => {
+      const supabase = createSupabaseBrowserClient();
+      
+      const { error } = await supabase.rpc('update_journal_entry', {
+        p_journal_id: input.id,
+        p_reference: input.reference || null,
+        p_entry_date: input.entry_date,
+        p_description: input.description || null,
+        p_notes: input.notes || null,
+        p_lines: input.lines.map((line, index) => ({
+          category_id: line.category_id,
+          debit: line.debit,
+          credit: line.credit,
+          description: line.description || null,
+          sort_order: index,
+        })),
+      });
+      
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: qk.journalEntries });
+      qc.invalidateQueries({ queryKey: qk.journalEntry(variables.id) });
+      qc.invalidateQueries({ queryKey: qk.journalLines(variables.id) });
+      qc.invalidateQueries({ queryKey: qk.journalSummary });
+      toast.success('تم تعديل القيد بنجاح');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'فشل تعديل القيد');
     },
   });
 }

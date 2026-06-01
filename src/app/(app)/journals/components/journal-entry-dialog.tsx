@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Plus, Trash2, AlertCircle, Loader2, Calculator, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +23,7 @@ import {
 import { Card } from '@/components/ui/card';
 import { cn, formatMoney } from '@/lib/utils';
 import { useCategories } from '@/lib/db/queries';
-import { useCreateJournalEntry } from '@/lib/db/journal-queries';
+import { useCreateJournalEntry, useUpdateJournalEntry, useJournalLines } from '@/lib/db/journal-queries';
 import { toast } from 'sonner';
 
 type JournalLine = {
@@ -37,12 +37,15 @@ type JournalLine = {
 export function JournalEntryDialog({
   open,
   onClose,
+  editingEntry = null,
 }: {
   open: boolean;
   onClose: () => void;
+  editingEntry?: any;
 }) {
   const { data: categories = [] } = useCategories();
   const createEntry = useCreateJournalEntry();
+  const updateEntry = useUpdateJournalEntry();
 
   const [reference, setReference] = useState('');
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
@@ -52,6 +55,35 @@ export function JournalEntryDialog({
     { id: '1', category_id: '', debit: '', credit: '', description: '' },
     { id: '2', category_id: '', debit: '', credit: '', description: '' },
   ]);
+
+  // Fetch lines for edit mode
+  const { data: dbLines } = useJournalLines(editingEntry?.id || '');
+
+  // Populate form if editing
+  useEffect(() => {
+    if (editingEntry) {
+      setReference(editingEntry.reference || '');
+      setEntryDate(editingEntry.entry_date ? editingEntry.entry_date.split('T')[0] : new Date().toISOString().split('T')[0]);
+      setDescription(editingEntry.description || '');
+      setNotes(editingEntry.notes || '');
+    } else {
+      resetForm();
+    }
+  }, [editingEntry, open]);
+
+  useEffect(() => {
+    if (editingEntry && dbLines && dbLines.length > 0) {
+      setLines(
+        dbLines.map((l) => ({
+          id: l.id,
+          category_id: l.category_id,
+          debit: Number(l.debit) > 0 ? String(Number(l.debit)) : '',
+          credit: Number(l.credit) > 0 ? String(Number(l.credit)) : '',
+          description: l.description || '',
+        }))
+      );
+    }
+  }, [dbLines, editingEntry]);
 
   const addLine = () => {
     setLines((prev) => [
@@ -76,18 +108,21 @@ export function JournalEntryDialog({
 
   const updateLine = (id: string, field: keyof JournalLine, value: string) => {
     setLines((prev) =>
+      prev.map((l) => (l.id !== id ? l : { ...l, [field]: value }))
+    );
+  };
+
+  const handleBlur = (id: string, field: 'debit' | 'credit') => {
+    setLines((prev) =>
       prev.map((l) => {
         if (l.id !== id) return l;
-        
-        // Auto-clear opposite field when entering value
-        if (field === 'debit' && value) {
-          return { ...l, [field]: value, credit: '' };
+        if (field === 'debit' && Number(l.debit) > 0) {
+          return { ...l, credit: '' };
         }
-        if (field === 'credit' && value) {
-          return { ...l, [field]: value, debit: '' };
+        if (field === 'credit' && Number(l.credit) > 0) {
+          return { ...l, debit: '' };
         }
-        
-        return { ...l, [field]: value };
+        return l;
       })
     );
   };
@@ -100,10 +135,18 @@ export function JournalEntryDialog({
     { debit: 0, credit: 0 }
   );
 
-  const isBalanced = totals.debit === totals.credit && totals.debit > 0;
+  const isBalanced = Math.abs(totals.debit - totals.credit) < 0.001 && totals.debit > 0;
   const difference = totals.debit - totals.credit;
 
   const handleSubmit = async () => {
+    const hasDoubleEntryOnSingleLine = lines.some(
+      (l) => Number(l.debit) > 0 && Number(l.credit) > 0
+    );
+    if (hasDoubleEntryOnSingleLine) {
+      toast.error('لا يمكن للسطر الواحد أن يحتوي على مبلغ مدين ودائن معاً');
+      return;
+    }
+
     if (!isBalanced) {
       toast.error('القيد غير متوازن - يجب أن يتساوى المدين والدائن');
       return;
@@ -123,13 +166,24 @@ export function JournalEntryDialog({
       return;
     }
 
-    await createEntry.mutateAsync({
-      reference: reference || undefined,
-      entry_date: entryDate,
-      description: description || undefined,
-      notes: notes || undefined,
-      lines: validLines,
-    });
+    if (editingEntry) {
+      await updateEntry.mutateAsync({
+        id: editingEntry.id,
+        reference: reference || undefined,
+        entry_date: entryDate,
+        description: description || undefined,
+        notes: notes || undefined,
+        lines: validLines,
+      });
+    } else {
+      await createEntry.mutateAsync({
+        reference: reference || undefined,
+        entry_date: entryDate,
+        description: description || undefined,
+        notes: notes || undefined,
+        lines: validLines,
+      });
+    }
 
     onClose();
     resetForm();
@@ -146,16 +200,20 @@ export function JournalEntryDialog({
     ]);
   };
 
+  const isPending = createEntry.isPending || updateEntry.isPending;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5" />
-            قيد محاسبي جديد
+            {editingEntry ? 'تعديل قيد محاسبي' : 'قيد محاسبي جديد'}
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            أدخل أسطر المدين والدائن والبنود حتى يتساوى المجموع، ثم احفظ القيد.
+            {editingEntry 
+              ? 'قم بتعديل أسطر المدين والدائن والبنود ثم احفظ التغييرات.' 
+              : 'أدخل أسطر المدين والدائن والبنود حتى يتساوى المجموع، ثم احفظ القيد.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -190,15 +248,26 @@ export function JournalEntryDialog({
           </div>
 
           {/* Lines Table */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/50 px-4 py-2 text-sm font-medium border-b">
+          <div className="border rounded-lg overflow-hidden bg-canvas">
+            <div className="bg-muted/50 px-4 py-2 text-sm font-medium border-b hidden sm:block">
               بنود القيد المزدوجة
+            </div>
+            {/* Table Column Headers - Only visible on desktop */}
+            <div className="bg-muted/20 px-4 py-2 text-xs font-semibold text-ink-mute border-b hidden sm:grid sm:grid-cols-12 sm:gap-2">
+              <div className="sm:col-span-5">البند المحاسبي</div>
+              <div className="sm:col-span-2 text-left">مدين</div>
+              <div className="sm:col-span-2 text-left">دائن</div>
+              <div className="sm:col-span-2">البيان</div>
+              <div className="sm:col-span-1"></div>
             </div>
             <div className="divide-y">
               {lines.map((line, index) => (
-                <div key={line.id} className="p-3 grid grid-cols-12 gap-2 items-start">
-                  <div className="col-span-5">
-                    <Label className="text-xs mb-1 block">البند المحاسبي</Label>
+                <div 
+                  key={line.id} 
+                  className="p-4 flex flex-col gap-3 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-start sm:p-3"
+                >
+                  <div className="flex-1 sm:col-span-5">
+                    <Label className="text-xs mb-1 block sm:hidden">البند المحاسبي</Label>
                     <Select
                       value={line.category_id}
                       onValueChange={(v) => updateLine(line.id, 'category_id', v)}
@@ -211,7 +280,7 @@ export function JournalEntryDialog({
                           <SelectItem key={cat.id} value={cat.id}>
                             <span className="flex items-center gap-2">
                               <span
-                                className="w-2 h-2 rounded-full"
+                                className="w-2 h-2 rounded-full shrink-0"
                                 style={{ backgroundColor: cat.color || '#ccc' }}
                               />
                               {cat.name_ar}
@@ -221,37 +290,44 @@ export function JournalEntryDialog({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="col-span-2">
-                    <Label className="text-xs mb-1 block">مدين</Label>
-                    <Input
-                      type="number"
-                      step="0.001"
-                      value={line.debit}
-                      onChange={(e) => updateLine(line.id, 'debit', e.target.value)}
-                      placeholder="0.000"
-                      className="text-left"
-                    />
+                  
+                  <div className="grid grid-cols-2 gap-2 sm:contents">
+                    <div className="sm:col-span-2">
+                      <Label className="text-xs mb-1 block sm:hidden">مدين</Label>
+                      <Input
+                        type="number"
+                        step="0.001"
+                        value={line.debit}
+                        onChange={(e) => updateLine(line.id, 'debit', e.target.value)}
+                        onBlur={() => handleBlur(line.id, 'debit')}
+                        placeholder="0.000"
+                        className="text-left"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label className="text-xs mb-1 block sm:hidden">دائن</Label>
+                      <Input
+                        type="number"
+                        step="0.001"
+                        value={line.credit}
+                        onChange={(e) => updateLine(line.id, 'credit', e.target.value)}
+                        onBlur={() => handleBlur(line.id, 'credit')}
+                        placeholder="0.000"
+                        className="text-left"
+                      />
+                    </div>
                   </div>
-                  <div className="col-span-2">
-                    <Label className="text-xs mb-1 block">دائن</Label>
-                    <Input
-                      type="number"
-                      step="0.001"
-                      value={line.credit}
-                      onChange={(e) => updateLine(line.id, 'credit', e.target.value)}
-                      placeholder="0.000"
-                      className="text-left"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label className="text-xs mb-1 block">البيان</Label>
+                  
+                  <div className="flex-1 sm:col-span-2">
+                    <Label className="text-xs mb-1 block sm:hidden">البيان</Label>
                     <Input
                       value={line.description}
                       onChange={(e) => updateLine(line.id, 'description', e.target.value)}
                       placeholder="بيان"
                     />
                   </div>
-                  <div className="col-span-1 flex items-end justify-center h-full pt-5">
+                  
+                  <div className="flex items-center justify-end h-full pt-1 sm:col-span-1 sm:pt-5 sm:justify-center">
                     <Button
                       size="icon"
                       variant="ghost"
@@ -276,7 +352,7 @@ export function JournalEntryDialog({
             'p-4 border-2',
             isBalanced ? 'border-green-200 bg-green-50/50' : 'border-yellow-200 bg-yellow-50/50'
           )}>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 {isBalanced ? (
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -287,19 +363,19 @@ export function JournalEntryDialog({
                   {isBalanced ? 'القيد متوازن' : 'القيد غير متوازن'}
                 </span>
               </div>
-              <div className="text-left">
-                <div className="flex gap-6 text-sm">
+              <div className="text-right flex flex-col items-end gap-1">
+                <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm justify-end">
                   <div>
                     <span className="text-ink-mute">إجمالي مدين:</span>{' '}
-                    <span className="font-medium">{formatMoney(totals.debit, 'LYD')}</span>
+                    <span className="font-semibold text-green-700">{formatMoney(totals.debit, 'LYD')}</span>
                   </div>
                   <div>
                     <span className="text-ink-mute">إجمالي دائن:</span>{' '}
-                    <span className="font-medium">{formatMoney(totals.credit, 'LYD')}</span>
+                    <span className="font-semibold text-red-700">{formatMoney(totals.credit, 'LYD')}</span>
                   </div>
                 </div>
                 {!isBalanced && difference !== 0 && (
-                  <p className="text-sm text-red-600 mt-1">
+                  <p className="text-xs text-red-600 mt-1">
                     الفرق: {formatMoney(Math.abs(difference), 'LYD')} {' '}
                     {difference > 0 ? '(مدين أكثر)' : '(دائن أكثر)'}
                   </p>
@@ -320,20 +396,20 @@ export function JournalEntryDialog({
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isPending}>
             إلغاء
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!isBalanced || createEntry.isPending}
+            disabled={!isBalanced || isPending}
             className="gap-1.5"
           >
-            {createEntry.isPending ? (
+            {isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Calculator className="h-4 w-4" />
             )}
-            إنشاء القيد
+            {editingEntry ? 'حفظ التغييرات' : 'إنشاء القيد'}
           </Button>
         </DialogFooter>
       </DialogContent>

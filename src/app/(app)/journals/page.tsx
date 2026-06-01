@@ -29,6 +29,7 @@ import {
   usePostJournalEntry,
   useReverseJournalEntry,
   useDeleteJournalEntry,
+  useJournalLines,
   type JournalEntryRow,
   type JournalStatus,
 } from '@/lib/db/journal-queries';
@@ -71,6 +72,7 @@ export default function JournalsPage() {
   const [statusFilter, setStatusFilter] = useState<JournalStatus | 'ALL'>('ALL');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntryRow | null>(null);
+  const [editingEntry, setEditingEntry] = useState<JournalEntryRow | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const {
@@ -319,7 +321,7 @@ export default function JournalsPage() {
                   {/* Header */}
                   <div
                     className="p-4 cursor-pointer hover:bg-secondary/50 transition-colors"
-                    onClick={() => setIsExpanded(isExpanded ? null : entry.id)}
+                    onClick={() => setExpandedId(isExpanded ? null : entry.id)}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-center gap-3">
@@ -336,7 +338,7 @@ export default function JournalsPage() {
                               {status.label}
                             </Badge>
                             {!isBalanced && entry.status === 'DRAFT' && (
-                              <Badge variant="destructive" className="text-xs">
+                              <Badge variant="danger" className="text-xs">
                                 غير متوازن
                               </Badge>
                             )}
@@ -376,8 +378,10 @@ export default function JournalsPage() {
 
                   {/* Expanded Details */}
                   {isExpanded && (
-                    <div className="border-t px-4 py-3 bg-canvas-sunken/30">
-                      <div className="flex flex-wrap gap-2">
+                    <div className="border-t px-4 py-4 bg-canvas-sunken/30">
+                      <JournalCardLines entryId={entry.id} />
+                      
+                      <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t">
                         {entry.status === 'DRAFT' && (
                           <>
                             <Button
@@ -392,6 +396,15 @@ export default function JournalsPage() {
                                 <CheckCircle2 className="h-4 w-4" />
                               )}
                               ترحيل
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingEntry(entry)}
+                              className="gap-1.5"
+                            >
+                              <FileText className="h-4 w-4" />
+                              تعديل
                             </Button>
                             <Button
                               size="sm"
@@ -466,10 +479,14 @@ export default function JournalsPage() {
         )}
       </div>
 
-      {/* Create Dialog */}
+      {/* Create / Edit Dialog */}
       <JournalEntryDialog
-        open={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
+        open={isCreateOpen || !!editingEntry}
+        onClose={() => {
+          setIsCreateOpen(false);
+          setEditingEntry(null);
+        }}
+        editingEntry={editingEntry}
       />
 
       {/* Detail Dialog */}
@@ -481,5 +498,75 @@ export default function JournalsPage() {
         />
       )}
     </>
+  );
+}
+
+// ── Subcomponent: Inline Journal Lines Display ────────────────────
+function JournalCardLines({ entryId }: { entryId: string }) {
+  const { data: lines = [], isLoading } = useJournalLines(entryId);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-4">
+        <Loader2 className="h-5 w-5 animate-spin text-sage-600" />
+      </div>
+    );
+  }
+
+  if (lines.length === 0) {
+    return <div className="text-center text-xs text-ink-mute py-2">لا توجد بنود لهذا القيد</div>;
+  }
+
+  return (
+    <div className="mt-3 border rounded-lg overflow-hidden bg-background">
+      <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-3 py-1.5 text-xs font-semibold text-ink-mute bg-muted/30 border-b">
+        <div className="col-span-5">البند المحاسبي</div>
+        <div className="col-span-2 text-left">مدين</div>
+        <div className="col-span-2 text-left">دائن</div>
+        <div className="col-span-3">البيان</div>
+      </div>
+      <div className="divide-y text-xs">
+        {lines.map((line) => (
+          <div 
+            key={line.id} 
+            className="flex flex-col gap-1 p-3 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-center sm:px-3 sm:py-2"
+          >
+            <div className="col-span-5 flex items-center gap-1.5">
+              {line.category_name && (
+                <>
+                  <span
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: line.category_color || '#ccc' }}
+                  />
+                  <div>
+                    <span className="font-medium text-ink-main">{line.category_name}</span>
+                    <span className="text-[10px] text-ink-mute ms-1">({line.category_code})</span>
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2 sm:contents">
+              <div className="sm:col-span-2 sm:text-left">
+                <span className="inline sm:hidden text-ink-mute font-normal">مدين: </span>
+                <span className="font-semibold text-green-700">
+                  {Number(line.debit) > 0 ? formatMoney(Number(line.debit), 'LYD') : '—'}
+                </span>
+              </div>
+              <div className="sm:col-span-2 sm:text-left">
+                <span className="inline sm:hidden text-ink-mute font-normal">دائن: </span>
+                <span className="font-semibold text-red-700">
+                  {Number(line.credit) > 0 ? formatMoney(Number(line.credit), 'LYD') : '—'}
+                </span>
+              </div>
+            </div>
+            
+            <div className="sm:col-span-3 text-ink-mute mt-0.5 sm:mt-0">
+              {line.description || '—'}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

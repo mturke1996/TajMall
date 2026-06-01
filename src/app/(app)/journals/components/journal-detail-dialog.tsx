@@ -83,7 +83,7 @@ export function JournalDetailDialog({
                         {status.label}
                       </Badge>
                       {!isBalanced && (
-                        <Badge variant="destructive">غير متوازن</Badge>
+                        <Badge variant="danger">غير متوازن</Badge>
                       )}
                     </div>
                   </div>
@@ -143,7 +143,7 @@ export function JournalDetailDialog({
             ) : (
               <div className="divide-y">
                 {/* Table Header */}
-                <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-medium text-ink-mute bg-muted/20">
+                <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-4 py-2 text-xs font-medium text-ink-mute bg-muted/20">
                   <div className="col-span-5">البند المحاسبي</div>
                   <div className="col-span-2 text-left">مدين</div>
                   <div className="col-span-2 text-left">دائن</div>
@@ -154,46 +154,61 @@ export function JournalDetailDialog({
                 {lines.map((line, index) => (
                   <div
                     key={line.id}
-                    className="grid grid-cols-12 gap-2 px-4 py-3 text-sm items-center hover:bg-secondary/30"
+                    className="flex flex-col gap-2 p-3 sm:grid sm:grid-cols-12 sm:gap-2 sm:px-4 sm:py-3 sm:items-center hover:bg-secondary/30"
                   >
                     <div className="col-span-5">
                       <div className="flex items-center gap-2">
-                        {line.category && (
+                        {line.category_name && (
                           <>
                             <span
                               className="w-2 h-2 rounded-full shrink-0"
-                              style={{ backgroundColor: line.category.color || '#ccc' }}
+                              style={{ backgroundColor: line.category_color || '#ccc' }}
                             />
                             <div>
-                              <p className="font-medium">{line.category.name_ar}</p>
-                              <p className="text-xs text-ink-mute">{line.category.code}</p>
+                              <p className="font-medium">{line.category_name}</p>
+                              <p className="text-xs text-ink-mute">{line.category_code}</p>
                             </div>
                           </>
                         )}
                       </div>
                     </div>
-                    <div className="col-span-2 text-left font-medium">
-                      {Number(line.debit) > 0 ? formatMoney(Number(line.debit), 'LYD') : '-'}
+                    
+                    <div className="grid grid-cols-2 gap-2 sm:contents">
+                      <div className="sm:col-span-2 sm:text-left font-medium">
+                        <span className="inline sm:hidden text-xs text-ink-mute font-normal">مدين: </span>
+                        <span className="text-green-700 font-semibold">
+                          {Number(line.debit) > 0 ? formatMoney(Number(line.debit), 'LYD') : '—'}
+                        </span>
+                      </div>
+                      <div className="sm:col-span-2 sm:text-left font-medium">
+                        <span className="inline sm:hidden text-xs text-ink-mute font-normal">دائن: </span>
+                        <span className="text-red-700 font-semibold">
+                          {Number(line.credit) > 0 ? formatMoney(Number(line.credit), 'LYD') : '—'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="col-span-2 text-left font-medium">
-                      {Number(line.credit) > 0 ? formatMoney(Number(line.credit), 'LYD') : '-'}
-                    </div>
-                    <div className="col-span-3 text-ink-mute">
-                      {line.description || '-'}
+                    
+                    <div className="sm:col-span-3 text-ink-mute text-xs sm:text-sm">
+                      <span className="inline sm:hidden text-xs text-ink-mute font-normal">البيان: </span>
+                      {line.description || '—'}
                     </div>
                   </div>
                 ))}
 
                 {/* Totals Row */}
-                <div className="grid grid-cols-12 gap-2 px-4 py-3 font-bold bg-muted/30 border-t-2">
+                <div className="flex flex-col gap-2 p-3 sm:grid sm:grid-cols-12 sm:gap-2 sm:px-4 sm:py-3 font-bold bg-muted/30 border-t-2">
                   <div className="col-span-5">الإجمالي</div>
-                  <div className="col-span-2 text-left text-green-700">
-                    {formatMoney(Number(entry.total_debit), 'LYD')}
+                  <div className="grid grid-cols-2 gap-2 sm:contents">
+                    <div className="sm:col-span-2 sm:text-left text-green-700">
+                      <span className="inline sm:hidden text-xs text-ink-mute font-normal">إجمالي مدين: </span>
+                      {formatMoney(Number(entry.total_debit), 'LYD')}
+                    </div>
+                    <div className="sm:col-span-2 sm:text-left text-red-700">
+                      <span className="inline sm:hidden text-xs text-ink-mute font-normal">إجمالي دائن: </span>
+                      {formatMoney(Number(entry.total_credit), 'LYD')}
+                    </div>
                   </div>
-                  <div className="col-span-2 text-left text-red-700">
-                    {formatMoney(Number(entry.total_credit), 'LYD')}
-                  </div>
-                  <div className="col-span-3"></div>
+                  <div className="hidden sm:block sm:col-span-3"></div>
                 </div>
               </div>
             )}
