@@ -19,6 +19,7 @@ import {
 } from '@/lib/contacts/form-utils';
 import type { PeopleSegment } from '@/lib/mall/routes';
 import { mallTabHref } from '@/lib/mall/routes';
+import { usePermission } from '@/lib/supabase/use-permission';
 
 export function useContactsDirectory(options?: {
   segment?: PeopleSegment;
@@ -26,6 +27,7 @@ export function useContactsDirectory(options?: {
   addKind?: ContactKind | null;
 }) {
   const router = useRouter();
+  const { canWrite } = usePermission();
   const segment = options?.segment ?? 'all';
   const { data: contacts = [], isLoading } = useContacts();
   const createContact = useCreateContact();
@@ -82,20 +84,28 @@ export function useContactsDirectory(options?: {
   }, []);
 
   const startEdit = useCallback((contact: ContactRow) => {
+    if (!canWrite) {
+      toast.error('صلاحية القراءة فقط');
+      return;
+    }
     setEditingId(contact.id);
     setFormData(contactToFormState(contact));
     setIsAddOpen(true);
-  }, []);
+  }, [canWrite]);
 
   const openAdd = useCallback(
     (kind?: ContactKind) => {
+      if (!canWrite) {
+        toast.error('صلاحية القراءة فقط — لا يمكن إضافة جهات');
+        return;
+      }
       const defaultKind =
         kind ??
         (segment !== 'all' ? (segment as ContactKind) : 'CUSTOMER');
       resetForm(defaultKind);
       setIsAddOpen(true);
     },
-    [resetForm, segment],
+    [resetForm, segment, canWrite],
   );
 
   useEffect(() => {
@@ -108,6 +118,10 @@ export function useContactsDirectory(options?: {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!canWrite) {
+      toast.error('صلاحية القراءة فقط');
+      return;
+    }
     if (!formData.name?.trim()) {
       toast.error('أدخل الاسم على الأقل');
       return;
@@ -134,6 +148,10 @@ export function useContactsDirectory(options?: {
   }
 
   async function handleDelete(id: string) {
+    if (!canWrite) {
+      toast.error('صلاحية القراءة فقط');
+      return;
+    }
     if (!confirm('هل تريد حذف هذا السجل؟')) return;
     try {
       await deleteContact.mutateAsync(id);
@@ -144,6 +162,7 @@ export function useContactsDirectory(options?: {
   }
 
   return {
+    canWrite,
     contacts,
     filteredContacts,
     isLoading,

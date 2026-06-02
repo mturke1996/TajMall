@@ -54,6 +54,8 @@ export type ContactsDirectoryProps = {
   onDelete: (id: string) => void;
   /** إخفاء شرائح التصفية عند استخدام تبويب فرعي في المول */
   hideKindFilters?: boolean;
+  /** المشاهد: إخفاء إضافة/تعديل/حذف */
+  allowMutate?: boolean;
 };
 
 function ContactSubtitle({ contact }: { contact: ContactRow }) {
@@ -131,11 +133,14 @@ function ContactActions({
   contact,
   onEdit,
   onDelete,
+  allowMutate = true,
 }: {
   contact: ContactRow;
   onEdit: (c: ContactRow) => void;
   onDelete: (id: string) => void;
+  allowMutate?: boolean;
 }) {
+  if (!allowMutate) return null;
   return (
     <div className="flex shrink-0 gap-0.5" onClick={(e) => e.stopPropagation()}>
       <Button
@@ -173,6 +178,7 @@ export function ContactsDirectory({
   onEdit,
   onDelete,
   hideKindFilters = false,
+  allowMutate = true,
 }: ContactsDirectoryProps) {
   const vendorCount = stats.vendors ?? contacts.filter((c) => c.kind === 'VENDOR').length;
   const filterChips: { value: ContactKind | 'ALL'; label: string; count: number; icon?: typeof User }[] = [
@@ -246,7 +252,7 @@ export function ContactsDirectory({
           />
         </div>
 
-        {!hideKindFilters && (
+        {allowMutate && !hideKindFilters && (
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1">
           {filterChips.map((chip) => {
             const Icon = chip.icon;
@@ -279,6 +285,8 @@ export function ContactsDirectory({
         </div>
         )}
 
+        {allowMutate && (
+        <>
         {/* اختصارات إضافة سريعة — جوال */}
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar md:hidden">
           {quickAddKinds.map((k) => (
@@ -310,6 +318,8 @@ export function ContactsDirectory({
             </Button>
           ))}
         </div>
+        </>
+        )}
       </div>
 
       {/* عداد النتائج */}
@@ -335,10 +345,12 @@ export function ContactsDirectory({
               ? 'جرّب كلمة بحث أخرى أو غيّر التصفية'
               : 'ابدأ بإضافة أول جهة بالاسم فقط'}
           </p>
-          <Button className="mt-5 min-h-11 px-6" onClick={() => onAdd()}>
-            <Plus className="h-4 w-4 ml-1" />
-            إضافة جديد
-          </Button>
+          {allowMutate && (
+            <Button className="mt-5 min-h-11 px-6" onClick={() => onAdd()}>
+              <Plus className="h-4 w-4 ml-1" />
+              إضافة جديد
+            </Button>
+          )}
         </Card>
       ) : (
         <>
@@ -405,6 +417,7 @@ export function ContactsDirectory({
                               contact={contact}
                               onEdit={onEdit}
                               onDelete={onDelete}
+                              allowMutate={allowMutate}
                             />
                           </div>
                         </td>
@@ -452,26 +465,28 @@ export function ContactsDirectory({
                       </p>
                     </div>
                   </Link>
-                  <div className="flex border-t border-border px-2 py-1.5">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="flex-1"
-                      onClick={() => onEdit(contact)}
-                    >
-                      <Edit2 className="h-4 w-4 ml-1" />
-                      تعديل
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="flex-1 text-red-600"
-                      onClick={() => onDelete(contact.id)}
-                    >
-                      <Trash2 className="h-4 w-4 ml-1" />
-                      حذف
-                    </Button>
-                  </div>
+                  {allowMutate && (
+                    <div className="flex border-t border-border px-2 py-1.5">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="flex-1"
+                        onClick={() => onEdit(contact)}
+                      >
+                        <Edit2 className="h-4 w-4 ml-1" />
+                        تعديل
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="flex-1 text-red-600"
+                        onClick={() => onDelete(contact.id)}
+                      >
+                        <Trash2 className="h-4 w-4 ml-1" />
+                        حذف
+                      </Button>
+                    </div>
+                  )}
                 </Card>
               );
             })}
@@ -485,24 +500,27 @@ export function ContactsDirectory({
                 contact={contact}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                allowMutate={allowMutate}
               />
             ))}
           </ul>
         </>
       )}
 
-      <MobilePageActionBar>
-        <Button
-          className="h-12 w-full gap-2 text-base font-semibold shadow-sm touch-manipulation"
-          onClick={() => onAdd(kindFilter === 'ALL' ? undefined : kindFilter)}
-        >
-          <Plus className="h-5 w-5" />
-          إضافة{' '}
-          {kindFilter !== 'ALL'
-            ? filterChips.find((c) => c.value === kindFilter)?.label ?? ''
-            : 'جديد'}
-        </Button>
-      </MobilePageActionBar>
+      {allowMutate && (
+        <MobilePageActionBar>
+          <Button
+            className="h-12 w-full gap-2 text-base font-semibold shadow-sm touch-manipulation"
+            onClick={() => onAdd(kindFilter === 'ALL' ? undefined : kindFilter)}
+          >
+            <Plus className="h-5 w-5" />
+            إضافة{' '}
+            {kindFilter !== 'ALL'
+              ? filterChips.find((c) => c.value === kindFilter)?.label ?? ''
+              : 'جديد'}
+          </Button>
+        </MobilePageActionBar>
+      )}
     </div>
   );
 }

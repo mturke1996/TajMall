@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Users, Crown, Search, Loader2, Mail, Check, X, Edit2 } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, Users, Crown, Search, Loader2, Mail, Check, X, Edit2, Shield } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,12 +17,14 @@ import { useProfiles, useUpdateProfile, qk } from '@/lib/db/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import { SYSTEM_ROLES } from '@/lib/constants';
 import { useUser } from '@/lib/supabase/use-user';
+import { usePermission } from '@/lib/supabase/use-permission';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export default function BossPage() {
   const { user } = useUser();
+  const { can } = usePermission();
   const { data: profiles, isLoading } = useProfiles();
   const updateProfile = useUpdateProfile();
   const qc = useQueryClient();
@@ -112,10 +115,20 @@ export default function BossPage() {
         title="إدارة المستخدمين"
         description="إضافة وتعديل أعضاء الفريق"
         actions={
-          <Button size="sm" onClick={() => setInviteOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            إضافة
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {can('org.audit') && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/audit-log" prefetch>
+                  <Shield className="h-4 w-4 ml-1" />
+                  سجل الرقابة
+                </Link>
+              </Button>
+            )}
+            <Button size="sm" onClick={() => setInviteOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              إضافة
+            </Button>
+          </div>
         }
       />
 

@@ -32,10 +32,12 @@ export function MobileContactListItem({
   contact,
   onEdit,
   onDelete,
+  allowMutate = true,
 }: {
   contact: ContactRow;
   onEdit: (c: ContactRow) => void;
   onDelete: (id: string) => void;
+  allowMutate?: boolean;
 }) {
   const kindInfo = KIND_OPTIONS.find((k) => k.value === contact.kind);
   const styles = KIND_STYLES[contact.kind] ?? KIND_STYLES.OTHER;
@@ -74,7 +76,7 @@ export function MobileContactListItem({
       <div className="flex border-t border-border divide-x divide-border rtl:divide-x-reverse">
         <Button
           variant="ghost"
-          className="flex-1 h-11 rounded-none gap-1.5 text-[13px] touch-manipulation"
+          className={cn('h-11 rounded-none gap-1.5 text-[13px] touch-manipulation', allowMutate ? 'flex-1' : 'w-full')}
           asChild
         >
           <Link href={`/contacts/${contact.id}`}>
@@ -82,22 +84,26 @@ export function MobileContactListItem({
             الملف
           </Link>
         </Button>
-        <Button
-          variant="ghost"
-          className="flex-1 h-11 rounded-none gap-1.5 text-[13px] touch-manipulation"
-          onClick={() => onEdit(contact)}
-        >
-          <Edit2 className="h-4 w-4" />
-          تعديل
-        </Button>
-        <Button
-          variant="ghost"
-          className="flex-1 h-11 rounded-none gap-1.5 text-[13px] text-red-600 touch-manipulation"
-          onClick={() => onDelete(contact.id)}
-        >
-          <Trash2 className="h-4 w-4" />
-          حذف
-        </Button>
+        {allowMutate && (
+          <>
+            <Button
+              variant="ghost"
+              className="flex-1 h-11 rounded-none gap-1.5 text-[13px] touch-manipulation"
+              onClick={() => onEdit(contact)}
+            >
+              <Edit2 className="h-4 w-4" />
+              تعديل
+            </Button>
+            <Button
+              variant="ghost"
+              className="flex-1 h-11 rounded-none gap-1.5 text-[13px] text-red-600 touch-manipulation"
+              onClick={() => onDelete(contact.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+              حذف
+            </Button>
+          </>
+        )}
       </div>
     </li>
   );

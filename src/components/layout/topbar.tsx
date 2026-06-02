@@ -8,6 +8,8 @@ import { NewTransactionButton } from '@/components/transactions/new-transaction-
 import { UserMenu } from './user-menu';
 import { BrandGlyph } from '@/components/brand/logo';
 import { useEffect, useState } from 'react';
+import { usePermission } from '@/lib/supabase/use-permission';
+import { Badge } from '@/components/ui/badge';
 
 function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -40,6 +42,8 @@ export function TopBar({
   onOpenMobileNav?: () => void;
   onOpenSearch?: () => void;
 }) {
+  const { isViewer, loading: permLoading } = usePermission();
+
   return (
     <header
       className="sticky top-0 z-30 flex min-h-16 shrink-0 items-center gap-2 border-b border-border bg-canvas/95 px-3 backdrop-blur-sm"
@@ -75,6 +79,11 @@ export function TopBar({
 
       {/* Actions */}
       <div className="flex items-center gap-1 ms-auto">
+        {!permLoading && isViewer && (
+          <Badge variant="outline" className="hidden text-[10px] sm:inline-flex">
+            قراءة فقط
+          </Badge>
+        )}
         <NewTransactionButton variant="outline" size="sm" />
         <ThemeToggle />
         <Button size="icon-sm" variant="ghost" className="hidden md:flex" asChild>

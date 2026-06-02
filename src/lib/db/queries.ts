@@ -660,8 +660,8 @@ export function useTransactions(kind?: "REVENUE" | "EXPENSE", limit = 500) {
       let q = supabase
         .from("transactions")
         .select(TX_SELECT)
-        .order("tx_date", { ascending: false })
         .order("created_at", { ascending: false })
+        .order("number", { ascending: false })
         .limit(limit);
       if (kind) q = q.eq("kind", kind);
       const { data, error } = await q;
@@ -859,6 +859,7 @@ export function useCreateTransaction() {
       qc.invalidateQueries({ queryKey: ["tenant_charges"] });
       qc.invalidateQueries({ queryKey: ["tenant_ar_aging"] });
       qc.invalidateQueries({ queryKey: ["journal_entries"] });
+      qc.invalidateQueries({ queryKey: ["audit_log_feed"] });
     },
   });
 }
@@ -881,6 +882,7 @@ export function useDeleteTransaction() {
       qc.invalidateQueries({ queryKey: qk.employeeSummary });
       qc.invalidateQueries({ queryKey: qk.monthlySummary });
       qc.invalidateQueries({ queryKey: qk.topExpenseCategories });
+      qc.invalidateQueries({ queryKey: ["audit_log_feed"] });
     },
   });
 }

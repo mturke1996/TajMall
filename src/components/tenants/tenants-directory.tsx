@@ -37,8 +37,8 @@ export type TenantsDirectoryProps = {
     expectedTotal: number;
     collectedTotal: number;
   };
-  onRecordPayment: (tenant: TenantRentSummary) => void;
-  onAddTenant: () => void;
+  onRecordPayment?: (tenant: TenantRentSummary) => void;
+  onAddTenant?: () => void;
 };
 
 function StatusFilterChip({
@@ -190,9 +190,11 @@ export function TenantsDirectory({
         <Card className="p-8 text-center">
           <Building2 className="mx-auto h-8 w-8 text-ink-mute" />
           <p className="mt-2 text-ink-mute">لا يوجد مستأجرين</p>
-          <Button className="mt-4" size="sm" onClick={onAddTenant}>
-            إضافة مستأجر
-          </Button>
+          {onAddTenant && (
+            <Button className="mt-4" size="sm" onClick={onAddTenant}>
+              إضافة مستأجر
+            </Button>
+          )}
         </Card>
       ) : (
         <>
@@ -258,13 +260,15 @@ export function TenantsDirectory({
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            disabled={rent === 0}
-                            onClick={() => onRecordPayment(tenant)}
-                          >
-                            دفع
-                          </Button>
+                          {onRecordPayment && (
+                            <Button
+                              size="sm"
+                              disabled={rent === 0}
+                              onClick={() => onRecordPayment(tenant)}
+                            >
+                              دفع
+                            </Button>
+                          )}
                           <Button size="sm" variant="outline" asChild>
                             <Link href={`/contacts/${tenant.id}`}>الملف</Link>
                           </Button>
@@ -343,18 +347,23 @@ export function TenantsDirectory({
                     <ChevronLeft className="h-5 w-5 shrink-0 text-ink-mute" aria-hidden />
                   </Link>
                   <div className="flex border-t border-border divide-x divide-border rtl:divide-x-reverse">
+                    {onRecordPayment ? (
+                      <Button
+                        variant="ghost"
+                        className="h-11 flex-1 rounded-none gap-1.5 text-[13px] touch-manipulation"
+                        disabled={rent === 0}
+                        onClick={() => onRecordPayment(tenant)}
+                      >
+                        <Plus className="h-4 w-4" />
+                        دفع إيجار
+                      </Button>
+                    ) : null}
                     <Button
                       variant="ghost"
-                      className="h-11 flex-1 rounded-none gap-1.5 text-[13px] touch-manipulation"
-                      disabled={rent === 0}
-                      onClick={() => onRecordPayment(tenant)}
-                    >
-                      <Plus className="h-4 w-4" />
-                      دفع إيجار
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="h-11 flex-1 rounded-none gap-1.5 text-[13px] touch-manipulation"
+                      className={cn(
+                        'h-11 rounded-none gap-1.5 text-[13px] touch-manipulation',
+                        onRecordPayment ? 'flex-1' : 'w-full',
+                      )}
                       asChild
                     >
                       <Link href={`/contacts/${tenant.id}`}>الملف</Link>
@@ -367,15 +376,17 @@ export function TenantsDirectory({
         </>
       )}
 
-      <MobilePageActionBar>
-        <Button
-          className="h-12 w-full gap-2 text-base font-semibold shadow-sm touch-manipulation"
-          onClick={onAddTenant}
-        >
-          <Plus className="h-5 w-5" />
-          إضافة مستأجر
-        </Button>
-      </MobilePageActionBar>
+      {onAddTenant && (
+        <MobilePageActionBar>
+          <Button
+            className="h-12 w-full gap-2 text-base font-semibold shadow-sm touch-manipulation"
+            onClick={onAddTenant}
+          >
+            <Plus className="h-5 w-5" />
+            إضافة مستأجر
+          </Button>
+        </MobilePageActionBar>
+      )}
     </div>
   );
 }
@@ -385,7 +396,7 @@ function TenantCard({
   onRecordPayment,
 }: {
   tenant: TenantRentSummary;
-  onRecordPayment: (t: TenantRentSummary) => void;
+  onRecordPayment?: (t: TenantRentSummary) => void;
 }) {
   const status = getTenantStatus(tenant.current_month_status);
   const StatusIcon = status.icon;
@@ -442,16 +453,23 @@ function TenantCard({
           )}
         </div>
         <div className="mt-3 flex gap-2">
+          {onRecordPayment && (
+            <Button
+              size="sm"
+              className="flex-1"
+              disabled={rent === 0}
+              onClick={() => onRecordPayment(tenant)}
+            >
+              <DollarSign className="h-4 w-4 ml-1" />
+              دفع
+            </Button>
+          )}
           <Button
             size="sm"
-            className="flex-1"
-            disabled={rent === 0}
-            onClick={() => onRecordPayment(tenant)}
+            variant="outline"
+            className={onRecordPayment ? 'flex-1' : 'w-full'}
+            asChild
           >
-            <DollarSign className="h-4 w-4 ml-1" />
-            دفع
-          </Button>
-          <Button size="sm" variant="outline" className="flex-1" asChild>
             <Link href={`/contacts/${tenant.id}`}>الملف</Link>
           </Button>
         </div>

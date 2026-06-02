@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Coins,
   Plus,
@@ -46,8 +47,15 @@ import {
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { chargeToInvoiceModel } from '@/lib/charge-invoice';
 import { useSyncOverdueChargeReminders } from '@/lib/db/notification-queries';
+import { WriteGuard } from '@/components/auth/write-guard';
+import { useHighlightScroll, isHighlighted } from '@/lib/hooks/use-highlight-scroll';
+
+function chargeHighlightDomId(id: string) {
+  return `tenant-charge-${id}`;
+}
 
 export function MallChargesPanel() {
+  const highlightId = useSearchParams().get('highlight');
   const { data: charges = [], isLoading, isError, error } = useTenantCharges();
   const { data: contracts = [] } = useLeaseContracts();
   
@@ -73,6 +81,8 @@ export function MallChargesPanel() {
     return `${d.getFullYear()}-${mm}`;
   });
   const [isGenerating, setIsGenerating] = useState(false);
+
+  useHighlightScroll(highlightId, chargeHighlightDomId, [charges.length]);
 
   const handleOpenCreate = () => {
     setContractId('');
@@ -152,30 +162,32 @@ export function MallChargesPanel() {
   return (
     <div className="space-y-4">
       <MallPanelToolbar className="justify-stretch sm:justify-end">
-        <Button
-          variant="outline"
-          onClick={() => syncReminders.mutate()}
-          disabled={syncReminders.isPending}
-          className="h-11 flex-1 gap-2 touch-manipulation sm:flex-none md:h-9"
-        >
-          <Clock className="h-4 w-4" />
-          تذكير المتأخرات
-        </Button>
-        <Button
-          variant="outline"
-          onClick={handleOpenGenerate}
-          className="h-11 flex-1 gap-2 border-sage-200 text-sage-800 touch-manipulation sm:flex-none md:h-9"
-        >
-          <RefreshCw className="h-4 w-4" />
-          توليد الفواتير
-        </Button>
-        <Button
-          onClick={handleOpenCreate}
-          className="h-11 flex-1 gap-2 bg-sage-700 hover:bg-sage-800 text-white touch-manipulation sm:flex-none md:h-9"
-        >
-          <Plus className="h-4 w-4" />
-          مطالبة يدوية
-        </Button>
+        <WriteGuard>
+          <Button
+            variant="outline"
+            onClick={() => syncReminders.mutate()}
+            disabled={syncReminders.isPending}
+            className="h-11 flex-1 gap-2 touch-manipulation sm:flex-none md:h-9"
+          >
+            <Clock className="h-4 w-4" />
+            تذكير المتأخرات
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleOpenGenerate}
+            className="h-11 flex-1 gap-2 border-sage-200 text-sage-800 touch-manipulation sm:flex-none md:h-9"
+          >
+            <RefreshCw className="h-4 w-4" />
+            توليد الفواتير
+          </Button>
+          <Button
+            onClick={handleOpenCreate}
+            className="h-11 flex-1 gap-2 bg-sage-700 hover:bg-sage-800 text-white touch-manipulation sm:flex-none md:h-9"
+          >
+            <Plus className="h-4 w-4" />
+            مطالبة يدوية
+          </Button>
+        </WriteGuard>
       </MallPanelToolbar>
 
       {/* Charges Table */}
@@ -205,7 +217,14 @@ export function MallChargesPanel() {
             <>
             <ul className="divide-y divide-border rounded-xl border border-border overflow-hidden sm:hidden">
               {charges.map((charge) => (
-                <li key={charge.id} className="px-3 py-3.5 bg-card">
+                <li
+                  key={charge.id}
+                  id={chargeHighlightDomId(charge.id)}
+                  className={cn(
+                    'px-3 py-3.5 bg-card scroll-mt-28',
+                    isHighlighted(highlightId, charge.id) && 'ring-2 ring-inset ring-sage-600 bg-sage-50/40',
+                  )}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-[15px] truncate">
@@ -252,7 +271,14 @@ export function MallChargesPanel() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {charges.map((charge) => (
-                    <tr key={charge.id} className="hover:bg-slate-50/50">
+                    <tr
+                      key={charge.id}
+                      id={chargeHighlightDomId(charge.id)}
+                      className={cn(
+                        'hover:bg-slate-50/50 scroll-mt-28',
+                        isHighlighted(highlightId, charge.id) && 'bg-sage-50/80 ring-2 ring-inset ring-sage-600',
+                      )}
+                    >
                       <td className="py-4 pr-2">
                         <div className="flex items-center gap-2">
                           <User className="h-3.5 w-3.5 text-slate-400" />

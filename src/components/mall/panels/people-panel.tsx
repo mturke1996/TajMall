@@ -17,6 +17,7 @@ import {
   type PeopleSegment,
 } from '@/lib/mall/routes';
 import type { ContactKind } from '@/lib/db/types';
+import { WriteGuard } from '@/components/auth/write-guard';
 
 export function MallPeoplePanel() {
   const router = useRouter();
@@ -82,18 +83,20 @@ export function MallPeoplePanel() {
             تحصيل الإيجار
           </Button>
         )}
-        <Button
-          size="sm"
-          className="h-11 flex-1 gap-1.5 touch-manipulation sm:flex-none md:h-9"
-          onClick={() =>
-            directory.openAdd(
-              segment === 'all' ? undefined : (segment as ContactKind),
-            )
-          }
-        >
-          <Plus className="h-4 w-4 ml-1" />
-          إضافة
-        </Button>
+        <WriteGuard>
+          <Button
+            size="sm"
+            className="h-11 flex-1 gap-1.5 touch-manipulation sm:flex-none md:h-9"
+            onClick={() =>
+              directory.openAdd(
+                segment === 'all' ? undefined : (segment as ContactKind),
+              )
+            }
+          >
+            <Plus className="h-4 w-4 ml-1" />
+            إضافة
+          </Button>
+        </WriteGuard>
       </MallPanelToolbar>
 
       <ContactsDirectory
@@ -109,6 +112,7 @@ export function MallPeoplePanel() {
         onAdd={directory.openAdd}
         onEdit={directory.startEdit}
         onDelete={directory.handleDelete}
+        allowMutate={directory.canWrite}
       />
 
       <ContactFormDialog

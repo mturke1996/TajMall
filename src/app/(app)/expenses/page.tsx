@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ArrowUpFromLine, Receipt, Wallet, Hash } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { DataToolbar, type DateRangePreset, getDateRange } from '@/components/data/toolbar';
@@ -10,8 +11,11 @@ import { CategoryBreakdown } from '@/components/dashboard/category-breakdown';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
 import { useTransactions, useCategories } from '@/lib/db/queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+import { useHighlightScroll } from '@/lib/hooks/use-highlight-scroll';
+import { transactionHighlightDomId } from '@/components/data/transactions-table';
 
 export default function ExpensesPage() {
+  const highlightId = useSearchParams().get('highlight');
   const [query, setQuery] = useState('');
   const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('ALL');
@@ -48,6 +52,8 @@ export default function ExpensesPage() {
     if (selectedCategoryId === 'ALL') return filtered;
     return filtered.filter((r) => r.category_id === selectedCategoryId);
   }, [filtered, selectedCategoryId]);
+
+  useHighlightScroll(highlightId, transactionHighlightDomId, [categoryFiltered.length]);
 
   // Stats from category-filtered rows
   const total = categoryFiltered.reduce((s, r) => s + Number(r.amount), 0);
@@ -178,6 +184,7 @@ export default function ExpensesPage() {
           rows={categoryFiltered}
           loading={isLoading}
           kindFilter="EXPENSE"
+          highlightId={highlightId}
         />
       </div>
     </>

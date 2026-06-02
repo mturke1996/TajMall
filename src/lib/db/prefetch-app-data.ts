@@ -87,8 +87,8 @@ async function fetchTransactions(kind?: 'REVENUE' | 'EXPENSE', limit = 500) {
   let q = supabase
     .from('transactions')
     .select(TX_SELECT)
-    .order('tx_date', { ascending: false })
     .order('created_at', { ascending: false })
+    .order('number', { ascending: false })
     .limit(limit);
   if (kind) q = q.eq('kind', kind);
   const { data, error } = await q;

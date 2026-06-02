@@ -26,12 +26,14 @@ import {
 import { voucherUiMethodToPaymentMethod } from '@/lib/voucher-db';
 import { useCreateDisbursementVoucher, useCashboxes, useCategories } from '@/lib/db/queries';
 import { toast } from 'sonner';
+import { usePermission } from '@/lib/supabase/use-permission';
 
 const METHODS: VoucherPdfModel['method'][] = ['نقدي', 'صك', 'حوالة'];
 const METHOD_SET = new Set<string>(METHODS);
 
 export default function NewVoucherPage() {
   const router = useRouter();
+  const { can, loading: permLoading } = usePermission();
   const createDisbursementVoucher = useCreateDisbursementVoucher();
   const { data: cashboxes = [] } = useCashboxes();
   const { data: expenseCategories = [] } = useCategories('EXPENSE');
@@ -228,6 +230,18 @@ export default function NewVoucherPage() {
   }
 
   const moneyFmt = useMemo(() => new Intl.NumberFormat('en-US'), []);
+
+  if (!permLoading && !can('voucher.create')) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+        <p className="text-lg font-semibold">صلاحية القراءة فقط</p>
+        <p className="max-w-sm text-sm text-ink-mute">لا يمكنك إنشاء أذونات صرف.</p>
+        <Button variant="outline" asChild>
+          <Link href="/vouchers">العودة للإذونات</Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <>

@@ -1,6 +1,6 @@
 -- ============================================================
 -- تحقق سريع: هل قاعدة البيانات جاهزة للمحاسبة والمول؟
--- شغّل في Supabase SQL Editor بعد تطبيق الهجرات 007→019
+-- شغّل في Supabase SQL Editor بعد تطبيق الهجرات 007→021
 -- ============================================================
 
 DO $$
@@ -23,7 +23,13 @@ BEGIN
     'backfill_existing_transactions_to_ledger',
     'apply_charge_allocations',
     'sync_overdue_charge_notifications',
-    'post_to_ledger'
+    'post_to_ledger',
+    'get_audit_log_feed',
+    'user_has_audit_access',
+    'get_treasury_balance_total',
+    'get_my_role',
+    'auth_is_viewer',
+    'auth_role_may_write'
   ]
   LOOP
     IF NOT EXISTS (
@@ -42,7 +48,8 @@ BEGIN
     'tenant_charge_allocations',
     'fiscal_periods',
     'app_notifications',
-    'disbursement_vouchers'
+    'disbursement_vouchers',
+    'audit_log'
   ]
   LOOP
     IF NOT EXISTS (

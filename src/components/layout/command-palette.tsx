@@ -9,6 +9,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { NAV } from "./nav-items";
+import { usePermission } from "@/lib/supabase/use-permission";
 import {
   Search,
   Plus,
@@ -25,6 +26,7 @@ export function CommandPalette({
   onOpenChange: (v: boolean) => void;
 }) {
   const router = useRouter();
+  const { can } = usePermission();
 
   const go = (href: string) => {
     onOpenChange(false);
@@ -64,33 +66,43 @@ export function CommandPalette({
               لا توجد نتائج.
             </Command.Empty>
 
+            {(can('revenue.create') || can('expense.create') || can('voucher.create')) && (
             <Command.Group
               heading="إجراءات سريعة"
               className="px-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.18em] [&_[cmdk-group-heading]]:text-ink-mute"
             >
-              <Item
-                onSelect={() => go("/revenues/new")}
-                icon={<ArrowDownToLine className="text-pastel-greenInk" />}
-                label="إضافة إيراد جديد"
-                shortcut="⌘⇧R"
-              />
-              <Item
-                onSelect={() => go("/expenses/new")}
-                icon={<ArrowUpFromLine className="text-pastel-redInk" />}
-                label="إضافة مصروف جديد"
-                shortcut="⌘⇧E"
-              />
-              <Item
-                onSelect={() => go("/vouchers/new")}
-                icon={<Plus className="text-sage-700" />}
-                label="إذن صرف جديد"
-              />
-              <Item
-                onSelect={() => go("/journals")}
-                icon={<BookOpen className="text-pastel-blueInk" />}
-                label="فتح دفتر اليومية"
-              />
+              {can('revenue.create') && (
+                <Item
+                  onSelect={() => go("/revenues/new")}
+                  icon={<ArrowDownToLine className="text-pastel-greenInk" />}
+                  label="إضافة إيراد جديد"
+                  shortcut="⌘⇧R"
+                />
+              )}
+              {can('expense.create') && (
+                <Item
+                  onSelect={() => go("/expenses/new")}
+                  icon={<ArrowUpFromLine className="text-pastel-redInk" />}
+                  label="إضافة مصروف جديد"
+                  shortcut="⌘⇧E"
+                />
+              )}
+              {can('voucher.create') && (
+                <Item
+                  onSelect={() => go("/vouchers/new")}
+                  icon={<Plus className="text-sage-700" />}
+                  label="إذن صرف جديد"
+                />
+              )}
+              {can('journal.view') && (
+                <Item
+                  onSelect={() => go("/journals")}
+                  icon={<BookOpen className="text-pastel-blueInk" />}
+                  label="فتح دفتر اليومية"
+                />
+              )}
             </Command.Group>
+            )}
 
             {NAV.map((section) => (
               <Command.Group

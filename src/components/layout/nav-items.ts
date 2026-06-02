@@ -258,6 +258,13 @@ export const NAV: NavSection[] = [
         permission: 'org.settings',
       },
       {
+        href: '/audit-log',
+        labelAr: 'سجل الرقابة',
+        label: 'Audit Log',
+        icon: Shield,
+        permission: 'org.audit',
+      },
+      {
         href: '/users',
         labelAr: 'المستخدمون والصلاحيات',
         label: 'Users & Roles',

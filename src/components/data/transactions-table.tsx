@@ -21,8 +21,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { EmptyState } from './empty-state';
 import { formatMoney, formatShortDate, cn } from '@/lib/utils';
+import { isHighlighted } from '@/lib/hooks/use-highlight-scroll';
+
+export function transactionHighlightDomId(id: string) {
+  return `transaction-${id}`;
+}
 import type { TransactionWithRelations } from '@/lib/db/types';
 import { useDeleteTransaction } from '@/lib/db/queries';
+import { usePermission } from '@/lib/supabase/use-permission';
 import { toast } from 'sonner';
 
 const METHOD_LABEL: Record<string, string> = {
@@ -46,6 +52,7 @@ export function TransactionsTable({
   currency = 'LYD',
   emptyHref,
   emptyLabel = 'إضافة أول معاملة',
+  highlightId = null,
 }: {
   rows?: TransactionWithRelations[];
   loading?: boolean;
@@ -53,9 +60,13 @@ export function TransactionsTable({
   currency?: string;
   emptyHref?: string;
   emptyLabel?: string;
+  highlightId?: string | null;
 }) {
   const data = rows ?? [];
   const del = useDeleteTransaction();
+  const { can } = usePermission();
+  const canDeleteRevenue = can('revenue.delete');
+  const canDeleteExpense = can('expense.delete');
 
   async function handleDelete(id: string) {
     if (!confirm('هل تريد حذف هذه المعاملة؟')) return;
@@ -108,7 +119,14 @@ export function TransactionsTable({
                              r.contact?.kind === 'EMPLOYEE' ? <Briefcase className="h-3 w-3" /> : 
                              <User className="h-3 w-3" />;
           return (
-            <li key={r.id} className="surface flex flex-col gap-2 p-3">
+            <li
+              key={r.id}
+              id={transactionHighlightDomId(r.id)}
+              className={cn(
+                'surface flex flex-col gap-2 p-3 scroll-mt-24',
+                isHighlighted(highlightId, r.id) && 'ring-2 ring-sage-600 shadow-md',
+              )}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className={cn(
@@ -146,12 +164,15 @@ export function TransactionsTable({
                   <User className="h-3 w-3" />
                   <span>{creatorName}</span>
                 </div>
-                <button
-                  onClick={() => handleDelete(r.id)}
-                  className="text-pastel-redInk hover:underline"
-                >
-                  <Trash2 className="h-3 w-3 inline" /> حذف
-                </button>
+                {(r.kind === 'REVENUE' ? canDeleteRevenue : canDeleteExpense) && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(r.id)}
+                    className="text-pastel-redInk hover:underline"
+                  >
+                    <Trash2 className="h-3 w-3 inline" /> حذف
+                  </button>
+                )}
               </div>
             </li>
           );
@@ -181,7 +202,14 @@ export function TransactionsTable({
               const creatorName = r.creator?.full_name_ar ?? r.creator?.full_name ?? '—';
               const contactName = r.contact?.name;
               return (
-                <TableRow key={r.id} className="border-b border-border">
+                <TableRow
+                  key={r.id}
+                  id={transactionHighlightDomId(r.id)}
+                  className={cn(
+                    'border-b border-border scroll-mt-24',
+                    isHighlighted(highlightId, r.id) && 'bg-sage-50/80 ring-2 ring-inset ring-sage-600',
+                  )}
+                >
                   <TableCell className="text-xs text-ink-mute">{formatShortDate(r.tx_date)}</TableCell>
                   <TableCell>
                     <Badge variant={positive ? 'success' : 'danger'} className="text-xs">
@@ -216,18 +244,20 @@ export function TransactionsTable({
                     {positive ? '+' : '−'} {formatMoney(amount, currency)}
                   </TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon-sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => handleDelete(r.id)} className="text-pastel-redInk">
-                          حذف
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {(r.kind === 'REVENUE' ? canDeleteRevenue : canDeleteExpense) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon-sm">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem onClick={() => handleDelete(r.id)} className="text-pastel-redInk">
+                            حذف
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </TableCell>
                 </TableRow>
               );

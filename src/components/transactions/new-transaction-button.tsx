@@ -3,6 +3,8 @@
 import { Plus } from 'lucide-react';
 import { Button, type ButtonProps } from '@/components/ui/button';
 import { useTxDialog, type TxKind } from '@/stores/transaction-dialog';
+import { usePermission } from '@/lib/supabase/use-permission';
+import type { PermissionKey } from '@/lib/constants';
 
 /**
  * Opens the global "new transaction" dialog with a pre-selected kind.
@@ -24,6 +26,11 @@ export function NewTransactionButton({
   hideLabelOnMobile?: boolean;
 }) {
   const open = useTxDialog((s) => s.open);
+  const { can, loading } = usePermission();
+  const perm: PermissionKey = kind === 'REVENUE' ? 'revenue.create' : 'expense.create';
+
+  if (loading || !can(perm)) return null;
+
   return (
     <Button
       size={size}

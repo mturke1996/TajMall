@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Plus, Wallet, Landmark, Loader2, Pencil } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,8 +13,14 @@ import { formatMoney, cn } from '@/lib/utils';
 import { CashboxFormDialog } from '@/components/cashboxes/cashbox-form-dialog';
 import { usePermission } from '@/lib/supabase/use-permission';
 import type { CashboxRow } from '@/lib/db/types';
+import { useHighlightScroll, isHighlighted } from '@/lib/hooks/use-highlight-scroll';
+
+function cashboxHighlightDomId(id: string) {
+  return `cashbox-${id}`;
+}
 
 export default function CashboxesPage() {
+  const highlightId = useSearchParams().get('highlight');
   const [open, setOpen] = useState(false);
   const [editRow, setEditRow] = useState<CashboxRow | null>(null);
   const { can } = usePermission();
@@ -22,6 +29,8 @@ export default function CashboxesPage() {
   const { data, isLoading } = useCashboxBalances();
   const { data: cashboxes = [] } = useCashboxes();
   const items = data ?? [];
+
+  useHighlightScroll(highlightId, cashboxHighlightDomId, [items.length]);
 
   const cashboxById = useMemo(
     () => new Map(cashboxes.map((c) => [c.id, c])),
@@ -90,10 +99,14 @@ export default function CashboxesPage() {
               return (
                 <motion.article
                   key={c.id}
+                  id={cashboxHighlightDomId(c.id)}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04, duration: 0.4 }}
-                  className="surface flex flex-col gap-5 p-5"
+                  className={cn(
+                    'surface flex flex-col gap-5 p-5 scroll-mt-24',
+                    isHighlighted(highlightId, c.id) && 'ring-2 ring-sage-600 shadow-md',
+                  )}
                 >
                   <header className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">

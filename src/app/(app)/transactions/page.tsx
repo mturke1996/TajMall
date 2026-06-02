@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ArrowLeftRight, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { DataToolbar, type DateRangePreset, getDateRange } from '@/components/data/toolbar';
@@ -10,14 +11,29 @@ import { NewTransactionButton } from '@/components/transactions/new-transaction-
 import { useTransactions } from '@/lib/db/queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { formatMoney } from '@/lib/utils';
+import { useHighlightScroll } from '@/lib/hooks/use-highlight-scroll';
+import { transactionHighlightDomId } from '@/components/data/transactions-table';
 
 export default function TransactionsPage() {
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get('highlight');
   const [tab, setTab] = useState('all');
   const [query, setQuery] = useState('');
   const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
   const { data, isLoading } = useTransactions();
 
   const rows = useMemo(() => data ?? [], [data]);
+
+  useEffect(() => {
+    if (!highlightId || !rows.length) return;
+    const hit = rows.find((r) => r.id === highlightId);
+    if (!hit) return;
+    if (hit.kind === 'REVENUE') setTab('revenues');
+    else if (hit.kind === 'EXPENSE') setTab('expenses');
+    else setTab('all');
+  }, [highlightId, rows]);
+
+  useHighlightScroll(highlightId, transactionHighlightDomId, [rows.length, tab]);
 
   // 1. Date filter
   const dateFiltered = useMemo(() => {
@@ -143,13 +159,13 @@ export default function TransactionsPage() {
 
           {/* Tables */}
           <TabsContent value="all" className="mt-4">
-            <TransactionsTable rows={searched} loading={isLoading} />
+            <TransactionsTable rows={searched} loading={isLoading} highlightId={highlightId} />
           </TabsContent>
           <TabsContent value="revenues" className="mt-4">
-            <TransactionsTable rows={revenues} loading={isLoading} kindFilter="REVENUE" />
+            <TransactionsTable rows={revenues} loading={isLoading} kindFilter="REVENUE" highlightId={highlightId} />
           </TabsContent>
           <TabsContent value="expenses" className="mt-4">
-            <TransactionsTable rows={expenses} loading={isLoading} kindFilter="EXPENSE" />
+            <TransactionsTable rows={expenses} loading={isLoading} kindFilter="EXPENSE" highlightId={highlightId} />
           </TabsContent>
         </Tabs>
       </div>

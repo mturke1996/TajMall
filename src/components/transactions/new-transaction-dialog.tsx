@@ -13,9 +13,11 @@ import type { TransactionFormDraftRow, PaymentMethod, ChargeAllocationInput } fr
 import { RentChargeAllocationFields } from './rent-charge-allocation-fields';
 import { isRentCategoryCode } from '@/lib/charge-invoice';
 import { toast } from 'sonner';
+import { usePermission } from '@/lib/supabase/use-permission';
 
 export function NewTransactionDialog() {
   const { isOpen, defaultKind, close } = useTxDialog();
+  const { can, loading: permLoading } = usePermission();
   
   const [kind, setKind] = useState<TxKind>(defaultKind);
   const [amount, setAmount] = useState('');
@@ -72,6 +74,16 @@ export function NewTransactionDialog() {
     }
   }, [isOpen, defaultKind, cashboxes]);
 
+  const createPerm = kind === 'REVENUE' ? 'revenue.create' : 'expense.create';
+
+  useEffect(() => {
+    if (!isOpen || permLoading) return;
+    if (!can(createPerm)) {
+      close();
+      toast.error('صلاحية القراءة فقط — لا يمكن إضافة معاملات');
+    }
+  }, [isOpen, permLoading, createPerm, can, close]);
+
   const selectedCategory = categoriesAll.find((c) => c.id === categoryId);
   const selectedContact = contactsAll.find((c) => c.id === contactId);
   const showRentAllocation =
@@ -85,6 +97,11 @@ export function NewTransactionDialog() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!can(createPerm)) {
+      setError('ليس لديك صلاحية إضافة هذه المعاملة');
+      return;
+    }
 
     const amountNum = Number(amount.replace(/[^\d.-]/g, ''));
     if (!Number.isFinite(amountNum) || amountNum <= 0) {
@@ -381,8 +398,17 @@ export function NewTransactionDialog() {
               </select>
             </div>
             <div>
-              <Label>التاريخ</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Label>تاريخ العملية</Label>
+              <Input
+                type="date"
+                value={date}
+                max={new Date().toISOString().slice(0, 10)}
+                min="2020-01-01"
+                onChange={(e) => setDate(e.target.value)}
+              />
+              <p className="mt-1 text-[10px] leading-snug text-ink-mute">
+                للمول القائم: يمكن اختيار تاريخ سابق (مثلاً من بداية السنة) لتسجيل حركات رجعية.
+              </p>
             </div>
           </div>
 

@@ -11,6 +11,7 @@ import {
   Info,
 } from 'lucide-react';
 import { MallPanelToolbar } from '@/components/mall/panel-toolbar';
+import { WriteGuard } from '@/components/auth/write-guard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -129,13 +130,15 @@ export function MallUnitsPanel() {
   return (
     <div className="space-y-4">
       <MallPanelToolbar>
-        <Button
-          onClick={handleOpenCreate}
-          className="h-11 gap-2 bg-sage-700 hover:bg-sage-800 text-white touch-manipulation md:h-9"
-        >
-          <Plus className="h-4 w-4" />
-          إضافة محل جديد
-        </Button>
+        <WriteGuard>
+          <Button
+            onClick={handleOpenCreate}
+            className="h-11 gap-2 bg-sage-700 hover:bg-sage-800 text-white touch-manipulation md:h-9"
+          >
+            <Plus className="h-4 w-4" />
+            إضافة محل جديد
+          </Button>
+        </WriteGuard>
       </MallPanelToolbar>
 
       {/* Grid of Units */}
@@ -181,26 +184,28 @@ export function MallUnitsPanel() {
                     <p className="line-clamp-2">{unit.notes}</p>
                   </div>
                 )}
-                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-slate-500 hover:text-slate-700"
-                    onClick={() => handleOpenEdit(unit)}
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                  {unit.status !== 'OCCUPIED' && (
+                <WriteGuard>
+                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => handleDelete(unit.id, unit.unit_number)}
+                      className="h-8 w-8 text-slate-500 hover:text-slate-700"
+                      onClick={() => handleOpenEdit(unit)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Edit2 className="h-4 w-4" />
                     </Button>
-                  )}
-                </div>
+                    {unit.status !== 'OCCUPIED' && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDelete(unit.id, unit.unit_number)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </WriteGuard>
               </CardContent>
             </Card>
           ))}

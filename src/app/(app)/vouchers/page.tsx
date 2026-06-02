@@ -1,5 +1,6 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Plus, Receipt } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -9,10 +10,20 @@ import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { VoucherPDF } from '@/features/pdf/VoucherPDF';
 import type { VoucherPdfModel } from '@/features/pdf/VoucherPDF';
 import { useDisbursementVouchers } from '@/lib/db/queries';
+import { WriteGuard } from '@/components/auth/write-guard';
 import { disbursementRowToPdfModel } from '@/lib/voucher-db';
+import { useHighlightScroll, isHighlighted } from '@/lib/hooks/use-highlight-scroll';
+import { cn } from '@/lib/utils';
+
+function voucherHighlightDomId(id: string) {
+  return `voucher-${id}`;
+}
 
 export default function VouchersPage() {
+  const highlightId = useSearchParams().get('highlight');
   const { data: vouchers = [], isLoading, isError } = useDisbursementVouchers();
+
+  useHighlightScroll(highlightId, voucherHighlightDomId, [vouchers.length]);
 
   const previewVoucher: VoucherPdfModel = {
     number: '0001',
@@ -36,12 +47,14 @@ export default function VouchersPage() {
               fileName="إذن-صرف-معاينة"
               render={async () => <VoucherPDF voucher={previewVoucher} />}
             />
-            <Button size="sm" className="gap-1.5" asChild>
-              <Link href="/vouchers/new">
-                <Plus className="stroke-[1.6]" />
-                إذن جديد
-              </Link>
-            </Button>
+            <WriteGuard permission="voucher.create">
+              <Button size="sm" className="gap-1.5" asChild>
+                <Link href="/vouchers/new">
+                  <Plus className="stroke-[1.6]" />
+                  إذن جديد
+                </Link>
+              </Button>
+            </WriteGuard>
           </>
         }
       />
@@ -70,7 +83,11 @@ export default function VouchersPage() {
               return (
                 <div
                   key={row.id}
-                  className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                  id={voucherHighlightDomId(row.id)}
+                  className={cn(
+                    'flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm scroll-mt-24 sm:flex-row sm:items-center sm:justify-between',
+                    isHighlighted(highlightId, row.id) && 'ring-2 ring-sage-600 shadow-md',
+                  )}
                 >
                   <div className="min-w-0 space-y-1">
                     <p className="font-semibold text-ink">{title}</p>

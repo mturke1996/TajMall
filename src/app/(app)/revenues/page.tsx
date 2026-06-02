@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { TrendingUp, ArrowDownToLine, Receipt, Calendar } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { DataToolbar, type DateRangePreset, getDateRange } from '@/components/data/toolbar';
@@ -9,13 +10,24 @@ import { Stat } from '@/components/dashboard/stat';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
 import { useTransactions } from '@/lib/db/queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+import { useHighlightScroll } from '@/lib/hooks/use-highlight-scroll';
+import { transactionHighlightDomId } from '@/components/data/transactions-table';
 
 export default function RevenuesPage() {
+  const highlightId = useSearchParams().get('highlight');
   const [query, setQuery] = useState('');
   const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
   const { data, isLoading } = useTransactions('REVENUE');
 
-  const rows = useMemo(() => data ?? [], [data]);
+  const rows = useMemo(() => {
+    const list = data ?? [];
+    return [...list].sort((a, b) => {
+      const byCreated =
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (byCreated !== 0) return byCreated;
+      return Number(b.number) - Number(a.number);
+    });
+  }, [data]);
 
   // Apply date range filter
   const dateFiltered = useMemo(() => {
@@ -38,6 +50,8 @@ export default function RevenuesPage() {
         (r.reference ?? String(r.number)).includes(query),
     );
   }, [dateFiltered, query]);
+
+  useHighlightScroll(highlightId, transactionHighlightDomId, [filtered.length]);
 
   // Stats computed from date-filtered rows (not search-filtered)
   const total = dateFiltered.reduce((s, r) => s + Number(r.amount), 0);
@@ -118,6 +132,7 @@ export default function RevenuesPage() {
           rows={filtered}
           loading={isLoading}
           kindFilter="REVENUE"
+          highlightId={highlightId}
         />
       </div>
     </>

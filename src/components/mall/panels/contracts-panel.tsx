@@ -13,6 +13,7 @@ import {
   Store
 } from 'lucide-react';
 import { MallPanelToolbar } from '@/components/mall/panel-toolbar';
+import { WriteGuard } from '@/components/auth/write-guard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -129,13 +130,15 @@ export function MallContractsPanel() {
   return (
     <div className="space-y-4">
       <MallPanelToolbar>
-        <Button
-          onClick={handleOpenCreate}
-          className="h-11 gap-2 bg-sage-700 hover:bg-sage-800 text-white touch-manipulation md:h-9"
-        >
-          <Plus className="h-4 w-4" />
-          توثيق عقد جديد
-        </Button>
+        <WriteGuard>
+          <Button
+            onClick={handleOpenCreate}
+            className="h-11 gap-2 bg-sage-700 hover:bg-sage-800 text-white touch-manipulation md:h-9"
+          >
+            <Plus className="h-4 w-4" />
+            توثيق عقد جديد
+          </Button>
+        </WriteGuard>
       </MallPanelToolbar>
 
       {/* Contracts Table */}
