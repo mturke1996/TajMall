@@ -246,6 +246,64 @@ export function useCreateCashbox() {
   });
 }
 
+export type UpdateCashboxInput = {
+  id: string;
+  code?: string;
+  name_ar?: string;
+  kind?: CashboxRow["kind"];
+  currency?: string;
+  opening_balance?: number;
+  bank_name?: string | null;
+  account_number?: string | null;
+  iban?: string | null;
+  color?: string | null;
+};
+
+export function useUpdateCashbox() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateCashboxInput) => {
+      const supabase = createSupabaseBrowserClient();
+      const patch: Record<string, unknown> = {};
+      if (input.code !== undefined) patch.code = input.code.trim().toUpperCase();
+      if (input.name_ar !== undefined) {
+        const ar = input.name_ar.trim();
+        patch.name_ar = ar;
+        patch.name = ar;
+      }
+      if (input.kind !== undefined) patch.kind = input.kind;
+      if (input.currency !== undefined)
+        patch.currency = input.currency.trim().toUpperCase();
+      if (input.opening_balance !== undefined)
+        patch.opening_balance = Number(input.opening_balance);
+      if (input.bank_name !== undefined)
+        patch.bank_name = input.bank_name?.trim() || null;
+      if (input.account_number !== undefined)
+        patch.account_number = input.account_number?.trim() || null;
+      if (input.iban !== undefined) patch.iban = input.iban?.trim() || null;
+      if (input.color !== undefined) patch.color = input.color?.trim() || null;
+
+      const { data, error } = await supabase
+        .from("cashboxes")
+        .update(patch)
+        .eq("id", input.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data as CashboxRow;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.cashboxes });
+      qc.invalidateQueries({ queryKey: qk.cashboxBalances });
+      qc.invalidateQueries({ queryKey: qk.dashboardStats });
+      toast.success("تم تحديث الخزينة بنجاح");
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message ?? "تعذرت تحديث الخزينة");
+    },
+  });
+}
+
 // ── profiles (team) ──────────────────────────────────────────────
 export function useProfiles() {
   return useQuery<ProfileRow[]>({
