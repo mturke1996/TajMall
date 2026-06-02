@@ -7,7 +7,7 @@ import {
   LayoutDashboard,
   ArrowDownToLine,
   ArrowUpFromLine,
-  ArrowLeftRight,
+  Activity,
   Plus,
   type LucideIcon,
 } from "lucide-react";
@@ -22,7 +22,7 @@ const leftNavItems = [
 
 const rightNavItems = [
   { href: "/expenses", label: "مصروفات", icon: ArrowUpFromLine },
-  { href: "/transactions", label: "حركة", icon: ArrowLeftRight },
+  { href: "/activity", label: "النشاط", icon: Activity },
 ];
 
 export function MobileBottomNav() {
@@ -81,7 +81,7 @@ function TabLink({
       href={item.href}
       prefetch
       className={cn(
-        "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] font-medium transition-colors duration-100",
+        "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors duration-100",
         isActive ? "text-sage-700" : "text-ink-mute",
       )}
     >
@@ -91,7 +91,14 @@ function TabLink({
       >
         <Icon className="h-[18px] w-[18px]" />
       </motion.span>
-      <span className="truncate">{item.label}</span>
+      <span className="max-w-[52px] truncate text-[9.5px] leading-tight">{item.label}</span>
+      <span
+        className={cn(
+          "mt-0.5 h-1 w-1 rounded-full transition-opacity",
+          isActive ? "bg-sage-700 opacity-100" : "opacity-0",
+        )}
+        aria-hidden
+      />
     </Link>
   );
 }

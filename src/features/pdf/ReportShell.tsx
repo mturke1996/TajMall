@@ -37,6 +37,7 @@ export function ReportShell({
   summaryPrimaryDateLabel,
   children,
   showFooter = true,
+  footerFixed = true,
   showHeader = true,
   headerProps,
 }: {
@@ -47,6 +48,7 @@ export function ReportShell({
   summaryPrimaryDateLabel?: string;
   children: React.ReactNode;
   showFooter?: boolean;
+  footerFixed?: boolean;
   showHeader?: boolean;
   headerProps?: {
     titleEn?: string;
@@ -160,7 +162,7 @@ export function ReportShell({
         {children}
 
         {/* FOOTER */}
-        {showFooter && <TajMallPdfFooter />}
+        {showFooter && <TajMallPdfFooter fixed={footerFixed} />}
 
         {/* Page Number */}
         <Text

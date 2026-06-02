@@ -131,11 +131,14 @@ export function TransactionsTable({
                     )}
                   </div>
                 </div>
-                <span className={cn(
-                  'font-mono font-semibold shrink-0',
-                  positive ? 'text-pastel-greenInk' : 'text-pastel-redInk'
-                )}>
-                  {positive ? '+' : '−'} {formatMoney(amount, currency)}
+                <span
+                  className={cn(
+                    'shrink-0 text-right font-mono font-semibold text-sm leading-tight max-w-[40%]',
+                    positive ? 'text-pastel-greenInk' : 'text-pastel-redInk',
+                  )}
+                >
+                  {positive ? '+' : '−'}{' '}
+                  {formatMoney(amount, currency, { compact: true })}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs text-ink-mute pt-1 border-t border-border/50">

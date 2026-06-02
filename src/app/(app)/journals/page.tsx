@@ -53,6 +53,7 @@ import {
 } from '@/components/ui/select';
 import { useContacts, useCashboxes } from '@/lib/db/queries';
 import { MOBILE_PAGE_ACTION_PADDING } from '@/components/layout/mobile-page-action-bar';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 const STATUS_CONFIG: Record<JournalStatus, {
   label: string;
@@ -243,6 +244,45 @@ function JournalsPageInner() {
     return `[${kindLabel}] ${c.name} ${c.shop_number ? `(${c.shop_number})` : ''}`;
   };
 
+  const buildJournalEntriesForPdf = async (entriesForPdf: JournalEntryRow[]) => {
+    const supabase = createSupabaseBrowserClient();
+
+    type LineRow = {
+      debit: string;
+      credit: string;
+      description: string | null;
+      category_name: string | null;
+      category_code: string | null;
+      sort_order: number;
+    };
+
+    return Promise.all(
+      entriesForPdf.map(async (e) => {
+        const { data: lineRows, error } = await supabase
+          .from('journal_lines_with_categories')
+          .select('debit, credit, description, category_name, category_code, sort_order')
+          .eq('journal_id', e.id)
+          .order('sort_order', { ascending: true });
+        if (error) throw error;
+
+        const lines = ((lineRows ?? []) as LineRow[]).map((l) => ({
+          category_name: l.category_name ?? '—',
+          category_code: l.category_code ?? '',
+          debit: Number(l.debit),
+          credit: Number(l.credit),
+          description: l.description,
+        }));
+
+        return {
+          ...e,
+          lines,
+          total_debit: Number(e.total_debit),
+          total_credit: Number(e.total_credit),
+        };
+      }),
+    );
+  };
+
   return (
     <>
       <PageHeader
@@ -260,46 +300,11 @@ function JournalsPageInner() {
             <TajMallPdfToolbar
               fileName={`دفتر-اليومية-${new Date().getFullYear()}`}
               render={async () => {
-                const [{ JournalPDF }, { createSupabaseBrowserClient }] =
+                const [{ JournalPDF }] =
                   await Promise.all([
                     import('@/features/pdf/JournalPDF'),
-                    import('@/lib/supabase/client'),
                   ]);
-                const supabase = createSupabaseBrowserClient();
-
-                type LineRow = {
-                  debit: string;
-                  credit: string;
-                  description: string | null;
-                  category_name: string | null;
-                  category_code: string | null;
-                  sort_order: number;
-                };
-
-                const pdfEntries = await Promise.all(
-                  filteredEntries.map(async (e) => {
-                    const { data: lineRows, error } = await supabase
-                      .from('journal_lines_with_categories')
-                      .select('debit, credit, description, category_name, category_code, sort_order')
-                      .eq('journal_id', e.id)
-                      .order('sort_order', { ascending: true });
-                    if (error) throw error;
-                    const lines = ((lineRows ?? []) as LineRow[]).map((l) => ({
-                      category_name: l.category_name ?? '—',
-                      category_code: l.category_code ?? '',
-                      debit: Number(l.debit),
-                      credit: Number(l.credit),
-                      description: l.description,
-                    }));
-
-                    return {
-                      ...e,
-                      lines,
-                      total_debit: Number(e.total_debit),
-                      total_credit: Number(e.total_credit),
-                    };
-                  }),
-                );
+                const pdfEntries = await buildJournalEntriesForPdf(filteredEntries);
 
                 return (
                   <JournalPDF
@@ -559,6 +564,23 @@ function JournalsPageInner() {
                       <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t sm:flex sm:flex-wrap">
                         {entry.status === 'DRAFT' && (
                           <>
+                            <TajMallPdfToolbar
+                              fileName={`قيد-يومية-${entry.number}`}
+                              className="col-span-2 sm:col-span-1"
+                              render={async () => {
+                                const [{ JournalPDF }] = await Promise.all([
+                                  import('@/features/pdf/JournalPDF'),
+                                ]);
+                                const singleEntry = await buildJournalEntriesForPdf([entry]);
+
+                                return (
+                                  <JournalPDF
+                                    entries={singleEntry}
+                                    periodLabel={`القيد رقم ${entry.number}`}
+                                  />
+                                );
+                              }}
+                            />
                             {can('journal.create') && (
                               <Button
                                 size="sm"
@@ -655,6 +677,23 @@ function JournalsPageInner() {
                         )}
                         {entry.status === 'POSTED' && (
                           <>
+                            <TajMallPdfToolbar
+                              fileName={`قيد-يومية-${entry.number}`}
+                              className="col-span-2 sm:col-span-1"
+                              render={async () => {
+                                const [{ JournalPDF }] = await Promise.all([
+                                  import('@/features/pdf/JournalPDF'),
+                                ]);
+                                const singleEntry = await buildJournalEntriesForPdf([entry]);
+
+                                return (
+                                  <JournalPDF
+                                    entries={singleEntry}
+                                    periodLabel={`القيد رقم ${entry.number}`}
+                                  />
+                                );
+                              }}
+                            />
                             <Button
                               size="sm"
                               variant="outline"
@@ -693,18 +732,37 @@ function JournalsPageInner() {
                           </>
                         )}
                         {entry.status === 'REVERSED' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedEntry(entry);
-                            }}
-                            className="gap-1.5 h-11 w-full sm:w-auto touch-manipulation"
-                          >
-                            <FileText className="h-4 w-4" />
-                            التفاصيل
-                          </Button>
+                          <>
+                            <TajMallPdfToolbar
+                              fileName={`قيد-يومية-${entry.number}`}
+                              className="col-span-2 sm:col-span-1"
+                              render={async () => {
+                                const [{ JournalPDF }] = await Promise.all([
+                                  import('@/features/pdf/JournalPDF'),
+                                ]);
+                                const singleEntry = await buildJournalEntriesForPdf([entry]);
+
+                                return (
+                                  <JournalPDF
+                                    entries={singleEntry}
+                                    periodLabel={`القيد رقم ${entry.number}`}
+                                  />
+                                );
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedEntry(entry);
+                              }}
+                              className="gap-1.5 h-11 w-full sm:w-auto touch-manipulation"
+                            >
+                              <FileText className="h-4 w-4" />
+                              التفاصيل
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>

@@ -210,6 +210,13 @@ export const pdfBrandStyles = StyleSheet.create({
     borderTopColor: PDFPalette.border,
     paddingTop: 8,
   },
+  footerBlock: {
+    marginTop: 14,
+    textAlign: "center",
+    borderTopWidth: 1,
+    borderTopColor: PDFPalette.border,
+    paddingTop: 8,
+  },
   footerBrand: {
     fontSize: 9.5,
     fontWeight: "bold",
@@ -558,20 +565,32 @@ export const TajMallPdfFooter = ({
   companyName = BRAND.fullName,
   tagline = BRAND.tagline,
   footerNote = 'وثيقة داخلية للاستخدام الإداري — لا تُعتمد أمام الغير دون توثيق رسمي. يُعتد بالنسخ المختومة فقط.',
+  fixed = true,
 }: {
   companyName?: string;
   tagline?: string;
   footerNote?: string;
+  fixed?: boolean;
 }) => {
   const strip = buildPdfFooterLine();
-  return (
-    <View style={pdfBrandStyles.footer} fixed>
+  const content = (
+    <>
       <Text style={pdfBrandStyles.footerBrand}>{ar(companyName)}</Text>
       <Text style={pdfBrandStyles.footerEng}>{ar(tagline)}</Text>
       {strip ? <Text style={pdfBrandStyles.footerMuted}>{ar(strip)}</Text> : null}
       <Text style={pdfBrandStyles.footerNote}>{ar(footerNote)}</Text>
-    </View>
+    </>
   );
+
+  if (fixed) {
+    return (
+      <View style={pdfBrandStyles.footer} fixed>
+        {content}
+      </View>
+    );
+  }
+
+  return <View style={pdfBrandStyles.footerBlock}>{content}</View>;
 };
 
 // ============================================================

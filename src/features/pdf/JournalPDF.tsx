@@ -153,6 +153,7 @@ export function JournalPDF({
     <ReportShell
       title="دفتر اليومية"
       subtitle={periodLabel}
+      footerFixed={false}
       metaCells={[
         { label: 'الفترة', value: periodLabel },
         { label: 'عدد القيود', value: String(entries.length) },

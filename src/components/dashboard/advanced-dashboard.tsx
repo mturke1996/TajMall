@@ -49,6 +49,7 @@ import { Button } from '@/components/ui/button';
 import { cn, formatMoney, formatDateRelative } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { useTxDialog } from '@/stores/transaction-dialog';
+import { DashboardNewFeatures } from '@/components/dashboard/dashboard-new-features';
 
 // Animation variants
 const containerVariants = {
@@ -606,6 +607,10 @@ export function AdvancedDashboard() {
           <InfoCard icon={ArrowLeftRight} title="المعاملات" description="سجل الإيرادات والمصروفات" href="/transactions" />
           <InfoCard icon={Calendar} title="دفتر اليومية" description="القيود المحاسبية المزدوجة" href="/journals" />
         </div>
+
+        <motion.div variants={itemVariants}>
+          <DashboardNewFeatures />
+        </motion.div>
       </motion.div>
     </>
   );
