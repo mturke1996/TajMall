@@ -194,6 +194,58 @@ export function useCashboxBalances() {
   });
 }
 
+export type CreateCashboxInput = {
+  code: string;
+  name_ar: string;
+  kind: CashboxRow["kind"];
+  currency?: string;
+  opening_balance?: number;
+  bank_name?: string | null;
+  account_number?: string | null;
+  iban?: string | null;
+  color?: string | null;
+};
+
+export function useCreateCashbox() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateCashboxInput) => {
+      const supabase = createSupabaseBrowserClient();
+      const payload = {
+        code: input.code.trim().toUpperCase(),
+        name: input.name_ar.trim(),
+        name_ar: input.name_ar.trim(),
+        kind: input.kind,
+        currency: (input.currency ?? "LYD").trim().toUpperCase(),
+        opening_balance: Number.isFinite(input.opening_balance)
+          ? Number(input.opening_balance ?? 0)
+          : 0,
+        bank_name: input.bank_name?.trim() || null,
+        account_number: input.account_number?.trim() || null,
+        iban: input.iban?.trim() || null,
+        color: input.color?.trim() || null,
+        active: true,
+      };
+      const { data, error } = await supabase
+        .from("cashboxes")
+        .insert(payload)
+        .select()
+        .single();
+      if (error) throw error;
+      return data as CashboxRow;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.cashboxes });
+      qc.invalidateQueries({ queryKey: qk.cashboxBalances });
+      qc.invalidateQueries({ queryKey: qk.dashboardStats });
+      toast.success("تمت إضافة الخزينة بنجاح");
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message ?? "تعذرت إضافة الخزينة");
+    },
+  });
+}
+
 // ── profiles (team) ──────────────────────────────────────────────
 export function useProfiles() {
   return useQuery<ProfileRow[]>({

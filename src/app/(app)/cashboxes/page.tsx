@@ -2,14 +2,19 @@
 
 import { motion } from 'framer-motion';
 import { Plus, Wallet, Landmark, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/data/empty-state';
 import { useCashboxBalances } from '@/lib/db/queries';
 import { formatMoney, cn } from '@/lib/utils';
+import { CashboxFormDialog } from '@/components/cashboxes/cashbox-form-dialog';
+import { usePermission } from '@/lib/supabase/use-permission';
 
 export default function CashboxesPage() {
+  const [open, setOpen] = useState(false);
+  const { can } = usePermission();
   const { data, isLoading } = useCashboxBalances();
   const items = data ?? [];
 
@@ -20,10 +25,16 @@ export default function CashboxesPage() {
         title="إدارة الخزائن"
         description="أنشئ خزائنك النقدية وحساباتك المصرفية، وتابع أرصدتها وحركتها اليومية."
         actions={
-          <Button size="sm" className="gap-1.5">
-            <Plus className="stroke-[1.6]" />
-            خزينة جديدة
-          </Button>
+          can('cashbox.manage') ? (
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setOpen(true)}
+            >
+              <Plus className="stroke-[1.6]" />
+              خزينة جديدة
+            </Button>
+          ) : undefined
         }
       />
 
@@ -131,6 +142,7 @@ export default function CashboxesPage() {
           </div>
         )}
       </div>
+      <CashboxFormDialog open={open} onOpenChange={setOpen} />
     </>
   );
 }
