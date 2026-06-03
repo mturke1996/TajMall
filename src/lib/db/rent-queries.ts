@@ -1,12 +1,18 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { TenantRentCalendar } from '@/lib/rent-months';
 import { currentYear } from '@/lib/rent-months';
-import { normalizeRpcRentCalendar } from '@/lib/rent-calendar-from-charges';
+import {
+  buildMergedTenantRentCalendar,
+  normalizeRpcRentCalendar,
+} from '@/lib/rent-calendar-from-charges';
 import { qk } from '@/lib/db/queries';
-import type { ChargeAllocationInput } from '@/lib/db/types';
+import { setTenantRentMonthStatus } from '@/lib/db/set-rent-month-status';
+import { useTenantChargesForTenant } from '@/lib/db/mall-queries';
+import type { ChargeAllocationInput, TransactionWithRelations } from '@/lib/db/types';
 
 export const rentQk = {
   calendar: (tenantId: string, year: number) =>
@@ -22,7 +28,16 @@ export function useTenantRentCalendar(tenantId: string, year = currentYear()) {
         p_tenant_id: tenantId,
         p_year: year,
       });
-      if (error) throw error;
+      if (error) {
+        console.warn('[get_tenant_rent_calendar]', error.message);
+        return {
+          year,
+          tenant_id: tenantId,
+          monthly_rent: 0,
+          contract_id: null,
+          months: [],
+        };
+      }
       const normalized = normalizeRpcRentCalendar(data, tenantId, year);
       if (normalized) return normalized;
       return {
@@ -35,6 +50,80 @@ export function useTenantRentCalendar(tenantId: string, year = currentYear()) {
     },
     enabled: !!tenantId,
     staleTime: 20_000,
+    retry: false,
+  });
+}
+
+/** تقويم مدمج: مطالبات + RPC + تحصيلات إيجار */
+export function useMergedTenantRentCalendar(
+  tenantId: string,
+  monthlyRent: number,
+  year = currentYear(),
+) {
+  const { data: charges = [] } = useTenantChargesForTenant(tenantId);
+  const { data: rpcData, isLoading: rpcLoading } = useTenantRentCalendar(
+    tenantId,
+    year,
+  );
+
+  const calendar = useMemo(
+    () =>
+      buildMergedTenantRentCalendar({
+        tenantId,
+        year,
+        monthlyRent,
+        charges,
+        rpcCalendar: rpcData
+          ? normalizeRpcRentCalendar(rpcData, tenantId, year)
+          : null,
+      }),
+    [tenantId, year, monthlyRent, charges, rpcData],
+  );
+
+  return { calendar, isLoading: rpcLoading };
+}
+
+export function invalidateRentCalendarQueries(
+  qc: ReturnType<typeof useQueryClient>,
+  tenantId: string,
+  months: string[],
+) {
+  qc.invalidateQueries({ queryKey: ['tenant_charges'] });
+  qc.invalidateQueries({ queryKey: ['lease_contracts'] });
+  qc.invalidateQueries({
+    predicate: (q) => q.queryKey[0] === 'tenant_rent_calendar',
+  });
+  qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
+  for (const month of months) {
+    const y = Number(month.slice(0, 4));
+    if (!Number.isNaN(y)) {
+      qc.invalidateQueries({ queryKey: rentQk.calendar(tenantId, y) });
+    }
+  }
+}
+
+/** ربط شهر إيجار بقيد يومية (مدفوع) أو إلغاء الربط (غير مدفوع) */
+export function useSetTenantRentMonthStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      tenantId: string;
+      months: string[];
+      paid: boolean;
+      journalEntryId?: string | null;
+      amount?: number | null;
+    }) =>
+      setTenantRentMonthStatus({
+        tenantId: input.tenantId,
+        months: input.months,
+        paid: input.paid,
+        journalEntryId: input.journalEntryId,
+        amount: input.amount,
+      }),
+    onSuccess: (_d, vars) => {
+      invalidateRentCalendarQueries(qc, vars.tenantId, vars.months);
+      qc.invalidateQueries({ queryKey: ['journal_entries'] });
+    },
   });
 }
 

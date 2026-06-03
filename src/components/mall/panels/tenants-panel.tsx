@@ -3,10 +3,9 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
-import { useTenantRentSummary, type TenantRentSummary } from '@/lib/db/queries';
+import { useTenantRentSummary } from '@/lib/db/queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { TenantsDirectory } from '@/components/tenants/tenants-directory';
-import { RecordRentPaymentDialog } from '@/components/tenants/record-rent-payment-dialog';
 import { WriteGuard } from '@/components/auth/write-guard';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { MallPanelToolbar } from '@/components/mall/panel-toolbar';
@@ -15,13 +14,11 @@ import { Button } from '@/components/ui/button';
 
 export function MallTenantsPanel() {
   const router = useRouter();
-  const { can, canWrite } = usePermission();
-  const canRecordPayment = can('revenue.create');
+  const { canWrite } = usePermission();
   const { data: tenants = [], isLoading } = useTenantRentSummary();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [paymentTenant, setPaymentTenant] = useState<TenantRentSummary | null>(null);
 
   const filteredTenants = useMemo(() => {
     return tenants.filter((t) => {
@@ -88,18 +85,11 @@ export function MallTenantsPanel() {
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         stats={stats}
-        onRecordPayment={canRecordPayment ? setPaymentTenant : undefined}
         onAddTenant={
           canWrite
             ? () => router.push(peopleSegmentHref('TENANT', { add: 'TENANT' }))
             : undefined
         }
-      />
-
-      <RecordRentPaymentDialog
-        tenant={paymentTenant}
-        open={!!paymentTenant}
-        onOpenChange={(open) => !open && setPaymentTenant(null)}
       />
     </>
   );

@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { chargeBelongsToTenant } from '@/lib/rent-calendar-from-charges';
 import { toast } from 'sonner';
 import type {
   FiscalPeriodRow,
@@ -18,6 +19,8 @@ export const mqk = {
   mallUnits: ['mall_units'] as const,
   leaseContracts: ['lease_contracts'] as const,
   tenantCharges: (contractId?: string) => ['tenant_charges', contractId ?? 'ALL'] as const,
+  tenantChargesForTenant: (tenantId: string) =>
+    ['tenant_charges', 'tenant', tenantId] as const,
   trialBalance: (year: number) => ['trial_balance', year] as const,
   profitLoss: (year: number, period: string, quarter?: number | null, month?: number | null) => 
     ['profit_loss', year, period, quarter ?? 'none', month ?? 'none'] as const,
@@ -343,6 +346,26 @@ export function useTerminateLeaseContract() {
 }
 
 // ── Tenant Charges ────────────────────────────────────────────────
+const TENANT_CHARGE_SELECT = `
+  *,
+  contract:lease_contracts(
+    id,
+    tenant_id,
+    start_date,
+    end_date,
+    monthly_rent,
+    unit:mall_units(id, unit_number, floor),
+    tenant:contacts(id, name, phone)
+  ),
+  journal:journal_entries(id, number, entry_date, description, status),
+  rent_journal_links:tenant_rent_journal_links(
+    id,
+    amount,
+    journal_entry_id,
+    journal:journal_entries(id, number, entry_date, description)
+  )
+`;
+
 export function useTenantCharges(contractId?: string) {
   return useQuery<TenantChargeWithRelations[]>({
     queryKey: mqk.tenantCharges(contractId),
@@ -350,23 +373,31 @@ export function useTenantCharges(contractId?: string) {
       const supabase = createSupabaseBrowserClient();
       let q = supabase
         .from('tenant_charges')
-        .select(`
-          *,
-          contract:lease_contracts(
-            id,
-            start_date,
-            end_date,
-            monthly_rent,
-            unit:mall_units(id, unit_number, floor),
-            tenant:contacts(id, name, phone)
-          )
-        `)
+        .select(TENANT_CHARGE_SELECT)
         .order('due_date', { ascending: false });
-      
+
       if (contractId) q = q.eq('contract_id', contractId);
       const { data, error } = await q;
       if (error) throw error;
-      return (data as any[]) ?? [];
+      return (data as TenantChargeWithRelations[]) ?? [];
+    },
+  });
+}
+
+export function useTenantChargesForTenant(tenantId: string) {
+  return useQuery<TenantChargeWithRelations[]>({
+    queryKey: mqk.tenantChargesForTenant(tenantId),
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase
+        .from('tenant_charges')
+        .select(TENANT_CHARGE_SELECT)
+        .order('due_date', { ascending: false });
+      if (error) throw error;
+      return ((data as TenantChargeWithRelations[]) ?? []).filter((c) =>
+        chargeBelongsToTenant(c, tenantId),
+      );
     },
   });
 }
@@ -496,9 +527,13 @@ export function useCashFlow(year: number) {
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase.rpc('get_cash_flow', { p_year: year });
-      if (error) throw error;
+      if (error) {
+        console.warn('[get_cash_flow]', error.message);
+        return null;
+      }
       return data;
     },
+    retry: false,
   });
 }
 

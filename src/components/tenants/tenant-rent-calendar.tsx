@@ -2,21 +2,16 @@
 
 import { Loader2 } from 'lucide-react';
 import { useTenantRentCalendar } from '@/lib/db/rent-queries';
+import { RentMonthLabel } from '@/components/rent/rent-month-label';
 import {
   currentYear,
   formatMonthLabelAr,
+  RENT_MONTH_CELL_FRAME,
+  RENT_MONTH_LEGEND_SWATCH,
   RENT_MONTH_STATUS_LABEL,
-  type RentMonthStatus,
+  RENT_MONTH_STATUS_TEXT_CLASS,
 } from '@/lib/rent-months';
 import { cn, formatMoney } from '@/lib/utils';
-
-const CELL: Record<RentMonthStatus, string> = {
-  paid: 'bg-emerald-600 text-white',
-  partial: 'bg-amber-500 text-white',
-  unpaid: 'bg-red-600 text-white',
-  no_charge: 'bg-slate-400 text-white',
-  na: 'bg-canvas-sunken text-ink-mute',
-};
 
 export function TenantRentCalendar({
   tenantId,
@@ -61,31 +56,31 @@ export function TenantRentCalendar({
       </div>
 
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
-        {data.months.map((m) => {
-          const short = formatMonthLabelAr(m.month).split(' ')[0];
-          return (
-            <div
-              key={m.month}
-              title={`${formatMonthLabelAr(m.month)} — ${RENT_MONTH_STATUS_LABEL[m.status]}`}
-              className={cn(
-                'rounded-lg px-2 py-2.5 text-center text-[11px] font-medium',
-                CELL[m.status],
-              )}
-            >
-              <div>{short}</div>
-              <div className="text-[9px] opacity-90 mt-0.5">
-                {RENT_MONTH_STATUS_LABEL[m.status]}
-              </div>
-            </div>
-          );
-        })}
+        {data.months.map((m) => (
+          <div
+            key={m.month}
+            title={`${formatMonthLabelAr(m.month)} — ${RENT_MONTH_STATUS_LABEL[m.status]}`}
+            className={cn(
+              'rounded-lg px-2 py-2.5 text-center',
+              RENT_MONTH_CELL_FRAME[m.status],
+            )}
+          >
+            <RentMonthLabel
+              monthKey={m.month}
+              status={m.status}
+              statusLabel={RENT_MONTH_STATUS_LABEL[m.status]}
+            />
+          </div>
+        ))}
       </div>
 
       <div className="flex flex-wrap gap-3 text-[11px] text-ink-mute">
         {(['paid', 'partial', 'unpaid', 'no_charge'] as const).map((s) => (
           <span key={s} className="flex items-center gap-1">
-            <span className={cn('h-2.5 w-2.5 rounded-sm', CELL[s])} />
-            {RENT_MONTH_STATUS_LABEL[s]}
+            <span className={cn('h-2.5 w-2.5 rounded-sm', RENT_MONTH_LEGEND_SWATCH[s])} />
+            <span className={RENT_MONTH_STATUS_TEXT_CLASS[s]}>
+              {RENT_MONTH_STATUS_LABEL[s]}
+            </span>
           </span>
         ))}
       </div>

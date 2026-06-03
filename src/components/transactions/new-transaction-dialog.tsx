@@ -8,14 +8,22 @@ import { Label } from '@/components/ui/label';
 import { useTxDialog, type TxKind } from '@/stores/transaction-dialog';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCategories, useCashboxes, useCreateTransaction, useContacts, useCreateContact, useTransactionFormDrafts, useSaveTransactionFormDraft, useDeleteTransactionFormDraft } from '@/lib/db/queries';
-import type { TransactionFormDraftRow, PaymentMethod, ChargeAllocationInput } from '@/lib/db/types';
-import { RentChargeAllocationFields } from './rent-charge-allocation-fields';
-import { RentMonthPicker } from '@/components/rent/rent-month-picker';
+import type { TransactionFormDraftRow, PaymentMethod } from '@/lib/db/types';
+import {
+  RentRevenueMonthsBlock,
+  parseRentPartialAmount,
+  type RentLinkMode,
+} from '@/components/rent/rent-revenue-months-block';
 import { isRentCategoryCode } from '@/lib/charge-invoice';
-import { buildRentMonthAllocations } from '@/lib/db/rent-queries';
-import { useTenantRentCalendar } from '@/lib/db/rent-queries';
-import { formatMonthsLabelAr, currentYear } from '@/lib/rent-months';
+import { useTenantChargesForTenant } from '@/lib/db/mall-queries';
+import {
+  getJournalIdForTransaction,
+  linkRentMonthsToRevenueJournal,
+} from '@/lib/db/rent-revenue-link';
+import { areConsecutiveMonths, formatMonthsLabelAr } from '@/lib/rent-months';
+import { invalidateRentCalendarQueries } from '@/lib/db/rent-queries';
 import { toast } from 'sonner';
 import { usePermission } from '@/lib/supabase/use-permission';
 
@@ -36,9 +44,10 @@ export function NewTransactionDialog() {
   const [newContactName, setNewContactName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
-  const [allocationMode, setAllocationMode] = useState<'AUTO' | 'MANUAL'>('AUTO');
-  const [chargeAllocations, setChargeAllocations] = useState<ChargeAllocationInput[]>([]);
   const [rentMonths, setRentMonths] = useState<string[]>([]);
+  const [rentLinkMode, setRentLinkMode] = useState<RentLinkMode>('full');
+  const [rentPartialAmount, setRentPartialAmount] = useState('');
+  const qc = useQueryClient();
 
   const { data: drafts = [], isLoading: draftsLoading } = useTransactionFormDrafts(kind, isOpen);
   const saveDraft = useSaveTransactionFormDraft();
@@ -74,9 +83,9 @@ export function NewTransactionDialog() {
       setNewContactName('');
       setError(null);
       setEditingDraftId(null);
-      setAllocationMode('AUTO');
-      setChargeAllocations([]);
       setRentMonths([]);
+      setRentLinkMode('full');
+      setRentPartialAmount('');
     }
   }, [isOpen, defaultKind, cashboxes]);
 
@@ -98,21 +107,20 @@ export function NewTransactionDialog() {
     selectedContact?.kind === 'TENANT' &&
     isRentCategoryCode(selectedCategory?.code);
 
-  const { data: rentCalendar } = useTenantRentCalendar(
+  const { data: tenantCharges = [] } = useTenantChargesForTenant(
     showRentAllocation ? contactId : '',
-    currentYear(),
   );
 
-  const amountNumPreview = Number(amount.replace(/[^\d.-]/g, '')) || 0;
+  const tenantMonthlyRent = Number(selectedContact?.monthly_rent) || 0;
 
   useEffect(() => {
     if (!showRentAllocation || rentMonths.length === 0) return;
-    const rent = Number(selectedContact?.monthly_rent) || 0;
-    if (rent > 0) {
-      setAmount(String(rentMonths.length * rent));
+    if (rentLinkMode === 'partial') return;
+    if (tenantMonthlyRent > 0) {
+      setAmount(String(rentMonths.length * tenantMonthlyRent));
       setDescription(`تحصيل إيجار: ${formatMonthsLabelAr(rentMonths)}`);
     }
-  }, [rentMonths, showRentAllocation, selectedContact?.monthly_rent]);
+  }, [rentMonths, showRentAllocation, tenantMonthlyRent, rentLinkMode]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -137,41 +145,30 @@ export function NewTransactionDialog() {
       return;
     }
 
-    let finalAllocations: ChargeAllocationInput[] | undefined;
-    let useAutoAlloc = allocationMode === 'AUTO';
-
-    if (showRentAllocation && rentMonths.length > 0) {
-      try {
-        finalAllocations = await buildRentMonthAllocations(
-          contactId,
-          rentMonths,
-          amountNum,
-        );
-        useAutoAlloc = false;
-        if (finalAllocations.length === 0) {
-          setError('لم تُعثر على مطالبات للشهور المحددة');
+    if (showRentAllocation) {
+      if (rentMonths.length === 0) {
+        setError('اختر شهر إيجار واحداً على الأقل');
+        return;
+      }
+      if (!areConsecutiveMonths(rentMonths)) {
+        setError('اختر أشهراً متتالية');
+        return;
+      }
+      if (rentLinkMode === 'partial') {
+        const partial = parseRentPartialAmount(rentPartialAmount);
+        if (partial == null) {
+          setError('أدخل مبلغ الجزء للشهر');
           return;
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'فشل ربط الشهور بالمطالبات');
-        return;
+        if (partial > amountNum + 0.001) {
+          setError('مبلغ الجزء لا يتجاوز مبلغ الإيراد');
+          return;
+        }
       }
-    } else if (showRentAllocation && allocationMode === 'MANUAL') {
-      if (chargeAllocations.length === 0) {
-        setError('اختر مطالبة واحدة على الأقل للتخصيص اليدوي');
-        return;
-      }
-      const allocSum = chargeAllocations.reduce((s, a) => s + a.amount, 0);
-      if (allocSum <= 0 || allocSum > amountNum) {
-        setError('مجموع التخصيص يجب أن يكون أكبر من صفر ولا يتجاوز المبلغ');
-        return;
-      }
-      finalAllocations = chargeAllocations;
-      useAutoAlloc = false;
     }
 
     try {
-      await createTx.mutateAsync({
+      const tx = await createTx.mutateAsync({
         kind,
         amount: amountNum,
         method,
@@ -181,9 +178,26 @@ export function NewTransactionDialog() {
         description: description || undefined,
         contact_id: contactId || undefined,
         contact_type: contactId ? (isRevenue ? 'PAYER' : 'BENEFICIARY') : undefined,
-        auto_allocate_charges: useAutoAlloc,
-        charge_allocations: finalAllocations,
+        auto_allocate_charges: false,
       });
+
+      if (showRentAllocation && contactId && rentMonths.length > 0) {
+        const journalId = await getJournalIdForTransaction(tx.id);
+        if (!journalId) {
+          throw new Error('لم يُنشأ قيد للمعاملة — تحقق من ترحيل اليومية');
+        }
+        const linkAmount =
+          rentLinkMode === 'partial'
+            ? parseRentPartialAmount(rentPartialAmount)
+            : amountNum;
+        await linkRentMonthsToRevenueJournal({
+          tenantId: contactId,
+          months: rentMonths,
+          journalEntryId: journalId,
+          amount: linkAmount,
+        });
+        invalidateRentCalendarQueries(qc, contactId, rentMonths);
+      }
       if (editingDraftId) {
         try {
           await deleteDraft.mutateAsync({ id: editingDraftId, kind });
@@ -192,7 +206,13 @@ export function NewTransactionDialog() {
         }
         setEditingDraftId(null);
       }
-      toast.success(isRevenue ? 'تم الإيراد' : 'تم الصرف');
+      toast.success(
+        showRentAllocation && rentMonths.length > 0
+          ? `تم الإيراد وربط ${formatMonthsLabelAr(rentMonths)} بالقيد`
+          : isRevenue
+            ? 'تم الإيراد'
+            : 'تم الصرف',
+      );
       close();
     } catch {
       setError('فشل الحفظ');
@@ -546,29 +566,18 @@ export function NewTransactionDialog() {
             )}
           </div>
 
-          {showRentAllocation && (
-            <div className="space-y-3">
-              <div className="rounded-lg border border-sage-200 bg-sage-50/40 p-3">
-                <Label className="text-sm font-semibold text-sage-900 mb-2 block">
-                  شهور الإيجار
-                </Label>
-                <RentMonthPicker
-                  selected={rentMonths}
-                  onChange={setRentMonths}
-                  calendarMonths={rentCalendar?.months}
-                />
-              </div>
-              {rentMonths.length === 0 && (
-                <RentChargeAllocationFields
-                  tenantId={contactId}
-                  paymentAmount={amountNumPreview}
-                  mode={allocationMode}
-                  onModeChange={setAllocationMode}
-                  allocations={chargeAllocations}
-                  onAllocationsChange={setChargeAllocations}
-                />
-              )}
-            </div>
+          {showRentAllocation && contactId && (
+            <RentRevenueMonthsBlock
+              tenantId={contactId}
+              monthlyRent={tenantMonthlyRent}
+              charges={tenantCharges}
+              selected={rentMonths}
+              onSelectedChange={setRentMonths}
+              linkMode={rentLinkMode}
+              onLinkModeChange={setRentLinkMode}
+              partialAmount={rentPartialAmount}
+              onPartialAmountChange={setRentPartialAmount}
+            />
           )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}

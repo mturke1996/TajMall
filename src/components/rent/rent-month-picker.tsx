@@ -1,9 +1,12 @@
 'use client';
 
+import { RentMonthLabel } from '@/components/rent/rent-month-label';
 import { cn } from '@/lib/utils';
 import {
   formatMonthLabelAr,
   toggleMonthInSelection,
+  toggleMonthInSelectionCapped,
+  yearMonthsAll,
   yearMonthsThroughCurrent,
   type RentCalendarMonth,
   RENT_MONTH_STATUS_CLASS,
@@ -16,6 +19,12 @@ type Props = {
   calendarMonths?: RentCalendarMonth[];
   /** عرض حالة الشهر من التقويم */
   showStatus?: boolean;
+  /** عرض كل شهور السنة (للتسوية اليدوية) */
+  fullYear?: boolean;
+  /** شهر واحد فقط في كل مرة */
+  singleMonth?: boolean;
+  /** حد أقصى لأشهر متتالية (مثلاً 2) */
+  maxMonths?: number;
   className?: string;
 };
 
@@ -25,9 +34,12 @@ export function RentMonthPicker({
   onChange,
   calendarMonths,
   showStatus = true,
+  fullYear = false,
+  singleMonth = false,
+  maxMonths,
   className,
 }: Props) {
-  const keys = yearMonthsThroughCurrent(year);
+  const keys = fullYear ? yearMonthsAll(year) : yearMonthsThroughCurrent(year);
   const statusByMonth = new Map(
     (calendarMonths ?? []).map((m) => [m.month, m.status]),
   );
@@ -35,7 +47,11 @@ export function RentMonthPicker({
   return (
     <div className={cn('space-y-2', className)}>
       <p className="text-xs text-ink-mute leading-relaxed">
-        اختر شهراً أو عدة أشهر متتالية. عند اختيار غير متتالي يُعاد التحديد من الشهر الجديد.
+        {singleMonth
+          ? 'اختر شهر الإيجار (مثلاً أبريل 2026) — الحالة تُحدَّد يدوياً وليس حسب تاريخ الدفع.'
+          : maxMonths === 2
+            ? 'اختر شهراً أو شهرين متتاليين (مثل مايو + يونيو) — يظهران مدفوعين بنفس القيد.'
+            : 'اختر شهراً أو عدة أشهر متتالية. عند اختيار غير متتالي يُعاد التحديد من الشهر الجديد.'}
       </p>
       <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
         {keys.map((key) => {
@@ -47,14 +63,24 @@ export function RentMonthPicker({
             <button
               key={key}
               type="button"
-              onClick={() => onChange(toggleMonthInSelection(selected, key))}
+              onClick={() =>
+                onChange(
+                  singleMonth
+                    ? selected.includes(key)
+                      ? []
+                      : [key]
+                    : maxMonths != null && maxMonths > 0
+                      ? toggleMonthInSelectionCapped(selected, key, maxMonths)
+                      : toggleMonthInSelection(selected, key),
+                )
+              }
               className={cn(
-                'rounded-lg border px-2 py-2 text-[11px] font-medium touch-manipulation transition-colors',
+                'rounded-lg px-2 py-2 text-[11px] touch-manipulation transition-colors',
                 statusClass,
                 isSelected && 'ring-2 ring-sage-600 ring-offset-1',
               )}
             >
-              {formatMonthLabelAr(key)}
+              <RentMonthLabel monthKey={key} layout="stacked" />
             </button>
           );
         })}

@@ -32,7 +32,9 @@ BEGIN
     'auth_role_may_write',
     'get_tenant_rent_calendar',
     'ensure_tenant_rent_charges',
-    'record_rent_payment'
+    'record_rent_payment',
+    'set_tenant_rent_month_status',
+    'ensure_tenant_lease_contract'
   ]
   LOOP
     IF NOT EXISTS (

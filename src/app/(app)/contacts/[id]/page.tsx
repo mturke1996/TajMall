@@ -53,7 +53,7 @@ import { toast } from 'sonner';
 import { RecordRentPaymentDialog } from '@/components/tenants/record-rent-payment-dialog';
 import { TenantRentHistory } from '@/components/tenants/tenant-rent-history';
 import { TenantProfileCharges } from '@/components/tenants/tenant-profile-charges';
-import { TenantRentYearOverview } from '@/components/tenants/tenant-rent-year-overview';
+import { TenantRentCalendarPanel } from '@/components/tenants/tenant-rent-calendar-panel';
 import { buildJournalEntriesForPdf } from '@/lib/journal-pdf';
 import type { JournalEntryRow } from '@/lib/db/journal-queries';
 import { getTenantStatus } from '@/components/tenants/tenant-status-config';
@@ -259,9 +259,12 @@ export default function ContactDetailPage() {
         </div>
 
         {isTenant && (
-          <TenantRentYearOverview
+          <TenantRentCalendarPanel
             tenantId={id}
+            tenantName={contact.name}
             monthlyRent={monthlyRent}
+            journalEntries={journalEntries}
+            journalsLoading={jeLoading}
           />
         )}
 
@@ -456,51 +459,58 @@ export default function ContactDetailPage() {
                 ) : (
                   <div className="space-y-2">
                     {journalEntries.map((je) => (
-                      <div
-                        key={je.id}
-                        className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-border px-3 py-2.5"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <FileText className="h-4 w-4 text-ink-mute shrink-0" />
-                          <div className="min-w-0">
-                            <p className="font-medium truncate">
-                              قيد #{je.number}
-                              {je.description ? ` — ${je.description}` : ''}
+                        <div
+                          key={je.id}
+                          className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-border px-3 py-2.5"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FileText className="h-4 w-4 text-ink-mute shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">
+                                قيد #{je.number}
+                                {je.description ? ` — ${je.description}` : ''}
+                              </p>
+                              <p className="text-xs text-ink-mute">
+                                {formatDate(je.entry_date)} ·{' '}
+                                {je.status === 'POSTED'
+                                  ? 'مرحل'
+                                  : je.status === 'DRAFT'
+                                    ? 'مسودة'
+                                    : 'معكوس'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <p className="font-medium text-sm tabular-nums">
+                              {formatMoney(Number(je.total_debit), 'LYD')}
                             </p>
-                            <p className="text-xs text-ink-mute">
-                              {formatDate(je.entry_date)} ·{' '}
-                              {je.status === 'POSTED'
-                                ? 'مرحل'
-                                : je.status === 'DRAFT'
-                                  ? 'مسودة'
-                                  : 'معكوس'}
-                            </p>
+                            <TajMallPdfToolbar
+                              fileName={`قيد-${je.number}`}
+                              render={async () => {
+                                const { JournalPDF } = await import(
+                                  '@/features/pdf/JournalPDF'
+                                );
+                                const entries = await buildJournalEntriesForPdf([
+                                  je as JournalEntryRow,
+                                ]);
+                                return (
+                                  <JournalPDF
+                                    entries={entries}
+                                    periodLabel={`القيد رقم ${je.number}`}
+                                  />
+                                );
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 text-xs"
+                              asChild
+                            >
+                              <Link href={`/journals?highlight=${je.id}`}>الدفتر</Link>
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <p className="font-medium text-sm tabular-nums">
-                            {formatMoney(Number(je.total_debit), 'LYD')}
-                          </p>
-                          <TajMallPdfToolbar
-                            fileName={`قيد-${je.number}`}
-                            render={async () => {
-                              const { JournalPDF } = await import('@/features/pdf/JournalPDF');
-                              const entries = await buildJournalEntriesForPdf([
-                                je as JournalEntryRow,
-                              ]);
-                              return (
-                                <JournalPDF
-                                  entries={entries}
-                                  periodLabel={`القيد رقم ${je.number}`}
-                                />
-                              );
-                            }}
-                          />
-                          <Button size="sm" variant="ghost" className="h-8 text-xs" asChild>
-                            <Link href={`/journals?highlight=${je.id}`}>الدفتر</Link>
-                          </Button>
-                        </div>
-                      </div>
                     ))}
                   </div>
                 )}

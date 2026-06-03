@@ -513,8 +513,13 @@ export type TenantRentSummary = {
   floor: string | null;
   monthly_rent: string | null;
   phone: string | null;
+  current_month_key?: string | null;
+  current_month_amount?: string | null;
   current_month_paid: string;
   current_month_status: "no_rent_set" | "paid_full" | "paid_partial" | "unpaid";
+  total_rent_paid?: string | null;
+  rent_linked_journals_count?: number | null;
+  journal_entries_count?: number | null;
   last_12_months_revenue: string;
   total_balance: string;
   open_charges_total?: string | null;
@@ -641,10 +646,21 @@ export function useRecordRentPayment() {
         payment_method: input.payment_method ?? 'CASH',
       });
       if (error) throw error;
-      return data as string; // returns transaction id
+      if (typeof data === 'string') {
+        return { transaction_id: data, journal_entry_id: null as string | null };
+      }
+      const row = data as {
+        transaction_id?: string;
+        journal_entry_id?: string | null;
+      };
+      return {
+        transaction_id: row.transaction_id ?? '',
+        journal_entry_id: row.journal_entry_id ?? null,
+      };
     },
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["journal_entries"] });
       qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
       qc.invalidateQueries({ queryKey: qk.cashboxBalances });
       qc.invalidateQueries({ queryKey: qk.dashboardStats });

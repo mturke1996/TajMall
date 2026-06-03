@@ -5,6 +5,7 @@ import {
   Clock,
   type LucideIcon,
 } from 'lucide-react';
+import { currentMonthNameAr } from '@/lib/rent-months';
 
 export type TenantRentStatusKey =
   | 'paid_full'
@@ -16,6 +17,7 @@ export const TENANT_STATUS_CONFIG: Record<
   TenantRentStatusKey,
   {
     label: string;
+    shortLabel: string;
     icon: LucideIcon;
     color: string;
     bg: string;
@@ -23,37 +25,52 @@ export const TENANT_STATUS_CONFIG: Record<
   }
 > = {
   paid_full: {
-    label: 'مسدد بالكامل',
+    label: 'مدفوع',
+    shortLabel: 'مدفوع',
     icon: CheckCircle2,
-    color: 'text-green-600',
-    bg: 'bg-green-50',
-    border: 'border-green-200',
+    color: 'text-emerald-800',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-300',
   },
   paid_partial: {
-    label: 'مسدد جزئياً',
+    label: 'جزئي',
+    shortLabel: 'جزئي',
     icon: Clock,
-    color: 'text-yellow-600',
-    bg: 'bg-yellow-50',
-    border: 'border-yellow-200',
+    color: 'text-amber-900',
+    bg: 'bg-amber-50',
+    border: 'border-amber-300',
   },
   unpaid: {
-    label: 'غير مسدد',
+    label: 'غير مدفوع',
+    shortLabel: 'غير مدفوع',
     icon: XCircle,
-    color: 'text-red-600',
+    color: 'text-red-800',
     bg: 'bg-red-50',
-    border: 'border-red-200',
+    border: 'border-red-300',
   },
   no_rent_set: {
-    label: 'لم يُحدد الإيجار',
+    label: 'بلا إيجار',
+    shortLabel: 'بلا إيجار',
     icon: AlertCircle,
-    color: 'text-gray-500',
-    bg: 'bg-gray-50',
-    border: 'border-gray-200',
+    color: 'text-slate-600',
+    bg: 'bg-slate-50',
+    border: 'border-slate-200',
   },
 };
+
+export { currentMonthNameAr };
 
 export function getTenantStatus(key: string | undefined) {
   return (
     TENANT_STATUS_CONFIG[key as TenantRentStatusKey] ?? TENANT_STATUS_CONFIG.no_rent_set
   );
+}
+
+export function getTenantRentStatusPresentation(key: string | undefined) {
+  return getTenantStatus(key);
+}
+
+/** مثال: يونيو · غير مدفوع */
+export function formatTenantCurrentMonthLine(key: string | undefined): string {
+  return `${currentMonthNameAr()} · ${getTenantStatus(key).shortLabel}`;
 }

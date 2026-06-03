@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Loader2, FileText } from 'lucide-react';
-import { useTenantCharges } from '@/lib/db/mall-queries';
+import { useTenantChargesForTenant } from '@/lib/db/mall-queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { chargeToInvoiceModel } from '@/lib/charge-invoice';
 import { cn, formatDate, formatMoney } from '@/lib/utils';
@@ -17,17 +17,16 @@ const STATUS_AR: Record<string, string> = {
 };
 
 export function TenantProfileCharges({ contact }: { contact: ContactRow }) {
-  const { data: allCharges = [], isLoading } = useTenantCharges();
+  const { data: allCharges = [], isLoading } = useTenantChargesForTenant(
+    contact.id,
+  );
   const year = currentYear();
 
   const charges = useMemo(() => {
     return allCharges
-      .filter((c) => c.contract?.tenant?.id === contact.id)
-      .filter((c) => {
-        const y = c.due_date?.slice(0, 4);
-        return y === String(year);
-      });
-  }, [allCharges, contact.id, year]);
+      .filter((c) => c.due_date?.slice(0, 4) === String(year))
+      .sort((a, b) => (a.due_date < b.due_date ? 1 : -1));
+  }, [allCharges, year]);
 
   if (isLoading) {
     return (

@@ -11,10 +11,10 @@ import { PdfMoneyText, pdfFmtNum } from './pdfBrandKit';
 import type { TenantRentSummary } from '@/lib/db/queries';
 
 const STATUS_AR: Record<string, string> = {
-  paid_full: 'مسدد بالكامل',
-  paid_partial: 'مسدد جزئياً',
-  unpaid: 'غير مسدد',
-  no_rent_set: 'لم يحدد الإيجار',
+  paid_full: 'مدفوع',
+  paid_partial: 'جزئي',
+  unpaid: 'غير مدفوع',
+  no_rent_set: 'بلا إيجار',
 };
 
 const col = StyleSheet.create({

@@ -292,8 +292,30 @@ export type TenantChargeRow = {
   updated_at: string;
 };
 
+export type TenantRentJournalLinkRow = {
+  id: string;
+  charge_id: string;
+  journal_entry_id: string;
+  amount: string | number;
+  created_at?: string;
+  journal?: {
+    id: string;
+    number: number;
+    entry_date: string;
+    description: string | null;
+  } | null;
+};
+
 export type TenantChargeWithRelations = TenantChargeRow & {
   contract?: LeaseContractWithRelations | null;
+  journal?: {
+    id: string;
+    number: number;
+    entry_date: string;
+    description: string | null;
+    status?: string;
+  } | null;
+  rent_journal_links?: TenantRentJournalLinkRow[] | null;
 };
 
 export type TenantChargeAllocationRow = {

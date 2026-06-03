@@ -7,6 +7,12 @@ export type RentMonthStatus =
   | 'no_charge'
   | 'na';
 
+export type RentMonthJournalLink = {
+  journal_entry_id: string;
+  journal_number: number | null;
+  amount: number;
+};
+
 export type RentCalendarMonth = {
   month: string;
   status: RentMonthStatus;
@@ -14,6 +20,9 @@ export type RentCalendarMonth = {
   paid: number;
   charge_id: string | null;
   description: string | null;
+  journal_entry_id?: string | null;
+  journal_number?: number | null;
+  journal_links?: RentMonthJournalLink[];
 };
 
 export type TenantRentCalendar = {
@@ -43,6 +52,18 @@ export function currentYear(): number {
   return new Date().getFullYear();
 }
 
+export function currentCalendarMonthIndex(): number {
+  return new Date().getMonth() + 1;
+}
+
+export function currentMonthKey(year = currentYear()): string {
+  return monthKey(year, currentCalendarMonthIndex());
+}
+
+export function currentMonthNameAr(): string {
+  return monthNameAr(currentMonthKey());
+}
+
 export function monthKey(year: number, monthIndex1to12: number): string {
   return `${year}-${String(monthIndex1to12).padStart(2, '0')}`;
 }
@@ -52,14 +73,49 @@ export function parseMonthKey(key: string): { year: number; month: number } {
   return { year: y, month: m };
 }
 
+export function monthNameAr(monthKeyStr: string): string {
+  const { month } = parseMonthKey(monthKeyStr);
+  return AR_MONTHS[month - 1] ?? monthKeyStr;
+}
+
+/** اسم الشهر وسنة منفصلان للعرض بألوان مختلفة */
+export function splitMonthLabelAr(monthKeyStr: string): {
+  name: string;
+  year: string;
+} {
+  const { year } = parseMonthKey(monthKeyStr);
+  return { name: monthNameAr(monthKeyStr), year: String(year) };
+}
+
 export function formatMonthLabelAr(monthKeyStr: string): string {
-  const { year, month } = parseMonthKey(monthKeyStr);
-  const name = AR_MONTHS[month - 1] ?? monthKeyStr;
+  const { name, year } = splitMonthLabelAr(monthKeyStr);
   return `${name} ${year}`;
 }
 
+/** لون نص اسم الشهر — محايد (ليس أخضر/أحمر الحالة) */
+export const RENT_MONTH_NAME_CLASS = 'text-sage-900';
+export const RENT_MONTH_YEAR_CLASS = 'text-sage-600';
+
+export const RENT_MONTH_STATUS_TEXT_CLASS: Record<RentMonthStatus, string> = {
+  paid: 'text-emerald-700',
+  partial: 'text-amber-700',
+  unpaid: 'text-red-700',
+  no_charge: 'text-slate-600',
+  na: 'text-ink-mute',
+};
+
 export function formatMonthsLabelAr(months: string[]): string {
   return months.map(formatMonthLabelAr).join('، ');
+}
+
+export function formatRentMonthPartialProgress(paid: number, amount: number): string {
+  if (amount <= 0) return '';
+  return `${paid.toLocaleString('ar-LY')} / ${amount.toLocaleString('ar-LY')} د.ل`;
+}
+
+/** كل شهور سنة (١–١٢) */
+export function yearMonthsAll(year: number): string[] {
+  return Array.from({ length: 12 }, (_, i) => monthKey(year, i + 1));
 }
 
 /** شهور السنة الحالية حتى الشهر الجاري */
@@ -96,6 +152,19 @@ export function toggleMonthInSelection(selected: string[], month: string): strin
   return next;
 }
 
+/** اختيار أشهر متتالية مع حد أقصى (مثلاً شهرين) — كتسجيل الإيراد */
+export function toggleMonthInSelectionCapped(
+  selected: string[],
+  month: string,
+  maxMonths: number,
+): string[] {
+  let next = toggleMonthInSelection(selected, month);
+  if (maxMonths > 0 && next.length > maxMonths) {
+    next = [...next].sort().slice(-maxMonths);
+  }
+  return next;
+}
+
 export const RENT_MONTH_STATUS_LABEL: Record<RentMonthStatus, string> = {
   paid: 'مدفوع',
   partial: 'جزئي',
@@ -104,10 +173,30 @@ export const RENT_MONTH_STATUS_LABEL: Record<RentMonthStatus, string> = {
   na: '—',
 };
 
+/** إطار الخلية فقط — نص الشهر يُلوَّن عبر RENT_MONTH_NAME_CLASS */
 export const RENT_MONTH_STATUS_CLASS: Record<RentMonthStatus, string> = {
-  paid: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  partial: 'bg-amber-100 text-amber-900 border-amber-200',
-  unpaid: 'bg-red-50 text-red-800 border-red-200',
-  no_charge: 'bg-slate-100 text-slate-700 border-slate-200',
-  na: 'bg-canvas-sunken text-ink-mute border-border',
+  paid: 'bg-white border-2 border-emerald-400/80',
+  partial: 'bg-white border-2 border-amber-400/80',
+  unpaid: 'bg-white border-2 border-red-400/80',
+  no_charge: 'bg-white border-2 border-slate-300',
+  na: 'bg-canvas-sunken border border-border',
+};
+
+export const RENT_MONTH_CELL_FRAME: Record<RentMonthStatus, string> = {
+  paid: 'bg-white border-2 border-emerald-500 shadow-sm',
+  partial: 'bg-white border-2 border-amber-500 shadow-sm',
+  unpaid: 'bg-white border-2 border-red-500 shadow-sm',
+  no_charge: 'bg-white border-2 border-slate-400',
+  na: 'bg-canvas-sunken border border-border',
+};
+
+/** مربع صغير في وسيلة الإيضاح */
+export const RENT_MONTH_LEGEND_SWATCH: Record<
+  Exclude<RentMonthStatus, 'na'>,
+  string
+> = {
+  paid: 'bg-white border-2 border-emerald-500',
+  partial: 'bg-white border-2 border-amber-500',
+  unpaid: 'bg-white border-2 border-red-500',
+  no_charge: 'bg-white border-2 border-slate-400',
 };

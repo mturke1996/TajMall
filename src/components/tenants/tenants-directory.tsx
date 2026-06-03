@@ -5,8 +5,6 @@ import {
   Building2,
   Search,
   Loader2,
-  DollarSign,
-  Phone,
   Plus,
   ChevronLeft,
 } from 'lucide-react';
@@ -15,7 +13,15 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { cn, formatMoney } from '@/lib/utils';
 import type { TenantRentSummary } from '@/lib/db/queries';
-import { TENANT_STATUS_CONFIG, getTenantStatus } from './tenant-status-config';
+import {
+  TENANT_STATUS_CONFIG,
+  currentMonthNameAr,
+  type TenantRentStatusKey,
+} from './tenant-status-config';
+import {
+  TenantCurrentMonthBadge,
+  TenantRentListStats,
+} from './tenant-rent-list-meta';
 import {
   MobilePageActionBar,
   MOBILE_PAGE_ACTION_PADDING,
@@ -37,7 +43,6 @@ export type TenantsDirectoryProps = {
     expectedTotal: number;
     collectedTotal: number;
   };
-  onRecordPayment?: (tenant: TenantRentSummary) => void;
   onAddTenant?: () => void;
 };
 
@@ -75,33 +80,36 @@ export function TenantsDirectory({
   statusFilter,
   onStatusFilterChange,
   stats,
-  onRecordPayment,
   onAddTenant,
 }: TenantsDirectoryProps) {
+  const monthName = currentMonthNameAr();
+
   const filterChips = [
     { key: 'ALL', label: 'الكل', count: stats.total },
-    ...Object.entries(TENANT_STATUS_CONFIG).map(([key, cfg]) => ({
-      key,
-      label: cfg.label,
-      count:
-        key === 'paid_full'
-          ? stats.paid
-          : key === 'paid_partial'
-            ? stats.partial
-            : key === 'unpaid'
-              ? stats.unpaid
-              : tenants.filter((t) => t.current_month_status === key).length,
-      icon: cfg.icon,
-    })),
+    ...(Object.entries(TENANT_STATUS_CONFIG) as [TenantRentStatusKey, (typeof TENANT_STATUS_CONFIG)[TenantRentStatusKey]][]).map(
+      ([key, cfg]) => ({
+        key,
+        label: `${monthName} — ${cfg.shortLabel}`,
+        count:
+          key === 'paid_full'
+            ? stats.paid
+            : key === 'paid_partial'
+              ? stats.partial
+              : key === 'unpaid'
+                ? stats.unpaid
+                : tenants.filter((t) => t.current_month_status === key).length,
+        icon: cfg.icon,
+      }),
+    ),
   ];
 
   return (
     <div className={cn('flex flex-col gap-4 md:gap-6', MOBILE_PAGE_ACTION_PADDING)}>
-      {/* إحصائيات — تمرير على الجوال */}
       <div className="-mx-4 px-4 md:mx-0 md:px-0">
         <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-4 md:overflow-visible">
           {filterChips.slice(1, 4).map((chip) => {
-            const cfg = TENANT_STATUS_CONFIG[chip.key as keyof typeof TENANT_STATUS_CONFIG];
+            const cfg =
+              TENANT_STATUS_CONFIG[chip.key as TenantRentStatusKey];
             const Icon = cfg.icon;
             return (
               <button
@@ -109,7 +117,7 @@ export function TenantsDirectory({
                 type="button"
                 onClick={() => onStatusFilterChange(chip.key)}
                 className={cn(
-                  'flex min-w-[8.5rem] shrink-0 snap-center flex-col gap-1 rounded-xl border p-3 text-right sm:min-w-0 sm:flex-row sm:items-center sm:gap-3',
+                  'flex min-w-[9.5rem] shrink-0 snap-center flex-col gap-1 rounded-xl border p-3 text-right sm:min-w-0 sm:flex-row sm:items-center sm:gap-3',
                   statusFilter === chip.key
                     ? 'border-sage-600 bg-sage-50 ring-1 ring-sage-600/20'
                     : 'border-border bg-card',
@@ -119,7 +127,12 @@ export function TenantsDirectory({
               >
                 <Icon className={cn('h-5 w-5', cfg.color)} />
                 <div>
-                  <p className="text-[11px] text-ink-mute">{chip.label}</p>
+                  <p className="text-[11px] text-ink-mute leading-tight">
+                    {monthName}
+                  </p>
+                  <p className={cn('text-sm font-bold', cfg.color)}>
+                    {cfg.shortLabel}
+                  </p>
                   <p className={cn('text-lg font-bold tabular-nums', cfg.color)}>
                     {chip.count}
                   </p>
@@ -128,18 +141,17 @@ export function TenantsDirectory({
             );
           })}
           <div className="flex min-w-[10rem] shrink-0 snap-center flex-col justify-center rounded-xl border border-sage-200 bg-sage-50 p-3 sm:min-w-0">
-            <p className="text-[11px] text-ink-mute">تحصيل الشهر</p>
-            <p className="text-sm font-bold text-sage-800 leading-snug">
+            <p className="text-[11px] text-ink-mute">تحصيل {monthName}</p>
+            <p className="text-sm font-bold text-sage-800 leading-snug tabular-nums">
               {formatMoney(stats.collectedTotal, 'LYD')}
             </p>
-            <p className="text-[10px] text-ink-mute">
+            <p className="text-[10px] text-ink-mute tabular-nums">
               من {formatMoney(stats.expectedTotal, 'LYD')}
             </p>
           </div>
         </div>
       </div>
 
-      {/* بحث وفلاتر */}
       <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur-md md:static md:mx-0 md:z-auto md:border-0 md:bg-transparent md:px-0 md:py-0">
         <div className="relative">
           <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
@@ -160,7 +172,9 @@ export function TenantsDirectory({
                 onClick={() => onStatusFilterChange(chip.key)}
               >
                 {Icon && <Icon className="h-3.5 w-3.5" />}
-                {chip.key === 'ALL' ? chip.label : chip.label.split(' ')[0]}
+                <span className="max-w-[8rem] truncate sm:max-w-none">
+                  {chip.key === 'ALL' ? chip.label : chip.label}
+                </span>
                 <span
                   className={cn(
                     'rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
@@ -177,7 +191,7 @@ export function TenantsDirectory({
 
       {!isLoading && (
         <p className="text-[12px] text-ink-mute">
-          {filteredTenants.length} مستأجر
+          {filteredTenants.length} مستأجر · شهر {monthName}
         </p>
       )}
 
@@ -198,180 +212,40 @@ export function TenantsDirectory({
         </Card>
       ) : (
         <>
-          {/* جدول — كمبيوتر */}
           <div className="hidden lg:block overflow-hidden rounded-xl border border-border bg-card">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-canvas-sunken/80 text-right text-[12px] text-ink-mute">
                   <th className="px-4 py-3 font-semibold">المستأجر</th>
-                  <th className="px-4 py-3 font-semibold">الحالة</th>
-                  <th className="px-4 py-3 font-semibold">الإيجار</th>
-                  <th className="px-4 py-3 font-semibold">المسدد</th>
-                  <th className="px-4 py-3 font-semibold">المتبقي</th>
-                  <th className="px-4 py-3 font-semibold w-[200px]">إجراءات</th>
+                  <th className="px-4 py-3 font-semibold">شهرنا ({monthName})</th>
+                  <th className="px-4 py-3 font-semibold">إيجار</th>
+                  <th className="px-4 py-3 font-semibold">القيود</th>
+                  <th className="px-4 py-3 font-semibold">إجمالي المسدد</th>
+                  <th className="px-4 py-3 font-semibold w-[180px]">إجراءات</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredTenants.map((tenant, i) => {
-                  const status = getTenantStatus(tenant.current_month_status);
-                  const StatusIcon = status.icon;
-                  const rent = Number(tenant.monthly_rent) || 0;
-                  const paid = Number(tenant.current_month_paid) || 0;
-                  const remaining = Math.max(0, rent - paid);
-                  return (
-                    <tr
-                      key={tenant.id}
-                      className={cn(
-                        'border-b border-border/60',
-                        i % 2 === 1 && 'bg-canvas-sunken/20',
-                        tenant.current_month_status === 'unpaid' && 'bg-red-50/30',
-                      )}
-                    >
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/contacts/${tenant.id}`}
-                          className="font-medium hover:text-sage-700 hover:underline"
-                        >
-                          {tenant.name}
-                        </Link>
-                        <p className="text-xs text-ink-mute">
-                          {tenant.shop_number ? `محل ${tenant.shop_number}` : '—'}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={cn(
-                            'inline-flex items-center gap-1 text-xs font-medium',
-                            status.color,
-                          )}
-                        >
-                          <StatusIcon className="h-3.5 w-3.5" />
-                          {status.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 tabular-nums">
-                        {rent > 0 ? formatMoney(rent, 'LYD') : '—'}
-                      </td>
-                      <td className="px-4 py-3 tabular-nums text-green-600">
-                        {formatMoney(paid, 'LYD')}
-                      </td>
-                      <td className="px-4 py-3 tabular-nums text-red-600">
-                        {remaining > 0 ? formatMoney(remaining, 'LYD') : '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1">
-                          {onRecordPayment && (
-                            <Button
-                              size="sm"
-                              disabled={rent === 0}
-                              onClick={() => onRecordPayment(tenant)}
-                            >
-                              دفع
-                            </Button>
-                          )}
-                          <Button size="sm" variant="outline" asChild>
-                            <Link href={`/contacts/${tenant.id}`}>الملف</Link>
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {filteredTenants.map((tenant, i) => (
+                  <TenantTableRow
+                    key={tenant.id}
+                    tenant={tenant}
+                    striped={i % 2 === 1}
+                  />
+                ))}
               </tbody>
             </table>
           </div>
 
-          {/* بطاقات — تابلت */}
           <div className="hidden sm:grid lg:hidden gap-3 sm:grid-cols-2">
             {filteredTenants.map((tenant) => (
-              <TenantCard
-                key={tenant.id}
-                tenant={tenant}
-                onRecordPayment={onRecordPayment}
-              />
+              <TenantCard key={tenant.id} tenant={tenant} />
             ))}
           </div>
 
-          {/* قائمة — جوال */}
           <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border sm:hidden">
-            {filteredTenants.map((tenant) => {
-              const status = getTenantStatus(tenant.current_month_status);
-              const StatusIcon = status.icon;
-              const rent = Number(tenant.monthly_rent) || 0;
-              const paid = Number(tenant.current_month_paid) || 0;
-              const remaining = Math.max(0, rent - paid);
-              return (
-                <li key={tenant.id} className="bg-card">
-                  <Link
-                    href={`/contacts/${tenant.id}`}
-                    className="flex min-h-[72px] items-center gap-3 px-3 py-3.5 active:bg-secondary/50 touch-manipulation"
-                  >
-                    <div
-                      className={cn(
-                        'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl',
-                        status.bg,
-                      )}
-                    >
-                      <StatusIcon className={cn('h-6 w-6', status.color)} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-[15px] truncate">{tenant.name}</p>
-                      <p className="mt-0.5 text-[13px] text-ink-mute line-clamp-1">
-                        {tenant.shop_number ? `محل ${tenant.shop_number}` : '—'}
-                        {tenant.phone && (
-                          <span className="mr-1" dir="ltr">
-                            · {tenant.phone}
-                          </span>
-                        )}
-                      </p>
-                      {rent > 0 && (
-                        <p className="mt-1 text-[12px] tabular-nums">
-                          <span className="text-green-600">{formatMoney(paid, 'LYD')}</span>
-                          <span className="text-ink-mute"> / {formatMoney(rent, 'LYD')}</span>
-                          {remaining > 0 && (
-                            <span className="text-red-600 mr-1">
-                              · متبقي {formatMoney(remaining, 'LYD')}
-                            </span>
-                          )}
-                        </p>
-                      )}
-                      <span
-                        className={cn(
-                          'mt-1.5 inline-block text-[10px] font-medium',
-                          status.color,
-                        )}
-                      >
-                        {status.label}
-                      </span>
-                    </div>
-                    <ChevronLeft className="h-5 w-5 shrink-0 text-ink-mute" aria-hidden />
-                  </Link>
-                  <div className="flex border-t border-border divide-x divide-border rtl:divide-x-reverse">
-                    {onRecordPayment ? (
-                      <Button
-                        variant="ghost"
-                        className="h-11 flex-1 rounded-none gap-1.5 text-[13px] touch-manipulation"
-                        disabled={rent === 0}
-                        onClick={() => onRecordPayment(tenant)}
-                      >
-                        <Plus className="h-4 w-4" />
-                        دفع إيجار
-                      </Button>
-                    ) : null}
-                    <Button
-                      variant="ghost"
-                      className={cn(
-                        'h-11 rounded-none gap-1.5 text-[13px] touch-manipulation',
-                        onRecordPayment ? 'flex-1' : 'w-full',
-                      )}
-                      asChild
-                    >
-                      <Link href={`/contacts/${tenant.id}`}>الملف</Link>
-                    </Button>
-                  </div>
-                </li>
-              );
-            })}
+            {filteredTenants.map((tenant) => (
+              <TenantMobileRow key={tenant.id} tenant={tenant} />
+            ))}
           </ul>
         </>
       )}
@@ -391,37 +265,77 @@ export function TenantsDirectory({
   );
 }
 
-function TenantCard({
+function journalCount(tenant: TenantRentSummary): number {
+  return (
+    Number(tenant.rent_linked_journals_count) ||
+    Number(tenant.journal_entries_count) ||
+    0
+  );
+}
+
+function TenantTableRow({
   tenant,
-  onRecordPayment,
+  striped,
 }: {
   tenant: TenantRentSummary;
-  onRecordPayment?: (t: TenantRentSummary) => void;
+  striped: boolean;
 }) {
-  const status = getTenantStatus(tenant.current_month_status);
-  const StatusIcon = status.icon;
-  const rent = Number(tenant.monthly_rent) || 0;
+  const rent =
+    Number(tenant.current_month_amount) || Number(tenant.monthly_rent) || 0;
   const paid = Number(tenant.current_month_paid) || 0;
-  const remaining = Math.max(0, rent - paid);
+  const totalPaid = Number(tenant.total_rent_paid) || paid;
+  const journals = journalCount(tenant);
 
+  return (
+    <tr
+      className={cn(
+        'border-b border-border/60',
+        striped && 'bg-canvas-sunken/20',
+        tenant.current_month_status === 'unpaid' && 'bg-red-50/25',
+        tenant.current_month_status === 'paid_partial' && 'bg-amber-50/20',
+      )}
+    >
+      <td className="px-4 py-3">
+        <Link
+          href={`/contacts/${tenant.id}`}
+          className="font-medium hover:text-sage-700 hover:underline"
+        >
+          {tenant.name}
+        </Link>
+        <p className="text-xs text-ink-mute">
+          {tenant.shop_number ? `محل ${tenant.shop_number}` : '—'}
+        </p>
+      </td>
+      <td className="px-4 py-3">
+        <TenantCurrentMonthBadge tenant={tenant} />
+      </td>
+      <td className="px-4 py-3 tabular-nums font-medium">
+        {rent > 0 ? formatMoney(rent, 'LYD') : '—'}
+      </td>
+      <td className="px-4 py-3 tabular-nums font-medium text-sage-800">
+        {journals}
+      </td>
+      <td className="px-4 py-3 tabular-nums">{formatMoney(totalPaid, 'LYD')}</td>
+      <td className="px-4 py-3">
+        <Button size="sm" variant="outline" asChild>
+          <Link href={`/contacts/${tenant.id}`}>الملف</Link>
+        </Button>
+      </td>
+    </tr>
+  );
+}
+
+function TenantCard({ tenant }: { tenant: TenantRentSummary }) {
   return (
     <Card
       className={cn(
         'overflow-hidden',
-        tenant.current_month_status === 'unpaid' && 'border-red-300',
+        tenant.current_month_status === 'unpaid' && 'border-red-300/80',
+        tenant.current_month_status === 'paid_partial' && 'border-amber-300/80',
       )}
     >
-      <div
-        className={cn(
-          'px-4 py-2 border-b flex items-center justify-between',
-          status.bg,
-          status.border,
-        )}
-      >
-        <div className="flex items-center gap-2">
-          <StatusIcon className={cn('h-4 w-4', status.color)} />
-          <span className={cn('text-sm font-medium', status.color)}>{status.label}</span>
-        </div>
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
+        <TenantCurrentMonthBadge tenant={tenant} />
       </div>
       <div className="p-4">
         <Link href={`/contacts/${tenant.id}`} className="block group">
@@ -430,58 +344,43 @@ function TenantCard({
             {tenant.shop_number ? `محل ${tenant.shop_number}` : '—'}
           </p>
         </Link>
-        <div className="mt-3 space-y-1 text-sm">
-          <div className="flex justify-between">
-            <span className="text-ink-mute">الإيجار</span>
-            <span>{rent > 0 ? formatMoney(rent, 'LYD') : '—'}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-ink-mute">المسدد</span>
-            <span className="text-green-600">{formatMoney(paid, 'LYD')}</span>
-          </div>
-          {Number(tenant.open_charges_count) > 0 && (
-            <div className="flex justify-between">
-              <span className="text-ink-mute">مطالبات مفتوحة</span>
-              <span className="text-red-700 font-medium">
-                {tenant.open_charges_count} ({formatMoney(Number(tenant.open_charges_total ?? 0), 'LYD')})
-              </span>
-            </div>
-          )}
-          {remaining > 0 && (
-            <div className="flex justify-between">
-              <span className="text-ink-mute">المتبقي</span>
-              <span className="text-red-600">{formatMoney(remaining, 'LYD')}</span>
-            </div>
-          )}
-          {tenant.phone && (
-            <p className="flex items-center gap-1 text-ink-mute pt-1">
-              <Phone className="h-3.5 w-3.5" />
-              {tenant.phone}
-            </p>
-          )}
+        <div className="mt-3">
+          <TenantRentListStats tenant={tenant} />
         </div>
-        <div className="mt-3 flex gap-2">
-          {onRecordPayment && (
-            <Button
-              size="sm"
-              className="flex-1"
-              disabled={rent === 0}
-              onClick={() => onRecordPayment(tenant)}
-            >
-              <DollarSign className="h-4 w-4 ml-1" />
-              دفع
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            className={onRecordPayment ? 'flex-1' : 'w-full'}
-            asChild
-          >
+        <div className="mt-3">
+          <Button size="sm" variant="outline" className="w-full" asChild>
             <Link href={`/contacts/${tenant.id}`}>الملف</Link>
           </Button>
         </div>
       </div>
     </Card>
+  );
+}
+
+function TenantMobileRow({ tenant }: { tenant: TenantRentSummary }) {
+  return (
+    <li className="bg-card">
+      <Link
+        href={`/contacts/${tenant.id}`}
+        className="flex min-h-[80px] items-start gap-3 px-3 py-3.5 active:bg-secondary/50 touch-manipulation"
+      >
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <p className="font-semibold text-[15px] truncate">{tenant.name}</p>
+            <TenantCurrentMonthBadge tenant={tenant} className="shrink-0" />
+          </div>
+          <p className="text-[13px] text-ink-mute line-clamp-1">
+            {tenant.shop_number ? `محل ${tenant.shop_number}` : '—'}
+            {tenant.phone && (
+              <span className="mr-1" dir="ltr">
+                · {tenant.phone}
+              </span>
+            )}
+          </p>
+          <TenantRentListStats tenant={tenant} compact />
+        </div>
+        <ChevronLeft className="h-5 w-5 shrink-0 text-ink-mute mt-1" aria-hidden />
+      </Link>
+    </li>
   );
 }
