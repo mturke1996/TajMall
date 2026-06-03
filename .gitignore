@@ -14,6 +14,7 @@ dist
 coverage
 
 # misc
+scratch/
 .DS_Store
 *.pem
 

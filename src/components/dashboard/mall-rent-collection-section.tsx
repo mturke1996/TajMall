@@ -24,7 +24,7 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -183,7 +183,7 @@ function PeriodBlock({
 export function MallRentCollectionSection({
   itemVariants,
 }: {
-  itemVariants?: { hidden: object; visible: object };
+  itemVariants?: Variants;
 }) {
   const year = getMallRentDashboardYear();
   const { data: charges = [], isLoading: chargesLoading } =

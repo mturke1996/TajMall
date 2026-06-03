@@ -1,6 +1,6 @@
 -- ============================================================
 -- تحقق سريع: هل قاعدة البيانات جاهزة للمحاسبة والمول؟
--- شغّل في Supabase SQL Editor بعد تطبيق الهجرات 007→021
+-- شغّل في Supabase SQL Editor بعد تطبيق الهجرات 007→038
 -- ============================================================
 
 DO $$
@@ -34,7 +34,11 @@ BEGIN
     'ensure_tenant_rent_charges',
     'record_rent_payment',
     'set_tenant_rent_month_status',
-    'ensure_tenant_lease_contract'
+    'ensure_tenant_lease_contract',
+    'recalc_tenant_charge_rent_paid',
+    'purge_rent_links_for_journal',
+    'reverse_journal_entry',
+    'dedupe_rent_charges_data'
   ]
   LOOP
     IF NOT EXISTS (
@@ -51,6 +55,7 @@ BEGIN
     'journal_lines',
     'tenant_charges',
     'tenant_charge_allocations',
+    'tenant_rent_journal_links',
     'fiscal_periods',
     'app_notifications',
     'disbursement_vouchers',

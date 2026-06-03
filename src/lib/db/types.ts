@@ -303,6 +303,7 @@ export type TenantRentJournalLinkRow = {
     number: number;
     entry_date: string;
     description: string | null;
+    status?: 'DRAFT' | 'POSTED' | 'REVERSED' | string;
   } | null;
 };
 

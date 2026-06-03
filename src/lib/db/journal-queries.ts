@@ -77,6 +77,9 @@ function invalidateJournalCaches(qc: ReturnType<typeof useQueryClient>, journalI
   qc.invalidateQueries({ queryKey: ['transactions'] });
   qc.invalidateQueries({ queryKey: ['cashbox_balances'] });
   qc.invalidateQueries({ queryKey: ['monthly_summary'] });
+  qc.invalidateQueries({ queryKey: ['tenant_rent_summary'] });
+  qc.invalidateQueries({ queryKey: ['tenant_rent_calendar'] });
+  qc.invalidateQueries({ queryKey: ['audit_log_feed'] });
   if (journalId) {
     qc.invalidateQueries({ queryKey: qk.journalEntry(journalId) });
     qc.invalidateQueries({ queryKey: qk.journalLines(journalId) });
