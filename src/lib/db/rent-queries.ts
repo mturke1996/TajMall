@@ -94,6 +94,7 @@ export function invalidateRentCalendarQueries(
     predicate: (q) => q.queryKey[0] === 'tenant_rent_calendar',
   });
   qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
+  qc.invalidateQueries({ queryKey: ['mall_rent_charges_year'] });
   for (const month of months) {
     const y = Number(month.slice(0, 4));
     if (!Number.isNaN(y)) {

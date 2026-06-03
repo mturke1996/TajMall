@@ -33,11 +33,40 @@ export function chargeBelongsToTenant(
   return tid === tenantId;
 }
 
+function activeRentJournalLinks(charge: TenantChargeWithRelations) {
+  return (charge.rent_journal_links ?? []).filter(
+    (l) =>
+      l.journal?.status !== 'REVERSED' &&
+      (l.journal?.status === 'POSTED' || l.journal?.status === 'DRAFT'),
+  );
+}
+
+/** مبلغ مسدّد فعلياً — يستبعد قيوداً معكوسة أو محذوفة من الربط */
+export function effectiveRentPaidOnCharge(
+  charge: TenantChargeWithRelations,
+): number {
+  const amount = Number(charge.amount) || 0;
+  if (charge.journal?.status === 'REVERSED') {
+    return 0;
+  }
+
+  const links = charge.rent_journal_links ?? [];
+  if (links.length > 0) {
+    const fromLinks = activeRentJournalLinks(charge).reduce(
+      (sum, l) => sum + (Number(l.amount) || 0),
+      0,
+    );
+    return Math.min(Math.max(fromLinks, 0), amount);
+  }
+
+  return Math.min(Math.max(Number(charge.total_paid) || 0, 0), amount);
+}
+
 function monthStatusFromCharge(charge: TenantChargeWithRelations): RentMonthStatus {
   const amount = Number(charge.amount) || 0;
-  const paid = Number(charge.total_paid) || 0;
-  if (charge.status === 'PAID' || (amount > 0 && paid >= amount)) return 'paid';
-  if (paid > 0 || charge.status === 'PARTIAL') return 'partial';
+  const paid = effectiveRentPaidOnCharge(charge);
+  if (amount > 0 && paid >= amount) return 'paid';
+  if (paid > 0) return 'partial';
   return 'unpaid';
 }
 
@@ -106,8 +135,8 @@ export function buildRentCalendarFromCharges(
 
     if (charge) {
       const amount = Number(charge.amount) || 0;
-      const paid = Number(charge.total_paid) || 0;
-      const journal_links = (charge.rent_journal_links ?? []).map((l) => ({
+      const paid = effectiveRentPaidOnCharge(charge);
+      const journal_links = activeRentJournalLinks(charge).map((l) => ({
         journal_entry_id: l.journal_entry_id,
         journal_number: l.journal?.number ?? null,
         amount: Number(l.amount) || 0,

@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn, formatMoney } from '@/lib/utils';
 import { useContacts, useTenantRentSummary } from '@/lib/db/queries';
+import { aggregateMallRentKpis } from '@/lib/mall-rent-kpis';
 import { useLeaseContracts, useTenantCharges } from '@/lib/db/mall-queries';
 import type { MallTab } from '@/lib/mall/routes';
 import { mallTabHref, peopleSegmentHref } from '@/lib/mall/routes';
@@ -69,8 +70,7 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
     (s, t) => s + Number(t.open_charges_count ?? 0),
     0,
   );
-  const collected = tenants.reduce((s, t) => s + Number(t.current_month_paid), 0);
-  const expected = tenants.reduce((s, t) => s + (Number(t.monthly_rent) || 0), 0);
+  const rentKpis = aggregateMallRentKpis(tenants);
 
   const alerts: { text: string; tab: MallTab }[] = [];
   if (unpaidTenants > 0) {
@@ -100,12 +100,15 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
           <p className="text-xl font-bold tabular-nums md:text-2xl">{activeContracts}</p>
         </Card>
         <Card className="p-3 md:p-4 border-sage-200 bg-sage-50/50">
-          <p className="text-[11px] text-ink-mute md:text-xs">تحصيل الشهر</p>
+          <p className="text-[11px] text-ink-mute md:text-xs">
+            {rentKpis.basis === 'charges' ? 'تحصيل الإيجار' : 'تحصيل الشهر'}
+          </p>
           <p className="text-base font-bold text-sage-800 tabular-nums md:text-lg">
-            {formatMoney(collected, 'LYD')}
+            {rentKpis.collectionRate.toFixed(1)}%
           </p>
           <p className="text-[10px] text-ink-mute">
-            من {formatMoney(expected, 'LYD')}
+            {formatMoney(rentKpis.collectedRent, 'LYD')} من{' '}
+            {formatMoney(rentKpis.expectedRent, 'LYD')}
           </p>
         </Card>
         <Card className="p-3 md:p-4">

@@ -666,6 +666,7 @@ export function useRecordRentPayment() {
       qc.invalidateQueries({ queryKey: qk.dashboardStats });
       qc.invalidateQueries({ queryKey: qk.monthlySummary });
       qc.invalidateQueries({ queryKey: ["tenant_charges"] });
+      qc.invalidateQueries({ queryKey: ["mall_rent_charges_year"] });
       qc.invalidateQueries({
         queryKey: ["tenant_rent_calendar", variables.tenant_id],
       });
@@ -886,6 +887,7 @@ export function useCreateTransaction() {
       qc.invalidateQueries({ queryKey: qk.cashboxBalances });
       qc.invalidateQueries({ queryKey: qk.dashboardStats });
       qc.invalidateQueries({ queryKey: ["tenant_charges"] });
+      qc.invalidateQueries({ queryKey: ["mall_rent_charges_year"] });
       qc.invalidateQueries({ queryKey: ["tenant_ar_aging"] });
       qc.invalidateQueries({ queryKey: ["tenant_rent_calendar"] });
       qc.invalidateQueries({ queryKey: qk.tenantRentSummary });

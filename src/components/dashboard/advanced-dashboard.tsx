@@ -17,8 +17,6 @@ import {
   CreditCard,
   Landmark,
   Sparkles,
-  CheckCircle2,
-  AlertCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -41,7 +39,6 @@ import {
   useMonthlySummary,
   useRecentTransactions,
   useCashboxBalances,
-  useTenantRentSummary,
 } from '@/lib/db/queries';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -50,6 +47,7 @@ import { cn, formatMoney, formatDateRelative } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { useTxDialog } from '@/stores/transaction-dialog';
 import { DashboardNewFeatures } from '@/components/dashboard/dashboard-new-features';
+import { MallRentCollectionSection } from '@/components/dashboard/mall-rent-collection-section';
 
 // Animation variants
 const containerVariants = {
@@ -136,7 +134,6 @@ export function AdvancedDashboard() {
   const { data: monthlyData = [], isLoading: monthlyLoading } = useMonthlySummary();
   const { data: recentTransactions = [], isLoading: txLoading } = useRecentTransactions(6);
   const { data: cashboxes = [], isLoading: cashboxLoading } = useCashboxBalances();
-  const { data: tenants = [], isLoading: tenantsLoading } = useTenantRentSummary();
 
   const s = stats ?? {
     totalRevenue: 0,
@@ -146,17 +143,6 @@ export function AdvancedDashboard() {
     monthlySeries: [],
     topExpenseCategories: [],
   };
-
-  const tenantStats = useMemo(() => {
-    const totalTenants = tenants.length;
-    const expectedRent = tenants.reduce((sum, t) => sum + (Number(t.monthly_rent) || 0), 0);
-    const collectedRent = tenants.reduce((sum, t) => sum + Number(t.current_month_paid), 0);
-    const outstandingRent = Math.max(0, expectedRent - collectedRent);
-    const collectionRate = expectedRent > 0 ? (collectedRent / expectedRent) * 105 : 0; // Wait, collection rate calculation
-    // Actually expectedRent can be 0, so let's check
-    const rate = expectedRent > 0 ? (collectedRent / expectedRent) * 100 : 0;
-    return { totalTenants, expectedRent, collectedRent, outstandingRent, collectionRate: rate };
-  }, [tenants]);
 
   const currentMonth = monthlyData[0];
   const prevMonth = monthlyData[1];
@@ -324,50 +310,7 @@ export function AdvancedDashboard() {
           })}
         </motion.div>
 
-        {/* ── Mall Rental & Collection KPIs Row ─────────────────── */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-            <Building2 className="h-4.5 w-4.5 text-sage-600" />
-            مؤشرات الإيجار والتحصيل للمول
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-            <motion.div variants={itemVariants}>
-              <StatCard
-                title="المحلات المؤجرة"
-                value={tenantStats.totalTenants}
-                icon={Building2}
-                subtitle="إجمالي عقود الإيجار النشطة"
-                color="blue"
-                isLoading={tenantsLoading}
-                formatType="number"
-              />
-            </motion.div>
-
-            <motion.div variants={itemVariants}>
-              <StatCard
-                title="معدل التحصيل"
-                value={tenantStats.collectionRate}
-                icon={TrendingUp}
-                subtitle={`تحصيل ${formatMoney(tenantStats.collectedRent, 'LYD', { compact: true })} من ${formatMoney(tenantStats.expectedRent, 'LYD', { compact: true })}`}
-                color="emerald"
-                isLoading={tenantsLoading}
-                formatType="percentage"
-              />
-            </motion.div>
-
-            <motion.div variants={itemVariants}>
-              <StatCard
-                title="المستحقات المتأخرة"
-                value={tenantStats.outstandingRent}
-                icon={AlertCircle}
-                subtitle="إجمالي الإيجارات غير المحصلة"
-                color="rose"
-                isLoading={tenantsLoading}
-                formatType="money"
-              />
-            </motion.div>
-          </div>
-        </div>
+        <MallRentCollectionSection itemVariants={itemVariants} />
 
         {/* ── Charts Row ────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">

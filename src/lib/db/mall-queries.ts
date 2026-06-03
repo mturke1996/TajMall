@@ -362,7 +362,7 @@ const TENANT_CHARGE_SELECT = `
     id,
     amount,
     journal_entry_id,
-    journal:journal_entries(id, number, entry_date, description)
+    journal:journal_entries(id, number, entry_date, description, status)
   )
 `;
 
@@ -417,6 +417,7 @@ export function useCreateTenantCharge() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tenant_charges'] });
+      qc.invalidateQueries({ queryKey: ['mall_rent_charges_year'] });
       qc.invalidateQueries({ queryKey: ['journal_entries'] });
       toast.success('تم تسجيل المطالبة المالية بنجاح وصبها بالدفتر اليومي');
     },
@@ -482,6 +483,7 @@ export function useGenerateMonthlyCharges() {
     },
     onSuccess: (count) => {
       qc.invalidateQueries({ queryKey: ['tenant_charges'] });
+      qc.invalidateQueries({ queryKey: ['mall_rent_charges_year'] });
       qc.invalidateQueries({ queryKey: ['journal_entries'] });
       toast.success(`تم توليد عدد ${count} مطالبة إيجار وخدمات بنجاح للمستأجرين`);
     },
@@ -677,6 +679,7 @@ export function useBackfillTransactions() {
       qc.invalidateQueries({ queryKey: ['balance_sheet'] });
       qc.invalidateQueries({ queryKey: ['tenant_ar_aging'] });
       qc.invalidateQueries({ queryKey: ['tenant_charges'] });
+      qc.invalidateQueries({ queryKey: ['mall_rent_charges_year'] });
     },
     onError: (err: { message?: string }) => {
       toast.error(err.message || 'فشل الترحيل التراكمي');
