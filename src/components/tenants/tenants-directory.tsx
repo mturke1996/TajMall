@@ -439,6 +439,14 @@ function TenantCard({
             <span className="text-ink-mute">المسدد</span>
             <span className="text-green-600">{formatMoney(paid, 'LYD')}</span>
           </div>
+          {Number(tenant.open_charges_count) > 0 && (
+            <div className="flex justify-between">
+              <span className="text-ink-mute">مطالبات مفتوحة</span>
+              <span className="text-red-700 font-medium">
+                {tenant.open_charges_count} ({formatMoney(Number(tenant.open_charges_total ?? 0), 'LYD')})
+              </span>
+            </div>
+          )}
           {remaining > 0 && (
             <div className="flex justify-between">
               <span className="text-ink-mute">المتبقي</span>

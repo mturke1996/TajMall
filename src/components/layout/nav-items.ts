@@ -127,13 +127,6 @@ export const NAV: NavSection[] = [
         permission: 'revenue.view',
       },
       {
-        href: '/mall?tab=units',
-        labelAr: 'المحلات والوحدات',
-        label: 'Units',
-        icon: Store,
-        permission: 'revenue.view',
-      },
-      {
         href: '/mall?tab=tenants',
         labelAr: 'المستأجرين والتحصيل',
         label: 'Tenants',

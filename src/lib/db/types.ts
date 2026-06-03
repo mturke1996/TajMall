@@ -137,7 +137,7 @@ export type TransactionRow = {
 /** Transaction joined with its category and cashbox — what tables/lists need. */
 export type TransactionWithRelations = TransactionRow & {
   category: Pick<CategoryRow, 'id' | 'code' | 'name_ar' | 'kind' | 'color'> | null;
-  cashbox: Pick<CashboxRow, 'id' | 'code' | 'name_ar' | 'kind'> | null;
+  cashbox: Pick<CashboxRow, 'id' | 'code' | 'name_ar' | 'kind' | 'bank_name'> | null;
   creator: Pick<ProfileRow, 'id' | 'full_name_ar' | 'full_name'> | null;
   contact: Pick<ContactRow, 'id' | 'name' | 'kind' | 'shop_number'> | null;
 };

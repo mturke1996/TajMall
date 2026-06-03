@@ -29,7 +29,10 @@ BEGIN
     'get_treasury_balance_total',
     'get_my_role',
     'auth_is_viewer',
-    'auth_role_may_write'
+    'auth_role_may_write',
+    'get_tenant_rent_calendar',
+    'ensure_tenant_rent_charges',
+    'record_rent_payment'
   ]
   LOOP
     IF NOT EXISTS (

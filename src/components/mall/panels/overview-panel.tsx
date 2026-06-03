@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import {
-  Store,
   Building2,
   FileText,
   Coins,
@@ -14,11 +13,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn, formatMoney } from '@/lib/utils';
 import { useContacts, useTenantRentSummary } from '@/lib/db/queries';
-import {
-  useMallUnits,
-  useLeaseContracts,
-  useTenantCharges,
-} from '@/lib/db/mall-queries';
+import { useLeaseContracts, useTenantCharges } from '@/lib/db/mall-queries';
 import type { MallTab } from '@/lib/mall/routes';
 import { mallTabHref, peopleSegmentHref } from '@/lib/mall/routes';
 
@@ -26,34 +21,27 @@ const QUICK_LINKS: {
   tab: MallTab;
   title: string;
   description: string;
-  icon: typeof Store;
+  icon: typeof Building2;
   tone: string;
 }[] = [
   {
-    tab: 'units',
-    title: 'المحلات والوحدات',
-    description: 'إضافة محلات وتتبع الحالة والمساحة',
-    icon: Store,
-    tone: 'border-blue-200 bg-blue-50/80',
-  },
-  {
     tab: 'tenants',
     title: 'المستأجرين والتحصيل',
-    description: 'إيجار الشهر وتسجيل المدفوعات',
+    description: 'الشهور المدفوعة وغير المدفوعة وتسجيل التحصيل',
     icon: Building2,
     tone: 'border-sage-200 bg-sage-50/80',
   },
   {
     tab: 'contracts',
     title: 'عقود الإيجار',
-    description: 'ربط المستأجر بالمحل وتوثيق العقد',
+    description: 'توثيق العقد ومبلغ الإيجار الشهري',
     icon: FileText,
     tone: 'border-violet-200 bg-violet-50/80',
   },
   {
     tab: 'charges',
     title: 'المطالبات والرسوم',
-    description: 'فواتير الإيجار والخدمات الشهرية',
+    description: 'فواتير الإيجار الشهرية وتوليدها',
     icon: Coins,
     tone: 'border-amber-200 bg-amber-50/80',
   },
@@ -67,37 +55,35 @@ const QUICK_LINKS: {
 ];
 
 export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) => void }) {
-  const { data: units = [] } = useMallUnits();
   const { data: contracts = [] } = useLeaseContracts();
   const { data: charges = [] } = useTenantCharges();
   const { data: tenants = [] } = useTenantRentSummary();
   const { data: contacts = [] } = useContacts();
 
-  const occupied = units.filter((u) => u.status === 'OCCUPIED').length;
-  const available = units.filter((u) => u.status === 'AVAILABLE').length;
   const activeContracts = contracts.filter((c) => c.status === 'ACTIVE').length;
-  const unpaidCharges = charges.filter((c) => c.status === 'UNPAID').length;
+  const openCharges = charges.filter(
+    (c) => c.status !== 'PAID' && Number(c.amount) > Number(c.total_paid),
+  ).length;
   const unpaidTenants = tenants.filter((t) => t.current_month_status === 'unpaid').length;
+  const openFromSummary = tenants.reduce(
+    (s, t) => s + Number(t.open_charges_count ?? 0),
+    0,
+  );
   const collected = tenants.reduce((s, t) => s + Number(t.current_month_paid), 0);
   const expected = tenants.reduce((s, t) => s + (Number(t.monthly_rent) || 0), 0);
 
   const alerts: { text: string; tab: MallTab }[] = [];
   if (unpaidTenants > 0) {
     alerts.push({
-      text: `${unpaidTenants} مستأجر لم يُسدّد إيجار الشهر بالكامل`,
+      text: `${unpaidTenants} مستأجر — إيجار الشهر الحالي غير مكتمل`,
       tab: 'tenants',
     });
   }
-  if (unpaidCharges > 0) {
+  const openTotal = Math.max(openCharges, openFromSummary);
+  if (openTotal > 0) {
     alerts.push({
-      text: `${unpaidCharges} مطالبة مالية غير مسددة`,
+      text: `${openTotal} مطالبة إيجار مفتوحة (غير مسددة بالكامل)`,
       tab: 'charges',
-    });
-  }
-  if (available > 0 && activeContracts < units.length) {
-    alerts.push({
-      text: `${available} محل متاح للإيجار`,
-      tab: 'units',
     });
   }
 
@@ -105,16 +91,13 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-3">
         <Card className="p-3 md:p-4">
-          <p className="text-[11px] text-ink-mute md:text-xs">المحلات</p>
-          <p className="text-xl font-bold tabular-nums md:text-2xl">{units.length}</p>
-          <p className="text-[11px] text-ink-mute mt-0.5">
-            {occupied} مؤجرة · {available} متاحة
-          </p>
+          <p className="text-[11px] text-ink-mute md:text-xs">المستأجرين</p>
+          <p className="text-xl font-bold tabular-nums md:text-2xl">{tenants.length}</p>
+          <p className="text-[11px] text-ink-mute mt-0.5">نشط في النظام</p>
         </Card>
         <Card className="p-3 md:p-4">
           <p className="text-[11px] text-ink-mute md:text-xs">عقود نشطة</p>
           <p className="text-xl font-bold tabular-nums md:text-2xl">{activeContracts}</p>
-          <p className="text-[11px] text-ink-mute mt-0.5">{tenants.length} مستأجر</p>
         </Card>
         <Card className="p-3 md:p-4 border-sage-200 bg-sage-50/50">
           <p className="text-[11px] text-ink-mute md:text-xs">تحصيل الشهر</p>
@@ -183,10 +166,10 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
           <Link href={peopleSegmentHref('TENANT', { add: 'TENANT' })}>إضافة مستأجر</Link>
         </Button>
         <Button variant="outline" size="sm" className="touch-manipulation" asChild>
-          <Link href={mallTabHref('units')}>إضافة محل</Link>
+          <Link href={mallTabHref('contracts')}>توثيق عقد</Link>
         </Button>
         <Button variant="outline" size="sm" className="touch-manipulation" asChild>
-          <Link href={mallTabHref('contracts')}>توثيق عقد</Link>
+          <Link href={mallTabHref('charges')}>المطالبات</Link>
         </Button>
       </div>
     </div>

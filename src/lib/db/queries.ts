@@ -517,6 +517,8 @@ export type TenantRentSummary = {
   current_month_status: "no_rent_set" | "paid_full" | "paid_partial" | "unpaid";
   last_12_months_revenue: string;
   total_balance: string;
+  open_charges_total?: string | null;
+  open_charges_count?: number | null;
 };
 
 export function useTenantRentSummary() {
@@ -621,6 +623,8 @@ export function useRecordRentPayment() {
       payment_date?: string;
       cashbox_id?: string;
       description?: string;
+      rent_months?: string[];
+      payment_method?: 'CASH' | 'CHEQUE' | 'TRANSFER' | 'CARD';
     }) => {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase.rpc("record_rent_payment", {
@@ -630,6 +634,11 @@ export function useRecordRentPayment() {
           input.payment_date ?? new Date().toISOString().slice(0, 10),
         cashbox_id: input.cashbox_id ?? null,
         description: input.description ?? null,
+        rent_months:
+          input.rent_months && input.rent_months.length > 0
+            ? input.rent_months
+            : null,
+        payment_method: input.payment_method ?? 'CASH',
       });
       if (error) throw error;
       return data as string; // returns transaction id
@@ -640,6 +649,10 @@ export function useRecordRentPayment() {
       qc.invalidateQueries({ queryKey: qk.cashboxBalances });
       qc.invalidateQueries({ queryKey: qk.dashboardStats });
       qc.invalidateQueries({ queryKey: qk.monthlySummary });
+      qc.invalidateQueries({ queryKey: ["tenant_charges"] });
+      qc.invalidateQueries({
+        queryKey: ["tenant_rent_calendar", variables.tenant_id],
+      });
       qc.invalidateQueries({ queryKey: qk.contact(variables.tenant_id) });
       qc.invalidateQueries({
         queryKey: qk.contactTransactions(variables.tenant_id),
@@ -650,7 +663,7 @@ export function useRecordRentPayment() {
 
 // ── transactions ─────────────────────────────────────────────────
 const TX_SELECT =
-  "*, category:categories(id,code,name_ar,kind,color), cashbox:cashboxes(id,code,name_ar,kind), creator:profiles(id,full_name_ar,full_name), contact:contacts(id,name,kind,shop_number)";
+  "*, category:categories(id,code,name_ar,kind,color), cashbox:cashboxes(id,code,name_ar,kind,bank_name), creator:profiles(id,full_name_ar,full_name), contact:contacts(id,name,kind,shop_number)";
 
 export function useTransactions(kind?: "REVENUE" | "EXPENSE", limit = 500) {
   return useQuery<TransactionWithRelations[]>({
@@ -858,6 +871,8 @@ export function useCreateTransaction() {
       qc.invalidateQueries({ queryKey: qk.dashboardStats });
       qc.invalidateQueries({ queryKey: ["tenant_charges"] });
       qc.invalidateQueries({ queryKey: ["tenant_ar_aging"] });
+      qc.invalidateQueries({ queryKey: ["tenant_rent_calendar"] });
+      qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
       qc.invalidateQueries({ queryKey: ["journal_entries"] });
       qc.invalidateQueries({ queryKey: ["audit_log_feed"] });
     },

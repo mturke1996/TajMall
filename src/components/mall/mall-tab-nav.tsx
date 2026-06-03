@@ -2,7 +2,6 @@
 
 import {
   LayoutGrid,
-  Store,
   Building2,
   FileText,
   Coins,
@@ -23,21 +22,14 @@ export const MALL_TAB_META: {
     id: 'overview',
     label: 'نظرة عامة',
     shortLabel: 'نظرة',
-    description: 'ملخص المول: المحلات، العقود، التحصيل، والجهات',
+    description: 'ملخص المستأجرين والتحصيل والجهات',
     icon: LayoutGrid,
-  },
-  {
-    id: 'units',
-    label: 'المحلات والوحدات',
-    shortLabel: 'المحلات',
-    description: 'إضافة وتصنيف المحلات وتتبع حالتها ومساحاتها',
-    icon: Store,
   },
   {
     id: 'tenants',
     label: 'المستأجرين والتحصيل',
     shortLabel: 'المستأجرين',
-    description: 'متابعة إيجار الشهر، تسجيل المدفوعات، وملف كل مستأجر',
+    description: 'متابعة الشهور المدفوعة وغير المدفوعة وتسجيل التحصيل',
     icon: Building2,
   },
   {

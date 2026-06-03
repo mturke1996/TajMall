@@ -81,9 +81,6 @@ export function ContactRentLinks({
             الرسوم
           </Link>
         </Button>
-        <Button size="sm" variant="outline" className="h-10 flex-1 touch-manipulation" asChild>
-          <Link href={mallTabHref('units')}>المحلات</Link>
-        </Button>
       </div>
 
       {contracts.length > 1 && (

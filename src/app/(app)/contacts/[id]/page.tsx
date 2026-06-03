@@ -52,6 +52,10 @@ import {
 import { toast } from 'sonner';
 import { RecordRentPaymentDialog } from '@/components/tenants/record-rent-payment-dialog';
 import { TenantRentHistory } from '@/components/tenants/tenant-rent-history';
+import { TenantProfileCharges } from '@/components/tenants/tenant-profile-charges';
+import { TenantRentYearOverview } from '@/components/tenants/tenant-rent-year-overview';
+import { buildJournalEntriesForPdf } from '@/lib/journal-pdf';
+import type { JournalEntryRow } from '@/lib/db/journal-queries';
 import { getTenantStatus } from '@/components/tenants/tenant-status-config';
 import { contactBackHref, mallTabHref } from '@/lib/mall/routes';
 import { ContactRentLinks } from '@/components/contacts/contact-rent-links';
@@ -170,7 +174,6 @@ export default function ContactDetailPage() {
         contact={contactRecord}
         rent={rent ?? null}
         transactions={transactions}
-        journalEntries={journalEntries}
       />
     );
   }
@@ -255,6 +258,13 @@ export default function ContactDetailPage() {
           </div>
         </div>
 
+        {isTenant && (
+          <TenantRentYearOverview
+            tenantId={id}
+            monthlyRent={monthlyRent}
+          />
+        )}
+
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="flex flex-col gap-4 order-2 lg:order-none">
           <Card className="p-4">
@@ -301,6 +311,14 @@ export default function ContactDetailPage() {
                   <dd>{formatMoney(Number(rent.current_month_paid), 'LYD')}</dd>
                 </div>
               )}
+              {rent && Number(rent.open_charges_count) > 0 && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-ink-mute">مطالبات مفتوحة</dt>
+                  <dd className="text-red-700 font-medium">
+                    {rent.open_charges_count} ({formatMoney(Number(rent.open_charges_total ?? 0), 'LYD')})
+                  </dd>
+                </div>
+              )}
               {!contact.phone &&
                 !contact.monthly_rent &&
                 !contact.shop_number && (
@@ -322,18 +340,27 @@ export default function ContactDetailPage() {
 
           <Card className="p-4 lg:col-span-2 min-w-0 order-1">
             <Tabs
-              defaultValue={isTenant ? 'rent' : 'transactions'}
+              defaultValue={isTenant ? 'rent-calendar' : 'transactions'}
               dir="rtl"
             >
               <TabsList className="mb-4 flex h-auto w-full justify-start gap-1 overflow-x-auto p-1 no-scrollbar flex-nowrap sm:flex-wrap">
                 {isTenant && (
-                  <TabsTrigger
-                    value="rent"
-                    className="shrink-0 gap-1.5 px-3 py-2 text-xs touch-manipulation sm:text-sm"
-                  >
-                    <Banknote className="h-4 w-4 shrink-0" />
-                    إيجار ({rentPaymentsCount})
-                  </TabsTrigger>
+                  <>
+                    <TabsTrigger
+                      value="rent-calendar"
+                      className="shrink-0 gap-1.5 px-3 py-2 text-xs touch-manipulation sm:text-sm"
+                    >
+                      <Banknote className="h-4 w-4 shrink-0" />
+                      تقويم الإيجار
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="rent"
+                      className="shrink-0 gap-1.5 px-3 py-2 text-xs touch-manipulation sm:text-sm"
+                    >
+                      <Receipt className="h-4 w-4 shrink-0" />
+                      مدفوعات ({rentPaymentsCount})
+                    </TabsTrigger>
+                  </>
                 )}
                 <TabsTrigger
                   value="transactions"
@@ -352,8 +379,13 @@ export default function ContactDetailPage() {
               </TabsList>
 
               {isTenant && (
+                <TabsContent value="rent-calendar" className="space-y-6">
+                  <TenantProfileCharges contact={contactRecord} />
+                </TabsContent>
+              )}
+              {isTenant && (
                 <TabsContent value="rent">
-                  <TenantRentHistory tenantId={id} />
+                  <TenantRentHistory tenantId={id} contact={contactRecord} />
                 </TabsContent>
               )}
 
@@ -426,7 +458,7 @@ export default function ContactDetailPage() {
                     {journalEntries.map((je) => (
                       <div
                         key={je.id}
-                        className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5"
+                        className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-border px-3 py-2.5"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <FileText className="h-4 w-4 text-ink-mute shrink-0" />
@@ -445,12 +477,27 @@ export default function ContactDetailPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="text-left shrink-0 mr-2">
-                          <p className="font-medium text-sm">
+                        <div className="flex items-center gap-2 shrink-0">
+                          <p className="font-medium text-sm tabular-nums">
                             {formatMoney(Number(je.total_debit), 'LYD')}
                           </p>
-                          <Button size="sm" variant="ghost" className="h-7 text-xs" asChild>
-                            <Link href="/journals">عرض في الدفتر</Link>
+                          <TajMallPdfToolbar
+                            fileName={`قيد-${je.number}`}
+                            render={async () => {
+                              const { JournalPDF } = await import('@/features/pdf/JournalPDF');
+                              const entries = await buildJournalEntriesForPdf([
+                                je as JournalEntryRow,
+                              ]);
+                              return (
+                                <JournalPDF
+                                  entries={entries}
+                                  periodLabel={`القيد رقم ${je.number}`}
+                                />
+                              );
+                            }}
+                          />
+                          <Button size="sm" variant="ghost" className="h-8 text-xs" asChild>
+                            <Link href={`/journals?highlight=${je.id}`}>الدفتر</Link>
                           </Button>
                         </div>
                       </div>
