@@ -34,6 +34,7 @@ const ENTITY_FILTERS = [
   { value: 'tenant_charge', label: 'مطالبات' },
   { value: 'journal_entry', label: 'قيود' },
   { value: 'cashbox', label: 'خزائن' },
+  { value: 'cash_transfer', label: 'تحويلات' },
 ] as const;
 
 const ACTION_FILTERS = [

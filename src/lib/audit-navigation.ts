@@ -42,7 +42,11 @@ export function getAuditEntityLink(row: AuditLogRow): AuditLinkTarget | null {
         label: ENTITY_LINK_LABELS.tenant_charge,
       };
     case 'cashbox':
-      return { href: `/cashboxes?highlight=${id}`, label: ENTITY_LINK_LABELS.cashbox };
+      return { href: `/cashboxes/${id}`, label: ENTITY_LINK_LABELS.cashbox };
+    case 'cash_transfer': {
+      const toId = typeof meta.to_cashbox_id === 'string' ? meta.to_cashbox_id : id;
+      return { href: `/cashboxes/${toId}`, label: 'فتح سجل التحويل' };
+    }
     default:
       return null;
   }

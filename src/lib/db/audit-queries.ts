@@ -70,6 +70,7 @@ export function useAuditLogFeed(params: AuditFeedParams = {}) {
 export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   transaction: 'معاملة مالية',
   cashbox: 'خزينة',
+  cash_transfer: 'تحويل خزينة',
   journal_entry: 'قيد يومية',
   tenant_charge: 'مطالبة مستأجر',
   disbursement_voucher: 'إذن صرف',
