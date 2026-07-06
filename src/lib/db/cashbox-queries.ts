@@ -33,6 +33,7 @@ export type CashboxLedgerRow = {
   balance_after: number;
   counter_cashbox_id: string | null;
   counter_name_ar: string | null;
+  reconciled_at: string | null;
 };
 
 export type CashboxLedgerPayload = {
@@ -143,6 +144,29 @@ export function useRecordCashboxTransfer() {
     onSuccess: (_data, vars) => {
       invalidateCashboxCaches(qc, vars.from_cashbox_id);
       invalidateCashboxCaches(qc, vars.to_cashbox_id);
+    },
+  });
+}
+
+/** يبدّل حالة "مطابَق مع كشف الحساب" لحركة واحدة — للتسوية البنكية. */
+export function useSetLedgerEventReconciled(cashboxId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      sourceType: 'transaction' | 'cash_transfer';
+      eventId: string;
+      reconciled: boolean;
+    }) => {
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase.rpc('set_ledger_event_reconciled', {
+        p_source_type: input.sourceType,
+        p_event_id: input.eventId,
+        p_reconciled: input.reconciled,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: cashboxQk.ledger(cashboxId) });
     },
   });
 }

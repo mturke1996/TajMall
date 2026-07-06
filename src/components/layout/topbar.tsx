@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Menu, Search, Crown, Moon, Sun } from 'lucide-react';
+import { Bell, Menu, Search, Shield, Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
@@ -9,7 +9,25 @@ import { UserMenu } from './user-menu';
 import { BrandGlyph } from '@/components/brand/logo';
 import { useEffect, useState } from 'react';
 import { usePermission } from '@/lib/supabase/use-permission';
+import { useUnreadNotificationCount } from '@/lib/db/notification-queries';
 import { Badge } from '@/components/ui/badge';
+
+function NotificationBell() {
+  const { data: unread = 0 } = useUnreadNotificationCount();
+
+  return (
+    <Button size="icon-sm" variant="ghost" className="relative" asChild>
+      <Link href="/notifications" prefetch aria-label="الإشعارات">
+        <Bell className="h-4 w-4" />
+        {unread > 0 && (
+          <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-none text-white">
+            {unread > 9 ? '9+' : unread}
+          </span>
+        )}
+      </Link>
+    </Button>
+  );
+}
 
 function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -85,10 +103,11 @@ export function TopBar({
           </Badge>
         )}
         <NewTransactionButton variant="outline" size="sm" />
+        <NotificationBell />
         <ThemeToggle />
         <Button size="icon-sm" variant="ghost" className="hidden md:flex" asChild>
-          <Link href="/boss" prefetch={true}>
-            <Crown className="h-4 w-4" />
+          <Link href="/users" prefetch={true} aria-label="المستخدمون والصلاحيات">
+            <Shield className="h-4 w-4" />
           </Link>
         </Button>
         <UserMenu />

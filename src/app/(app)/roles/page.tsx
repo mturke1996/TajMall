@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SYSTEM_ROLES, PERMISSION_KEYS } from '@/lib/constants';
 import { useProfiles } from '@/lib/db/queries';
+import { cn } from '@/lib/utils';
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
   owner:      'صلاحيات كاملة لكل وحدات النظام بدون استثناء.',
@@ -37,6 +38,22 @@ const GROUP_LABELS: Record<string, string> = {
   voucher:   'الإذونات',
   org:       'الإدارة',
 };
+
+type Access = 'full' | 'view' | 'none';
+
+function roleAccess(roleName: string, group: string): Access {
+  const hasFull =
+    roleName === 'owner' ||
+    roleName === 'admin' ||
+    (roleName === 'accountant' && group !== 'org') ||
+    (roleName === 'cashier' &&
+      ['revenue', 'expense', 'voucher', 'cashbox'].includes(group));
+  if (hasFull) return 'full';
+  const hasView =
+    roleName === 'viewer' ||
+    (roleName === 'cashier' && ['dashboard', 'account', 'journal'].includes(group));
+  return hasView ? 'view' : 'none';
+}
 
 export default function RolesPage() {
   const { data: profiles } = useProfiles();
@@ -102,7 +119,47 @@ export default function RolesPage() {
               نظرة سريعة على ما يمكن لكل دور فعله. القيم الافتراضية مقترحة ويمكن تعديلها.
             </p>
           </div>
-          <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+          {/* Mobile: per-group cards */}
+          <ul className="flex flex-col divide-y divide-border md:hidden">
+            {Object.keys(PERMISSION_GROUPS).map((group) => (
+              <li key={group} className="px-4 py-3.5">
+                <p className="mb-2.5 text-[13px] font-semibold">
+                  {GROUP_LABELS[group] ?? group}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {SYSTEM_ROLES.map((r) => {
+                    const access = roleAccess(r.name, group);
+                    return (
+                      <span
+                        key={r.name}
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11.5px] font-medium',
+                          access === 'full' &&
+                            'border-transparent bg-pastel-green text-pastel-greenInk',
+                          access === 'view' &&
+                            'border-transparent bg-pastel-blue text-pastel-blueInk',
+                          access === 'none' &&
+                            'border-border bg-canvas-sunken text-ink-mute',
+                        )}
+                      >
+                        {access === 'full' && <Check className="h-3 w-3 stroke-[2]" />}
+                        {r.nameAr}
+                        {access === 'view' && (
+                          <span className="text-[9.5px] opacity-80">قراءة</span>
+                        )}
+                        {access === 'none' && (
+                          <span className="text-[9.5px] opacity-70">—</span>
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop: matrix table */}
+          <div className="hidden overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] md:block">
             <table className="w-full min-w-[720px] text-[13px]">
               <thead>
                 <tr className="bg-canvas-sunken">

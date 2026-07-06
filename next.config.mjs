@@ -19,6 +19,8 @@ const nextConfig = {
     return [
       // /reports alone → default report (do NOT redirect /reports/* to dashboard)
       { source: '/reports', destination: '/reports/ledger', permanent: false },
+      // /boss دُمجت في /users (كانت صفحة مكرّرة لنفس إدارة المستخدمين)
+      { source: '/boss', destination: '/users', permanent: true },
     ];
   },
   async headers() {

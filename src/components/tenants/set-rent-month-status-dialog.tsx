@@ -90,6 +90,9 @@ export function SetRentMonthStatusDialog({
     monthTotals;
 
   const multiMonth = selected.length > 1;
+  // مفتاح نصي مستقر لمحتوى selected — يمنع إعادة تشغيل الأثر أدناه لمجرد
+  // تغيّر مرجع المصفوفة دون تغيّر محتواها فعلياً.
+  const selectedKey = selected.join(',');
 
   const journals = useMemo(
     () => filterTenantJournalEntries(journalEntries),
@@ -128,9 +131,9 @@ export function SetRentMonthStatusDialog({
   }, [multiMonth, linkMode]);
 
   useEffect(() => {
-    if (selected.length === 0) return;
+    if (!selectedKey) return;
     setPartialAmount(remaining > 0 ? String(remaining) : '');
-  }, [selected.join(','), remaining]);
+  }, [selectedKey, remaining]);
 
   const calendarMonths: RentCalendarMonth[] = useMemo(() => {
     return buildRentCalendarFromCharges(tenantId, year, monthlyRent, charges).months;

@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { useTrialBalance } from '@/lib/db/mall-queries';
 import { AccountingBackfillBanner } from '@/components/accounting/accounting-backfill-banner';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { AccountingYearPicker } from '@/components/accounting/accounting-year-picker';
 import { AccountingFilterCard } from '@/components/accounting/accounting-filter-card';
@@ -68,18 +69,26 @@ export default function TrialBalancePage() {
         title="ميزان المراجعة"
         description="ملخص الأرصدة المدينة والدائنة للتحقق من توازن الدفاتر"
         actions={
-          <TajMallPdfToolbar
-            fileName={`ميزان-المراجعة-${selectedYear}`}
-            disabled={balanceData.length === 0}
-            render={async () => {
-              const { TrialBalanceReportPDF } = await import(
-                '@/features/pdf/TrialBalanceReportPDF'
-              );
-              return (
-                <TrialBalanceReportPDF year={selectedYear} rows={balanceData} />
-              );
-            }}
-          />
+          <>
+            <ExportCsvButton
+              fileName={`ميزان-المراجعة-${selectedYear}`}
+              disabled={balanceData.length === 0}
+              headers={['الكود', 'البند', 'النوع', 'مدين', 'دائن', 'الرصيد']}
+              rows={balanceData.map((r) => [r.code, r.name_ar, r.type, r.total_debit, r.total_credit, r.balance])}
+            />
+            <TajMallPdfToolbar
+              fileName={`ميزان-المراجعة-${selectedYear}`}
+              disabled={balanceData.length === 0}
+              render={async () => {
+                const { TrialBalanceReportPDF } = await import(
+                  '@/features/pdf/TrialBalanceReportPDF'
+                );
+                return (
+                  <TrialBalanceReportPDF year={selectedYear} rows={balanceData} />
+                );
+              }}
+            />
+          </>
         }
       />
 

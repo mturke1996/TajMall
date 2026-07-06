@@ -6,6 +6,7 @@ import {
   prefetchAppData,
   APP_DATA_WARM_KEY,
 } from '@/lib/db/prefetch-app-data';
+import { useNotificationsRealtime } from '@/lib/db/notification-queries';
 import { BootstrapSplash } from './bootstrap-splash';
 
 function isSessionWarm(): boolean {
@@ -32,6 +33,10 @@ function markSessionWarm(): void {
 export function AppDataBootstrap({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [ready, setReady] = useState(false);
+
+  // نشط طوال وجود المستخدم داخل التطبيق — يحدّث الإشعارات فوراً بدل
+  // انتظار سحب يدوي.
+  useNotificationsRealtime();
 
   useEffect(() => {
     let cancelled = false;

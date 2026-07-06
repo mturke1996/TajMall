@@ -105,6 +105,7 @@ export type ContactRow = {
   salary: string | null;
   is_active: boolean;
   notes: string | null;
+  portal_token: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -195,6 +196,8 @@ export type SaveTransactionDraftInput = {
 };
 
 /** إذن صرف — يطابق جداول Supabase في migrations/009_disbursement_vouchers.sql */
+export type VoucherApprovalStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+
 export type DisbursementVoucherRow = {
   id: string;
   voucher_number: string;
@@ -208,6 +211,12 @@ export type DisbursementVoucherRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  status: VoucherApprovalStatus;
+  submitted_at: string | null;
+  submitted_by: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  rejection_reason: string | null;
 };
 
 export type DisbursementVoucherLineRow = {

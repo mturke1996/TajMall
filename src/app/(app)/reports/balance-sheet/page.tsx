@@ -13,6 +13,8 @@ import { useBalanceSheet } from '@/lib/db/mall-queries';
 import { ledgerUrl } from '@/lib/accounting-nav';
 import { AccountingBackfillBanner } from '@/components/accounting/accounting-backfill-banner';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+import { ExportCsvButton } from '@/components/data/export-csv-button';
+import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 
 type BsRow = {
   category_id: string;
@@ -98,43 +100,59 @@ export default function BalanceSheetPage() {
   }
 
   return (
-    <div className="space-y-6 pb-8">
+    <>
       <PageHeader
         eyebrow="المحاسبة والتقارير"
         title="الميزانية العمومية"
         description="موقف مالي يُظهر الأصول مقابل الخصوم وحقوق الملكية في تاريخ محدد"
         actions={
-          <TajMallPdfToolbar
-            fileName={`الميزانية-العمومية-${asOf}`}
-            disabled={!hasData}
-            render={async () => {
-              const { BalanceSheetReportPDF } = await import('@/features/pdf/BalanceSheetReportPDF');
-              return (
-                <BalanceSheetReportPDF
-                  asOf={asOf}
-                  assets={assets.map((r) => ({
-                    category_code: r.category_code,
-                    category_name: r.category_name,
-                    balance: r.balance,
-                  }))}
-                  liabilities={liabilities.map((r) => ({
-                    category_code: r.category_code,
-                    category_name: r.category_name,
-                    balance: r.balance,
-                  }))}
-                  equity={equity.map((r) => ({
-                    category_code: r.category_code,
-                    category_name: r.category_name,
-                    balance: r.balance,
-                  }))}
-                  summary={summary}
-                />
-              );
-            }}
-          />
+          <>
+            <ExportCsvButton
+              fileName={`الميزانية-العمومية-${asOf}`}
+              disabled={!hasData}
+              headers={['التصنيف', 'الكود', 'البند', 'الرصيد']}
+              rows={[
+                ...assets.map((r) => ['أصول', r.category_code, r.category_name, r.balance]),
+                ...liabilities.map((r) => ['خصوم', r.category_code, r.category_name, r.balance]),
+                ...equity.map((r) => ['حقوق ملكية', r.category_code, r.category_name, r.balance]),
+                ['—', '—', 'إجمالي الأصول', summary.totalAssets],
+                ['—', '—', 'إجمالي الخصوم', summary.totalLiab],
+                ['—', '—', 'إجمالي حقوق الملكية', summary.totalEquity],
+              ]}
+            />
+            <TajMallPdfToolbar
+              fileName={`الميزانية-العمومية-${asOf}`}
+              disabled={!hasData}
+              render={async () => {
+                const { BalanceSheetReportPDF } = await import('@/features/pdf/BalanceSheetReportPDF');
+                return (
+                  <BalanceSheetReportPDF
+                    asOf={asOf}
+                    assets={assets.map((r) => ({
+                      category_code: r.category_code,
+                      category_name: r.category_name,
+                      balance: r.balance,
+                    }))}
+                    liabilities={liabilities.map((r) => ({
+                      category_code: r.category_code,
+                      category_name: r.category_name,
+                      balance: r.balance,
+                    }))}
+                    equity={equity.map((r) => ({
+                      category_code: r.category_code,
+                      category_name: r.category_name,
+                      balance: r.balance,
+                    }))}
+                    summary={summary}
+                  />
+                );
+              }}
+            />
+          </>
         }
       />
 
+      <AccountingPageBody>
       <Card>
         <CardContent className="pt-6 flex flex-wrap items-end gap-4 justify-between">
           <div className="space-y-2">
@@ -150,7 +168,7 @@ export default function BalanceSheetPage() {
           </div>
           {!isLoading && hasData && (
             <div
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold ${
+              className={`flex items-start gap-2 px-3 py-1.5 rounded-2xl border text-xs font-semibold ${
                 isBalanced
                   ? 'bg-green-50 border-green-200 text-green-700'
                   : 'bg-amber-50 border-amber-200 text-amber-800'
@@ -158,13 +176,17 @@ export default function BalanceSheetPage() {
             >
               {isBalanced ? (
                 <>
-                  <CheckCircle className="h-4 w-4" />
-                  المعادلة محققة: الأصول = الخصوم + حقوق الملكية
+                  <CheckCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span className="text-start leading-snug">
+                    المعادلة محققة: الأصول = الخصوم + حقوق الملكية
+                  </span>
                 </>
               ) : (
                 <>
-                  <XCircle className="h-4 w-4" />
-                  فارق في المعادلة — راجع القيود المرحّلة
+                  <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span className="text-start leading-snug">
+                    فارق في المعادلة — راجع القيود المرحّلة
+                  </span>
                 </>
               )}
             </div>
@@ -221,6 +243,7 @@ export default function BalanceSheetPage() {
           <SectionTable title="حقوق الملكية" rows={equity} tone="violet" />
         </>
       )}
-    </div>
+      </AccountingPageBody>
+    </>
   );
 }

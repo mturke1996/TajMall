@@ -13,7 +13,6 @@ import {
   Bell,
   Landmark,
   ArrowLeftRight,
-  Crown,
   Briefcase,
   GitBranch,
   Users,
@@ -231,6 +230,13 @@ export const NAV: NavSection[] = [
         permission: 'journal.view',
       },
       {
+        href: '/reports/budget',
+        labelAr: 'الموازنة مقابل الفعلي',
+        label: 'Budget vs Actual',
+        icon: Coins,
+        permission: 'budget.view',
+      },
+      {
         href: '/reports/periods',
         labelAr: 'الفترات المالية',
         label: 'Fiscal Periods',
@@ -243,13 +249,6 @@ export const NAV: NavSection[] = [
     titleAr: 'الإدارة',
     title: 'Administration',
     items: [
-      {
-        href: '/boss',
-        labelAr: 'لوحة المدير',
-        label: 'Boss Dashboard',
-        icon: Crown,
-        permission: 'org.settings',
-      },
       {
         href: '/audit-log',
         labelAr: 'سجل الرقابة',

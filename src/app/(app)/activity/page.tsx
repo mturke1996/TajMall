@@ -68,7 +68,7 @@ export default function ActivityPage() {
                 type="button"
                 onClick={() => setKind('ALL')}
                 className={cn(
-                  'rounded-lg border px-2 py-2 text-xs font-medium touch-manipulation',
+                  'min-h-10 rounded-lg border px-2 py-2.5 text-xs font-medium touch-manipulation',
                   kind === 'ALL'
                     ? 'border-sage-300 bg-sage-50 text-sage-700'
                     : 'border-border bg-card text-ink-mute',
@@ -80,7 +80,7 @@ export default function ActivityPage() {
                 type="button"
                 onClick={() => setKind('REVENUE')}
                 className={cn(
-                  'rounded-lg border px-2 py-2 text-xs font-medium touch-manipulation',
+                  'min-h-10 rounded-lg border px-2 py-2.5 text-xs font-medium touch-manipulation',
                   kind === 'REVENUE'
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                     : 'border-border bg-card text-ink-mute',
@@ -92,7 +92,7 @@ export default function ActivityPage() {
                 type="button"
                 onClick={() => setKind('EXPENSE')}
                 className={cn(
-                  'rounded-lg border px-2 py-2 text-xs font-medium touch-manipulation',
+                  'min-h-10 rounded-lg border px-2 py-2.5 text-xs font-medium touch-manipulation',
                   kind === 'EXPENSE'
                     ? 'border-red-300 bg-red-50 text-red-700'
                     : 'border-border bg-card text-ink-mute',

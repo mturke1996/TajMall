@@ -18,6 +18,7 @@ import { useProfitLoss } from '@/lib/db/mall-queries';
 import { toProfitLossRpcPeriod } from '@/lib/accounting-nav';
 import { AccountingBackfillBanner } from '@/components/accounting/accounting-backfill-banner';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { AccountingYearPicker } from '@/components/accounting/accounting-year-picker';
 import { AccountingFilterCard } from '@/components/accounting/accounting-filter-card';
@@ -150,23 +151,37 @@ export default function ProfitLossPage() {
         title="قائمة الأرباح والخسائر"
         description="مطابقة الإيرادات بالمصروفات لقياس الربحية التشغيلية"
         actions={
-          <TajMallPdfToolbar
-            fileName={`الأرباح-والخسائر-${selectedYear}-${periodType}`}
-            disabled={!hasData}
-            render={async () => {
-              const { ProfitLossReportPDF } = await import(
-                '@/features/pdf/ProfitLossReportPDF'
-              );
-              return (
-                <ProfitLossReportPDF
-                  year={selectedYear}
-                  periodText={periodText}
-                  revenues={revenues}
-                  expenses={expenses}
-                />
-              );
-            }}
-          />
+          <>
+            <ExportCsvButton
+              fileName={`الأرباح-والخسائر-${selectedYear}-${periodType}`}
+              disabled={!hasData}
+              headers={['النوع', 'الكود', 'البند', 'المبلغ']}
+              rows={[
+                ...revenues.map((r) => ['إيراد', r.code, r.name_ar, r.amount]),
+                ...expenses.map((r) => ['مصروف', r.code, r.name_ar, r.amount]),
+                ['—', '—', 'إجمالي الإيرادات', totalRevenues],
+                ['—', '—', 'إجمالي المصروفات', totalExpenses],
+                ['—', '—', netIncome >= 0 ? 'صافي الأرباح' : 'صافي الخسائر', netIncome],
+              ]}
+            />
+            <TajMallPdfToolbar
+              fileName={`الأرباح-والخسائر-${selectedYear}-${periodType}`}
+              disabled={!hasData}
+              render={async () => {
+                const { ProfitLossReportPDF } = await import(
+                  '@/features/pdf/ProfitLossReportPDF'
+                );
+                return (
+                  <ProfitLossReportPDF
+                    year={selectedYear}
+                    periodText={periodText}
+                    revenues={revenues}
+                    expenses={expenses}
+                  />
+                );
+              }}
+            />
+          </>
         }
       />
 

@@ -4,8 +4,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 
 /**
- * Advanced Service Worker Registration
- * Provides offline support, background sync, and push notifications
+ * Service Worker registration.
+ * Provides offline app-shell caching (see public/sw.js) and update prompts.
+ * Does NOT queue writes made while offline — see the note inside register()
+ * below before adding a "sync-transactions" background sync.
  */
 export function RegisterServiceWorker() {
   const [swStatus, setSwStatus] = useState<'idle' | 'registered' | 'updated' | 'error'>('idle');
@@ -71,14 +73,12 @@ export function RegisterServiceWorker() {
         setSwStatus('registered');
         console.log('[PWA] Service Worker registered:', registration.scope);
 
-        // Register for background sync if available
-        if ('sync' in registration) {
-          try {
-            await (registration as any).sync.register('sync-transactions');
-          } catch (syncError) {
-            console.log('[PWA] Background sync not available');
-          }
-        }
+        // ملاحظة: لا توجد طابور مزامنة فعلي للبيانات دون اتصال (كان هنا
+        // نداء sync.register() بلا أي معالج 'sync' مطابق في sw.js — كود
+        // ميت لا يفعل شيئاً). العمل دون اتصال حالياً يغطي فقط عرض الواجهة
+        // المخزَّنة (app shell)، لا حفظ معاملات جديدة. أي طابور حقيقي
+        // (IndexedDB + معالج sync) يحتاج تصميماً مخصصاً لتفادي التعارضات
+        // في بيانات مالية.
 
         // Request notification permission
         if ('Notification' in window && Notification.permission === 'default') {
@@ -115,17 +115,11 @@ export function RegisterServiceWorker() {
       toast.success('تم استعادة الاتصال', {
         description: 'أصبحت متصلاً بالإنترنت مرة أخرى.',
       });
-      // Trigger sync when back online
-      if ('serviceWorker' in navigator && 'sync' in navigator.serviceWorker) {
-        navigator.serviceWorker.ready.then((registration) => {
-          (registration as any).sync.register('sync-transactions');
-        });
-      }
     };
 
     const handleOffline = () => {
       toast.warning('وضع عدم الاتصال', {
-        description: 'أنت تعمل في وضع عدم الاتصال. سيتم مزامنة البيانات عند استعادة الاتصال.',
+        description: 'أنت تعمل بلا اتصال — الصفحات المفتوحة تبقى متاحة، لكن حفظ بيانات جديدة يتطلب استعادة الاتصال أولاً.',
         duration: 5000,
       });
     };

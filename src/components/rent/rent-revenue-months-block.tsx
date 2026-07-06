@@ -70,6 +70,9 @@ export function RentRevenueMonthsBlock({
   );
 
   const multiMonth = selected.length > 1;
+  // مفتاح نصي مستقر لمحتوى selected — يمنع إعادة تشغيل الأثر أدناه لمجرد
+  // تغيّر مرجع المصفوفة دون تغيّر محتواها فعلياً.
+  const selectedKey = selected.join(',');
 
   const calendarMonths: RentCalendarMonth[] = useMemo(
     () =>
@@ -84,9 +87,9 @@ export function RentRevenueMonthsBlock({
   }, [multiMonth, linkMode, onLinkModeChange]);
 
   useEffect(() => {
-    if (selected.length === 0) return;
+    if (!selectedKey) return;
     onPartialAmountChange(totalRemaining > 0 ? String(totalRemaining) : '');
-  }, [selected.join(','), totalRemaining, onPartialAmountChange]);
+  }, [selectedKey, totalRemaining, onPartialAmountChange]);
 
   const suggestedFull = useMemo(() => {
     if (selected.length === 0) return 0;

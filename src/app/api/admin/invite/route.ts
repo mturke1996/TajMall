@@ -1,29 +1,31 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server';
+import { can, normalizeRole } from '@/lib/permissions';
 
-const ASSIGNABLE_ROLES = new Set(['owner', 'admin', 'accountant', 'cashier', 'viewer']);
+const ASSIGNABLE_ROLES = ['owner', 'admin', 'accountant', 'cashier', 'viewer'] as const;
+
+const inviteSchema = z.object({
+  email: z.string().trim().email({ message: 'بريد إلكتروني غير صالح' }),
+  full_name_ar: z.string().trim().max(200).optional().default(''),
+  role: z.enum(ASSIGNABLE_ROLES).optional().default('viewer'),
+  password: z.string().min(6, 'كلمة المرور يجب أن تكون 6 أحرف على الأقل').optional(),
+});
 
 /**
  * Sends a Supabase auth invite email and aligns `public.profiles`.
- * أي مستخدم مسجّل يمكنه استدعاء المسار (بدون فحص دور في الواجهة).
- * يتطلب مفتاح الخدمة على الخادم.
+ * يتطلب أن يكون المستدعي owner/admin (صلاحية org.users)، ويتطلب
+ * مفتاح الخدمة على الخادم. لا يمكن لأي حساب آخر منح دور owner.
  */
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as {
-      email?: string;
-      full_name_ar?: string;
-      role?: string;
-      password?: string;
-    };
-
-    const email = String(body.email ?? '').trim();
-    const full_name_ar = String(body.full_name_ar ?? '').trim();
-    const role = ASSIGNABLE_ROLES.has(String(body.role)) ? String(body.role) : 'viewer';
-
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json({ error: 'بريد إلكتروني غير صالح' }, { status: 400 });
+    const rawBody = await req.json().catch(() => ({}));
+    const parsed = inviteSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const message = parsed.error.issues[0]?.message ?? 'بيانات غير صالحة';
+      return NextResponse.json({ error: message }, { status: 400 });
     }
+    const { email, full_name_ar, role, password } = parsed.data;
 
     const supabase = createSupabaseServerClient();
     const {
@@ -32,6 +34,29 @@ export async function POST(req: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'غير مصرّح' }, { status: 401 });
+    }
+
+    // فحص الصلاحية: فقط من يملك org.users (owner/admin) يستطيع دعوة مستخدمين.
+    const { data: callerProfile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const callerRole = normalizeRole(callerProfile?.role);
+    if (!can(callerRole, 'org.users')) {
+      return NextResponse.json(
+        { error: 'غير مصرّح — تحتاج صلاحية إدارة المستخدمين (owner أو admin)' },
+        { status: 403 },
+      );
+    }
+
+    // فقط owner يستطيع منح دور owner لغيره — admin لا يستطيع صنع owner جديد.
+    if (role === 'owner' && callerRole !== 'owner') {
+      return NextResponse.json(
+        { error: 'فقط owner يستطيع منح صلاحية owner لمستخدم آخر' },
+        { status: 403 },
+      );
     }
 
     let admin;
@@ -48,8 +73,6 @@ export async function POST(req: Request) {
     }
 
     const origin = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
-
-    const password = body.password ? String(body.password) : undefined;
 
     let invitedUser;
     let invErr;

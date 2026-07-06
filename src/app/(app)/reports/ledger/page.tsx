@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import { useCategories } from '@/lib/db/queries';
 import { useGeneralLedger } from '@/lib/db/mall-queries';
+import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { AccountingBackfillBanner } from '@/components/accounting/accounting-backfill-banner';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { AccountingFilterCard } from '@/components/accounting/accounting-filter-card';
@@ -106,9 +107,25 @@ function GeneralLedgerContent() {
         title="دفتر الأستاذ العام"
         description="كشف حساب تفصيلي للبنود المحاسبية — الحركات المدينة والدائنة والرصيد التراكمي"
         actions={
-          <Button variant="outline" size="sm" asChild className="touch-manipulation min-h-10">
-            <Link href="/reports/trial-balance">ميزان المراجعة</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <ExportCsvButton
+              fileName={`دفتر-الأستاذ-${selectedCategory?.name_ar ?? ''}`}
+              disabled={linesWithBalance.length === 0}
+              headers={['التاريخ', 'رقم القيد', 'المرجع', 'الوصف', 'مدين', 'دائن', 'الرصيد التراكمي']}
+              rows={linesWithBalance.map((l) => [
+                l.entry_date,
+                l.journal_number,
+                l.journal_reference ?? '',
+                l.description ?? '',
+                l.debit,
+                l.credit,
+                l.runningBalance,
+              ])}
+            />
+            <Button variant="outline" size="sm" asChild className="touch-manipulation min-h-10">
+              <Link href="/reports/trial-balance">ميزان المراجعة</Link>
+            </Button>
+          </div>
         }
       />
 

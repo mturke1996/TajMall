@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Loader2, Plus, Users } from 'lucide-react';
+import { Check, Edit2, Loader2, Plus, Search, Shield, Users, X } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,11 +28,13 @@ import { useProfiles, useUpdateProfile, qk } from '@/lib/db/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import { SYSTEM_ROLES } from '@/lib/constants';
 import { useUser } from '@/lib/supabase/use-user';
+import { usePermission } from '@/lib/supabase/use-permission';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 export default function UsersPage() {
   const { user } = useUser();
+  const { can } = usePermission();
   const { data: profiles, isLoading } = useProfiles();
   const updateProfile = useUpdateProfile();
   const qc = useQueryClient();
@@ -43,6 +46,9 @@ export default function UsersPage() {
   const [invitePassword, setInvitePassword] = useState('');
   const [inviteBusy, setInviteBusy] = useState(false);
   const [createType, setCreateType] = useState<'DIRECT' | 'INVITE'>('DIRECT');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
 
   const rows = useMemo(() => profiles ?? [], [profiles]);
 
@@ -50,6 +56,39 @@ export default function UsersPage() {
     () => [...rows].sort((a, b) => (a.full_name_ar ?? '').localeCompare(b.full_name_ar ?? '', 'ar')),
     [rows],
   );
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter(
+      (p) =>
+        p.full_name_ar?.toLowerCase().includes(q) ||
+        p.full_name?.toLowerCase().includes(q) ||
+        p.id.toLowerCase().includes(q),
+    );
+  }, [sorted, searchQuery]);
+
+  function startEditName(p: { id: string; full_name_ar: string | null; full_name: string | null }) {
+    setEditingId(p.id);
+    setEditName(p.full_name_ar ?? p.full_name ?? '');
+  }
+
+  function cancelEditName() {
+    setEditingId(null);
+    setEditName('');
+  }
+
+  async function saveEditName(id: string) {
+    try {
+      await updateProfile.mutateAsync({ id, full_name_ar: editName.trim() });
+      toast.success('تم تحديث الاسم');
+      setEditingId(null);
+    } catch (e) {
+      toast.error('تعذّر حفظ الاسم', {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    }
+  }
 
   async function submitInvite() {
     if (!inviteEmail.trim()) {
@@ -114,16 +153,36 @@ export default function UsersPage() {
       <PageHeader
         eyebrow="الإدارة"
         title="المستخدمون"
-        description="عرض فريق العمل، تعديل الأدوار، ودعوة أعضاء جدد بالبريد (يتطلب إعداد SMTP في Supabase)."
+        description="عرض فريق العمل، تعديل الأسماء والأدوار، ودعوة أعضاء جدد."
         actions={
-          <Button size="sm" className="shrink-0 gap-1.5" onClick={() => setInviteOpen(true)}>
-            <Plus className="stroke-[1.6]" />
-            إضافة مستخدم جديد
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {can('org.audit') && (
+              <Button variant="outline" size="sm" className="shrink-0 gap-1.5" asChild>
+                <Link href="/audit-log" prefetch>
+                  <Shield className="stroke-[1.6]" />
+                  سجل الرقابة
+                </Link>
+              </Button>
+            )}
+            <Button size="sm" className="shrink-0 gap-1.5" onClick={() => setInviteOpen(true)}>
+              <Plus className="stroke-[1.6]" />
+              إضافة مستخدم جديد
+            </Button>
+          </div>
         }
       />
 
       <div className="flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-7 md:px-8 md:py-10">
+        <div className="relative">
+          <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+          <Input
+            placeholder="البحث بالاسم أو المعرّف..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pr-10"
+          />
+        </div>
+
         {isLoading && (
           <div className="flex items-center justify-center gap-2 py-12 text-[13px] text-ink-mute">
             <Loader2 className="h-4 w-4 animate-spin stroke-[1.6]" />
@@ -138,10 +197,17 @@ export default function UsersPage() {
           </div>
         )}
 
+        {!isLoading && sorted.length > 0 && !filtered.length && (
+          <div className="surface flex flex-col items-center gap-3 px-6 py-12 text-center">
+            <Search className="h-8 w-8 text-ink-mute stroke-[1.4]" />
+            <p className="text-[14px] text-ink-mute">لا نتائج مطابقة لبحثك.</p>
+          </div>
+        )}
+
         {/* Mobile cards */}
-        {!isLoading && sorted.length > 0 && (
+        {!isLoading && filtered.length > 0 && (
           <ul className="flex flex-col gap-2.5 md:hidden">
-            {sorted.map((p, i) => (
+            {filtered.map((p, i) => (
               <motion.li
                 key={p.id}
                 initial={{ opacity: 0, y: 4 }}
@@ -150,10 +216,37 @@ export default function UsersPage() {
                 className="surface flex flex-col gap-3 p-4"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-[15px] font-semibold">
-                      {p.full_name_ar ?? p.full_name ?? 'بدون اسم'}
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    {editingId === p.id ? (
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="h-8 text-[13px]"
+                          autoFocus
+                        />
+                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-emerald-600" onClick={() => saveEditName(p.id)}>
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-rose-600" onClick={cancelEditName}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-[15px] font-semibold">
+                          {p.full_name_ar ?? p.full_name ?? 'بدون اسم'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => startEditName(p)}
+                          className="shrink-0 rounded-md p-1 text-ink-mute hover:bg-canvas-sunken hover:text-foreground"
+                          aria-label="تعديل الاسم"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                     <p className="truncate font-mono text-[11px] text-ink-mute">{p.id.slice(0, 8)}…</p>
                   </div>
                   {p.id === user?.id ? (
@@ -185,7 +278,7 @@ export default function UsersPage() {
         )}
 
         {/* Desktop table */}
-        {!isLoading && sorted.length > 0 && (
+        {!isLoading && filtered.length > 0 && (
           <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
             <table className="w-full min-w-[640px] text-[13px]">
               <thead>
@@ -196,10 +289,37 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {sorted.map((p) => (
+                {filtered.map((p) => (
                   <tr key={p.id} className="border-b border-border last:border-0">
                     <td className="px-4 py-3">
-                      <span className="font-medium">{p.full_name_ar ?? p.full_name ?? '—'}</span>
+                      {editingId === p.id ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="h-8 w-48 text-[13px]"
+                            autoFocus
+                          />
+                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-emerald-600" onClick={() => saveEditName(p.id)}>
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-rose-600" onClick={cancelEditName}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="group flex items-center gap-1.5">
+                          <span className="font-medium">{p.full_name_ar ?? p.full_name ?? '—'}</span>
+                          <button
+                            type="button"
+                            onClick={() => startEditName(p)}
+                            className="shrink-0 rounded-md p-1 text-ink-mute opacity-0 hover:bg-canvas-sunken hover:text-foreground group-hover:opacity-100"
+                            aria-label="تعديل الاسم"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
                       {p.id === user?.id ? (
                         <Badge variant="neutral" className="ms-2 text-[10px]">
                           أنت

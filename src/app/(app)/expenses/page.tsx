@@ -115,7 +115,7 @@ export default function ExpensesPage() {
         {/* Stats + Category breakdown */}
         <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
           {/* Left: 3 stat cards */}
-          <div className="grid grid-cols-3 gap-3 xl:col-span-1 xl:grid-cols-1">
+          <div className="grid grid-cols-2 gap-3 xl:col-span-1 xl:grid-cols-1">
             <Stat
               label="إجمالي المصروفات"
               value={total}
@@ -123,6 +123,7 @@ export default function ExpensesPage() {
               icon={ArrowUpFromLine}
               loading={isLoading}
               color="rose"
+              className="col-span-2 xl:col-span-1"
             />
             <Stat
               label="عدد القيود"

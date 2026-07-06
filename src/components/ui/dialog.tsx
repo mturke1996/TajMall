@@ -40,6 +40,8 @@ const DialogContent = React.forwardRef<
         // position + size
         "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg",
         "-translate-x-1/2 -translate-y-1/2 gap-4",
+        // never taller than the viewport — scroll internally on small screens
+        "max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain",
         // surface
         "rounded-2xl border border-border bg-card text-card-foreground",
         "p-6 shadow-lift",

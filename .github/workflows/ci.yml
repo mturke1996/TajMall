@@ -1,0 +1,47 @@
+name: CI - Typecheck, Lint, Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Typecheck + Lint + Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Typecheck (tsc --noEmit)
+        run: npm run typecheck
+
+      - name: Lint (next lint)
+        run: npm run lint
+
+      - name: Build (next build)
+        run: npm run build
+        env:
+          # لا حاجة لأسرار حقيقية — البناء يتسامح مع غياب متغيرات Supabase
+          # (راجع isBuildTime() في src/lib/supabase/env.ts) وهذا يتحقق فقط
+          # من أن الكود يُبنى بلا أخطاء، لا من الاتصال الفعلي بقاعدة البيانات.
+          NEXT_PUBLIC_APP_NAME: "Fluxen"
+          NEXT_PUBLIC_DEFAULT_LOCALE: "ar"
+          NEXT_PUBLIC_DEFAULT_CURRENCY: "LYD"

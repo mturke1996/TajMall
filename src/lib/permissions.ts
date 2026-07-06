@@ -23,6 +23,8 @@ const ALL: PermissionKey[] = [
   'cashbox.manage',
   'account.view',
   'account.manage',
+  'budget.view',
+  'budget.manage',
   'journal.view',
   'journal.create',
   'journal.post',
@@ -72,6 +74,10 @@ export function can(role: string | null | undefined, key: PermissionKey): boolea
   }
 
   if (r === 'cashier') {
+    // فصل المهام (Maker-Checker): من ينشئ إذن الصرف لا يعتمده — الاعتماد
+    // يبقى لـ owner/admin/accountant فقط، حتى لو كان cashier يستطيع
+    // إنشاء وإرسال الإذن للاعتماد.
+    if (g === 'voucher' && key === 'voucher.approve') return false;
     if (g === 'revenue' || g === 'expense' || g === 'voucher') return true;
     if (g === 'cashbox') return key === 'cashbox.manage' || key === 'cashbox.view';
     if (g === 'journal') return key === 'journal.view';

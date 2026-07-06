@@ -1,0 +1,60 @@
+name: Database Backup
+
+on:
+  schedule:
+    # يومياً 02:00 بتوقيت UTC — خارج ساعات العمل المعتادة بليبيا (UTC+2)
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    name: pg_dump → Artifact
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Verify DIRECT_URL secret is set
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          if [ -z "${DIRECT_URL:-}" ]; then
+            echo '::error::السرّ DIRECT_URL غير معرَّف. أضفه في Settings → Secrets and variables → Actions.'
+            echo '::error::القيمة: Supabase Dashboard → Settings → Database → Connection string → Direct connection.'
+            exit 1
+          fi
+
+      - name: Dump database
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          set -euo pipefail
+          STAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
+          echo "STAMP=${STAMP}" >> "$GITHUB_ENV"
+
+          pg_dump "${DIRECT_URL}" \
+            --no-owner --no-privileges --no-acl \
+            -F c -f "fluxen-backup-${STAMP}.dump"
+
+          SIZE_BYTES="$(stat -c%s "fluxen-backup-${STAMP}.dump")"
+          echo "Dump size: ${SIZE_BYTES} bytes"
+          if [ "${SIZE_BYTES}" -lt 2048 ]; then
+            echo "::error::ملف النسخة الاحتياطية صغير بشكل مريب (${SIZE_BYTES} bytes) — تحقق من DIRECT_URL والاتصال."
+            exit 1
+          fi
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fluxen-backup-${{ env.STAMP }}
+          path: fluxen-backup-*.dump
+          retention-days: 30
+          compression-level: 0 # pg_dump -F c مضغوط أصلاً
+
+      - name: Summary
+        run: |
+          echo "### نسخة احتياطية ${STAMP}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- الاحتفاظ بها 30 يوماً في تبويب Actions → هذا التشغيل → Artifacts." >> "$GITHUB_STEP_SUMMARY"
+          echo "- الاستعادة: راجع docs/BACKUP_AND_RESTORE.md" >> "$GITHUB_STEP_SUMMARY"

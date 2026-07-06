@@ -1013,6 +1013,42 @@ export function useCreateDisbursementVoucher() {
   });
 }
 
+/** إرسال إذن للاعتماد (DRAFT/REJECTED → PENDING_APPROVAL) — يُنشئ إشعاراً فعلياً للمعتمدين. */
+export function useSubmitVoucherForApproval() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (voucherId: string) => {
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase.rpc("submit_voucher_for_approval", {
+        p_voucher_id: voucherId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.disbursementVouchers });
+    },
+  });
+}
+
+/** اعتماد أو رفض إذن — يتطلب owner/admin (محروس داخل الدالة نفسها). */
+export function useDecideVoucherApproval() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { voucherId: string; approve: boolean; reason?: string }) => {
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase.rpc("decide_voucher_approval", {
+        p_voucher_id: input.voucherId,
+        p_approve: input.approve,
+        p_reason: input.reason ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.disbursementVouchers });
+    },
+  });
+}
+
 // ── dashboard aggregates ─────────────────────────────────────────
 export type DashboardStats = {
   totalRevenue: number;

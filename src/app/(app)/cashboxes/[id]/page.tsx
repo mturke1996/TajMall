@@ -12,20 +12,27 @@ import {
   Loader2,
   Wallet,
   Landmark,
+  CheckSquare,
+  Square,
+  ScanLine,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { EmptyState } from '@/components/data/empty-state';
 import { CashboxTransferDialog } from '@/components/cashboxes/cashbox-transfer-dialog';
 import {
   LEDGER_KIND_LABELS,
   useCashboxLedger,
+  useSetLedgerEventReconciled,
   type CashboxLedgerRow,
 } from '@/lib/db/cashbox-queries';
 import { useCashboxBalances } from '@/lib/db/queries';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { cn, formatMoney, formatDate, formatShortDate } from '@/lib/utils';
+import { toast } from 'sonner';
 
 type FilterKind = 'all' | 'in' | 'out' | 'transfer';
 
@@ -48,9 +55,12 @@ export default function CashboxLedgerPage() {
   const { data: ledger, isLoading, isError } = useCashboxLedger(cashboxId);
   const { data: balances = [] } = useCashboxBalances();
   const balanceRow = balances.find((b) => b.id === cashboxId);
+  const setReconciled = useSetLedgerEventReconciled(cashboxId);
 
   const [filter, setFilter] = useState<FilterKind>('all');
   const [transferOpen, setTransferOpen] = useState(false);
+  const [reconcileMode, setReconcileMode] = useState(false);
+  const [statementBalance, setStatementBalance] = useState('');
 
   const filteredRows = useMemo(() => {
     const rows = ledger?.rows ?? [];
@@ -85,6 +95,32 @@ export default function CashboxLedgerPage() {
   const totalIn = ledger.rows.filter((r) => r.direction === 'in').reduce((s, r) => s + Math.abs(r.signed_amount), 0);
   const totalOut = ledger.rows.filter((r) => r.direction === 'out').reduce((s, r) => s + Math.abs(r.signed_amount), 0);
 
+  const canReconcile = ledger.kind === 'BANK' || ledger.kind === 'CARD';
+  const reconciledBalance =
+    ledger.opening_balance + ledger.rows.filter((r) => r.reconciled_at).reduce((s, r) => s + r.signed_amount, 0);
+  const statementBalanceNum = statementBalance.trim() === '' ? null : Number(statementBalance);
+  const reconcileDiff =
+    statementBalanceNum !== null && !Number.isNaN(statementBalanceNum)
+      ? statementBalanceNum - reconciledBalance
+      : null;
+
+  function toggleReconciled(row: CashboxLedgerRow) {
+    setReconciled.mutate(
+      {
+        sourceType: row.source_type,
+        eventId: row.event_id,
+        reconciled: !row.reconciled_at,
+      },
+      {
+        onError: (e) => {
+          toast.error('تعذّر تحديث حالة المطابقة', {
+            description: e instanceof Error ? e.message : undefined,
+          });
+        },
+      },
+    );
+  }
+
   const filterChips: { key: FilterKind; label: string }[] = [
     { key: 'all', label: 'الكل' },
     { key: 'in', label: 'وارد' },
@@ -106,6 +142,17 @@ export default function CashboxLedgerPage() {
                 كل الخزائن
               </Link>
             </Button>
+            {canManage && canReconcile ? (
+              <Button
+                variant={reconcileMode ? 'default' : 'outline'}
+                size="sm"
+                className={cn('gap-1.5', reconcileMode && 'bg-sage-700 hover:bg-sage-800')}
+                onClick={() => setReconcileMode((v) => !v)}
+              >
+                <ScanLine className="h-4 w-4" />
+                {reconcileMode ? 'إنهاء التسوية البنكية' : 'تسوية بنكية'}
+              </Button>
+            ) : null}
             {canManage ? (
               <Button size="sm" className="gap-1.5" onClick={() => setTransferOpen(true)}>
                 <ArrowLeftRight className="h-4 w-4" />
@@ -159,6 +206,57 @@ export default function CashboxLedgerPage() {
           </div>
         </div>
 
+        {reconcileMode && (
+          <div className="surface flex flex-col gap-4 p-4 sm:p-5">
+            <div className="flex items-center gap-2">
+              <ScanLine className="h-4 w-4 text-sage-700" />
+              <h2 className="text-[14px] font-semibold">تسوية بنكية</h2>
+            </div>
+            <p className="text-[12.5px] leading-relaxed text-ink-mute">
+              ضع علامة على كل حركة ظاهرة في كشف الحساب البنكي الوارد من المصرف، ثم أدخل الرصيد
+              النهائي في كشف الحساب لمقارنته بالرصيد المطابَق أدناه. الفارق يجب أن يكون صفراً عند
+              اكتمال التسوية.
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-ink-mute">الرصيد المطابَق</p>
+                <p className="num mt-1 text-[16px] font-semibold">
+                  {formatMoney(reconciledBalance, currency)}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="stmt-balance" className="text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+                  رصيد كشف الحساب البنكي
+                </Label>
+                <Input
+                  id="stmt-balance"
+                  type="number"
+                  inputMode="decimal"
+                  dir="ltr"
+                  value={statementBalance}
+                  onChange={(e) => setStatementBalance(e.target.value)}
+                  placeholder="0.000"
+                  className="h-9"
+                />
+              </div>
+              {reconcileDiff !== null && (
+                <div className="col-span-2 sm:col-span-2">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-ink-mute">الفارق</p>
+                  <p
+                    className={cn(
+                      'num mt-1 text-[16px] font-bold',
+                      Math.abs(reconcileDiff) < 0.01 ? 'text-emerald-700' : 'text-rose-700',
+                    )}
+                  >
+                    {formatMoney(reconcileDiff, currency)}
+                    {Math.abs(reconcileDiff) < 0.01 ? ' — متطابق' : ''}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="surface overflow-hidden">
           <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex items-center gap-2">
@@ -198,13 +296,20 @@ export default function CashboxLedgerPage() {
             <>
               <div className="divide-y divide-border md:hidden">
                 {filteredRows.map((row) => (
-                  <LedgerMobileRow key={`${row.source_type}-${row.event_id}-${row.event_kind}`} row={row} currency={currency} />
+                  <LedgerMobileRow
+                    key={`${row.source_type}-${row.event_id}-${row.event_kind}`}
+                    row={row}
+                    currency={currency}
+                    reconcileMode={reconcileMode}
+                    onToggleReconciled={() => toggleReconciled(row)}
+                  />
                 ))}
               </div>
               <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-[12.5px]">
                   <thead>
                     <tr className="border-b border-border bg-canvas-sunken/50 text-[10px] uppercase tracking-[0.14em] text-ink-mute">
+                      {reconcileMode && <th className="px-4 py-2.5 text-right font-semibold">مطابَق</th>}
                       <th className="px-4 py-2.5 text-right font-semibold">التاريخ</th>
                       <th className="px-4 py-2.5 text-right font-semibold">المرجع</th>
                       <th className="px-4 py-2.5 text-right font-semibold">النوع</th>
@@ -219,7 +324,30 @@ export default function CashboxLedgerPage() {
                       const kindLabel = LEDGER_KIND_LABELS[row.event_kind] ?? row.event_kind;
                       const isIn = row.direction === 'in';
                       return (
-                        <tr key={`${row.source_type}-${row.event_id}-${row.event_kind}`} className="border-b border-border/70 hover:bg-canvas-sunken/30">
+                        <tr
+                          key={`${row.source_type}-${row.event_id}-${row.event_kind}`}
+                          className={cn(
+                            'border-b border-border/70 hover:bg-canvas-sunken/30',
+                            reconcileMode && row.reconciled_at && 'bg-emerald-50/40',
+                          )}
+                        >
+                          {reconcileMode && (
+                            <td className="px-4 py-3">
+                              <button
+                                type="button"
+                                onClick={() => toggleReconciled(row)}
+                                disabled={setReconciled.isPending}
+                                className="text-sage-700 disabled:opacity-40"
+                                aria-label={row.reconciled_at ? 'إلغاء المطابقة' : 'تعليم كمطابَق'}
+                              >
+                                {row.reconciled_at ? (
+                                  <CheckSquare className="h-4 w-4" />
+                                ) : (
+                                  <Square className="h-4 w-4 text-ink-mute" />
+                                )}
+                              </button>
+                            </td>
+                          )}
                           <td className="px-4 py-3 whitespace-nowrap" dir="ltr">
                             {formatShortDate(row.event_date)}
                           </td>
@@ -272,17 +400,43 @@ export default function CashboxLedgerPage() {
   );
 }
 
-function LedgerMobileRow({ row, currency }: { row: CashboxLedgerRow; currency: string }) {
+function LedgerMobileRow({
+  row,
+  currency,
+  reconcileMode,
+  onToggleReconciled,
+}: {
+  row: CashboxLedgerRow;
+  currency: string;
+  reconcileMode?: boolean;
+  onToggleReconciled?: () => void;
+}) {
   const href = ledgerLink(row);
   const kindLabel = LEDGER_KIND_LABELS[row.event_kind] ?? row.event_kind;
   const isIn = row.direction === 'in';
 
   return (
-    <article className="px-4 py-3.5">
+    <article className={cn('px-4 py-3.5', reconcileMode && row.reconciled_at && 'bg-emerald-50/40')}>
       <div className="flex items-start justify-between gap-2">
-        <Badge variant={isIn ? 'success' : row.event_kind.startsWith('TRANSFER') ? 'info' : 'danger'}>
-          {kindLabel}
-        </Badge>
+        <div className="flex items-center gap-2">
+          {reconcileMode && (
+            <button
+              type="button"
+              onClick={onToggleReconciled}
+              className="text-sage-700"
+              aria-label={row.reconciled_at ? 'إلغاء المطابقة' : 'تعليم كمطابَق'}
+            >
+              {row.reconciled_at ? (
+                <CheckSquare className="h-4 w-4" />
+              ) : (
+                <Square className="h-4 w-4 text-ink-mute" />
+              )}
+            </button>
+          )}
+          <Badge variant={isIn ? 'success' : row.event_kind.startsWith('TRANSFER') ? 'info' : 'danger'}>
+            {kindLabel}
+          </Badge>
+        </div>
         <span className={cn('num text-[15px] font-bold tabular-nums', isIn ? 'text-pastel-greenInk' : 'text-pastel-redInk')}>
           {isIn ? '+' : '−'} {formatMoney(Math.abs(row.signed_amount), currency)}
         </span>

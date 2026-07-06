@@ -8,10 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, cn } from '@/lib/utils';
 import { useTenantArAging } from '@/lib/db/mall-queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { useSyncOverdueChargeReminders } from '@/lib/db/notification-queries';
+import { WhatsAppReminderButton } from '@/components/tenants/whatsapp-reminder-button';
+import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 
 type AgingRow = {
   tenant_id: string;
@@ -52,7 +55,7 @@ export default function TenantArAgingPage() {
   }, [raw]);
 
   return (
-    <div className="space-y-6 pb-8">
+    <>
       <PageHeader
         eyebrow="المحاسبة والتقارير"
         title="أعمار ذمم المستأجرين"
@@ -71,6 +74,21 @@ export default function TenantArAgingPage() {
             <Button variant="outline" size="sm" asChild className="touch-manipulation">
               <Link href="/notifications">مركز الإشعارات</Link>
             </Button>
+            <ExportCsvButton
+              fileName={`اعمار-الذمم-${asOf}`}
+              disabled={rows.length === 0}
+              headers={['المستأجر', 'رقم المحل', 'الهاتف', 'إجمالي المتأخر', 'حالي', '30 يوم', '60 يوم', '90+ يوم']}
+              rows={rows.map((r) => [
+                r.tenant_name,
+                r.shop_number ?? '',
+                r.phone ?? '',
+                r.total_outstanding,
+                r.bucket_current,
+                r.bucket_30,
+                r.bucket_60,
+                r.bucket_90_plus,
+              ])}
+            />
             <TajMallPdfToolbar
               fileName={`اعمار-الذمم-${asOf}`}
               disabled={rows.length === 0}
@@ -89,6 +107,7 @@ export default function TenantArAgingPage() {
         }
       />
 
+      <AccountingPageBody>
       <Card>
         <CardContent className="pt-6 flex flex-wrap gap-4 items-end">
           <div className="space-y-2">
@@ -132,7 +151,61 @@ export default function TenantArAgingPage() {
               <p>لا توجد ذمم مستحقة — ممتاز!</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            {/* Mobile: card list */}
+            <ul className="flex flex-col gap-3 md:hidden">
+              {rows.map((row: AgingRow) => (
+                <li
+                  key={row.tenant_id}
+                  className="rounded-xl border border-border bg-card p-3.5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/contacts/${row.tenant_id}`}
+                        className="block truncate font-semibold hover:text-emerald-800 hover:underline touch-manipulation"
+                      >
+                        {row.tenant_name}
+                      </Link>
+                      <p className="text-[12px] text-slate-500">
+                        {row.shop_number ? `محل ${row.shop_number}` : '—'}
+                        {row.phone && (
+                          <span dir="ltr" className="mr-1">· {row.phone}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-left">
+                      <p className="text-[10px] text-slate-500">إجمالي المتأخر</p>
+                      <p className="font-mono text-base font-bold text-red-700">
+                        {formatMoney(row.total_outstanding, 'LYD')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-4 gap-1.5 text-center">
+                    <BucketCell label="جاري" value={row.bucket_current} className="text-slate-700" />
+                    <BucketCell label="1–30" value={row.bucket_30} className="text-amber-700" />
+                    <BucketCell label="31–60" value={row.bucket_60} className="text-orange-700" />
+                    <BucketCell label="+60" value={row.bucket_90_plus} className="text-red-700" />
+                  </div>
+
+                  <div className="mt-3">
+                    <WhatsAppReminderButton
+                      tenantName={row.tenant_name}
+                      phone={row.phone}
+                      amountOutstanding={row.total_outstanding}
+                      shopNumber={row.shop_number}
+                      asOf={asOf}
+                      size="sm"
+                      className="h-11 w-full touch-manipulation gap-1.5 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {/* Desktop: table */}
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-right text-sm min-w-[640px]">
                 <thead>
                   <tr className="border-b text-slate-500 font-semibold">
@@ -143,6 +216,7 @@ export default function TenantArAgingPage() {
                     <th className="pb-3 text-left">31–60</th>
                     <th className="pb-3 text-left">+60</th>
                     <th className="pb-3 pl-2 text-left">الإجمالي</th>
+                    <th className="pb-3 text-left">تذكير</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -172,14 +246,45 @@ export default function TenantArAgingPage() {
                       <td className="py-3 pl-2 text-left font-mono font-bold">
                         {formatMoney(row.total_outstanding, 'LYD')}
                       </td>
+                      <td className="py-3 text-left">
+                        <WhatsAppReminderButton
+                          tenantName={row.tenant_name}
+                          phone={row.phone}
+                          amountOutstanding={row.total_outstanding}
+                          shopNumber={row.shop_number}
+                          asOf={asOf}
+                          size="icon-sm"
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </CardContent>
       </Card>
+      </AccountingPageBody>
+    </>
+  );
+}
+
+function BucketCell({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: number;
+  className?: string;
+}) {
+  return (
+    <div className="rounded-lg bg-canvas-sunken/60 px-1 py-1.5">
+      <p className="text-[10px] text-slate-500">{label}</p>
+      <p className={cn('font-mono text-[12px] font-semibold', className)}>
+        {value > 0 ? formatMoney(value, '') : '—'}
+      </p>
     </div>
   );
 }

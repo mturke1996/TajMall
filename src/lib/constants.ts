@@ -115,6 +115,8 @@ export const PERMISSION_KEYS = [
   'cashbox.view', 'cashbox.manage',
   // accounts
   'account.view', 'account.manage',
+  // budgets
+  'budget.view', 'budget.manage',
   // journal
   'journal.view', 'journal.create', 'journal.post', 'journal.reverse',
   // voucher

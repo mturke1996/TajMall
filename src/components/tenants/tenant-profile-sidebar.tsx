@@ -13,6 +13,7 @@ import {
 } from '@/lib/tenant-current-month';
 import { cn } from '@/lib/utils';
 import { ContactRentLinks } from '@/components/contacts/contact-rent-links';
+import { TenantPortalLinkCard } from '@/components/tenants/tenant-portal-link-card';
 
 export function TenantProfileSidebar({
   contact,
@@ -144,6 +145,13 @@ export function TenantProfileSidebar({
       </Card>
 
       <ContactRentLinks contact={contact} onRecordPayment={onRecordPayment} />
+
+      <TenantPortalLinkCard
+        contactId={contact.id}
+        contactName={contact.name}
+        phone={contact.phone}
+        portalToken={contact.portal_token}
+      />
     </div>
   );
 }

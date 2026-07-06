@@ -8,6 +8,7 @@ import { formatMoney } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { useCashFlow } from '@/lib/db/mall-queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { AccountingYearPicker } from '@/components/accounting/accounting-year-picker';
 import { AccountingFilterCard } from '@/components/accounting/accounting-filter-card';
@@ -129,16 +130,35 @@ export default function CashFlowPage() {
         title="قائمة التدفقات النقدية"
         description="مصادر المقبوضات واستخدامات المدفوعات — تشغيلية، استثمارية، وتمويلية"
         actions={
-          <TajMallPdfToolbar
-            fileName={`التدفقات-النقدية-${selectedYear}`}
-            disabled={!cashFlowData}
-            render={async () => {
-              const { CashFlowReportPDF } = await import('@/features/pdf/CashFlowReportPDF');
-              return (
-                <CashFlowReportPDF year={selectedYear} data={cashFlowData!} />
-              );
-            }}
-          />
+          <>
+            <ExportCsvButton
+              fileName={`التدفقات-النقدية-${selectedYear}`}
+              disabled={!cashFlowData}
+              headers={['النشاط', 'البند', 'الوصف', 'المبلغ']}
+              rows={
+                cashFlowData
+                  ? [
+                      ...cashFlowData.operating.map((i) => ['تشغيلي', i.category, i.description, i.isPositive ? i.amount : -i.amount]),
+                      ...cashFlowData.investing.map((i) => ['استثماري', i.category, i.description, i.isPositive ? i.amount : -i.amount]),
+                      ...cashFlowData.financing.map((i) => ['تمويلي', i.category, i.description, i.isPositive ? i.amount : -i.amount]),
+                      ['—', 'الرصيد الافتتاحي', '', cashFlowData.summary.openingBalance],
+                      ['—', 'صافي التغير', '', cashFlowData.summary.netChange],
+                      ['—', 'الرصيد الختامي', '', cashFlowData.summary.closingBalance],
+                    ]
+                  : []
+              }
+            />
+            <TajMallPdfToolbar
+              fileName={`التدفقات-النقدية-${selectedYear}`}
+              disabled={!cashFlowData}
+              render={async () => {
+                const { CashFlowReportPDF } = await import('@/features/pdf/CashFlowReportPDF');
+                return (
+                  <CashFlowReportPDF year={selectedYear} data={cashFlowData!} />
+                );
+              }}
+            />
+          </>
         }
       />
 

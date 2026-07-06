@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
@@ -87,6 +88,52 @@ export function useMarkAllNotificationsRead() {
       qc.invalidateQueries({ queryKey: nqk.unreadCount });
     },
   });
+}
+
+/**
+ * يشترك في تغييرات جدول app_notifications عبر Supabase Realtime — يستبدل
+ * السحب اليدوي (فتح الصفحة / إعادة التحميل) بتحديث فوري لعدّاد غير
+ * المقروء والقائمة، ويُظهر إشعار toast عند وصول تذكير جديد.
+ *
+ * يجب تفعيل الجدول في نشرة supabase_realtime أولاً (migration 041) وإلا
+ * سيتصل القناة بنجاح لكنها لن تستقبل أي حدث أبداً (فشل صامت).
+ */
+export function useNotificationsRealtime() {
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+
+    const channel = supabase
+      .channel('app_notifications_changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'app_notifications' },
+        (payload) => {
+          const row = payload.new as AppNotificationRow;
+          qc.invalidateQueries({ queryKey: nqk.all });
+          qc.invalidateQueries({ queryKey: nqk.unreadCount });
+          if (row?.title_ar) {
+            toast.info(row.title_ar, {
+              description: row.body_ar ?? undefined,
+            });
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'app_notifications' },
+        () => {
+          qc.invalidateQueries({ queryKey: nqk.all });
+          qc.invalidateQueries({ queryKey: nqk.unreadCount });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [qc]);
 }
 
 export function useSyncOverdueChargeReminders() {
