@@ -64,6 +64,9 @@ export const DEFAULT_CATEGORIES: Array<{
   { code: 'EXP-SEC',  nameAr: 'م.أمن وحراسة',         name: 'Security services',     kind: 'EXPENSE', type: 'EXPENSE', color: '#5C4033' },
   { code: 'EXP-INS',  nameAr: 'م.تأمينات',            name: 'Insurance',              kind: 'EXPENSE', type: 'EXPENSE', color: '#4A5F7A' },
   { code: 'EXP-MKT',  nameAr: 'م.تسويق وعلاقات عامة', name: 'Marketing & PR',         kind: 'EXPENSE', type: 'EXPENSE', color: '#6B4C7A' },
+  { code: 'EXP-AID',  nameAr: 'م.مساعدات وصداقات',    name: 'Aid & charity',          kind: 'EXPENSE', type: 'EXPENSE', color: '#6B4E3D' },
+  { code: 'EXP-FUL',  nameAr: 'م.وقود وزيوت',          name: 'Fuel & oils',            kind: 'EXPENSE', type: 'EXPENSE', color: '#8B6914' },
+  { code: 'EXP-POS',  nameAr: 'م.بريد',                 name: 'Postage & mail',         kind: 'EXPENSE', type: 'EXPENSE', color: '#3D5A6B' },
   { code: 'EXP-OTH',  nameAr: 'م.أخرى',                name: 'Other',                 kind: 'EXPENSE', type: 'EXPENSE', color: '#6E7470' },
 ];
 

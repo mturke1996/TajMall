@@ -3,20 +3,26 @@
 import { FileText, Wallet } from 'lucide-react';
 import type { TenantRentSummary } from '@/lib/db/queries';
 import {
-  currentMonthNameAr,
   getTenantRentStatusPresentation,
 } from '@/components/tenants/tenant-status-config';
+import { currentMonthNameAr, monthNameAr } from '@/lib/rent-months';
 import { cn, formatMoney } from '@/lib/utils';
 
 export function TenantCurrentMonthBadge({
   tenant,
+  monthKey,
   className,
 }: {
   tenant: TenantRentSummary;
+  monthKey?: string | null;
   className?: string;
 }) {
   const pres = getTenantRentStatusPresentation(tenant.current_month_status);
   const Icon = pres.icon;
+  const label =
+    monthKey || tenant.current_month_key
+      ? monthNameAr(monthKey || tenant.current_month_key!)
+      : currentMonthNameAr();
 
   return (
     <span
@@ -29,7 +35,7 @@ export function TenantCurrentMonthBadge({
       )}
     >
       <Icon className="h-3.5 w-3.5 shrink-0" />
-      <span>{currentMonthNameAr()}</span>
+      <span>{label}</span>
       <span className="opacity-60">·</span>
       <span>{pres.shortLabel}</span>
     </span>
@@ -71,10 +77,15 @@ export function TenantRentListStats({
     );
   }
 
+  const monthLabel =
+    tenant.current_month_key
+      ? monthNameAr(tenant.current_month_key)
+      : currentMonthNameAr();
+
   return (
     <dl className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[12px]">
       <div>
-        <dt className="text-ink-mute">إيجار {currentMonthNameAr()}</dt>
+        <dt className="text-ink-mute">إيجار {monthLabel}</dt>
         <dd className="font-semibold tabular-nums">
           {rent > 0 ? formatMoney(rent, 'LYD') : '—'}
         </dd>

@@ -4,25 +4,49 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { useTenantRentSummary } from '@/lib/db/queries';
+import { useTenantCharges } from '@/lib/db/mall-queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { TenantsDirectory } from '@/components/tenants/tenants-directory';
 import { WriteGuard } from '@/components/auth/write-guard';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { MallPanelToolbar } from '@/components/mall/panel-toolbar';
-import { mallTabHref, peopleSegmentHref } from '@/lib/mall/routes';
+import { peopleSegmentHref } from '@/lib/mall/routes';
 import { Button } from '@/components/ui/button';
+import { currentMonthKey, currentYear } from '@/lib/rent-months';
+import {
+  indexRentChargesByTenantMonth,
+  withSelectedMonthStatus,
+} from '@/lib/tenant-month-status';
 
 export function MallTenantsPanel() {
   const router = useRouter();
   const { canWrite } = usePermission();
-  const { data: tenants = [], isLoading } = useTenantRentSummary();
+  const { data: tenants = [], isLoading: tenantsLoading } = useTenantRentSummary();
+  const { data: charges = [], isLoading: chargesLoading } = useTenantCharges();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [selectedMonthKey, setSelectedMonthKey] = useState(() => currentMonthKey());
+  const year = currentYear();
+
+  const chargeIndex = useMemo(
+    () => indexRentChargesByTenantMonth(charges),
+    [charges],
+  );
+
+  const displayTenants = useMemo(
+    () =>
+      tenants.map((t) =>
+        withSelectedMonthStatus(t, selectedMonthKey, chargeIndex),
+      ),
+    [tenants, selectedMonthKey, chargeIndex],
+  );
 
   const filteredTenants = useMemo(() => {
-    return tenants.filter((t) => {
-      if (statusFilter !== 'ALL' && t.current_month_status !== statusFilter) return false;
+    return displayTenants.filter((t) => {
+      if (statusFilter !== 'ALL' && t.current_month_status !== statusFilter) {
+        return false;
+      }
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
       return (
@@ -31,26 +55,35 @@ export function MallTenantsPanel() {
         t.phone?.toLowerCase().includes(q)
       );
     });
-  }, [tenants, statusFilter, searchQuery]);
+  }, [displayTenants, statusFilter, searchQuery]);
 
   const stats = useMemo(() => {
-    const expectedTotal = tenants.reduce((sum, t) => sum + (Number(t.monthly_rent) || 0), 0);
-    const collectedTotal = tenants.reduce((sum, t) => sum + Number(t.current_month_paid), 0);
+    const expectedTotal = displayTenants.reduce(
+      (sum, t) => sum + (Number(t.current_month_amount) || Number(t.monthly_rent) || 0),
+      0,
+    );
+    const collectedTotal = displayTenants.reduce(
+      (sum, t) => sum + Number(t.current_month_paid),
+      0,
+    );
     return {
-      total: tenants.length,
-      paid: tenants.filter((t) => t.current_month_status === 'paid_full').length,
-      partial: tenants.filter((t) => t.current_month_status === 'paid_partial').length,
-      unpaid: tenants.filter((t) => t.current_month_status === 'unpaid').length,
+      total: displayTenants.length,
+      paid: displayTenants.filter((t) => t.current_month_status === 'paid_full').length,
+      partial: displayTenants.filter((t) => t.current_month_status === 'paid_partial')
+        .length,
+      unpaid: displayTenants.filter((t) => t.current_month_status === 'unpaid').length,
       expectedTotal,
       collectedTotal,
     };
-  }, [tenants]);
+  }, [displayTenants]);
+
+  const isLoading = tenantsLoading || chargesLoading;
 
   return (
     <>
       <MallPanelToolbar className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
         <TajMallPdfToolbar
-          fileName={`إيجارات-المستأجرين-${new Date().toISOString().slice(0, 10)}`}
+          fileName={`إيجارات-المستأجرين-${selectedMonthKey}`}
           disabled={filteredTenants.length === 0}
           className="w-full [&>button]:flex-1 sm:w-auto sm:[&>button]:flex-none"
           render={async () => {
@@ -58,7 +91,7 @@ export function MallTenantsPanel() {
             return (
               <TenantsReportPDF
                 titleAr="تقرير إيجارات المستأجرين"
-                subtitleAr={`${filteredTenants.length} مستأجر`}
+                subtitleAr={`${filteredTenants.length} مستأجر · ${selectedMonthKey}`}
                 rows={filteredTenants}
               />
             );
@@ -77,13 +110,16 @@ export function MallTenantsPanel() {
       </MallPanelToolbar>
 
       <TenantsDirectory
-        tenants={tenants}
+        tenants={displayTenants}
         filteredTenants={filteredTenants}
         isLoading={isLoading}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
+        selectedMonthKey={selectedMonthKey}
+        onSelectedMonthChange={setSelectedMonthKey}
+        year={year}
         stats={stats}
         onAddTenant={
           canWrite

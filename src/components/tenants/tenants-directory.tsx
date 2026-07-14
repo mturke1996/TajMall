@@ -15,7 +15,6 @@ import { cn, formatMoney } from '@/lib/utils';
 import type { TenantRentSummary } from '@/lib/db/queries';
 import {
   TENANT_STATUS_CONFIG,
-  currentMonthNameAr,
   type TenantRentStatusKey,
 } from './tenant-status-config';
 import {
@@ -26,6 +25,7 @@ import {
   MobilePageActionBar,
   MOBILE_PAGE_ACTION_PADDING,
 } from '@/components/layout/mobile-page-action-bar';
+import { monthKey, monthNameAr } from '@/lib/rent-months';
 
 export type TenantsDirectoryProps = {
   tenants: TenantRentSummary[];
@@ -35,6 +35,9 @@ export type TenantsDirectoryProps = {
   onSearchChange: (q: string) => void;
   statusFilter: string;
   onStatusFilterChange: (s: string) => void;
+  selectedMonthKey: string;
+  onSelectedMonthChange: (monthKey: string) => void;
+  year: number;
   stats: {
     total: number;
     paid: number;
@@ -79,28 +82,39 @@ export function TenantsDirectory({
   onSearchChange,
   statusFilter,
   onStatusFilterChange,
+  selectedMonthKey,
+  onSelectedMonthChange,
+  year,
   stats,
   onAddTenant,
 }: TenantsDirectoryProps) {
-  const monthName = currentMonthNameAr();
+  const monthName = monthNameAr(selectedMonthKey);
+
+  const yearMonths = Array.from({ length: 12 }, (_, i) => {
+    const key = monthKey(year, i + 1);
+    return { key, label: monthNameAr(key) };
+  });
 
   const filterChips = [
     { key: 'ALL', label: 'الكل', count: stats.total },
-    ...(Object.entries(TENANT_STATUS_CONFIG) as [TenantRentStatusKey, (typeof TENANT_STATUS_CONFIG)[TenantRentStatusKey]][]).map(
-      ([key, cfg]) => ({
-        key,
-        label: `${monthName} — ${cfg.shortLabel}`,
-        count:
-          key === 'paid_full'
-            ? stats.paid
-            : key === 'paid_partial'
-              ? stats.partial
-              : key === 'unpaid'
-                ? stats.unpaid
-                : tenants.filter((t) => t.current_month_status === key).length,
-        icon: cfg.icon,
-      }),
-    ),
+    ...(
+      Object.entries(TENANT_STATUS_CONFIG) as [
+        TenantRentStatusKey,
+        (typeof TENANT_STATUS_CONFIG)[TenantRentStatusKey],
+      ][]
+    ).map(([key, cfg]) => ({
+      key,
+      label: `${monthName} — ${cfg.shortLabel}`,
+      count:
+        key === 'paid_full'
+          ? stats.paid
+          : key === 'paid_partial'
+            ? stats.partial
+            : key === 'unpaid'
+              ? stats.unpaid
+              : tenants.filter((t) => t.current_month_status === key).length,
+      icon: cfg.icon,
+    })),
   ];
 
   return (
@@ -162,6 +176,34 @@ export function TenantsDirectory({
             className="h-11 pr-10 text-base md:h-10 md:text-sm"
           />
         </div>
+
+        <div
+          className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1"
+          role="listbox"
+          aria-label="أشهر السنة"
+        >
+          {yearMonths.map((m) => {
+            const active = selectedMonthKey === m.key;
+            return (
+              <button
+                key={m.key}
+                type="button"
+                role="option"
+                aria-selected={active}
+                onClick={() => onSelectedMonthChange(m.key)}
+                className={cn(
+                  'inline-flex shrink-0 snap-center items-center justify-center rounded-lg border px-2.5 py-1.5 text-[12px] font-semibold touch-manipulation min-w-[3.25rem]',
+                  active
+                    ? 'border-sage-700 bg-sage-700 text-white'
+                    : 'border-border bg-card text-ink hover:bg-secondary',
+                )}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1">
           {filterChips.map((chip) => {
             const Icon = 'icon' in chip ? chip.icon : null;
@@ -191,7 +233,7 @@ export function TenantsDirectory({
 
       {!isLoading && (
         <p className="text-[12px] text-ink-mute">
-          {filteredTenants.length} مستأجر · شهر {monthName}
+          {filteredTenants.length} مستأجر · شهر {monthName} {year}
         </p>
       )}
 
@@ -217,7 +259,7 @@ export function TenantsDirectory({
               <thead>
                 <tr className="border-b bg-canvas-sunken/80 text-right text-[12px] text-ink-mute">
                   <th className="px-4 py-3 font-semibold">المستأجر</th>
-                  <th className="px-4 py-3 font-semibold">شهرنا ({monthName})</th>
+                  <th className="px-4 py-3 font-semibold">شهر ({monthName})</th>
                   <th className="px-4 py-3 font-semibold">إيجار</th>
                   <th className="px-4 py-3 font-semibold">القيود</th>
                   <th className="px-4 py-3 font-semibold">إجمالي المسدد</th>
@@ -229,6 +271,7 @@ export function TenantsDirectory({
                   <TenantTableRow
                     key={tenant.id}
                     tenant={tenant}
+                    monthKey={selectedMonthKey}
                     striped={i % 2 === 1}
                   />
                 ))}
@@ -238,13 +281,21 @@ export function TenantsDirectory({
 
           <div className="hidden sm:grid lg:hidden gap-3 sm:grid-cols-2">
             {filteredTenants.map((tenant) => (
-              <TenantCard key={tenant.id} tenant={tenant} />
+              <TenantCard
+                key={tenant.id}
+                tenant={tenant}
+                monthKey={selectedMonthKey}
+              />
             ))}
           </div>
 
           <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border sm:hidden">
             {filteredTenants.map((tenant) => (
-              <TenantMobileRow key={tenant.id} tenant={tenant} />
+              <TenantMobileRow
+                key={tenant.id}
+                tenant={tenant}
+                monthKey={selectedMonthKey}
+              />
             ))}
           </ul>
         </>
@@ -275,9 +326,11 @@ function journalCount(tenant: TenantRentSummary): number {
 
 function TenantTableRow({
   tenant,
+  monthKey: mk,
   striped,
 }: {
   tenant: TenantRentSummary;
+  monthKey: string;
   striped: boolean;
 }) {
   const rent =
@@ -307,7 +360,7 @@ function TenantTableRow({
         </p>
       </td>
       <td className="px-4 py-3">
-        <TenantCurrentMonthBadge tenant={tenant} />
+        <TenantCurrentMonthBadge tenant={tenant} monthKey={mk} />
       </td>
       <td className="px-4 py-3 tabular-nums font-medium">
         {rent > 0 ? formatMoney(rent, 'LYD') : '—'}
@@ -325,7 +378,13 @@ function TenantTableRow({
   );
 }
 
-function TenantCard({ tenant }: { tenant: TenantRentSummary }) {
+function TenantCard({
+  tenant,
+  monthKey: mk,
+}: {
+  tenant: TenantRentSummary;
+  monthKey: string;
+}) {
   return (
     <Card
       className={cn(
@@ -335,7 +394,7 @@ function TenantCard({ tenant }: { tenant: TenantRentSummary }) {
       )}
     >
       <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
-        <TenantCurrentMonthBadge tenant={tenant} />
+        <TenantCurrentMonthBadge tenant={tenant} monthKey={mk} />
       </div>
       <div className="p-4">
         <Link href={`/contacts/${tenant.id}`} className="block group">
@@ -357,7 +416,13 @@ function TenantCard({ tenant }: { tenant: TenantRentSummary }) {
   );
 }
 
-function TenantMobileRow({ tenant }: { tenant: TenantRentSummary }) {
+function TenantMobileRow({
+  tenant,
+  monthKey: mk,
+}: {
+  tenant: TenantRentSummary;
+  monthKey: string;
+}) {
   return (
     <li className="bg-card">
       <Link
@@ -367,7 +432,11 @@ function TenantMobileRow({ tenant }: { tenant: TenantRentSummary }) {
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <p className="font-semibold text-[15px] truncate">{tenant.name}</p>
-            <TenantCurrentMonthBadge tenant={tenant} className="shrink-0" />
+            <TenantCurrentMonthBadge
+              tenant={tenant}
+              monthKey={mk}
+              className="shrink-0"
+            />
           </div>
           <p className="text-[13px] text-ink-mute line-clamp-1">
             {tenant.shop_number ? `محل ${tenant.shop_number}` : '—'}
