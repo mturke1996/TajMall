@@ -22,7 +22,17 @@ import {
   TrialBalanceDesktopTable,
   TrialBalanceMobileList,
   type TrialBalanceRowView,
+  type TrialBalanceSummary,
 } from '@/components/accounting/trial-balance-mobile-list';
+
+const EMPTY_SUMMARY: TrialBalanceSummary = {
+  total_opening_debit: 0,
+  total_opening_credit: 0,
+  total_period_debit: 0,
+  total_period_credit: 0,
+  total_closing_debit: 0,
+  total_closing_credit: 0,
+};
 
 export default function TrialBalancePage() {
   const currentYear = new Date().getFullYear();
@@ -39,27 +49,53 @@ export default function TrialBalancePage() {
         code: r.category_code as string,
         name_ar: r.category_name as string,
         type: r.category_type as string,
-        total_debit: Number(r.period_debit || 0),
-        total_credit: Number(r.period_credit || 0),
+        opening_debit: Number(r.opening_debit || 0),
+        opening_credit: Number(r.opening_credit || 0),
+        period_debit: Number(r.period_debit || 0),
+        period_credit: Number(r.period_credit || 0),
+        // closing_debit / closing_credit become the trial-balance debit/credit
+        // columns so the balance check uses closing balances, not period moves.
+        total_debit: Number(r.closing_debit || 0),
+        total_credit: Number(r.closing_credit || 0),
         balance: Number(r.closing_balance || 0),
       };
     });
   }, [rawBalanceData]);
 
-  const { totalDebits, totalCredits, difference } = useMemo(() => {
-    let debits = 0;
-    let credits = 0;
-    balanceData.forEach((row) => {
-      debits += row.total_debit;
-      credits += row.total_credit;
-    });
-    return {
-      totalDebits: debits,
-      totalCredits: credits,
-      difference: Math.abs(debits - credits),
-    };
-  }, [balanceData]);
+  const summary = useMemo((): TrialBalanceSummary => {
+    const s = (rawBalanceData as { summary?: Record<string, unknown> })?.summary;
+    if (s) {
+      return {
+        total_opening_debit: Number(s.total_opening_debit || 0),
+        total_opening_credit: Number(s.total_opening_credit || 0),
+        total_period_debit: Number(s.total_period_debit || 0),
+        total_period_credit: Number(s.total_period_credit || 0),
+        total_closing_debit: Number(s.total_closing_debit || 0),
+        total_closing_credit: Number(s.total_closing_credit || 0),
+      };
+    }
+    // Fallback: derive totals from the rows themselves (zero rows contribute 0,
+    // so summing the filtered set equals summing all categories).
+    return balanceData.reduce(
+      (acc, r) => ({
+        total_opening_debit: acc.total_opening_debit + r.opening_debit,
+        total_opening_credit: acc.total_opening_credit + r.opening_credit,
+        total_period_debit: acc.total_period_debit + r.period_debit,
+        total_period_credit: acc.total_period_credit + r.period_credit,
+        total_closing_debit: acc.total_closing_debit + r.total_debit,
+        total_closing_credit: acc.total_closing_credit + r.total_credit,
+      }),
+      EMPTY_SUMMARY,
+    );
+  }, [rawBalanceData, balanceData]);
 
+  // The trial balance is balanced when closing debits equal closing credits.
+  // Checking on period movements alone is meaningless (double-entry always
+  // balances within a period), so we verify the cumulative closing position.
+  const difference = useMemo(
+    () => Math.abs(summary.total_closing_debit - summary.total_closing_credit),
+    [summary],
+  );
   const isBalanced = difference < 0.01;
 
   return (
@@ -73,8 +109,30 @@ export default function TrialBalancePage() {
             <ExportCsvButton
               fileName={`ميزان-المراجعة-${selectedYear}`}
               disabled={balanceData.length === 0}
-              headers={['الكود', 'البند', 'النوع', 'مدين', 'دائن', 'الرصيد']}
-              rows={balanceData.map((r) => [r.code, r.name_ar, r.type, r.total_debit, r.total_credit, r.balance])}
+              headers={[
+                'الكود',
+                'البند',
+                'النوع',
+                'افتتاحي مدين',
+                'افتتاحي دائن',
+                'حركة مدين',
+                'حركة دائن',
+                'ختامي مدين',
+                'ختامي دائن',
+                'الرصيد',
+              ]}
+              rows={balanceData.map((r) => [
+                r.code,
+                r.name_ar,
+                r.type,
+                r.opening_debit,
+                r.opening_credit,
+                r.period_debit,
+                r.period_credit,
+                r.total_debit,
+                r.total_credit,
+                r.balance,
+              ])}
             />
             <TajMallPdfToolbar
               fileName={`ميزان-المراجعة-${selectedYear}`}
@@ -130,19 +188,39 @@ export default function TrialBalancePage() {
         {!isLoading && !isError && balanceData.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:hidden">
             <Card className="p-3">
-              <p className="text-[10px] text-muted-foreground">إجمالي مدين</p>
+              <p className="text-[10px] text-muted-foreground">إجمالي افتتاحي مدين</p>
               <p className="font-mono text-sm font-bold text-emerald-800 mt-0.5">
-                {formatMoney(totalDebits, 'LYD')}
+                {formatMoney(summary.total_opening_debit, 'LYD')}
               </p>
             </Card>
             <Card className="p-3">
-              <p className="text-[10px] text-muted-foreground">إجمالي دائن</p>
+              <p className="text-[10px] text-muted-foreground">إجمالي افتتاحي دائن</p>
               <p className="font-mono text-sm font-bold text-red-700 mt-0.5">
-                {formatMoney(totalCredits, 'LYD')}
+                {formatMoney(summary.total_opening_credit, 'LYD')}
               </p>
             </Card>
             <Card className="p-3 col-span-2 sm:col-span-1">
-              <p className="text-[10px] text-muted-foreground">الحالة</p>
+              <p className="text-[10px] text-muted-foreground">حركة الفترة (مدين / دائن)</p>
+              <p className="font-mono text-sm font-bold mt-0.5">
+                <span className="text-emerald-800">{formatMoney(summary.total_period_debit, '')}</span>
+                {' / '}
+                <span className="text-red-700">{formatMoney(summary.total_period_credit, '')}</span>
+              </p>
+            </Card>
+            <Card className="p-3">
+              <p className="text-[10px] text-muted-foreground">إجمالي ختامي مدين</p>
+              <p className="font-mono text-sm font-bold text-emerald-800 mt-0.5">
+                {formatMoney(summary.total_closing_debit, 'LYD')}
+              </p>
+            </Card>
+            <Card className="p-3">
+              <p className="text-[10px] text-muted-foreground">إجمالي ختامي دائن</p>
+              <p className="font-mono text-sm font-bold text-red-700 mt-0.5">
+                {formatMoney(summary.total_closing_credit, 'LYD')}
+              </p>
+            </Card>
+            <Card className="p-3 col-span-2 sm:col-span-1">
+              <p className="text-[10px] text-muted-foreground">الحالة (ختامي)</p>
               <p
                 className={cn(
                   'text-sm font-bold mt-0.5',
@@ -184,8 +262,7 @@ export default function TrialBalancePage() {
                 <TrialBalanceDesktopTable
                   rows={balanceData}
                   year={selectedYear}
-                  totalDebits={totalDebits}
-                  totalCredits={totalCredits}
+                  summary={summary}
                   isBalanced={isBalanced}
                   difference={difference}
                 />

@@ -77,7 +77,7 @@ export default function TenantArAgingPage() {
             <ExportCsvButton
               fileName={`اعمار-الذمم-${asOf}`}
               disabled={rows.length === 0}
-              headers={['المستأجر', 'رقم المحل', 'الهاتف', 'إجمالي المتأخر', 'حالي', '30 يوم', '60 يوم', '90+ يوم']}
+              headers={['المستأجر', 'رقم المحل', 'الهاتف', 'إجمالي المتأخر', 'جاري', '1-30', '31-60', '+60']}
               rows={rows.map((r) => [
                 r.tenant_name,
                 r.shop_number ?? '',

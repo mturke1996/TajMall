@@ -19,6 +19,7 @@ import {
 import { useCategories } from '@/lib/db/queries';
 import { useGeneralLedger } from '@/lib/db/mall-queries';
 import { ExportCsvButton } from '@/components/data/export-csv-button';
+import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { AccountingBackfillBanner } from '@/components/accounting/accounting-backfill-banner';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { AccountingFilterCard } from '@/components/accounting/accounting-filter-card';
@@ -52,7 +53,7 @@ function GeneralLedgerContent() {
     }
   }, [searchParams]);
 
-  const { data: ledgerLines = [], isLoading: isLoadingLedger, isError, error } =
+  const { data: ledgerResult, isLoading: isLoadingLedger, isError, error } =
     useGeneralLedger(selectedCatId, startDate || undefined, endDate || undefined);
 
   const selectedCategory = useMemo(
@@ -60,20 +61,26 @@ function GeneralLedgerContent() {
     [categories, selectedCatId],
   );
 
-  const { linesWithBalance, totalDebit, totalCredit, netBalance } = useMemo(() => {
-    let currentBalance = 0;
+  const { linesWithBalance, totalDebit, totalCredit, netBalance, openingBalance } = useMemo(() => {
+    const isDebitIncrease =
+      selectedCategory?.type === 'ASSET' || selectedCategory?.type === 'EXPENSE';
+    const openingDebit = ledgerResult?.openingDebit ?? 0;
+    const openingCredit = ledgerResult?.openingCredit ?? 0;
+    const openingBalance = isDebitIncrease
+      ? openingDebit - openingCredit
+      : openingCredit - openingDebit;
+
+    let currentBalance = openingBalance;
     let deb = 0;
     let cred = 0;
 
-    const lines = ledgerLines.map((line) => {
+    const lines = (ledgerResult?.lines ?? []).map((line) => {
       const lineDebit = line.debit;
       const lineCredit = line.credit;
 
       deb += lineDebit;
       cred += lineCredit;
 
-      const isDebitIncrease =
-        selectedCategory?.type === 'ASSET' || selectedCategory?.type === 'EXPENSE';
       if (isDebitIncrease) {
         currentBalance += lineDebit - lineCredit;
       } else {
@@ -91,8 +98,9 @@ function GeneralLedgerContent() {
       totalDebit: deb,
       totalCredit: cred,
       netBalance: currentBalance,
+      openingBalance,
     };
-  }, [ledgerLines, selectedCategory]);
+  }, [ledgerResult, selectedCategory]);
 
   const clearFilters = () => {
     setStartDate('');
@@ -110,17 +118,40 @@ function GeneralLedgerContent() {
           <div className="flex flex-wrap gap-2">
             <ExportCsvButton
               fileName={`دفتر-الأستاذ-${selectedCategory?.name_ar ?? ''}`}
-              disabled={linesWithBalance.length === 0}
+              disabled={linesWithBalance.length === 0 && openingBalance === 0}
               headers={['التاريخ', 'رقم القيد', 'المرجع', 'الوصف', 'مدين', 'دائن', 'الرصيد التراكمي']}
-              rows={linesWithBalance.map((l) => [
-                l.entry_date,
-                l.journal_number,
-                l.journal_reference ?? '',
-                l.description ?? '',
-                l.debit,
-                l.credit,
-                l.runningBalance,
-              ])}
+              rows={[
+                ['—', '—', '', 'الرصيد الافتتاحي', '', '', openingBalance],
+                ...linesWithBalance.map((l) => [
+                  l.entry_date,
+                  l.journal_number,
+                  l.journal_reference ?? '',
+                  l.description ?? '',
+                  l.debit,
+                  l.credit,
+                  l.runningBalance,
+                ]),
+                ['—', '—', '', 'الرصيد الختامي', totalDebit, totalCredit, netBalance],
+              ]}
+            />
+            <TajMallPdfToolbar
+              fileName={`دفتر-الأستاذ-${selectedCategory?.name_ar ?? ''}`}
+              disabled={linesWithBalance.length === 0 && openingBalance === 0}
+              render={async () => {
+                const { LedgerReportPDF } = await import('@/features/pdf/LedgerReportPDF');
+                return (
+                  <LedgerReportPDF
+                    category={selectedCategory!}
+                    startDate={startDate || undefined}
+                    endDate={endDate || undefined}
+                    openingBalance={openingBalance}
+                    closingBalance={netBalance}
+                    totalDebit={totalDebit}
+                    totalCredit={totalCredit}
+                    lines={linesWithBalance}
+                  />
+                );
+              }}
             />
             <Button variant="outline" size="sm" asChild className="touch-manipulation min-h-10">
               <Link href="/reports/trial-balance">ميزان المراجعة</Link>
@@ -185,9 +216,10 @@ function GeneralLedgerContent() {
           </div>
         </AccountingFilterCard>
 
-        {selectedCategory && !isLoadingLedger && !isError && linesWithBalance.length > 0 && (
+        {selectedCategory && !isLoadingLedger && !isError && (linesWithBalance.length > 0 || openingBalance !== 0) && (
           <AccountingSummaryGrid
             stats={[
+              { label: 'الرصيد الافتتاحي', value: openingBalance, tone: 'default' },
               { label: 'إجمالي المدين', value: totalDebit, tone: 'default' },
               { label: 'إجمالي الدائن', value: totalCredit, tone: 'default' },
               { label: 'الرصيد الختامي', value: netBalance, tone: 'positive' },

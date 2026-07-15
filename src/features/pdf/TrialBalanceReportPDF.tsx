@@ -81,12 +81,12 @@ export function TrialBalanceReportPDF({ year, rows }: TrialBalanceReportPdfProps
         { label: 'حالة الميزان', value: isBalanced ? 'متوازن بنجاح' : 'غير متوازن!' },
       ]}
     >
-      <Text style={pdfBase.sectionTitle}>{ar('أرصدة الحسابات ومجاميع الحركات')}</Text>
+      <Text style={pdfBase.sectionTitle}>{ar('أرصدة الحسابات الختامية ومجاميع الحركات')}</Text>
 
       <View style={col.head} wrap={false}>
-        <Text style={[col.th, col.balance]}>{ar('صافي الرصيد')}</Text>
-        <Text style={[col.th, col.credit]}>{ar('مجموع الدائن')}</Text>
-        <Text style={[col.th, col.debit]}>{ar('مجموع المدين')}</Text>
+        <Text style={[col.th, col.balance]}>{ar('صافي الرصيد الختامي')}</Text>
+        <Text style={[col.th, col.credit]}>{ar('ختامي دائن')}</Text>
+        <Text style={[col.th, col.debit]}>{ar('ختامي مدين')}</Text>
         <Text style={[col.th, col.type]}>{ar('نوع الحساب')}</Text>
         <Text style={[col.th, col.name]}>{ar('اسم الحساب')}</Text>
         <Text style={[col.th, col.code]}>{ar('رمز الحساب')}</Text>

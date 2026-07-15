@@ -9,7 +9,6 @@ import {
   Loader2,
   Calendar,
   CheckCircle2,
-  XCircle,
   Clock,
   RotateCcw,
   Trash2,
@@ -127,11 +126,15 @@ function JournalsPageInner() {
     isLoading: isLoadingEntries,
     isError: entriesQueryError,
     error: entriesQueryErr,
-  } = useJournalEntries({
-    status: statusFilter,
-    contactId: contactFilter,
-    cashboxId: cashboxFilter,
-  });
+  } = useJournalEntries(
+    {
+      status: statusFilter,
+      contactId: contactFilter,
+      cashboxId: cashboxFilter,
+      search: searchQuery,
+    },
+    500,
+  );
   const {
     data: summary,
     isError: summaryQueryError,

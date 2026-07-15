@@ -59,18 +59,20 @@ export function useBudgetActuals(year: number) {
         .lte('tx_date', `${year}-12-31`);
       if (error) throw error;
 
-      const byKey = new Map<string, number>();
+      // نستخدم فاصل '|' بدل '-' لأن معرّفات UUID تحتوي شرطات، فيكسر split('-')
+      // قيمة category_id ويجعل month = NaN.
+      const byKey = new Map<string, { category_id: string; month: number; amount: number }>();
       for (const row of (data ?? []) as Array<Record<string, unknown>>) {
         const categoryId = row.category_id as string;
         const month = new Date(row.tx_date as string).getMonth() + 1;
-        const key = `${categoryId}-${month}`;
-        byKey.set(key, (byKey.get(key) ?? 0) + Number(row.amount ?? 0));
+        const key = `${categoryId}|${month}`;
+        const existing = byKey.get(key);
+        const amt = Number(row.amount ?? 0);
+        if (existing) existing.amount += amt;
+        else byKey.set(key, { category_id: categoryId, month, amount: amt });
       }
 
-      return Array.from(byKey.entries()).map(([key, amount]) => {
-        const [categoryId, month] = key.split('-');
-        return { category_id: categoryId, month: Number(month), amount };
-      });
+      return Array.from(byKey.values());
     },
   });
 }

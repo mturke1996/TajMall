@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
+import { AccountingYearPicker } from '@/components/accounting/accounting-year-picker';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -24,7 +25,8 @@ import {
 } from '@/lib/db/queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { accountTypeLabelAr } from '@/lib/accounting-labels';
-import { currentMonthKey, currentYear, monthKey, monthNameAr } from '@/lib/rent-months';
+import { ledgerUrl } from '@/lib/accounting-nav';
+import { currentYear, monthKey, monthNameAr } from '@/lib/rent-months';
 import { cn, formatMoney } from '@/lib/utils';
 
 const METHOD_AR: Record<string, string> = {
@@ -42,7 +44,6 @@ const STATUS_AR: Record<string, string> = {
 };
 
 export default function CategoryDetailPage() {
-  const router = useRouter();
   const params = useParams<{ id: string }>();
   const categoryId = params.id;
 
@@ -52,22 +53,29 @@ export default function CategoryDetailPage() {
     [categories, categoryId],
   );
 
-  const [selectedMonthKey, setSelectedMonthKey] = useState(() => currentMonthKey());
+  const [year, setYear] = useState(() => currentYear());
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
   const [searchQuery, setSearchQuery] = useState('');
-  const year = currentYear();
+
+  const selectedMonthKey = monthKey(year, selectedMonth);
 
   const { data: txs = [], isLoading: txLoading } =
     useCategoryTransactionsForMonth(categoryId, selectedMonthKey);
 
-  const isRevenue =
-    category?.type === 'REVENUE' || category?.kind === 'REVENUE';
-  const kindLabel = isRevenue ? 'إيراد' : 'مصروف';
+  const typeLabel = category ? accountTypeLabelAr(category.type) : '';
+  const isRevenue = category?.type === 'REVENUE' || category?.kind === 'REVENUE';
+  const isExpense = category?.type === 'EXPENSE' || category?.kind === 'EXPENSE';
+  const tone: 'positive' | 'negative' | 'neutral' = isRevenue
+    ? 'positive'
+    : isExpense
+      ? 'negative'
+      : 'neutral';
 
   const yearMonths = useMemo(
     () =>
       Array.from({ length: 12 }, (_, i) => {
         const key = monthKey(year, i + 1);
-        return { key, label: monthNameAr(key) };
+        return { key, label: monthNameAr(key), monthIndex: i + 1 };
       }),
     [year],
   );
@@ -120,7 +128,7 @@ export default function CategoryDetailPage() {
       <PageHeader
         eyebrow="البنود المحاسبية"
         title={category.name_ar}
-        description={`${kindLabel} · ${category.code} · ${accountTypeLabelAr(category.type)}`}
+        description={`${typeLabel} · ${category.code}`}
         actions={
           <div className="flex flex-wrap gap-2">
             <TajMallPdfToolbar
@@ -146,6 +154,17 @@ export default function CategoryDetailPage() {
               asChild
               className="min-h-11 touch-manipulation sm:min-h-9"
             >
+              <Link href={ledgerUrl(categoryId, year)}>
+                <BookMarked className="h-4 w-4 stroke-[1.6]" />
+                دفتر الأستاذ
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              className="min-h-11 touch-manipulation sm:min-h-9"
+            >
               <Link href="/accounts">
                 <ArrowRight className="h-4 w-4 stroke-[1.6]" />
                 البنود
@@ -161,22 +180,27 @@ export default function CategoryDetailPage() {
           <span
             className={cn(
               'grid h-11 w-11 shrink-0 place-items-center rounded-md border',
-              isRevenue
-                ? 'border-pastel-greenInk/15 bg-pastel-green text-pastel-greenInk'
-                : 'border-pastel-redInk/15 bg-pastel-red text-pastel-redInk',
+              tone === 'positive' &&
+                'border-pastel-greenInk/15 bg-pastel-green text-pastel-greenInk',
+              tone === 'negative' &&
+                'border-pastel-redInk/15 bg-pastel-red text-pastel-redInk',
+              tone === 'neutral' &&
+                'border-sage-300/50 bg-sage-50 text-sage-700',
             )}
           >
-            {isRevenue ? (
+            {tone === 'positive' ? (
               <ArrowDownToLine className="h-5 w-5 stroke-[1.6]" />
-            ) : (
+            ) : tone === 'negative' ? (
               <ArrowUpFromLine className="h-5 w-5 stroke-[1.6]" />
+            ) : (
+              <Landmark className="h-5 w-5 stroke-[1.6]" />
             )}
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-[15px] font-bold">{category.name_ar}</h2>
               <Badge variant="outline" className="text-[10px]">
-                {kindLabel}
+                {typeLabel}
               </Badge>
             </div>
             <p className="text-[12px] text-ink-mute">
@@ -185,15 +209,18 @@ export default function CategoryDetailPage() {
           </div>
         </div>
 
+        {/* منتقي السنة */}
+        <AccountingYearPicker value={year} onChange={setYear} />
+
         {/* شريط الأشهر */}
         <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 no-scrollbar snap-x snap-mandatory">
           {yearMonths.map((m) => {
-            const active = selectedMonthKey === m.key;
+            const active = selectedMonth === m.monthIndex;
             return (
               <button
                 key={m.key}
                 type="button"
-                onClick={() => setSelectedMonthKey(m.key)}
+                onClick={() => setSelectedMonth(m.monthIndex)}
                 className={cn(
                   'inline-flex shrink-0 snap-center items-center justify-center rounded-lg border px-3 py-2 text-[12.5px] font-semibold touch-manipulation min-w-[3.5rem]',
                   active
@@ -210,9 +237,9 @@ export default function CategoryDetailPage() {
         {/* بطاقات الملخص */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <SummaryCard
-            label={`${kindLabel} ${monthName}`}
+            label={`${typeLabel} ${monthName}`}
             value={formatMoney(total, 'LYD')}
-            tone={isRevenue ? 'positive' : 'negative'}
+            tone={tone === 'neutral' ? 'default' : tone}
           />
           <SummaryCard
             label="عدد المعاملات"
@@ -319,7 +346,7 @@ export default function CategoryDetailPage() {
                 <tfoot>
                   <tr className="border-t-2 border-sage-600 bg-sage-50">
                     <td className="px-4 py-3 font-bold" colSpan={6}>
-                      إجمالي {kindLabel} — {monthName} {year}
+                      إجمالي {typeLabel} — {monthName} {year}
                     </td>
                     <td className="px-4 py-3 text-left font-bold tabular-nums">
                       {formatMoney(total, 'LYD')}

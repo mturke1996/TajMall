@@ -529,13 +529,9 @@ export function useCashFlow(year: number) {
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase.rpc('get_cash_flow', { p_year: year });
-      if (error) {
-        console.warn('[get_cash_flow]', error.message);
-        return null;
-      }
+      if (error) throw error;
       return data;
     },
-    retry: false,
   });
 }
 
@@ -549,8 +545,14 @@ export type GeneralLedgerLineRow = {
   journal_id: string;
 };
 
+export type GeneralLedgerResult = {
+  openingDebit: number;
+  openingCredit: number;
+  lines: GeneralLedgerLineRow[];
+};
+
 export function useGeneralLedger(categoryId: string, startDate?: string, endDate?: string) {
-  return useQuery<GeneralLedgerLineRow[]>({
+  return useQuery<GeneralLedgerResult>({
     queryKey: mqk.ledger(categoryId, startDate, endDate),
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
@@ -561,8 +563,9 @@ export function useGeneralLedger(categoryId: string, startDate?: string, endDate
         p_end_date: endDate || null,
       });
 
-      if (!error) {
-        return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+      if (!error && data) {
+        const obj = data as Record<string, unknown>;
+        const lines = ((obj.lines as Array<Record<string, unknown>>) ?? []).map((row) => ({
           debit: Number(row.debit ?? 0),
           credit: Number(row.credit ?? 0),
           description: (row.line_description as string) ?? null,
@@ -571,63 +574,73 @@ export function useGeneralLedger(categoryId: string, startDate?: string, endDate
           journal_reference: (row.journal_reference as string) ?? null,
           journal_id: row.journal_id as string,
         }));
+        return {
+          openingDebit: Number(obj.opening_debit ?? 0),
+          openingCredit: Number(obj.opening_credit ?? 0),
+          lines,
+        };
       }
 
-      const msg = error.message ?? '';
-      const rpcMissing =
-        msg.includes('get_general_ledger_lines') ||
-        msg.includes('schema cache') ||
-        error.code === 'PGRST202';
+      if (error) {
+        const msg = error.message ?? '';
+        const rpcMissing =
+          msg.includes('get_general_ledger_lines') ||
+          msg.includes('schema cache') ||
+          error.code === 'PGRST202';
 
-      if (!rpcMissing) throw error;
+        if (!rpcMissing) throw error;
 
-      // Fallback: manual join via two queries
-      const { data: lines, error: linesErr } = await supabase
-        .from('journal_lines')
-        .select('debit, credit, description, journal_id')
-        .eq('category_id', categoryId);
+        // Fallback: manual join via two queries
+        const { data: lines, error: linesErr } = await supabase
+          .from('journal_lines')
+          .select('debit, credit, description, journal_id')
+          .eq('category_id', categoryId);
 
-      if (linesErr) throw linesErr;
-      if (!lines?.length) return [];
+        if (linesErr) throw linesErr;
+        if (!lines?.length) return { openingDebit: 0, openingCredit: 0, lines: [] };
 
-      const journalIds = [...new Set(lines.map((l) => l.journal_id as string))];
-      let jq = supabase
-        .from('journal_entries')
-        .select('id, number, reference, entry_date, status')
-        .in('id', journalIds)
-        .eq('status', 'POSTED');
+        const journalIds = [...new Set(lines.map((l) => l.journal_id as string))];
+        let jq = supabase
+          .from('journal_entries')
+          .select('id, number, reference, entry_date, status')
+          .in('id', journalIds)
+          .eq('status', 'POSTED');
 
-      if (startDate) jq = jq.gte('entry_date', startDate);
-      if (endDate) jq = jq.lte('entry_date', endDate);
+        if (startDate) jq = jq.gte('entry_date', startDate);
+        if (endDate) jq = jq.lte('entry_date', endDate);
 
-      const { data: journals, error: jErr } = await jq;
-      if (jErr) throw jErr;
+        const { data: journals, error: jErr } = await jq;
+        if (jErr) throw jErr;
 
-      const jMap = new Map((journals ?? []).map((j) => [j.id as string, j]));
+        const jMap = new Map((journals ?? []).map((j) => [j.id as string, j]));
 
-      const merged: GeneralLedgerLineRow[] = [];
-      for (const l of lines) {
-        const j = jMap.get(l.journal_id as string);
-        if (!j) continue;
-        merged.push({
-          debit: Number(l.debit ?? 0),
-          credit: Number(l.credit ?? 0),
-          description: l.description as string | null,
-          entry_date: j.entry_date as string,
-          journal_number: Number(j.number ?? 0),
-          journal_reference: (j.reference as string) ?? null,
-          journal_id: j.id as string,
+        const merged: GeneralLedgerLineRow[] = [];
+        for (const l of lines) {
+          const j = jMap.get(l.journal_id as string);
+          if (!j) continue;
+          merged.push({
+            debit: Number(l.debit ?? 0),
+            credit: Number(l.credit ?? 0),
+            description: l.description as string | null,
+            entry_date: j.entry_date as string,
+            journal_number: Number(j.number ?? 0),
+            journal_reference: (j.reference as string) ?? null,
+            journal_id: j.id as string,
+          });
+        }
+
+        merged.sort((a, b) => {
+          const da = new Date(a.entry_date).getTime();
+          const db = new Date(b.entry_date).getTime();
+          if (da !== db) return da - db;
+          return a.journal_number - b.journal_number;
         });
+
+        return { openingDebit: 0, openingCredit: 0, lines: merged };
       }
 
-      merged.sort((a, b) => {
-        const da = new Date(a.entry_date).getTime();
-        const db = new Date(b.entry_date).getTime();
-        if (da !== db) return da - db;
-        return a.journal_number - b.journal_number;
-      });
-
-      return merged;
+      // No error and no data — return an empty ledger.
+      return { openingDebit: 0, openingCredit: 0, lines: [] };
     },
     enabled: !!categoryId,
   });
