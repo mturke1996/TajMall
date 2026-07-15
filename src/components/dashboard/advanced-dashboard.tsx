@@ -145,15 +145,6 @@ export function AdvancedDashboard() {
   };
 
   const currentMonth = monthlyData[0];
-  const prevMonth = monthlyData[1];
-
-  const revenueTrend = useMemo(() => {
-    if (!currentMonth || !prevMonth) return undefined;
-    const prev = Number(prevMonth.revenue_total);
-    if (!Number.isFinite(prev) || prev === 0) return undefined;
-    const cur = Number(currentMonth.revenue_total);
-    return ((cur - prev) / prev) * 100;
-  }, [currentMonth, prevMonth]);
 
   // Bar chart data — last 6 months reversed (oldest → newest)
   const barData = useMemo(() => {
@@ -228,11 +219,14 @@ export function AdvancedDashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <motion.div variants={itemVariants}>
             <StatCard
-              title="إجمالي الإيرادات"
+              title="إيرادات العام"
               value={s.totalRevenue}
               icon={ArrowDownToLine}
-              trend={revenueTrend}
-              trendLabel="عن الشهر الماضي"
+              subtitle={
+                currentMonth
+                  ? `الشهر الحالي: ${formatMoney(Number(currentMonth.revenue_total), 'LYD', { compact: true })}`
+                  : undefined
+              }
               color="emerald"
               isLoading={statsLoading}
             />
@@ -240,7 +234,7 @@ export function AdvancedDashboard() {
 
           <motion.div variants={itemVariants}>
             <StatCard
-              title="إجمالي المصروفات"
+              title="مصروفات العام"
               value={s.totalExpense}
               icon={ArrowUpFromLine}
               color="rose"
@@ -250,7 +244,7 @@ export function AdvancedDashboard() {
 
           <motion.div variants={itemVariants}>
             <StatCard
-              title="صافي الربح"
+              title="صافي ربح العام"
               value={s.netProfit}
               icon={s.netProfit >= 0 ? TrendingUp : TrendingDown}
               subtitle={s.netProfit >= 0 ? 'النشاط رابح ✓' : 'النشاط خاسر'}
@@ -324,7 +318,7 @@ export function AdvancedDashboard() {
                       <Activity className="h-4 w-4 text-sage-600" />
                       الأداء الشهري
                     </CardTitle>
-                    <CardDescription>مقارنة الإيرادات والمصروفات — آخر 6 أشهر</CardDescription>
+                    <CardDescription>مقارنة الإيرادات والمصروفات — أشهر السنة الحالية</CardDescription>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" />إيرادات</span>
@@ -495,10 +489,16 @@ export function AdvancedDashboard() {
                   <EmptyState message="لا توجد معاملات حديثة" />
                 ) : (
                   <div className="divide-y divide-border/60">
-                    {recentTransactions.map((tx) => (
+                    {recentTransactions.map((tx) => {
+                      const isVoided = tx.status === 'VOIDED';
+                      const isDraft = tx.status === 'DRAFT';
+                      return (
                       <div
                         key={tx.id}
-                        className="flex items-center justify-between py-2.5 hover:bg-canvas-sunken rounded-lg px-2 -mx-2 transition-colors group"
+                        className={cn(
+                          'flex items-center justify-between py-2.5 hover:bg-canvas-sunken rounded-lg px-2 -mx-2 transition-colors group',
+                          isVoided && 'opacity-50',
+                        )}
                       >
                         <div className="flex items-center gap-3">
                           <div
@@ -516,9 +516,21 @@ export function AdvancedDashboard() {
                             )}
                           </div>
                           <div className="min-w-0">
-                            <p className="font-medium text-sm truncate">
-                              {tx.category?.name_ar || 'بدون بند'}
-                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-medium text-sm truncate">
+                                {tx.category?.name_ar || 'بدون بند'}
+                              </p>
+                              {isVoided && (
+                                <span className="shrink-0 rounded-full bg-rose-100 px-1.5 py-0.5 text-[9px] font-semibold text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                                  ملغى
+                                </span>
+                              )}
+                              {isDraft && (
+                                <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                  مسودة
+                                </span>
+                              )}
+                            </div>
                             <p className="text-xs text-muted-foreground truncate">
                               {tx.cashbox?.name_ar} • {formatDateRelative(tx.tx_date)}
                             </p>
@@ -528,14 +540,17 @@ export function AdvancedDashboard() {
                           <p
                             className={cn(
                               'font-bold text-sm',
-                              tx.kind === 'REVENUE' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                              isVoided
+                                ? 'text-muted-foreground line-through'
+                                : tx.kind === 'REVENUE' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                             )}
                           >
                             {tx.kind === 'REVENUE' ? '+' : '−'} {formatMoney(Number(tx.amount), tx.currency ?? 'LYD', { compact: true })}
                           </p>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
