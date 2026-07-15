@@ -27,6 +27,24 @@ import { invalidateRentCalendarQueries } from '@/lib/db/rent-queries';
 import { toast } from 'sonner';
 import { usePermission } from '@/lib/supabase/use-permission';
 
+/** يُرجع رسالة خطأ مفيدة من خطأ Supabase/Postgres بدل رسالة عامة. */
+function extractSaveError(err: unknown): string {
+  const e = err as { message?: string; code?: string; details?: string } | null;
+  const code = e?.code;
+  const raw = e?.message?.trim();
+  const hints: Record<string, string> = {
+    '23502': 'حقل إجباري ناقص في قاعدة البيانات (غالباً حساب الخزينة/النقد AST-CSH غير معرّف في account_mappings).',
+    '23503': 'مرجع غير صالح — تحقق من البند/الخزينة/الجهة المختارة.',
+    '23505': 'قيمة مكررة تخالف قيد التفرد.',
+    '42501': 'لا توجد صلاحية للحفظ (RLS) — تحقق من دور المستخدم.',
+    'P0001': raw ?? 'خطأ منطقي في قاعدة البيانات.',
+  };
+  const hint = code ? hints[code] : undefined;
+  if (hint) return `فشل الحفظ: ${hint}`;
+  if (raw) return `فشل الحفظ: ${raw}`;
+  return 'فشل الحفظ — تعذّر حفظ المعاملة، حاول مجدداً.';
+}
+
 export function NewTransactionDialog() {
   const { isOpen, defaultKind, close } = useTxDialog();
   const { can, loading: permLoading } = usePermission();
@@ -214,8 +232,9 @@ export function NewTransactionDialog() {
             : 'تم الصرف',
       );
       close();
-    } catch {
-      setError('فشل الحفظ');
+    } catch (err) {
+      console.error('فشل حفظ المعاملة:', err);
+      setError(extractSaveError(err));
     }
   }
 
