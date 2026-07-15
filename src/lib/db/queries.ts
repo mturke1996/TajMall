@@ -541,6 +541,26 @@ export function useTenantRentSummary() {
   });
 }
 
+// ملخص إيجار المستأجرين لشهر محدد (YYYY-MM) عبر دالة Postgres
+// تستخدم نفس منطق tenant_rent_summary view تماماً لضمان تطابق الحالة.
+export function useTenantRentSummaryForMonth(monthKey: string | null) {
+  return useQuery<TenantRentSummary[]>({
+    queryKey: ["tenant_rent_summary_for_month", monthKey],
+    enabled: !!monthKey,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc(
+        "tenant_rent_summary_for_month",
+        { p_month_key: monthKey as string },
+      );
+      if (error) throw error;
+      return ((data as TenantRentSummary[]) ?? []).sort((a, b) =>
+        a.name.localeCompare(b.name, "ar"),
+      );
+    },
+  });
+}
+
 export type EmployeeSummary = {
   id: string;
   name: string;
@@ -695,6 +715,36 @@ export function useTransactions(kind?: "REVENUE" | "EXPENSE", limit = 500) {
         .limit(limit);
       if (kind) q = q.eq("kind", kind);
       const { data, error } = await q;
+      if (error) throw error;
+      return (data as unknown as TransactionWithRelations[]) ?? [];
+    },
+  });
+}
+
+// معاملات بند محاسبي خلال شهر محدد (YYYY-MM) — للصفحة التفصيلية للبند.
+export function useCategoryTransactionsForMonth(
+  categoryId: string | null,
+  monthKey: string | null,
+) {
+  return useQuery<TransactionWithRelations[]>({
+    queryKey: ["category_transactions_for_month", categoryId, monthKey],
+    enabled: !!categoryId && !!monthKey,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const [y, m] = (monthKey as string).split("-").map(Number);
+      const start = `${monthKey}-01`;
+      const nextMonth = m === 12 ? 1 : m + 1;
+      const nextYear = m === 12 ? y + 1 : y;
+      const end = `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`;
+      const { data, error } = await supabase
+        .from("transactions")
+        .select(TX_SELECT)
+        .eq("category_id", categoryId as string)
+        .gte("tx_date", start)
+        .lt("tx_date", end)
+        .order("tx_date", { ascending: false })
+        .order("number", { ascending: false })
+        .limit(1000);
       if (error) throw error;
       return (data as unknown as TransactionWithRelations[]) ?? [];
     },

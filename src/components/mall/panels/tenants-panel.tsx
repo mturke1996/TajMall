@@ -3,8 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
-import { useTenantRentSummary } from '@/lib/db/queries';
-import { useTenantCharges } from '@/lib/db/mall-queries';
+import { useTenantRentSummaryForMonth } from '@/lib/db/queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { TenantsDirectory } from '@/components/tenants/tenants-directory';
 import { WriteGuard } from '@/components/auth/write-guard';
@@ -13,37 +12,20 @@ import { MallPanelToolbar } from '@/components/mall/panel-toolbar';
 import { peopleSegmentHref } from '@/lib/mall/routes';
 import { Button } from '@/components/ui/button';
 import { currentMonthKey, currentYear } from '@/lib/rent-months';
-import {
-  indexRentChargesByTenantMonth,
-  withSelectedMonthStatus,
-} from '@/lib/tenant-month-status';
 
 export function MallTenantsPanel() {
   const router = useRouter();
   const { canWrite } = usePermission();
-  const { data: tenants = [], isLoading: tenantsLoading } = useTenantRentSummary();
-  const { data: charges = [], isLoading: chargesLoading } = useTenantCharges();
-
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [selectedMonthKey, setSelectedMonthKey] = useState(() => currentMonthKey());
   const year = currentYear();
 
-  const chargeIndex = useMemo(
-    () => indexRentChargesByTenantMonth(charges),
-    [charges],
-  );
-
-  const displayTenants = useMemo(
-    () =>
-      tenants.map((t) =>
-        withSelectedMonthStatus(t, selectedMonthKey, chargeIndex),
-      ),
-    [tenants, selectedMonthKey, chargeIndex],
-  );
+  const { data: tenants = [], isLoading } =
+    useTenantRentSummaryForMonth(selectedMonthKey);
 
   const filteredTenants = useMemo(() => {
-    return displayTenants.filter((t) => {
+    return tenants.filter((t) => {
       if (statusFilter !== 'ALL' && t.current_month_status !== statusFilter) {
         return false;
       }
@@ -55,29 +37,28 @@ export function MallTenantsPanel() {
         t.phone?.toLowerCase().includes(q)
       );
     });
-  }, [displayTenants, statusFilter, searchQuery]);
+  }, [tenants, statusFilter, searchQuery]);
 
   const stats = useMemo(() => {
-    const expectedTotal = displayTenants.reduce(
-      (sum, t) => sum + (Number(t.current_month_amount) || Number(t.monthly_rent) || 0),
+    const expectedTotal = tenants.reduce(
+      (sum, t) =>
+        sum + (Number(t.current_month_amount) || Number(t.monthly_rent) || 0),
       0,
     );
-    const collectedTotal = displayTenants.reduce(
+    const collectedTotal = tenants.reduce(
       (sum, t) => sum + Number(t.current_month_paid),
       0,
     );
     return {
-      total: displayTenants.length,
-      paid: displayTenants.filter((t) => t.current_month_status === 'paid_full').length,
-      partial: displayTenants.filter((t) => t.current_month_status === 'paid_partial')
+      total: tenants.length,
+      paid: tenants.filter((t) => t.current_month_status === 'paid_full').length,
+      partial: tenants.filter((t) => t.current_month_status === 'paid_partial')
         .length,
-      unpaid: displayTenants.filter((t) => t.current_month_status === 'unpaid').length,
+      unpaid: tenants.filter((t) => t.current_month_status === 'unpaid').length,
       expectedTotal,
       collectedTotal,
     };
-  }, [displayTenants]);
-
-  const isLoading = tenantsLoading || chargesLoading;
+  }, [tenants]);
 
   return (
     <>
@@ -110,7 +91,7 @@ export function MallTenantsPanel() {
       </MallPanelToolbar>
 
       <TenantsDirectory
-        tenants={displayTenants}
+        tenants={tenants}
         filteredTenants={filteredTenants}
         isLoading={isLoading}
         searchQuery={searchQuery}

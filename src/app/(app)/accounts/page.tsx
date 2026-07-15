@@ -11,7 +11,7 @@ import {
   BookMarked,
   Landmark,
 } from 'lucide-react';
-import { ledgerUrl, categoryMatchesTab, type AccountTab } from '@/lib/accounting-nav';
+import { categoryMatchesTab, type AccountTab } from '@/lib/accounting-nav';
 import { PageHeader } from '@/components/layout/page-header';
 import { DataToolbar } from '@/components/data/toolbar';
 import { EmptyState } from '@/components/data/empty-state';
@@ -139,9 +139,10 @@ export default function AccountsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {filtered.map((c: CategoryRow, i) => (
-              <div
+              <Link
                 key={c.id}
-                className="surface animate-fade-up flex flex-col gap-3 p-4 transition-shadow duration-200 hover:shadow-whisper"
+                href={`/accounts/${c.id}`}
+                className="surface animate-fade-up flex flex-col gap-3 p-4 transition-shadow duration-200 hover:shadow-whisper touch-manipulation"
                 style={{ animationDelay: `${Math.min(i * 20, 300)}ms` }}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -174,15 +175,12 @@ export default function AccountsPage() {
                 </div>
                 <div className="flex items-center justify-between border-t border-border pt-3 text-[11px] font-mono text-ink-mute">
                   <span>{c.code}</span>
-                  <Link
-                    href={ledgerUrl(c.id)}
-                    className="inline-flex items-center gap-1 text-sage-800 font-sans font-semibold hover:underline touch-manipulation"
-                  >
+                  <span className="inline-flex items-center gap-1 text-sage-800 font-sans font-semibold">
                     <BookMarked className="h-3.5 w-3.5" />
-                    كشف الحساب
-                  </Link>
+                    كشف شهري
+                  </span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
