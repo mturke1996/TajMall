@@ -20,7 +20,7 @@ export default function CustomersPage() {
         }
       />
 
-      <div className="flex flex-col gap-6 px-5 py-7 md:px-8 md:py-10">
+      <div className="flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-7">
         {customers.length === 0 ? (
           <EmptyState
             icon={Coins}

@@ -281,7 +281,7 @@ export function MallRentCollectionSection({
           </div>
         </CardHeader>
 
-        <CardContent className="p-4 md:p-6 space-y-6">
+        <CardContent className="space-y-4 p-4 md:space-y-6 md:p-6">
           {loading ? (
             <div className="space-y-4">
               <Skeleton className="h-32 w-full rounded-xl" />
@@ -296,7 +296,7 @@ export function MallRentCollectionSection({
                 </p>
               )}
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 md:gap-6">
                 <PeriodBlock
                   title={`من بداية ${year} حتى اليوم`}
                   icon={CalendarRange}
@@ -313,7 +313,7 @@ export function MallRentCollectionSection({
                 />
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-3 md:gap-6">
                 <div className="xl:col-span-2 space-y-2">
                   <p className="text-xs font-medium text-muted-foreground">
                     التحصيل الشهري — مسدّد ومتبقي ({year})

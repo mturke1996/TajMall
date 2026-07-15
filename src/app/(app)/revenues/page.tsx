@@ -17,6 +17,7 @@ export default function RevenuesPage() {
   const highlightId = useSearchParams().get('highlight');
   const [query, setQuery] = useState('');
   const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
+  const [methodFilter, setMethodFilter] = useState<'ALL' | 'CASH' | 'CHEQUE'>('ALL');
   const { data, isLoading } = useTransactions('REVENUE');
 
   const rows = useMemo(() => {
@@ -39,21 +40,27 @@ export default function RevenuesPage() {
     });
   }, [rows, datePreset]);
 
+  // Apply method filter
+  const methodFiltered = useMemo(() => {
+    if (methodFilter === 'ALL') return dateFiltered;
+    return dateFiltered.filter((r) => r.method === methodFilter);
+  }, [dateFiltered, methodFilter]);
+
   // Apply text search filter
   const filtered = useMemo(() => {
-    if (!query) return dateFiltered;
+    if (!query) return methodFiltered;
     const q = query.toLowerCase();
-    return dateFiltered.filter(
+    return methodFiltered.filter(
       (r) =>
         (r.description ?? '').toLowerCase().includes(q) ||
         (r.category?.name_ar ?? '').includes(query) ||
         (r.reference ?? String(r.number)).includes(query),
     );
-  }, [dateFiltered, query]);
+  }, [methodFiltered, query]);
 
   useHighlightScroll(highlightId, transactionHighlightDomId, [filtered.length]);
 
-  // Stats computed from date-filtered rows (not search-filtered)
+  // Stats computed from date-filtered rows (not search/method-filtered)
   const total = dateFiltered.reduce((s, r) => s + Number(r.amount), 0);
   const cashTotal = dateFiltered
     .filter((r) => r.method === 'CASH')
@@ -90,7 +97,7 @@ export default function RevenuesPage() {
       />
 
       <div className="flex flex-col gap-5 px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-7">
-        {/* Stats */}
+        {/* Stats — click to filter by payment method */}
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Stat
             label="إجمالي الإيرادات"
@@ -99,6 +106,8 @@ export default function RevenuesPage() {
             icon={TrendingUp}
             loading={isLoading}
             color="emerald"
+            onClick={() => setMethodFilter('ALL')}
+            active={methodFilter === 'ALL'}
           />
           <Stat
             label="الإيرادات النقدية"
@@ -107,6 +116,8 @@ export default function RevenuesPage() {
             icon={ArrowDownToLine}
             loading={isLoading}
             color="blue"
+            onClick={() => setMethodFilter('CASH')}
+            active={methodFilter === 'CASH'}
           />
           <Stat
             label="إيرادات الصكوك"
@@ -115,6 +126,8 @@ export default function RevenuesPage() {
             icon={Receipt}
             loading={isLoading}
             color="amber"
+            onClick={() => setMethodFilter('CHEQUE')}
+            active={methodFilter === 'CHEQUE'}
           />
         </section>
 

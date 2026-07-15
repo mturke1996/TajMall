@@ -12,6 +12,7 @@ import {
   Loader2,
   Edit2,
   Plus,
+  AlertTriangle,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import {
@@ -19,6 +20,7 @@ import {
   MOBILE_PAGE_ACTION_PADDING,
 } from '@/components/layout/mobile-page-action-bar';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/data/empty-state';
 import {
   useContact,
   useContactTransactions,
@@ -119,11 +121,13 @@ export default function ContactDetailPage() {
 
   if (!id) {
     return (
-      <div className="px-8 py-16 text-center">
-        <p className="text-ink-mute">رابط غير صالح</p>
-        <Button variant="outline" className="mt-4" asChild>
-          <Link href={contactBackHref('CUSTOMER')}>العودة</Link>
-        </Button>
+      <div className="px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-7">
+        <EmptyState
+          icon={AlertTriangle}
+          title="رابط غير صالح"
+          description="لا يمكن عرض هذا السجل بسبب رابط ناقص أو غير صحيح."
+          action={{ label: 'العودة', href: contactBackHref('CUSTOMER') }}
+        />
       </div>
     );
   }
@@ -139,11 +143,13 @@ export default function ContactDetailPage() {
 
   if (isError || !contact) {
     return (
-      <div className="px-8 py-16 text-center">
-        <p className="text-ink-mute">لم يُعثر على السجل</p>
-        <Button variant="outline" className="mt-4" asChild>
-          <Link href={contactBackHref('CUSTOMER')}>العودة</Link>
-        </Button>
+      <div className="px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-7">
+        <EmptyState
+          icon={AlertTriangle}
+          title="لم يُعثر على السجل"
+          description="قد يكون هذا السجل قد حُذف أو ليس لديك صلاحية الوصول إليه."
+          action={{ label: 'العودة', href: contactBackHref('CUSTOMER') }}
+        />
       </div>
     );
   }
@@ -209,7 +215,7 @@ export default function ContactDetailPage() {
 
       <div
         className={cn(
-          'flex flex-col gap-5 px-4 py-4 sm:gap-6 sm:px-5 sm:py-7 md:px-8 md:py-10',
+          'flex flex-col gap-5 px-4 py-4 sm:gap-6 sm:px-5 sm:py-6 md:px-8 md:py-7',
           MOBILE_PAGE_ACTION_PADDING,
         )}
       >

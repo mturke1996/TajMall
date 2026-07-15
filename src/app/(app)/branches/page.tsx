@@ -18,7 +18,7 @@ export default function BranchesPage() {
         description="الفروع المسجلة في قاعدة البيانات مع رمز الفرع وحالة المركز الرئيسي."
       />
 
-      <div className="flex flex-col gap-6 px-5 py-7 md:px-8 md:py-10">
+      <div className="flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-7">
         {isLoading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-sage-600" aria-hidden />
@@ -35,7 +35,7 @@ export default function BranchesPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {branches.map((b) => (
               <Card key={b.id} className="overflow-hidden">
-                <CardContent className="space-y-3 p-5">
+                <CardContent className="space-y-3 p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-xs font-medium uppercase tracking-wide text-ink-mute">{b.code}</p>

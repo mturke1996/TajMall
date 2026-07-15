@@ -60,7 +60,7 @@ export default function ActivityPage() {
         }
       />
 
-      <div className="flex flex-col gap-4 px-5 py-7 md:px-8 md:py-10">
+      <div className="flex flex-col gap-3 px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-7">
         {!isLoading && !isError && txs.length > 0 && (
           <>
             <div className="grid grid-cols-3 gap-2">
@@ -68,37 +68,46 @@ export default function ActivityPage() {
                 type="button"
                 onClick={() => setKind('ALL')}
                 className={cn(
-                  'min-h-10 rounded-lg border px-2 py-2.5 text-xs font-medium touch-manipulation',
+                  'flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium touch-manipulation',
                   kind === 'ALL'
                     ? 'border-sage-300 bg-sage-50 text-sage-700'
                     : 'border-border bg-card text-ink-mute',
                 )}
               >
-                الكل ({totals.all})
+                <span className="truncate">الكل</span>
+                <span className="shrink-0 rounded-full bg-black/5 px-1.5 text-[10px] tabular-nums">
+                  {totals.all}
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => setKind('REVENUE')}
                 className={cn(
-                  'min-h-10 rounded-lg border px-2 py-2.5 text-xs font-medium touch-manipulation',
+                  'flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium touch-manipulation',
                   kind === 'REVENUE'
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                     : 'border-border bg-card text-ink-mute',
                 )}
               >
-                إيرادات ({totals.revenue})
+                <span className="truncate">إيرادات</span>
+                <span className="shrink-0 rounded-full bg-black/5 px-1.5 text-[10px] tabular-nums">
+                  {totals.revenue}
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => setKind('EXPENSE')}
                 className={cn(
-                  'min-h-10 rounded-lg border px-2 py-2.5 text-xs font-medium touch-manipulation',
+                  'flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium touch-manipulation',
                   kind === 'EXPENSE'
                     ? 'border-red-300 bg-red-50 text-red-700'
                     : 'border-border bg-card text-ink-mute',
                 )}
               >
-                مصروفات ({totals.expense})
+                <span className="truncate">مصروفات</span>
+                <span className="shrink-0 rounded-full bg-black/5 px-1.5 text-[10px] tabular-nums">
+                  {totals.expense}
+                </span>
               </button>
             </div>
 
@@ -106,7 +115,7 @@ export default function ActivityPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="ابحث باسم البند أو الخزنة أو الجهة…"
-              className="h-10 text-sm"
+              className="h-11 text-sm touch-manipulation"
             />
 
             <p className="text-xs text-ink-mute">

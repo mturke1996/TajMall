@@ -114,7 +114,7 @@ export default function ExpensesPage() {
       <div className="flex flex-col gap-5 px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-7">
         {/* Stats + Category breakdown */}
         <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          {/* Left: 3 stat cards */}
+          {/* Left: 3 stat cards — click to reset filters */}
           <div className="grid grid-cols-2 gap-3 xl:col-span-1 xl:grid-cols-1">
             <Stat
               label="إجمالي المصروفات"
@@ -124,6 +124,11 @@ export default function ExpensesPage() {
               loading={isLoading}
               color="rose"
               className="col-span-2 xl:col-span-1"
+              onClick={() => {
+                setSelectedCategoryId('ALL');
+                setQuery('');
+              }}
+              active={selectedCategoryId === 'ALL' && !query}
             />
             <Stat
               label="عدد القيود"
@@ -131,6 +136,11 @@ export default function ExpensesPage() {
               icon={Hash}
               loading={isLoading}
               color="blue"
+              onClick={() => {
+                setSelectedCategoryId('ALL');
+                setQuery('');
+              }}
+              active={selectedCategoryId === 'ALL' && !query}
             />
             <Stat
               label="متوسط القيد"
@@ -139,6 +149,11 @@ export default function ExpensesPage() {
               icon={Wallet}
               loading={isLoading}
               color="amber"
+              onClick={() => {
+                setSelectedCategoryId('ALL');
+                setQuery('');
+              }}
+              active={selectedCategoryId === 'ALL' && !query}
             />
           </div>
 

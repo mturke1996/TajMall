@@ -12,6 +12,8 @@ export function Stat({
   trend,
   trendLabel,
   color = 'neutral',
+  onClick,
+  active = false,
 }: {
   label: string;
   value: number | string;
@@ -22,6 +24,8 @@ export function Stat({
   trend?: number;
   trendLabel?: string;
   color?: 'neutral' | 'emerald' | 'rose' | 'amber' | 'blue';
+  onClick?: () => void;
+  active?: boolean;
 }) {
   const iconColors: Record<string, string> = {
     neutral: 'bg-canvas-sunken text-muted-foreground',
@@ -50,13 +54,17 @@ export function Stat({
         : value.toLocaleString('en-US')
       : value;
 
-  return (
-    <div
-      className={cn(
-        'surface flex flex-col gap-2 p-4 transition-all duration-200 hover:shadow-lift',
-        className,
-      )}
-    >
+  const interactive = typeof onClick === 'function';
+
+  const classes = cn(
+    'surface flex flex-col gap-2 p-4',
+    interactive && 'cursor-pointer text-start transition-all duration-200 hover:shadow-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-700/40',
+    active && 'ring-2 ring-sage-700/40 shadow-lift',
+    className,
+  );
+
+  const inner = (
+    <>
       <div className="flex items-start justify-between gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           {label}
@@ -94,6 +102,16 @@ export function Stat({
           )}
         </div>
       )}
-    </div>
+    </>
   );
+
+  if (interactive) {
+    return (
+      <button type="button" onClick={onClick} className={classes}>
+        {inner}
+      </button>
+    );
+  }
+
+  return <div className={classes}>{inner}</div>;
 }
