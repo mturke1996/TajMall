@@ -119,7 +119,7 @@ function LoginCard() {
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">كلمة المرور</Label>
-              <Link href="#" className="text-[12px] text-sage-700 hover:underline">
+              <Link href="/login/forgot-password" className="text-[12px] text-sage-700 hover:underline">
                 نسيت كلمة المرور؟
               </Link>
             </div>

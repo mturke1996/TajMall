@@ -140,6 +140,13 @@ export function ChangePasswordForm({ email }: Props) {
         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
         تغيير كلمة المرور
       </Button>
+      <p className="text-[11px] text-ink-mute">
+        لا تتذكر كلمة المرور الحالية؟{' '}
+        <a href="/login/forgot-password" className="text-sage-700 underline underline-offset-2">
+          استعدها من صفحة الدخول
+        </a>{' '}
+        (بدون الحاجة للكلمة القديمة).
+      </p>
     </form>
   );
 }

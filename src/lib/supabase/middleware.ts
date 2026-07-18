@@ -70,6 +70,7 @@ export async function updateSession(request: NextRequest) {
   const isPublic =
     path === '/' ||
     path.startsWith('/login') ||
+    path.startsWith('/auth/callback') ||
     path.startsWith('/signup') ||
     path.startsWith('/portal') ||
     path.startsWith('/api/health') ||
@@ -90,8 +91,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Authenticated user on /login → fast-forward to dashboard
-  if (user && (path === '/login' || path === '/')) {
+  // Authenticated user on /login → fast-forward to dashboard (except password recovery)
+  const isPasswordRecoveryRoute =
+    path.startsWith('/login/forgot-password') || path.startsWith('/login/reset-password');
+  if (user && (path === '/login' || path === '/') && !isPasswordRecoveryRoute) {
     const redirectUrl = url.clone();
     redirectUrl.pathname = '/dashboard';
     redirectUrl.search = '';

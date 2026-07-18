@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { User, Mail, Building2, Save, Loader2, ShieldCheck } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -139,6 +140,12 @@ export default function ProfilePage() {
 
         <p className="px-1 text-[12px] leading-relaxed text-ink-mute">
           يمكنك تحديث اسمك الظاهر في النظام. البريد الإلكتروني والدور الوظيفي يُداران من قبل المدير.
+          {' '}
+          <Link href="/login/forgot-password" className="text-sage-700 underline underline-offset-2">
+            نسيت كلمة المرور؟
+          </Link>
+          {' '}
+          (استخدمها من صفحة الدخول إذا لم تعد تتذكرها.)
         </p>
       </div>
     </>
