@@ -8,8 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/brand/logo';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
-import { resetPasswordRedirectUrl } from '@/lib/supabase/auth-url';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -28,12 +26,14 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
     try {
-      const supabase = createSupabaseBrowserClient();
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmed, {
-        redirectTo: resetPasswordRedirectUrl(),
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmed }),
       });
-      if (resetError) {
-        setError(resetError.message || 'تعذّر إرسال رابط الاستعادة.');
+      const body = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setError(body.error ?? 'تعذّر إرسال رابط الاستعادة.');
         return;
       }
       setSent(true);

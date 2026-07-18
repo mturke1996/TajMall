@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server';
+import { getAuthRedirectOrigin } from '@/lib/app-url';
 import { can, normalizeRole } from '@/lib/permissions';
 
 const ASSIGNABLE_ROLES = ['owner', 'admin', 'accountant', 'cashier', 'viewer'] as const;
@@ -72,7 +73,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const origin = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+    const origin = getAuthRedirectOrigin();
 
     let invitedUser;
     let invErr;
