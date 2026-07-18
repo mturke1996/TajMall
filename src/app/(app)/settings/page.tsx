@@ -49,7 +49,7 @@ const GROUPS = [
         icon: Shield,
         title: 'الأمان',
         desc: 'كلمة المرور، التحقق الثنائي، الجلسات النشطة.',
-        href: '/settings/security',
+        href: '/profile#password',
       },
       {
         icon: KeyRound,

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useCurrentProfile } from '@/lib/supabase/use-profile';
 import { useUpdateProfile } from '@/lib/db/queries';
+import { ChangePasswordForm } from '@/components/auth/change-password-form';
 import { toast } from 'sonner';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -123,6 +124,18 @@ export default function ProfilePage() {
             حفظ التغييرات
           </Button>
         </div>
+
+        {user?.email ? (
+          <div id="password" className="surface scroll-mt-20 space-y-4 p-4 sm:p-5">
+            <div>
+              <h3 className="text-[13px] font-semibold text-ink">كلمة المرور</h3>
+              <p className="mt-1 text-[12px] leading-relaxed text-ink-mute">
+                غيّر كلمة مرور حسابك بعد التحقق من الكلمة الحالية.
+              </p>
+            </div>
+            <ChangePasswordForm email={user.email} />
+          </div>
+        ) : null}
 
         <p className="px-1 text-[12px] leading-relaxed text-ink-mute">
           يمكنك تحديث اسمك الظاهر في النظام. البريد الإلكتروني والدور الوظيفي يُداران من قبل المدير.
