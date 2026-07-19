@@ -5,7 +5,14 @@ export function getAppOrigin(): string {
   return getAuthRedirectOrigin();
 }
 
+const RESET_NEXT = '/login/reset-password';
+
+/** وجهة redirectTo في resetPasswordForEmail — تُفعَّل الجلسة على الخادم في /auth/confirm */
 export function resetPasswordRedirectUrl(): string {
-  // Supabase يُلحق token_hash&type=recovery أو code — نعالجهما في /login/reset-password
-  return `${getAuthRedirectOrigin()}/login/reset-password`;
+  const origin = getAuthRedirectOrigin();
+  return `${origin}/auth/confirm?next=${encodeURIComponent(RESET_NEXT)}`;
+}
+
+export function passwordResetLandingPath(): string {
+  return RESET_NEXT;
 }

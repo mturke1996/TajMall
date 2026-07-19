@@ -54,6 +54,8 @@ export function ResetPasswordForm() {
       if (result.ok) {
         setReady(true);
         setError(null);
+      } else if (result.redirecting) {
+        return;
       } else if (result.reason !== 'missing_token') {
         setError(result.reason);
       }

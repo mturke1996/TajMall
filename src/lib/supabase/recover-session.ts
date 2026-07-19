@@ -1,10 +1,13 @@
-import type { EmailOtpType, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type RecoveryExchangeResult =
   | { ok: true }
-  | { ok: false; reason: string };
+  | { ok: false; reason: string; redirecting?: boolean };
 
-/** يفعّل جلسة استعادة كلمة المرور من code أو token_hash أو hash. */
+/**
+ * إن وُجد code/token_hash في الرابط، نوجّه لـ /auth/confirm (خادم + cookies).
+ * لا نستدعي exchangeCodeForSession في المتصفح — يسبب خطأ PKCE.
+ */
 export async function exchangePasswordRecoverySession(
   supabase: SupabaseClient,
 ): Promise<RecoveryExchangeResult> {
@@ -15,20 +18,13 @@ export async function exchangePasswordRecoverySession(
   const search = new URLSearchParams(window.location.search);
   const code = search.get('code');
   const token_hash = search.get('token_hash');
-  const type = search.get('type') as EmailOtpType | null;
+  const type = search.get('type');
 
-  if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) return { ok: false, reason: error.message };
-    stripRecoveryParamsFromUrl();
-    return { ok: true };
-  }
-
-  if (token_hash && type) {
-    const { error } = await supabase.auth.verifyOtp({ token_hash, type });
-    if (error) return { ok: false, reason: error.message };
-    stripRecoveryParamsFromUrl();
-    return { ok: true };
+  if (code || (token_hash && type)) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('next', '/login/reset-password');
+    window.location.replace(`/auth/confirm?${params.toString()}`);
+    return { ok: false, reason: 'redirecting', redirecting: true };
   }
 
   const hash = window.location.hash.startsWith('#')

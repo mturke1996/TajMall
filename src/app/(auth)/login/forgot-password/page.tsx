@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/brand/logo';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { resetPasswordRedirectUrl } from '@/lib/supabase/auth-url';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -26,14 +28,14 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmed }),
+      // من المتصفح مباشرة — يخزّن PKCE verifier في cookies (مطلوب إن كان الرابط code)
+      const supabase = createSupabaseBrowserClient();
+      const redirectTo = resetPasswordRedirectUrl();
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmed, {
+        redirectTo,
       });
-      const body = (await res.json()) as { error?: string };
-      if (!res.ok) {
-        setError(body.error ?? 'تعذّر إرسال رابط الاستعادة.');
+      if (resetError) {
+        setError(resetError.message || 'تعذّر إرسال رابط الاستعادة.');
         return;
       }
       setSent(true);
@@ -73,7 +75,9 @@ export default function ForgotPasswordPage() {
                     إن كان البريد <span dir="ltr">{email.trim()}</span> مسجّلاً، ستصلك رسالة
                     خلال دقائق. افتح الرابط واختر كلمة مرور جديدة.
                   </p>
-                  <p className="text-[12px] opacity-90">تحقّق من مجلد الرسائل غير المرغوب فيها.</p>
+                  <p className="text-[12px] opacity-90">
+                    افتح الرابط من نفس المتصفح الذي طلبت منه الاستعادة إن أمكن.
+                  </p>
                 </div>
               </div>
               <Button asChild variant="outline" className="w-full">
