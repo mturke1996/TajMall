@@ -23,11 +23,13 @@ import {
   useCategories,
   useCategoryTransactionsForMonth,
 } from '@/lib/db/queries';
+import { useGeneralLedger } from '@/lib/db/mall-queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { accountTypeLabelAr } from '@/lib/accounting-labels';
 import { ledgerUrl } from '@/lib/accounting-nav';
 import { currentYear, monthKey, monthNameAr } from '@/lib/rent-months';
-import { cn, formatMoney } from '@/lib/utils';
+import { cn, formatMoney, formatDate } from '@/lib/utils';
+import { computeRunningBalances, toJournalAmount } from '@/lib/journal-entry-display';
 
 const METHOD_AR: Record<string, string> = {
   CASH: 'نقدي',
@@ -43,6 +45,8 @@ const STATUS_AR: Record<string, string> = {
   RECONCILED: 'مُسوّى',
 };
 
+type ViewMode = 'journal' | 'cash';
+
 export default function CategoryDetailPage() {
   const params = useParams<{ id: string }>();
   const categoryId = params.id;
@@ -56,11 +60,23 @@ export default function CategoryDetailPage() {
   const [year, setYear] = useState(() => currentYear());
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('journal');
 
   const selectedMonthKey = monthKey(year, selectedMonth);
+  const startDate = `${selectedMonthKey}-01`;
+  const endDate = useMemo(() => {
+    const [y, m] = selectedMonthKey.split('-').map(Number);
+    const last = new Date(y, m, 0).getDate();
+    return `${selectedMonthKey}-${String(last).padStart(2, '0')}`;
+  }, [selectedMonthKey]);
 
   const { data: txs = [], isLoading: txLoading } =
     useCategoryTransactionsForMonth(categoryId, selectedMonthKey);
+
+  const {
+    data: ledgerResult,
+    isLoading: ledgerLoading,
+  } = useGeneralLedger(categoryId, startDate, endDate);
 
   const typeLabel = category ? accountTypeLabelAr(category.type) : '';
   const isRevenue = category?.type === 'REVENUE' || category?.kind === 'REVENUE';
@@ -70,6 +86,9 @@ export default function CategoryDetailPage() {
     : isExpense
       ? 'negative'
       : 'neutral';
+
+  const isDebitIncrease =
+    category?.type === 'ASSET' || category?.type === 'EXPENSE';
 
   const yearMonths = useMemo(
     () =>
@@ -93,8 +112,44 @@ export default function CategoryDetailPage() {
   }, [txs, searchQuery]);
 
   const posted = filteredTxs.filter((t) => t.status === 'POSTED');
-  const total = posted.reduce((s, t) => s + Number(t.amount || 0), 0);
+  const cashTotal = posted.reduce((s, t) => s + Number(t.amount || 0), 0);
   const draftCount = filteredTxs.filter((t) => t.status === 'DRAFT').length;
+
+  const journalLines = useMemo(() => {
+    const lines = ledgerResult?.lines ?? [];
+    if (!searchQuery) return lines;
+    const q = searchQuery.toLowerCase();
+    return lines.filter(
+      (l) =>
+        l.description?.toLowerCase().includes(q) ||
+        String(l.journal_number).includes(q) ||
+        l.journal_reference?.toLowerCase().includes(q),
+    );
+  }, [ledgerResult?.lines, searchQuery]);
+
+  const openingBalance = useMemo(() => {
+    const od = ledgerResult?.openingDebit ?? 0;
+    const oc = ledgerResult?.openingCredit ?? 0;
+    return isDebitIncrease ? od - oc : oc - od;
+  }, [ledgerResult, isDebitIncrease]);
+
+  const runningBalances = useMemo(() => {
+    if (isDebitIncrease) {
+      return computeRunningBalances(journalLines, openingBalance);
+    }
+    // Credit-normal accounts: credit increases balance
+    let bal = openingBalance;
+    return journalLines.map((line) => {
+      bal += toJournalAmount(line.credit) - toJournalAmount(line.debit);
+      return bal;
+    });
+  }, [journalLines, openingBalance, isDebitIncrease]);
+
+  const periodDebit = journalLines.reduce((s, l) => s + toJournalAmount(l.debit), 0);
+  const periodCredit = journalLines.reduce((s, l) => s + toJournalAmount(l.credit), 0);
+  const closingBalance = runningBalances.length
+    ? runningBalances[runningBalances.length - 1]
+    : openingBalance;
 
   const monthName = monthNameAr(selectedMonthKey);
 
@@ -133,8 +188,37 @@ export default function CategoryDetailPage() {
           <div className="flex flex-wrap gap-2">
             <TajMallPdfToolbar
               fileName={`${category.code}-${selectedMonthKey}`}
-              disabled={filteredTxs.length === 0}
+              disabled={viewMode === 'cash' ? filteredTxs.length === 0 : journalLines.length === 0}
               render={async () => {
+                if (viewMode === 'journal') {
+                  const { LedgerReportPDF } = await import(
+                    '@/features/pdf/LedgerReportPDF'
+                  );
+                  return (
+                    <LedgerReportPDF
+                      category={{
+                        name_ar: category.name_ar,
+                        code: category.code,
+                        type: category.type,
+                      }}
+                      startDate={startDate}
+                      endDate={endDate}
+                      openingBalance={openingBalance}
+                      closingBalance={closingBalance}
+                      totalDebit={periodDebit}
+                      totalCredit={periodCredit}
+                      lines={journalLines.map((l, i) => ({
+                        entry_date: l.entry_date,
+                        journal_number: l.journal_number,
+                        journal_reference: l.journal_reference,
+                        description: l.description,
+                        debit: l.debit,
+                        credit: l.credit,
+                        runningBalance: runningBalances[i] ?? 0,
+                      }))}
+                    />
+                  );
+                }
                 const { CategoryMonthReportPDF } = await import(
                   '@/features/pdf/CategoryMonthReportPDF'
                 );
@@ -175,7 +259,6 @@ export default function CategoryDetailPage() {
       />
 
       <AccountingPageBody className="gap-4 md:gap-5">
-        {/* بطاقة تعريف البند */}
         <div className="surface flex items-start gap-3 p-4">
           <span
             className={cn(
@@ -209,10 +292,8 @@ export default function CategoryDetailPage() {
           </div>
         </div>
 
-        {/* منتقي السنة */}
         <AccountingYearPicker value={year} onChange={setYear} />
 
-        {/* شريط الأشهر */}
         <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 no-scrollbar snap-x snap-mandatory">
           {yearMonths.map((m) => {
             const active = selectedMonth === m.monthIndex;
@@ -234,42 +315,210 @@ export default function CategoryDetailPage() {
           })}
         </div>
 
-        {/* بطاقات الملخص */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <SummaryCard
-            label={`${typeLabel} ${monthName}`}
-            value={formatMoney(total, 'LYD')}
-            tone={tone === 'neutral' ? 'default' : tone}
-          />
-          <SummaryCard
-            label="عدد المعاملات"
-            value={String(filteredTxs.length)}
-            tone="default"
-          />
-          <SummaryCard
-            label="معاملات مرحّلة"
-            value={String(posted.length)}
-            tone="default"
-          />
-          <SummaryCard
-            label="مسودات"
-            value={String(draftCount)}
-            tone={draftCount > 0 ? 'warning' : 'default'}
-          />
+        {/* View mode: journal (default) vs cash transactions */}
+        <div className="flex flex-wrap gap-2 rounded-xl border border-border bg-card p-1.5">
+          <button
+            type="button"
+            onClick={() => setViewMode('journal')}
+            className={cn(
+              'min-h-10 flex-1 rounded-lg px-3 py-2 text-[13px] font-semibold touch-manipulation',
+              viewMode === 'journal'
+                ? 'bg-sage-700 text-white'
+                : 'text-ink-mute hover:bg-secondary',
+            )}
+          >
+            حركات القيد (مدين / دائن)
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('cash')}
+            className={cn(
+              'min-h-10 flex-1 rounded-lg px-3 py-2 text-[13px] font-semibold touch-manipulation',
+              viewMode === 'cash'
+                ? 'bg-sage-700 text-white'
+                : 'text-ink-mute hover:bg-secondary',
+            )}
+          >
+            المعاملات النقدية
+          </button>
         </div>
 
-        {/* بحث */}
+        {viewMode === 'journal' ? (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <SummaryCard
+              label="مدين الفترة"
+              value={formatMoney(periodDebit, 'LYD')}
+              tone="positive"
+            />
+            <SummaryCard
+              label="دائن الفترة"
+              value={formatMoney(periodCredit, 'LYD')}
+              tone="negative"
+            />
+            <SummaryCard
+              label="رصيد افتتاحي"
+              value={formatMoney(openingBalance, 'LYD')}
+              tone="default"
+            />
+            <SummaryCard
+              label="رصيد ختامي"
+              value={formatMoney(closingBalance, 'LYD')}
+              tone="default"
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <SummaryCard
+              label={`${typeLabel} ${monthName}`}
+              value={formatMoney(cashTotal, 'LYD')}
+              tone={tone === 'neutral' ? 'default' : tone}
+            />
+            <SummaryCard
+              label="عدد المعاملات"
+              value={String(filteredTxs.length)}
+              tone="default"
+            />
+            <SummaryCard
+              label="معاملات مرحّلة"
+              value={String(posted.length)}
+              tone="default"
+            />
+            <SummaryCard
+              label="مسودات"
+              value={String(draftCount)}
+              tone={draftCount > 0 ? 'warning' : 'default'}
+            />
+          </div>
+        )}
+
         <div className="relative">
           <Input
-            placeholder="بحث في البيان، الرقم، المرجع، الجهة…"
+            placeholder={
+              viewMode === 'journal'
+                ? 'بحث في البيان، رقم القيد، المرجع…'
+                : 'بحث في البيان، الرقم، المرجع، الجهة…'
+            }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-11 text-base md:h-10 md:text-sm"
           />
         </div>
 
-        {/* جدول المعاملات */}
-        {txLoading ? (
+        {viewMode === 'journal' ? (
+          ledgerLoading ? (
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-12 text-[12.5px] text-ink-mute">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              جارٍ تحميل حركات القيد…
+            </div>
+          ) : journalLines.length === 0 ? (
+            <Card className="p-8 text-center">
+              <BookMarked className="mx-auto h-8 w-8 text-ink-mute" />
+              <p className="mt-2 text-ink-mute">
+                لا توجد حركات قيد مرحّلة لهذا البند خلال {monthName} {year}
+              </p>
+              <p className="mt-1 text-[12px] text-ink-mute">
+                الحركات تظهر من دفتر اليومية المرحّل (مدين / دائن)
+              </p>
+            </Card>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-border bg-card">
+              <table className="w-full min-w-[720px] border-collapse text-sm" dir="rtl">
+                <thead>
+                  <tr className="border-b bg-muted/40 text-[11px] font-semibold text-ink-mute">
+                    <th className="px-3 py-2.5 text-start">التاريخ</th>
+                    <th className="px-3 py-2.5 text-start">القيد</th>
+                    <th className="px-3 py-2.5 text-start">البيان</th>
+                    <th className="px-3 py-2.5 text-left text-emerald-800">مدين</th>
+                    <th className="px-3 py-2.5 text-left text-rose-800">دائن</th>
+                    <th className="px-3 py-2.5 text-left">الرصيد</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(ledgerResult?.openingDebit || ledgerResult?.openingCredit) ? (
+                    <tr className="border-b bg-canvas-sunken/40 text-[12.5px]">
+                      <td className="px-3 py-2 text-ink-mute" colSpan={3}>
+                        رصيد افتتاحي
+                      </td>
+                      <td className="px-3 py-2 text-left font-mono tabular-nums text-emerald-800" dir="ltr">
+                        {(ledgerResult?.openingDebit ?? 0) > 0
+                          ? formatMoney(ledgerResult!.openingDebit, 'LYD')
+                          : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-left font-mono tabular-nums text-rose-800" dir="ltr">
+                        {(ledgerResult?.openingCredit ?? 0) > 0
+                          ? formatMoney(ledgerResult!.openingCredit, 'LYD')
+                          : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-left font-mono tabular-nums" dir="ltr">
+                        {formatMoney(openingBalance, 'LYD')}
+                      </td>
+                    </tr>
+                  ) : null}
+                  {journalLines.map((line, i) => (
+                    <tr
+                      key={`${line.journal_id}-${i}`}
+                      className="border-b border-border/70 hover:bg-muted/20"
+                    >
+                      <td className="px-3 py-2.5 whitespace-nowrap text-[12.5px] text-ink-mute">
+                        {formatDate(line.entry_date)}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <Link
+                          href={`/journals?highlight=${line.journal_id}`}
+                          className="font-medium text-sage-800 underline-offset-2 hover:underline"
+                        >
+                          قيد #{line.journal_number}
+                        </Link>
+                        {line.journal_reference && (
+                          <p className="font-mono text-[10px] text-ink-mute" dir="ltr">
+                            {line.journal_reference}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-[13px] text-ink-main">
+                        {line.description?.trim() || '—'}
+                      </td>
+                      <td
+                        className="px-3 py-2.5 text-left font-mono tabular-nums text-emerald-800"
+                        dir="ltr"
+                      >
+                        {line.debit > 0 ? formatMoney(line.debit, 'LYD') : '—'}
+                      </td>
+                      <td
+                        className="px-3 py-2.5 text-left font-mono tabular-nums text-rose-800"
+                        dir="ltr"
+                      >
+                        {line.credit > 0 ? formatMoney(line.credit, 'LYD') : '—'}
+                      </td>
+                      <td
+                        className="px-3 py-2.5 text-left font-mono tabular-nums font-medium"
+                        dir="ltr"
+                      >
+                        {formatMoney(runningBalances[i] ?? 0, 'LYD')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-sage-600/40 bg-sage-50/80 font-semibold">
+                    <td className="px-3 py-3 text-start" colSpan={3}>
+                      إجمالي الفترة · {journalLines.length} حركة
+                    </td>
+                    <td className="px-3 py-3 text-left font-mono tabular-nums text-emerald-900" dir="ltr">
+                      {formatMoney(periodDebit, 'LYD')}
+                    </td>
+                    <td className="px-3 py-3 text-left font-mono tabular-nums text-rose-900" dir="ltr">
+                      {formatMoney(periodCredit, 'LYD')}
+                    </td>
+                    <td className="px-3 py-3 text-left font-mono tabular-nums" dir="ltr">
+                      {formatMoney(closingBalance, 'LYD')}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )
+        ) : txLoading ? (
           <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-12 text-[12.5px] text-ink-mute">
             <Loader2 className="h-4 w-4 animate-spin" />
             جارٍ تحميل المعاملات…
@@ -278,7 +527,7 @@ export default function CategoryDetailPage() {
           <Card className="p-8 text-center">
             <FileText className="mx-auto h-8 w-8 text-ink-mute" />
             <p className="mt-2 text-ink-mute">
-              لا توجد معاملات لهذا البند خلال {monthName} {year}
+              لا توجد معاملات نقدية لهذا البند خلال {monthName} {year}
             </p>
           </Card>
         ) : (
@@ -349,14 +598,13 @@ export default function CategoryDetailPage() {
                       إجمالي {typeLabel} — {monthName} {year}
                     </td>
                     <td className="px-4 py-3 text-left font-bold tabular-nums">
-                      {formatMoney(total, 'LYD')}
+                      {formatMoney(cashTotal, 'LYD')}
                     </td>
                   </tr>
                 </tfoot>
               </table>
             </div>
 
-            {/* بطاقات الجوال */}
             <div className="grid gap-3 sm:grid-cols-2 lg:hidden">
               {filteredTxs.map((t) => (
                 <Card key={t.id} className="p-4">
