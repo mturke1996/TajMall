@@ -48,6 +48,8 @@ import {
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { JournalNativeSelect } from './journal-native-select';
+import { JournalVoucherTable } from '@/components/accounting/journal-voucher-table';
+import type { JournalVoucherLineInput } from '@/lib/journal-entry-display';
 import { toast } from 'sonner';
 
 type LineSide = 'debit' | 'credit';
@@ -263,6 +265,34 @@ export function JournalEntryDialog({
 
   const isBalanced = Math.abs(totals.debit - totals.credit) < 0.001 && totals.debit > 0;
   const difference = totals.debit - totals.credit;
+
+  const voucherPreviewLines = useMemo((): JournalVoucherLineInput[] => {
+    const catMap = new Map((categories ?? []).map((c) => [c.id, c]));
+    const contactMap = new Map((contacts ?? []).map((c) => [c.id, c]));
+    const cashboxMap = new Map((cashboxes ?? []).map((c) => [c.id, c]));
+
+    return lines
+      .filter((l) => l.category_id || Number(l.amount) > 0)
+      .map((l) => {
+        const cat = catMap.get(l.category_id);
+        const contact = l.contact_id ? contactMap.get(l.contact_id) : null;
+        const cashbox = l.cashbox_id ? cashboxMap.get(l.cashbox_id) : null;
+        const amt = Number(l.amount) || 0;
+        const metaParts = [
+          contact?.name ?? null,
+          cashbox ? `خزينة: ${cashbox.name_ar}` : null,
+        ].filter(Boolean);
+        return {
+          id: l.id,
+          accountCode: cat?.code ?? null,
+          accountName: cat?.name_ar ?? (l.category_id ? 'بند غير معروف' : '— اختر حساباً —'),
+          description: l.description || null,
+          debit: l.side === 'debit' ? amt : 0,
+          credit: l.side === 'credit' ? amt : 0,
+          meta: metaParts.length ? metaParts.join(' · ') : null,
+        };
+      });
+  }, [lines, categories, contacts, cashboxes]);
 
   const autoBalance = () => {
     if (difference === 0) return;
@@ -772,6 +802,18 @@ export function JournalEntryDialog({
               className="mt-1 h-11"
             />
           </div>
+
+          {voucherPreviewLines.length > 0 && (
+            <div className="space-y-2 rounded-xl border border-border bg-canvas-sunken/30 p-3">
+              <p className="text-xs font-semibold text-ink-mute">معاينة سند القيد (مدين / دائن)</p>
+              <JournalVoucherTable
+                density="compact"
+                lines={voucherPreviewLines}
+                totalDebit={totals.debit}
+                totalCredit={totals.credit}
+              />
+            </div>
+          )}
         </div>
 
         <div

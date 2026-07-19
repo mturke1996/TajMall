@@ -104,29 +104,30 @@ const s = StyleSheet.create({
     fontSize: 9,
   },
   colCategory: { flex: 2, textAlign: 'right' },
-  colDebit: { width: 80, textAlign: 'center' },
-  colCredit: { width: 80, textAlign: 'center' },
-  colDesc: { flex: 1, textAlign: 'right', paddingRight: 8 },
+  colDebit: { width: 88, textAlign: 'left' },
+  colCredit: { width: 88, textAlign: 'left' },
+  colDesc: { flex: 1.4, textAlign: 'right', paddingRight: 8 },
   totalRow: {
     direction: 'rtl',
     flexDirection: 'row',
     paddingVertical: 6,
     paddingHorizontal: 12,
     backgroundColor: '#f1f5f9',
-    borderTopWidth: 1,
+    borderTopWidth: 1.5,
     borderTopColor: PDF.border,
+    alignItems: 'center',
   },
   totalLabel: {
-    flex: 3,
+    flex: 3.4,
     fontSize: 9,
     fontWeight: 'bold',
     textAlign: 'right',
   },
   totalValue: {
-    width: 80,
+    width: 88,
     fontSize: 9,
     fontWeight: 'bold',
-    textAlign: 'center',
+    textAlign: 'left',
   },
   caption: {
     fontSize: 8.5,
@@ -205,12 +206,17 @@ export function JournalPDF({
                 <Text style={[s.th, s.colCredit]}>{ar('دائن')}</Text>
               </View>
 
-              {/* Lines */}
+              {/* Lines — الحساب | البيان | مدين | دائن */}
               {entry.lines.map((line, i) => (
                 <View key={i} style={[s.tableRow, i % 2 !== 0 && { backgroundColor: '#fafafa' }]}>
-                  <Text style={[s.td, s.colCategory]}>
-                    {ar(line.category_name)}
-                  </Text>
+                  <View style={s.colCategory}>
+                    <Text style={s.td}>{ar(line.category_name)}</Text>
+                    {line.category_code ? (
+                      <Text style={[s.td, { fontSize: 7, color: PDF.muted }]}>
+                        {ar(line.category_code)}
+                      </Text>
+                    ) : null}
+                  </View>
                   <Text style={[s.td, s.colDesc, { color: PDF.muted, fontSize: 8 }]}>
                     {ar(line.description || '—')}
                   </Text>
@@ -223,9 +229,18 @@ export function JournalPDF({
                 </View>
               ))}
 
-              {/* Totals */}
-              <View style={s.totalRow}>
-                <Text style={s.totalLabel}>{ar('الإجمالي')}</Text>
+              {/* Totals aligned under مدين / دائن */}
+              <View
+                style={[
+                  s.totalRow,
+                  isBalanced
+                    ? { backgroundColor: '#ecfdf5' }
+                    : { backgroundColor: '#fef2f2' },
+                ]}
+              >
+                <Text style={s.totalLabel}>
+                  {ar(isBalanced ? 'الإجمالي (متوازن)' : 'الإجمالي (غير متوازن)')}
+                </Text>
                 <Text style={[s.totalValue, { color: PDF.success }]}>
                   {arMoney(entry.total_debit)}
                 </Text>

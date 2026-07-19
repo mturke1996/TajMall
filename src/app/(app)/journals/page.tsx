@@ -53,6 +53,9 @@ import {
 import { useContacts, useCashboxes } from '@/lib/db/queries';
 import { MOBILE_PAGE_ACTION_PADDING } from '@/components/layout/mobile-page-action-bar';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { JournalVoucherTable } from '@/components/accounting/journal-voucher-table';
+import { JournalBalanceBadge } from '@/components/accounting/journal-balance-badge';
+import { mapJournalLineRowToVoucherLine } from '@/lib/journal-entry-display';
 
 const STATUS_CONFIG: Record<JournalStatus, {
   label: string;
@@ -195,7 +198,14 @@ function JournalsPageInner() {
         label: 'إجمالي مدين',
         value: formatMoney(Number(summary.total_debit), 'LYD'),
         icon: FileText,
-        color: 'bg-blue-100 text-blue-600',
+        color: 'bg-emerald-100 text-emerald-700',
+        isCurrency: true,
+      },
+      {
+        label: 'إجمالي دائن',
+        value: formatMoney(Number(summary.total_credit), 'LYD'),
+        icon: FileText,
+        color: 'bg-rose-100 text-rose-700',
         isCurrency: true,
       },
     ];
@@ -542,9 +552,26 @@ function JournalsPageInner() {
                       </div>
 
                       <div className="flex items-center justify-between sm:justify-end gap-3 border-t border-border/50 pt-2 sm:border-0 sm:pt-0">
-                        <div className="text-start sm:text-left">
-                          <p className="text-sm font-semibold">{formatMoney(Number(entry.total_debit), 'LYD')}</p>
-                          <p className="text-[11px] text-ink-mute">إجمالي القيد</p>
+                        <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
+                          <div className="grid grid-cols-2 gap-3 text-start sm:text-left" dir="ltr">
+                            <div>
+                              <p className="text-[10px] text-emerald-800">مدين</p>
+                              <p className="font-mono text-sm font-semibold tabular-nums text-emerald-800">
+                                {formatMoney(Number(entry.total_debit), 'LYD')}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-rose-800">دائن</p>
+                              <p className="font-mono text-sm font-semibold tabular-nums text-rose-800">
+                                {formatMoney(Number(entry.total_credit), 'LYD')}
+                              </p>
+                            </div>
+                          </div>
+                          <JournalBalanceBadge
+                            debit={entry.total_debit}
+                            credit={entry.total_credit}
+                            className="self-start sm:self-end"
+                          />
                         </div>
                         {isExpanded ? (
                           <ChevronUp className="h-5 w-5 text-ink-mute shrink-0" />
@@ -825,7 +852,7 @@ function JournalsPageInner() {
   );
 }
 
-// ── Subcomponent: Inline Journal Lines Display ────────────────────
+// ── Subcomponent: Inline Journal Lines Display (classic voucher) ──
 function JournalCardLines({ entryId }: { entryId: string }) {
   const { data: lines = [], isLoading } = useJournalLines(entryId);
 
@@ -837,82 +864,10 @@ function JournalCardLines({ entryId }: { entryId: string }) {
     );
   }
 
-  if (lines.length === 0) {
-    return <div className="text-center text-xs text-ink-mute py-2">لا توجد بنود لهذا القيد</div>;
-  }
-
   return (
-    <div className="mt-3 space-y-2 sm:border sm:rounded-lg sm:overflow-hidden sm:bg-background">
-      <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-3 py-1.5 text-xs font-semibold text-ink-mute bg-muted/30 border-b">
-        <div className="col-span-3">البند المحاسبي</div>
-        <div className="col-span-3">الجهة / الخزينة</div>
-        <div className="col-span-2 text-left">مدين</div>
-        <div className="col-span-2 text-left">دائن</div>
-        <div className="col-span-2">البيان</div>
-      </div>
-      <div className="space-y-2 sm:divide-y sm:space-y-0 text-xs">
-        {lines.map((line) => (
-          <div 
-            key={line.id} 
-            className="rounded-lg border bg-card p-3 flex flex-col gap-2 sm:rounded-none sm:border-0 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-center sm:px-3 sm:py-2"
-          >
-            <div className="col-span-3 flex items-center gap-1.5">
-              {line.category_name && (
-                <>
-                  <span
-                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ backgroundColor: line.category_color || '#ccc' }}
-                  />
-                  <div>
-                    <span className="font-medium text-ink-main">{line.category_name}</span>
-                    <span className="text-[10px] text-ink-mute ms-1">({line.category_code})</span>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="col-span-3 flex flex-col gap-0.5 text-[10px]">
-              {line.contact_name && (
-                <span className="text-ink-main font-medium flex items-center gap-1">
-                  <span>👤</span>
-                  <span>{line.contact_name}</span>
-                  <span className="text-ink-mute text-[9px]">
-                    ({line.contact_kind === 'TENANT' ? 'متجر' : line.contact_kind === 'EMPLOYEE' ? 'موظف' : line.contact_kind === 'VENDOR' ? 'مورد' : 'عميل'})
-                  </span>
-                </span>
-              )}
-              {line.cashbox_name_ar && (
-                <span className="text-sage-700 font-medium flex items-center gap-1">
-                  <span>🏦</span>
-                  <span>{line.cashbox_name_ar}</span>
-                </span>
-              )}
-              {!line.contact_name && !line.cashbox_name_ar && (
-                <span className="text-ink-mute">—</span>
-              )}
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2 sm:contents">
-              <div className="sm:col-span-2 sm:text-left">
-                <span className="inline sm:hidden text-ink-mute font-normal">مدين: </span>
-                <span className="font-semibold text-green-700">
-                  {Number(line.debit) > 0 ? formatMoney(Number(line.debit), 'LYD') : '—'}
-                </span>
-              </div>
-              <div className="sm:col-span-2 sm:text-left">
-                <span className="inline sm:hidden text-ink-mute font-normal">دائن: </span>
-                <span className="font-semibold text-red-700">
-                  {Number(line.credit) > 0 ? formatMoney(Number(line.credit), 'LYD') : '—'}
-                </span>
-              </div>
-            </div>
-            
-            <div className="sm:col-span-2 text-ink-mute mt-0.5 sm:mt-0">
-              {line.description || '—'}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    <JournalVoucherTable
+      density="compact"
+      lines={lines.map(mapJournalLineRowToVoucherLine)}
+    />
   );
 }
