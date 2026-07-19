@@ -48,17 +48,33 @@ const col = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: PDF.border,
   },
+  /** Same column widths as head/row so totals sit under مدين / دائن / الرصيد */
   foot: {
     direction: 'rtl',
     flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'baseline',
-    marginTop: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    alignItems: 'center',
+    marginTop: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
     backgroundColor: PDF.logoGreenSoft,
     borderTopWidth: 1.5,
     borderTopColor: PDF.primary,
+  },
+  footLabel: {
+    fontSize: 8.5,
+    fontWeight: 'bold',
+    color: PDF.text,
+    textAlign: 'right',
+  },
+  footMoney: {
+    fontSize: 9.5,
+    fontWeight: 'bold',
+  },
+  footHint: {
+    fontSize: 7.5,
+    color: PDF.muted,
+    textAlign: 'center',
+    marginBottom: 2,
   },
 });
 
@@ -108,15 +124,6 @@ export function LedgerReportPDF({
     >
       <Text style={pdfBase.sectionTitle}>{ar('حركات البند والرصيد التراكمي')}</Text>
 
-      <View style={col.summaryRow} wrap={false}>
-        <Text style={[col.td, col.balance, { fontWeight: 'bold' }]}>
-          {ar('الرصيد الافتتاحي: ')}
-        </Text>
-        <View style={[col.balance, { flex: 1 }]}>
-          <PdfMoneyText amount={openingBalance} />
-        </View>
-      </View>
-
       <View style={col.head} wrap={false}>
         <Text style={[col.th, col.balance]}>{ar('الرصيد')}</Text>
         <Text style={[col.th, col.credit]}>{ar('دائن')}</Text>
@@ -125,6 +132,19 @@ export function LedgerReportPDF({
         <Text style={[col.th, col.ref]}>{ar('المرجع')}</Text>
         <Text style={[col.th, col.number]}>{ar('رقم القيد')}</Text>
         <Text style={[col.th, col.date]}>{ar('التاريخ')}</Text>
+      </View>
+
+      {/* Opening balance aligned to the same columns */}
+      <View style={[col.row, col.summaryRow]} wrap={false}>
+        <View style={col.balance}>
+          <PdfMoneyText amount={openingBalance} style={col.footMoney} />
+        </View>
+        <Text style={[col.tdMuted, col.credit]}>—</Text>
+        <Text style={[col.tdMuted, col.debit]}>—</Text>
+        <Text style={[col.footLabel, col.desc]}>{ar('الرصيد الافتتاحي')}</Text>
+        <Text style={[col.tdMuted, col.ref]}>—</Text>
+        <Text style={[col.tdMuted, col.number]}>—</Text>
+        <Text style={[col.tdMuted, col.date]}>—</Text>
       </View>
 
       {lines.length === 0 ? (
@@ -136,10 +156,10 @@ export function LedgerReportPDF({
               <PdfMoneyText amount={Number(l.runningBalance)} />
             </View>
             <View style={col.credit}>
-              {l.credit > 0 ? <PdfMoneyText amount={Number(l.credit)} /> : <Text style={col.td}>—</Text>}
+              {l.credit > 0 ? <PdfMoneyText amount={Number(l.credit)} /> : <Text style={col.tdMuted}>—</Text>}
             </View>
             <View style={col.debit}>
-              {l.debit > 0 ? <PdfMoneyText amount={Number(l.debit)} /> : <Text style={col.td}>—</Text>}
+              {l.debit > 0 ? <PdfMoneyText amount={Number(l.debit)} /> : <Text style={col.tdMuted}>—</Text>}
             </View>
             <Text style={[col.td, col.desc]}>{ar(l.description ?? '—')}</Text>
             <Text style={[col.tdMuted, col.ref]}>{l.journal_reference ?? '—'}</Text>
@@ -149,28 +169,36 @@ export function LedgerReportPDF({
         ))
       )}
 
+      {/* Totals: label under البيان, amounts under مدين / دائن / الرصيد */}
       <View style={col.foot} wrap={false}>
-        <Text style={[pdfBase.footLabel, { flex: 1, textAlign: 'right' }]}>
-          {ar('الإجمالي — مدين: ')}
-        </Text>
-        <View style={col.debit}>
-          <PdfMoneyText amount={totalDebit} style={{ fontSize: 10, fontWeight: 'bold' }} />
-        </View>
-        <Text style={[pdfBase.footLabel, { width: '12%', textAlign: 'center' }]}>
-          {ar('دائن: ')}
-        </Text>
-        <View style={col.credit}>
-          <PdfMoneyText amount={totalCredit} style={{ fontSize: 10, fontWeight: 'bold' }} />
-        </View>
-        <Text style={[pdfBase.footLabel, { width: '14%', textAlign: 'center' }]}>
-          {ar('الختامي: ')}
-        </Text>
         <View style={col.balance}>
-          <PdfMoneyText amount={closingBalance} style={{ fontSize: 10, fontWeight: 'bold', color: PDF.primary }} />
+          <Text style={col.footHint}>{ar('ختامي')}</Text>
+          <PdfMoneyText
+            amount={closingBalance}
+            style={{ ...col.footMoney, color: PDF.primary }}
+          />
         </View>
+        <View style={col.credit}>
+          <Text style={[col.footHint, { color: PDF.danger }]}>{ar('دائن')}</Text>
+          <PdfMoneyText
+            amount={totalCredit}
+            style={{ ...col.footMoney, color: PDF.danger }}
+          />
+        </View>
+        <View style={col.debit}>
+          <Text style={[col.footHint, { color: PDF.success }]}>{ar('مدين')}</Text>
+          <PdfMoneyText
+            amount={totalDebit}
+            style={{ ...col.footMoney, color: PDF.success }}
+          />
+        </View>
+        <Text style={[col.footLabel, col.desc]}>{ar('إجمالي الفترة')}</Text>
+        <Text style={[col.tdMuted, col.ref]}>—</Text>
+        <Text style={[col.tdMuted, col.number]}>{pdfFmtNum(lines.length)}</Text>
+        <Text style={[col.tdMuted, col.date]}>—</Text>
       </View>
 
-      <Text style={pdfBase.caption}>{ar('وثيقة محاسبية مُولَّدة آلياً من منظومة تاج مول')}</Text>
+      <Text style={pdfBase.caption}>{ar('وثيقة محاسبية مُولَّدة آلياً من منظومة تاج مول — أعمدة المدين والدائن محاذاة مع الإجمالي')}</Text>
     </ReportShell>
   );
 }
