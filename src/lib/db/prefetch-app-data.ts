@@ -49,10 +49,11 @@ async function fetchCashboxBalances() {
 }
 
 async function fetchContacts(kind?: ContactKind) {
+  const { CONTACT_LIST_COLUMNS } = await import('@/lib/db/contact-columns');
   const supabase = createSupabaseBrowserClient();
   let q = supabase
     .from('contacts')
-    .select('*')
+    .select(CONTACT_LIST_COLUMNS)
     .eq('is_active', true)
     .order('name', { ascending: true });
   if (kind) q = q.eq('kind', kind);

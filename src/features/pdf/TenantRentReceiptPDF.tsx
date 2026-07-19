@@ -119,14 +119,16 @@ export function TenantRentReceiptPDF({
           <View key={i} style={s.row}>
             <Text style={s.col}>{ar(line.monthLabel)}</Text>
             <Text style={s.col}>{ar(line.statusLabel)}</Text>
-            <Text style={s.col}>{ar(line.amount.toLocaleString('en-US'))} د.ل</Text>
+            <View style={s.col}>
+              <PdfMoneyText amount={line.amount} align="center" />
+            </View>
           </View>
         ))}
       </View>
 
       <View style={s.total}>
         <Text style={{ fontSize: 9, color: PDF.muted }}>{ar('إجمالي التحصيل')}</Text>
-        <PdfMoneyText amount={totalAmount} size="lg" />
+        <PdfMoneyText amount={totalAmount} style={{ fontSize: 14, fontWeight: 'bold' }} />
         <Text style={{ fontSize: 8, color: PDF.muted, marginTop: 4 }}>
           {ar(`${dateParts.day} ${dateParts.monthName} ${dateParts.year}`)}
         </Text>

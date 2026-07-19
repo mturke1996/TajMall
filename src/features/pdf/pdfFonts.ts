@@ -16,15 +16,21 @@ export function registerPdfFonts(): void {
   if (typeof window === 'undefined') return;
   try {
     const origin = window.location.origin;
+    // absolute URL يضمن تحميل الخط على Vercel/localhost قبل الرسم
+    const regular = `${origin}/fonts/Tajawal-Regular.ttf`;
+    const bold = `${origin}/fonts/Tajawal-Bold.ttf`;
     Font.register({
       family: PDF_FONT_FAMILY,
       fonts: [
-        { src: `${origin}/fonts/Tajawal-Regular.ttf`, fontWeight: 400, fontStyle: 'normal' },
-        { src: `${origin}/fonts/Tajawal-Regular.ttf`, fontWeight: 400, fontStyle: 'italic' },
-        { src: `${origin}/fonts/Tajawal-Bold.ttf`, fontWeight: 700, fontStyle: 'normal' },
-        { src: `${origin}/fonts/Tajawal-Bold.ttf`, fontWeight: 700, fontStyle: 'italic' },
+        { src: regular, fontWeight: 400, fontStyle: 'normal' },
+        { src: regular, fontWeight: 400, fontStyle: 'italic' },
+        { src: bold, fontWeight: 700, fontStyle: 'normal' },
+        { src: bold, fontWeight: 700, fontStyle: 'italic' },
+        { src: bold, fontWeight: 'bold', fontStyle: 'normal' },
+        { src: regular, fontWeight: 'normal', fontStyle: 'normal' },
       ],
     });
+    // منع تقطيع الكلمات العربية (يكسر الحروف المتصلة)
     Font.registerHyphenationCallback((word) => [word]);
   } catch {
     /* تسجيل مكرر بعد أول تحميل أو HMR */

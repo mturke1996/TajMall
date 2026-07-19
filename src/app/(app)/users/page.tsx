@@ -34,10 +34,11 @@ import { cn } from '@/lib/utils';
 
 export default function UsersPage() {
   const { user } = useUser();
-  const { can } = usePermission();
+  const { can, loading: permLoading } = usePermission();
   const { data: profiles, isLoading } = useProfiles();
   const updateProfile = useUpdateProfile();
   const qc = useQueryClient();
+  const mayManageUsers = can('org.users');
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -146,6 +147,30 @@ export default function UsersPage() {
         description: e instanceof Error ? e.message : undefined,
       });
     }
+  }
+
+  if (permLoading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-ink-mute">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        جاري التحقق من الصلاحيات…
+      </div>
+    );
+  }
+
+  if (!mayManageUsers) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-6 text-center">
+        <Shield className="h-10 w-10 text-ink-mute stroke-[1.3]" />
+        <p className="text-[15px] font-semibold">غير مصرح</p>
+        <p className="max-w-sm text-[13px] text-ink-mute">
+          إدارة المستخدمين متاحة للمالك والمدير فقط.
+        </p>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/dashboard">العودة للوحة التحكم</Link>
+        </Button>
+      </div>
+    );
   }
 
   return (

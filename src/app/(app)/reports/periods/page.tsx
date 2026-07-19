@@ -8,6 +8,7 @@ import {
   Unlock,
   Loader2,
   RefreshCw,
+  SearchCheck,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -15,13 +16,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatMoney } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import {
   useFiscalPeriods,
   useCreateFiscalPeriod,
   useCloseFiscalPeriod,
+  useCloseFiscalYear,
+  usePreviewFiscalYearClose,
   useBackfillTransactions,
+  type YearClosePreview,
 } from '@/lib/db/mall-queries';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import {
@@ -34,12 +38,19 @@ export default function FiscalPeriodsPage() {
   const { data: periods = [], isLoading, isError, error } = useFiscalPeriods();
   const createPeriod = useCreateFiscalPeriod();
   const toggleClosePeriod = useCloseFiscalPeriod();
+  const previewYear = usePreviewFiscalYearClose();
+  const closeYear = useCloseFiscalYear();
   const backfillTx = useBackfillTransactions();
 
   const [newName, setNewName] = useState('');
   const [newStart, setNewStart] = useState('');
   const [newEnd, setNewEnd] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [closeYearInput, setCloseYearInput] = useState(() =>
+    String(new Date().getFullYear() - 1),
+  );
+  const [yearPreview, setYearPreview] = useState<YearClosePreview | null>(null);
+  const [alsoClosePeriods, setAlsoClosePeriods] = useState(false);
 
   const handleCreatePeriod = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,12 +87,37 @@ export default function FiscalPeriodsPage() {
     await backfillTx.mutateAsync();
   };
 
+  const handlePreviewYear = async () => {
+    const year = Number(closeYearInput);
+    if (!Number.isFinite(year) || year < 2000 || year > 2100) return;
+    setYearPreview(null);
+    const preview = await previewYear.mutateAsync(year);
+    setYearPreview(preview);
+  };
+
+  const handleConfirmCloseYear = async () => {
+    if (!yearPreview || !yearPreview.can_close || yearPreview.already_closed) return;
+    const year = yearPreview.year;
+    if (
+      !confirm(
+        `تأكيد إقفال سنة ${year}؟\n\nسيُنشأ قيد إقفال ينقل الصافي إلى «أرباح محتجزة».\nهذا الإجراء يدوي ولا يتكرر لنفس السنة.${
+          alsoClosePeriods ? '\nسيتم أيضاً إغلاق كل فترات السنة.' : '\nفترات السنة لن تُغلق تلقائياً — أغلقها يدوياً بزر «إغلاق الفترة».'
+        }`,
+      )
+    ) {
+      return;
+    }
+    await closeYear.mutateAsync({ year, closePeriods: alsoClosePeriods });
+    setYearPreview(null);
+    setAlsoClosePeriods(false);
+  };
+
   return (
     <>
       <PageHeader
         eyebrow="المحاسبة والتقارير"
         title="الفترات المالية"
-        description="إدارة وإغلاق الفترات لمنع التعديل على السجلات التاريخية"
+        description="إدارة وإغلاق الفترات، وإقفال السنة بنقل النتائج إلى الأرباح المحتجزة"
         actions={
           <Button
             variant="outline"
@@ -100,6 +136,137 @@ export default function FiscalPeriodsPage() {
       />
 
       <AccountingPageBody>
+        <Card className="border-sage-200/80 bg-sage-50/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-bold sm:text-lg">
+              إقفال السنة المالية
+            </CardTitle>
+            <CardDescription className="text-xs leading-relaxed">
+              خطوتان يدوياً: 1) تحقق من الأرقام 2) اضغط زر الإقفال. لا يحدث أي إقفال تلقائي.
+              القيد ينقل الصافي إلى «أرباح محتجزة» (EQ-RE). إغلاق الفترات اختياري ومنفصل.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="space-y-2 w-full sm:max-w-[10rem]">
+                <Label htmlFor="close-year">السنة</Label>
+                <Input
+                  id="close-year"
+                  type="number"
+                  dir="ltr"
+                  min={2000}
+                  max={2100}
+                  value={closeYearInput}
+                  onChange={(e) => {
+                    setCloseYearInput(e.target.value);
+                    setYearPreview(null);
+                  }}
+                  className="min-h-11"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2 min-h-11 touch-manipulation w-full sm:w-auto border-sage-300"
+                onClick={handlePreviewYear}
+                disabled={previewYear.isPending}
+              >
+                {previewYear.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <SearchCheck className="h-4 w-4" />
+                )}
+                تحقق من الأرقام
+              </Button>
+            </div>
+
+            {yearPreview && (
+              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold">نتيجة التحقق — سنة {yearPreview.year}</p>
+                  {yearPreview.already_closed ? (
+                    <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">
+                      مُقفلة مسبقاً
+                    </Badge>
+                  ) : yearPreview.can_close ? (
+                    <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+                      جاهزة للإقفال
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">
+                      لا أرصدة للإقفال
+                    </Badge>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-sm">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-ink-mute">الإيرادات</p>
+                    <p className="num mt-0.5 font-semibold text-emerald-800">
+                      {formatMoney(yearPreview.total_revenue, 'LYD')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-ink-mute">المصروفات</p>
+                    <p className="num mt-0.5 font-semibold text-rose-800">
+                      {formatMoney(yearPreview.total_expense, 'LYD')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-ink-mute">الصافي</p>
+                    <p
+                      className={cn(
+                        'num mt-0.5 font-bold',
+                        yearPreview.net_income >= 0 ? 'text-emerald-800' : 'text-rose-800',
+                      )}
+                    >
+                      {formatMoney(yearPreview.net_income, 'LYD')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-ink-mute">الفترات</p>
+                    <p className="mt-0.5 text-[13px] font-medium">
+                      {yearPreview.open_periods} مفتوحة · {yearPreview.closed_periods} مغلقة
+                    </p>
+                  </div>
+                </div>
+
+                <label className="flex items-start gap-2 text-[12.5px] text-ink-main cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 rounded border-border"
+                    checked={alsoClosePeriods}
+                    onChange={(e) => setAlsoClosePeriods(e.target.checked)}
+                    disabled={yearPreview.already_closed || !yearPreview.can_close}
+                  />
+                  <span>
+                    عند التأكيد: أغلق أيضاً كل فترات هذه السنة (اختياري — يمكنك إغلاق كل فترة
+                    يدوياً بزر «إغلاق الفترة» أدناه)
+                  </span>
+                </label>
+
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="gap-2 min-h-11 touch-manipulation w-full sm:w-auto"
+                  onClick={handleConfirmCloseYear}
+                  disabled={
+                    closeYear.isPending ||
+                    yearPreview.already_closed ||
+                    !yearPreview.can_close
+                  }
+                >
+                  {closeYear.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Lock className="h-4 w-4" />
+                  )}
+                  إغلاق السنة ونقل النتائج
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
           <Card className="h-fit lg:sticky lg:top-[3.5rem]">
             <CardHeader>

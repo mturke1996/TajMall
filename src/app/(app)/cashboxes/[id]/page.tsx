@@ -42,7 +42,11 @@ function ledgerLink(row: CashboxLedgerRow): string | null {
     if (row.event_kind === 'EXPENSE') return `/expenses?highlight=${row.event_id}`;
     return `/transactions?highlight=${row.event_id}`;
   }
-  if (row.counter_cashbox_id) return `/cashboxes/${row.counter_cashbox_id}`;
+  if (row.source_type === 'cash_transfer' && row.counter_cashbox_id) {
+    return `/cashboxes/${row.counter_cashbox_id}`;
+  }
+  if (row.event_kind === 'VOUCHER') return '/vouchers';
+  if (row.journal_id) return `/journals?highlight=${row.journal_id}`;
   return null;
 }
 

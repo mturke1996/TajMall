@@ -2,8 +2,10 @@
 import React from 'react';
 import { Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ReportShell } from './ReportShell';
-import { ar, arMoney, arDateMedium } from './arabicPDF';
+import { ar, arDateMedium } from './arabicPDF';
 import { pdfBase, PDF } from './pdfBase';
+import { PDF_TABLE_ROW } from './pdfTable';
+import { PdfMoneyText } from './pdfBrandKit';
 
 export type JournalEntryPdfModel = {
   id: string;
@@ -23,6 +25,11 @@ export type JournalEntryPdfModel = {
   total_credit: number;
 };
 
+/**
+ * أعمدة الجدول (يسار ← يمين فيزيائياً):
+ * دائن | مدين | بيان | حساب
+ * → الحساب على يمين الورقة
+ */
 const s = StyleSheet.create({
   entry: {
     marginBottom: 16,
@@ -32,10 +39,8 @@ const s = StyleSheet.create({
     overflow: 'hidden',
   },
   entryHeader: {
-    direction: 'rtl',
-    flexDirection: 'row',
+    ...PDF_TABLE_ROW,
     justifyContent: 'space-between',
-    alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
     backgroundColor: PDF.logoGreenSoft,
@@ -44,13 +49,19 @@ const s = StyleSheet.create({
     borderRightWidth: 3,
     borderRightColor: PDF.logoGreen,
   },
+  entryMeta: {
+    ...PDF_TABLE_ROW,
+    gap: 8,
+  },
   entryNumber: {
     fontSize: 11,
     fontWeight: 'bold',
+    textAlign: 'right',
   },
   entryDate: {
     fontSize: 9,
     color: PDF.muted,
+    textAlign: 'left',
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -77,62 +88,73 @@ const s = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: PDF.border,
     color: PDF.text,
+    textAlign: 'right',
   },
   tableHead: {
-    direction: 'rtl',
-    flexDirection: 'row',
+    ...PDF_TABLE_ROW,
     paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#f8fafc',
+    paddingHorizontal: 10,
+    backgroundColor: PDF.headerBg,
     borderBottomWidth: 0.5,
     borderBottomColor: PDF.border,
   },
   tableRow: {
-    direction: 'rtl',
-    flexDirection: 'row',
-    paddingVertical: 4,
-    paddingHorizontal: 12,
+    ...PDF_TABLE_ROW,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: PDF.border,
   },
   th: {
     fontSize: 8,
     fontWeight: 'bold',
-    color: PDF.muted,
+    color: PDF.white,
+    textAlign: 'center',
+  },
+  thAr: {
+    fontSize: 8,
+    fontWeight: 'bold',
+    color: PDF.white,
+    textAlign: 'right',
   },
   td: {
     fontSize: 9,
+    color: PDF.text,
   },
+  colCredit: { width: 88, textAlign: 'center' },
+  colDebit: { width: 88, textAlign: 'center' },
+  colDesc: { flex: 1.4, textAlign: 'right', paddingHorizontal: 6 },
   colCategory: { flex: 2, textAlign: 'right' },
-  colDebit: { width: 88, textAlign: 'left' },
-  colCredit: { width: 88, textAlign: 'left' },
-  colDesc: { flex: 1.4, textAlign: 'right', paddingRight: 8 },
   totalRow: {
-    direction: 'rtl',
-    flexDirection: 'row',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    ...PDF_TABLE_ROW,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
     backgroundColor: '#f1f5f9',
     borderTopWidth: 1.5,
     borderTopColor: PDF.border,
-    alignItems: 'center',
+  },
+  totalHint: {
+    fontSize: 7,
+    color: PDF.muted,
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  totalValue: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   totalLabel: {
     flex: 3.4,
     fontSize: 9,
     fontWeight: 'bold',
     textAlign: 'right',
-  },
-  totalValue: {
-    width: 88,
-    fontSize: 9,
-    fontWeight: 'bold',
-    textAlign: 'left',
+    paddingHorizontal: 6,
   },
   caption: {
     fontSize: 8.5,
     color: PDF.muted,
-    marginTop: 14,
+    marginTop: 8,
     textAlign: 'center',
   },
 });
@@ -150,11 +172,13 @@ export function JournalPDF({
     REVERSED: { label: 'معكوس', style: s.statusReversed },
   };
 
+  const grandDebit = entries.reduce((sum, e) => sum + e.total_debit, 0);
+  const grandCredit = entries.reduce((sum, e) => sum + e.total_credit, 0);
+
   return (
     <ReportShell
       title="دفتر اليومية"
       subtitle={periodLabel}
-      footerFixed={false}
       metaCells={[
         { label: 'الفترة', value: periodLabel },
         { label: 'عدد القيود', value: String(entries.length) },
@@ -171,81 +195,85 @@ export function JournalPDF({
 
           return (
             <View key={entry.id} style={s.entry}>
-              {/* Header */}
               <View style={s.entryHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={s.entryNumber}>
-                    {ar(`قيد رقم ${entry.number}`)}
-                  </Text>
-                  <Text style={[s.statusBadge, status.style]}>
-                    {ar(status.label)}
-                  </Text>
+                <Text style={s.entryDate}>{arDateMedium(entry.entry_date)}</Text>
+                <View style={s.entryMeta}>
                   {!isBalanced && (
-                    <Text style={[s.statusBadge, s.statusReversed]}>
-                      {ar('غير متوازن')}
-                    </Text>
+                    <Text style={[s.statusBadge, s.statusReversed]}>{ar('غير متوازن')}</Text>
                   )}
+                  <Text style={[s.statusBadge, status.style]}>{ar(status.label)}</Text>
+                  <Text style={s.entryNumber}>{ar(`قيد رقم ${entry.number}`)}</Text>
                 </View>
-                <Text style={s.entryDate}>
-                  {arDateMedium(entry.entry_date)}
-                </Text>
               </View>
 
-              {/* Description */}
-              {entry.description && (
-                <Text style={s.description}>
-                  {ar(entry.description)}
-                </Text>
-              )}
+              {entry.description ? (
+                <Text style={s.description}>{ar(entry.description)}</Text>
+              ) : null}
 
-              {/* Table Header */}
-              <View style={s.tableHead}>
-                <Text style={[s.th, s.colCategory]}>{ar('الحساب')}</Text>
-                <Text style={[s.th, s.colDesc]}>{ar('البيان')}</Text>
-                <Text style={[s.th, s.colDebit]}>{ar('مدين')}</Text>
+              <View style={s.tableHead} wrap={false}>
                 <Text style={[s.th, s.colCredit]}>{ar('دائن')}</Text>
+                <Text style={[s.th, s.colDebit]}>{ar('مدين')}</Text>
+                <Text style={[s.thAr, s.colDesc]}>{ar('البيان')}</Text>
+                <Text style={[s.thAr, s.colCategory]}>{ar('الحساب')}</Text>
               </View>
 
-              {/* Lines — الحساب | البيان | مدين | دائن */}
               {entry.lines.map((line, i) => (
-                <View key={i} style={[s.tableRow, i % 2 !== 0 && { backgroundColor: '#fafafa' }]}>
-                  <View style={s.colCategory}>
-                    <Text style={s.td}>{ar(line.category_name)}</Text>
-                    {line.category_code ? (
-                      <Text style={[s.td, { fontSize: 7, color: PDF.muted }]}>
-                        {ar(line.category_code)}
-                      </Text>
-                    ) : null}
+                <View
+                  key={i}
+                  style={[s.tableRow, i % 2 !== 0 ? { backgroundColor: '#fafafa' } : {}]}
+                  wrap={false}
+                >
+                  <View style={s.colCredit}>
+                    {line.credit ? (
+                      <PdfMoneyText amount={line.credit} style={s.td} />
+                    ) : (
+                      <Text style={[s.td, { color: PDF.muted, textAlign: 'center' }]}>{ar('—')}</Text>
+                    )}
+                  </View>
+                  <View style={s.colDebit}>
+                    {line.debit ? (
+                      <PdfMoneyText amount={line.debit} style={s.td} />
+                    ) : (
+                      <Text style={[s.td, { color: PDF.muted, textAlign: 'center' }]}>{ar('—')}</Text>
+                    )}
                   </View>
                   <Text style={[s.td, s.colDesc, { color: PDF.muted, fontSize: 8 }]}>
                     {ar(line.description || '—')}
                   </Text>
-                  <Text style={[s.td, s.colDebit, !line.debit && { color: PDF.muted }]}>
-                    {line.debit ? arMoney(line.debit) : ar('—')}
-                  </Text>
-                  <Text style={[s.td, s.colCredit, !line.credit && { color: PDF.muted }]}>
-                    {line.credit ? arMoney(line.credit) : ar('—')}
-                  </Text>
+                  <View style={s.colCategory}>
+                    <Text style={[s.td, { textAlign: 'right' }]}>{ar(line.category_name)}</Text>
+                    {line.category_code ? (
+                      <Text style={[s.td, { fontSize: 7, color: PDF.muted, textAlign: 'right' }]}>
+                        {ar(line.category_code)}
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
               ))}
 
-              {/* Totals aligned under مدين / دائن */}
               <View
                 style={[
                   s.totalRow,
-                  isBalanced
-                    ? { backgroundColor: '#ecfdf5' }
-                    : { backgroundColor: '#fef2f2' },
+                  isBalanced ? { backgroundColor: '#ecfdf5' } : { backgroundColor: '#fef2f2' },
                 ]}
+                wrap={false}
               >
+                <View style={s.colCredit}>
+                  <Text style={s.totalHint}>{ar('دائن')}</Text>
+                  <PdfMoneyText
+                    amount={entry.total_credit}
+                    style={[s.totalValue, { color: PDF.danger }]}
+                  />
+                </View>
+                <View style={s.colDebit}>
+                  <Text style={s.totalHint}>{ar('مدين')}</Text>
+                  <PdfMoneyText
+                    amount={entry.total_debit}
+                    style={[s.totalValue, { color: PDF.success }]}
+                  />
+                </View>
                 <Text style={s.totalLabel}>
                   {ar(isBalanced ? 'الإجمالي (متوازن)' : 'الإجمالي (غير متوازن)')}
-                </Text>
-                <Text style={[s.totalValue, { color: PDF.success }]}>
-                  {arMoney(entry.total_debit)}
-                </Text>
-                <Text style={[s.totalValue, { color: PDF.danger }]}>
-                  {arMoney(entry.total_credit)}
                 </Text>
               </View>
             </View>
@@ -253,18 +281,19 @@ export function JournalPDF({
         })
       )}
 
-      {/* Grand Total */}
-      {entries.length > 0 && (
-        <View style={[s.totalRow, { marginTop: 8, backgroundColor: '#e2e8f0' }]}>
+      {entries.length > 0 ? (
+        <View style={[s.totalRow, { marginTop: 8, backgroundColor: '#e2e8f0' }]} wrap={false}>
+          <View style={s.colCredit}>
+            <Text style={s.totalHint}>{ar('دائن')}</Text>
+            <PdfMoneyText amount={grandCredit} style={[s.totalValue, { color: PDF.danger }]} />
+          </View>
+          <View style={s.colDebit}>
+            <Text style={s.totalHint}>{ar('مدين')}</Text>
+            <PdfMoneyText amount={grandDebit} style={[s.totalValue, { color: PDF.success }]} />
+          </View>
           <Text style={s.totalLabel}>{ar('إجمالي الدفتر')}</Text>
-          <Text style={[s.totalValue, { color: PDF.success }]}>
-            {arMoney(entries.reduce((s, e) => s + e.total_debit, 0))}
-          </Text>
-          <Text style={[s.totalValue, { color: PDF.danger }]}>
-            {arMoney(entries.reduce((s, e) => s + e.total_credit, 0))}
-          </Text>
         </View>
-      )}
+      ) : null}
 
       <Text style={s.caption}>
         {ar('هذا الدفتر يعرض القيود المحاسبية المزدوجة (المدين والدائن) المرحّلة في النظام.')}

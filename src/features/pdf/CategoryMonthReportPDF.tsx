@@ -8,6 +8,7 @@ import { ReportShell } from './ReportShell';
 import { ar } from './arabicPDF';
 import { pdfBase, PDF } from './pdfBase';
 import { PdfMoneyText, pdfFmtNum, pdfFmtDate } from './pdfBrandKit';
+import { PDF_TABLE_ROW } from './pdfTable';
 import type { TransactionWithRelations } from '@/lib/db/types';
 import type { CategoryRow } from '@/lib/db/types';
 
@@ -27,9 +28,7 @@ const STATUS_AR: Record<string, string> = {
 
 const col = StyleSheet.create({
   row: {
-    direction: 'rtl',
-    flexDirection: 'row',
-    alignItems: 'center',
+    ...PDF_TABLE_ROW,
     paddingVertical: 6,
     paddingHorizontal: 6,
     borderBottomWidth: 0.5,
@@ -37,8 +36,7 @@ const col = StyleSheet.create({
   },
   rowAlt: { backgroundColor: PDF.rowAlt },
   head: {
-    direction: 'rtl',
-    flexDirection: 'row',
+    ...PDF_TABLE_ROW,
     backgroundColor: PDF.headerBg,
     paddingVertical: 7,
     paddingHorizontal: 6,
@@ -46,28 +44,31 @@ const col = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: PDF.border,
   },
-  th: { color: PDF.white, fontSize: 8.5, fontWeight: 'bold' },
-  td: { fontSize: 8.5, color: PDF.text },
-  tdMuted: { fontSize: 8, color: PDF.muted },
-  num: { width: '9%', textAlign: 'center' },
-  date: { width: '12%', textAlign: 'center' },
-  status: { width: '11%', textAlign: 'center' },
-  method: { width: '11%', textAlign: 'center' },
-  box: { width: '17%', textAlign: 'right', paddingRight: 4 },
-  desc: { flex: 1, textAlign: 'right', paddingRight: 4 },
-  amt: { width: '15%', textAlign: 'center' },
+  th: { color: PDF.white, fontSize: 8.5, fontWeight: 'bold', textAlign: 'center' },
+  thAr: { color: PDF.white, fontSize: 8.5, fontWeight: 'bold', textAlign: 'right' },
+  td: { fontSize: 8.5, color: PDF.text, textAlign: 'right' },
+  tdMuted: { fontSize: 8, color: PDF.muted, textAlign: 'center' },
+  num: { width: '9%' },
+  date: { width: '12%' },
+  status: { width: '11%' },
+  method: { width: '11%' },
+  box: { width: '17%' },
+  desc: { flex: 1, paddingHorizontal: 4 },
+  amt: { width: '15%' },
   foot: {
-    direction: 'ltr',
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'baseline',
-    gap: 10,
+    ...PDF_TABLE_ROW,
     marginTop: 10,
     paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
     backgroundColor: PDF.logoGreenSoft,
     borderTopWidth: 1.5,
     borderTopColor: PDF.primary,
+  },
+  footLabel: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: PDF.text,
+    textAlign: 'right',
   },
 });
 
@@ -106,11 +107,11 @@ export function CategoryMonthReportPDF({
       <Text style={pdfBase.sectionTitle}>{ar('تفاصيل المعاملات')}</Text>
 
       <View style={col.head} wrap={false}>
-        <Text style={[col.th, col.desc]}>{ar('البيان')}</Text>
+        <Text style={[col.thAr, col.desc]}>{ar('البيان')}</Text>
         <Text style={[col.th, col.amt]}>{ar('المبلغ')}</Text>
         <Text style={[col.th, col.method]}>{ar('الطريقة')}</Text>
         <Text style={[col.th, col.status]}>{ar('الحالة')}</Text>
-        <Text style={[col.th, col.box]}>{ar('الخزينة')}</Text>
+        <Text style={[col.thAr, col.box]}>{ar('الخزينة')}</Text>
         <Text style={[col.th, col.date]}>{ar('التاريخ')}</Text>
         <Text style={[col.th, col.num]}>{ar('الرقم')}</Text>
       </View>
@@ -126,8 +127,8 @@ export function CategoryMonthReportPDF({
             <View style={col.amt}>
               <PdfMoneyText amount={Number(r.amount)} />
             </View>
-            <Text style={[col.td, col.method]}>{ar(METHOD_AR[r.method] ?? r.method)}</Text>
-            <Text style={[col.td, col.status]}>{ar(STATUS_AR[r.status] ?? r.status)}</Text>
+            <Text style={[col.tdMuted, col.method]}>{ar(METHOD_AR[r.method] ?? r.method)}</Text>
+            <Text style={[col.tdMuted, col.status]}>{ar(STATUS_AR[r.status] ?? r.status)}</Text>
             <Text style={[col.td, col.box]}>{ar(r.cashbox?.name_ar ?? '—')}</Text>
             <Text style={[col.tdMuted, col.date]}>{pdfFmtDate(r.tx_date)}</Text>
             <Text style={[col.tdMuted, col.num]}>{pdfFmtNum(r.number)}</Text>
@@ -136,8 +137,15 @@ export function CategoryMonthReportPDF({
       )}
 
       <View style={col.foot} wrap={false}>
-        <PdfMoneyText amount={total} style={{ fontSize: 11, fontWeight: 'bold' }} />
-        <Text style={pdfBase.footLabel}>{ar(totalLabel)}</Text>
+        <Text style={[col.footLabel, col.desc]}>{ar(totalLabel)}</Text>
+        <View style={col.amt}>
+          <PdfMoneyText amount={total} style={{ fontSize: 11, fontWeight: 'bold' }} />
+        </View>
+        <Text style={col.method} />
+        <Text style={col.status} />
+        <Text style={col.box} />
+        <Text style={col.date} />
+        <Text style={[col.tdMuted, col.num]}>{pdfFmtNum(posted.length)}</Text>
       </View>
 
       <Text style={pdfBase.caption}>{ar('وثيقة مُولَّدة آلياً من منظومة تاج مول')}</Text>

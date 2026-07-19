@@ -21,6 +21,7 @@ type BsRow = {
   category_code: string;
   category_name: string;
   balance: number;
+  is_net_income?: boolean;
 };
 
 export default function BalanceSheetPage() {
@@ -74,12 +75,16 @@ export default function BalanceSheetPage() {
                     <tr key={row.category_id} className="hover:bg-slate-50/50">
                       <td className="py-2 font-mono text-xs text-slate-500">{row.category_code}</td>
                       <td className="py-2 font-medium">
-                        <Link
-                          href={ledgerUrl(row.category_id)}
-                          className="hover:text-emerald-800 hover:underline touch-manipulation"
-                        >
-                          {row.category_name}
-                        </Link>
+                        {row.is_net_income || row.category_code === 'NI-CY' ? (
+                          <span>{row.category_name}</span>
+                        ) : (
+                          <Link
+                            href={ledgerUrl(row.category_id)}
+                            className="hover:text-emerald-800 hover:underline touch-manipulation"
+                          >
+                            {row.category_name}
+                          </Link>
+                        )}
                       </td>
                       <td className={`py-2 text-left font-mono font-semibold ${color}`}>
                         {formatMoney(row.balance, 'LYD')}

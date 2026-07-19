@@ -150,7 +150,6 @@ export function TenantProfileSidebar({
         contactId={contact.id}
         contactName={contact.name}
         phone={contact.phone}
-        portalToken={contact.portal_token}
       />
     </div>
   );

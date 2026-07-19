@@ -5,12 +5,15 @@ import { ReportShell } from './ReportShell';
 import { ar } from './arabicPDF';
 import { pdfBase, PDF } from './pdfBase';
 import { PdfMoneyText, pdfFmtNum } from './pdfBrandKit';
+import { PDF_TABLE_ROW } from './pdfTable';
 
+/**
+ * أعمدة (يسار ← يمين): رصيد | دائن | مدين | نوع | اسم | رمز
+ * → رمز الحساب على يمين الورقة
+ */
 const col = StyleSheet.create({
   row: {
-    direction: 'rtl',
-    flexDirection: 'row',
-    alignItems: 'center',
+    ...PDF_TABLE_ROW,
     paddingVertical: 6,
     paddingHorizontal: 6,
     borderBottomWidth: 0.5,
@@ -18,8 +21,7 @@ const col = StyleSheet.create({
   },
   rowAlt: { backgroundColor: PDF.rowAlt },
   head: {
-    direction: 'rtl',
-    flexDirection: 'row',
+    ...PDF_TABLE_ROW,
     backgroundColor: PDF.headerBg,
     paddingVertical: 7,
     paddingHorizontal: 6,
@@ -27,26 +29,36 @@ const col = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: PDF.border,
   },
-  th: { color: PDF.white, fontSize: 8.5, fontWeight: 'bold' },
-  td: { fontSize: 8.5, color: PDF.text },
-  tdMuted: { fontSize: 8, color: PDF.muted },
-  code: { width: '15%', textAlign: 'right', paddingRight: 4 },
-  name: { flex: 1, textAlign: 'right', paddingRight: 4 },
-  type: { width: '15%', textAlign: 'center' },
-  debit: { width: '18%', textAlign: 'center' },
-  credit: { width: '18%', textAlign: 'center' },
-  balance: { width: '18%', textAlign: 'center' },
+  th: { color: PDF.white, fontSize: 8.5, fontWeight: 'bold', textAlign: 'center' },
+  thAr: { color: PDF.white, fontSize: 8.5, fontWeight: 'bold', textAlign: 'right' },
+  td: { fontSize: 8.5, color: PDF.text, textAlign: 'right' },
+  tdMuted: { fontSize: 8, color: PDF.muted, textAlign: 'center' },
+  code: { width: '12%' },
+  name: { flex: 1, paddingHorizontal: 4 },
+  type: { width: '14%' },
+  debit: { width: '16%' },
+  credit: { width: '16%' },
+  balance: { width: '16%' },
   foot: {
-    direction: 'rtl',
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'baseline',
+    ...PDF_TABLE_ROW,
     marginTop: 10,
     paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
     backgroundColor: PDF.logoGreenSoft,
     borderTopWidth: 1.5,
     borderTopColor: PDF.primary,
+  },
+  footHint: {
+    fontSize: 7,
+    color: PDF.muted,
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  footLabel: {
+    fontSize: 8.5,
+    fontWeight: 'bold',
+    color: PDF.text,
+    textAlign: 'right',
   },
 });
 
@@ -84,12 +96,12 @@ export function TrialBalanceReportPDF({ year, rows }: TrialBalanceReportPdfProps
       <Text style={pdfBase.sectionTitle}>{ar('أرصدة الحسابات الختامية ومجاميع الحركات')}</Text>
 
       <View style={col.head} wrap={false}>
-        <Text style={[col.th, col.balance]}>{ar('صافي الرصيد الختامي')}</Text>
+        <Text style={[col.th, col.balance]}>{ar('صافي الرصيد')}</Text>
         <Text style={[col.th, col.credit]}>{ar('ختامي دائن')}</Text>
         <Text style={[col.th, col.debit]}>{ar('ختامي مدين')}</Text>
-        <Text style={[col.th, col.type]}>{ar('نوع الحساب')}</Text>
-        <Text style={[col.th, col.name]}>{ar('اسم الحساب')}</Text>
-        <Text style={[col.th, col.code]}>{ar('رمز الحساب')}</Text>
+        <Text style={[col.th, col.type]}>{ar('النوع')}</Text>
+        <Text style={[col.thAr, col.name]}>{ar('اسم الحساب')}</Text>
+        <Text style={[col.th, col.code]}>{ar('الرمز')}</Text>
       </View>
 
       {rows.map((r, i) => (
@@ -98,30 +110,50 @@ export function TrialBalanceReportPDF({ year, rows }: TrialBalanceReportPdfProps
             <PdfMoneyText amount={Number(r.balance)} />
           </View>
           <View style={col.credit}>
-            {r.total_credit > 0 ? <PdfMoneyText amount={Number(r.total_credit)} /> : <Text style={col.td}>—</Text>}
+            {r.total_credit > 0 ? (
+              <PdfMoneyText amount={Number(r.total_credit)} />
+            ) : (
+              <Text style={col.tdMuted}>—</Text>
+            )}
           </View>
           <View style={col.debit}>
-            {r.total_debit > 0 ? <PdfMoneyText amount={Number(r.total_debit)} /> : <Text style={col.td}>—</Text>}
+            {r.total_debit > 0 ? (
+              <PdfMoneyText amount={Number(r.total_debit)} />
+            ) : (
+              <Text style={col.tdMuted}>—</Text>
+            )}
           </View>
-          <Text style={[col.td, col.type]}>{ar(r.type)}</Text>
+          <Text style={[col.tdMuted, col.type]}>{ar(r.type)}</Text>
           <Text style={[col.td, col.name]}>{ar(r.name_ar)}</Text>
           <Text style={[col.tdMuted, col.code]}>{r.code}</Text>
         </View>
       ))}
 
       <View style={col.foot} wrap={false}>
-        <Text style={[pdfBase.footLabel, { width: '31%', textAlign: 'right' }]}>{ar('الإجمالي العام للدفاتر:')}</Text>
-        <View style={col.debit}>
-          <PdfMoneyText amount={totalDebits} style={{ fontSize: 10, fontWeight: 'bold' }} />
-        </View>
-        <View style={col.credit}>
-          <PdfMoneyText amount={totalCredits} style={{ fontSize: 10, fontWeight: 'bold' }} />
-        </View>
         <View style={col.balance}>
-          <Text style={{ fontSize: 9, fontWeight: 'bold', color: isBalanced ? PDF.primary : '#b91c1c' }}>
+          <Text style={col.footHint}>{ar('الحالة')}</Text>
+          <Text
+            style={{
+              fontSize: 9,
+              fontWeight: 'bold',
+              color: isBalanced ? PDF.primary : '#b91c1c',
+              textAlign: 'center',
+            }}
+          >
             {isBalanced ? ar('متوازن') : ar('غير متوازن')}
           </Text>
         </View>
+        <View style={col.credit}>
+          <Text style={col.footHint}>{ar('إجمالي دائن')}</Text>
+          <PdfMoneyText amount={totalCredits} style={{ fontSize: 10, fontWeight: 'bold' }} />
+        </View>
+        <View style={col.debit}>
+          <Text style={col.footHint}>{ar('إجمالي مدين')}</Text>
+          <PdfMoneyText amount={totalDebits} style={{ fontSize: 10, fontWeight: 'bold' }} />
+        </View>
+        <Text style={[col.tdMuted, col.type]}>—</Text>
+        <Text style={[col.footLabel, col.name]}>{ar('الإجمالي العام للدفاتر')}</Text>
+        <Text style={[col.tdMuted, col.code]}>{pdfFmtNum(rows.length)}</Text>
       </View>
 
       <Text style={pdfBase.caption}>{ar('وثيقة محاسبية مُولَّدة آلياً من منظومة تاج مول')}</Text>

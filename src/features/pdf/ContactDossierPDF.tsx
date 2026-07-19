@@ -8,6 +8,8 @@ import { ReportShell } from './ReportShell';
 import { ar } from './arabicPDF';
 import { pdfBase, PDF } from './pdfBase';
 import { PdfMoneyText, pdfFmtNum, pdfFmtDate } from './pdfBrandKit';
+import { PDF_TABLE_ROW } from './pdfTable';
+import { pdfFormatAmountRaw } from './pdfMoney';
 import {
   formatPaymentBankOrSource,
   formatPaymentMethodAr,
@@ -59,19 +61,18 @@ const s = StyleSheet.create({
     overflow: 'hidden',
   },
   head: {
-    flexDirection: 'row',
+    ...PDF_TABLE_ROW,
     backgroundColor: PDF.primary,
     paddingVertical: 9,
     paddingHorizontal: 8,
   },
   th: { color: PDF.white, fontSize: 8.5, fontWeight: 'bold', textAlign: 'center' },
   row: {
-    flexDirection: 'row',
+    ...PDF_TABLE_ROW,
     paddingVertical: 8,
     paddingHorizontal: 8,
     borderBottomWidth: 0.5,
     borderBottomColor: PDF.border,
-    alignItems: 'center',
   },
   rowAlt: { backgroundColor: '#f8faf8' },
   td: { fontSize: 8.5, color: PDF.text, textAlign: 'center' },
@@ -82,16 +83,15 @@ const s = StyleSheet.create({
   colBank: { width: '22%' },
   colDesc: { flex: 1 },
   foot: {
-    flexDirection: 'row',
+    ...PDF_TABLE_ROW,
     justifyContent: 'space-between',
-    alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 12,
     backgroundColor: PDF.logoGreenSoft,
     borderTopWidth: 2,
     borderTopColor: PDF.primary,
   },
-  footLabel: { fontSize: 10, color: PDF.text, fontWeight: 'bold' },
+  footLabel: { fontSize: 10, color: PDF.text, fontWeight: 'bold', textAlign: 'right' },
   empty: {
     padding: 20,
     textAlign: 'center',
@@ -162,8 +162,15 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
             <View style={[s.summaryCard, { backgroundColor: '#fef2f2' }]}>
               <Text style={s.summaryLabel}>{ar('مطالبات مفتوحة')}</Text>
               <Text style={[s.summaryValue, { color: '#b91c1c' }]}>
-                {ar(`${openCount} (${openTotal.toLocaleString('en-US')} د.ل)`)}
+                {ar(`${pdfFormatAmountRaw(openCount)} مطالبة`)}
               </Text>
+              <PdfMoneyText
+                amount={openTotal}
+                style={{ fontSize: 11, fontWeight: 'bold', color: '#b91c1c' }}
+                currStyle={{ color: '#b91c1c', fontSize: 9 }}
+                containerStyle={{ marginTop: 4 }}
+                align="right"
+              />
             </View>
           ) : null}
         </View>
@@ -227,9 +234,14 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
               <Text style={[s.td, s.colDate]}>{pdfFmtDate(tx.tx_date)}</Text>
             </View>
           ))}
-          <View style={s.foot}>
-            <Text style={s.footLabel}>{ar('إجمالي الدفعات')}</Text>
-            <PdfMoneyText amount={totalPaid} size="md" />
+          <View style={s.foot} wrap={false}>
+            <Text style={[s.footLabel, s.colDesc]}>{ar('إجمالي الدفعات')}</Text>
+            <Text style={s.colBank} />
+            <Text style={s.colMethod} />
+            <View style={s.colAmt}>
+              <PdfMoneyText amount={totalPaid} style={{ fontSize: 10, fontWeight: 'bold' }} />
+            </View>
+            <Text style={s.colDate} />
           </View>
         </View>
       )}

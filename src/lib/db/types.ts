@@ -38,7 +38,8 @@ export type CategoryRow = {
   code: string;
   name: string;
   name_ar: string;
-  kind: 'REVENUE' | 'EXPENSE';
+  /** إرثي من tx_kind — للإيراد/المصروف التشغيلي؛ الأصول تستخدم OPENING عادة */
+  kind: 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'OPENING' | 'ADJUSTMENT';
   type: AccountType;
   color: string | null;
   icon: string | null;

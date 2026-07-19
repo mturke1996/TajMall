@@ -1,0 +1,30 @@
+/**
+ * أعمدة contacts للواجهة — بدون portal_token (يُجلب فقط عبر RPC آمن).
+ */
+export const CONTACT_LIST_COLUMNS = [
+  'id',
+  'code',
+  'kind',
+  'name',
+  'name_en',
+  'phone',
+  'phone2',
+  'email',
+  'address',
+  'id_number',
+  'tax_number',
+  'shop_number',
+  'floor',
+  'area_sqm',
+  'contract_start',
+  'contract_end',
+  'monthly_rent',
+  'job_title',
+  'department',
+  'hire_date',
+  'salary',
+  'is_active',
+  'notes',
+  'created_at',
+  'updated_at',
+].join(',');

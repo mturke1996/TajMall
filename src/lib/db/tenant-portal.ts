@@ -3,36 +3,30 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
-/** رمز عشوائي طويل (32 حرفاً hex) — لا يمكن تخمينه، لا يحتاج تسجيل دخول. */
-function generatePortalToken(): string {
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
 export function tenantPortalUrl(token: string): string {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? '';
   return `${base.replace(/\/$/, '')}/portal/${token}`;
 }
 
-/** يولّد (أو يعيد) رمز البوابة الذاتية لمستأجر — يُخزَّن مرة واحدة. */
+/**
+ * يولّد (أو يعيد) رمز البوابة عبر SECURITY DEFINER RPC —
+ * لا يُعرض portal_token في استعلامات contacts العامة.
+ */
 export function useEnsureTenantPortalToken() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { contactId: string; existingToken: string | null }) => {
-      if (input.existingToken) return input.existingToken;
-
+    mutationFn: async (input: { contactId: string }) => {
       const supabase = createSupabaseBrowserClient();
-      const token = generatePortalToken();
-      const { error } = await supabase
-        .from('contacts')
-        .update({ portal_token: token })
-        .eq('id', input.contactId);
+      const { data, error } = await supabase.rpc('ensure_tenant_portal_token', {
+        p_contact_id: input.contactId,
+      });
       if (error) throw error;
-      return token;
+      if (!data || typeof data !== 'string') {
+        throw new Error('لم يُرجع الخادم رمز بوابة صالحاً');
+      }
+      return data;
     },
     onSuccess: () => {
-      // مطابقة جزئية تشمل كل مفاتيح contacts (بأي kind).
       qc.invalidateQueries({ queryKey: ['contacts'] });
     },
   });

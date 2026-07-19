@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "gh-stack": {
+      "source": "github/gh-stack",
+      "sourceType": "github",
+      "skillPath": "skills/gh-stack/SKILL.md",
+      "computedHash": "75d60fdd4ed57129d81020d3b4d673ce435e04ee881d80ef0e066b283088da6f"
+    },
     "supabase": {
       "source": "supabase/agent-skills",
       "sourceType": "github",

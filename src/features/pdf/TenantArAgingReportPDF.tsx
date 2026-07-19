@@ -5,12 +5,12 @@ import { ReportShell } from './ReportShell';
 import { ar } from './arabicPDF';
 import { pdfBase, PDF } from './pdfBase';
 import { PdfMoneyText, pdfFmtNum } from './pdfBrandKit';
+import { PDF_TABLE_ROW } from './pdfTable';
 
+/** أعمدة: إجمالي | +60 | 31–60 | 1–30 | جاري | محل | مستأجر → المستأجر يميناً */
 const col = StyleSheet.create({
   row: {
-    direction: 'rtl',
-    flexDirection: 'row',
-    alignItems: 'center',
+    ...PDF_TABLE_ROW,
     paddingVertical: 6,
     paddingHorizontal: 6,
     borderBottomWidth: 0.5,
@@ -18,8 +18,7 @@ const col = StyleSheet.create({
   },
   rowAlt: { backgroundColor: PDF.rowAlt },
   head: {
-    direction: 'rtl',
-    flexDirection: 'row',
+    ...PDF_TABLE_ROW,
     backgroundColor: PDF.headerBg,
     paddingVertical: 7,
     paddingHorizontal: 6,
@@ -27,24 +26,28 @@ const col = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: PDF.border,
   },
-  th: { color: PDF.white, fontSize: 8, fontWeight: 'bold' },
-  td: { fontSize: 8, color: PDF.text },
-  tenant: { flex: 1, textAlign: 'right', paddingRight: 4 },
-  shop: { width: '12%', textAlign: 'center' },
-  bucket: { width: '13%', textAlign: 'center' },
-  total: { width: '15%', textAlign: 'center' },
+  th: { color: PDF.white, fontSize: 8, fontWeight: 'bold', textAlign: 'center' },
+  thAr: { color: PDF.white, fontSize: 8, fontWeight: 'bold', textAlign: 'right' },
+  td: { fontSize: 8, color: PDF.text, textAlign: 'right' },
+  tdMuted: { fontSize: 8, color: PDF.muted, textAlign: 'center' },
+  tenant: { flex: 1, paddingHorizontal: 4 },
+  shop: { width: '12%' },
+  bucket: { width: '13%' },
+  total: { width: '15%' },
   foot: {
-    direction: 'rtl',
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'baseline',
-    gap: 8,
+    ...PDF_TABLE_ROW,
     marginTop: 10,
     paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
     backgroundColor: PDF.logoGreenSoft,
     borderTopWidth: 1.5,
     borderTopColor: PDF.primary,
+  },
+  footLabel: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: PDF.text,
+    textAlign: 'right',
   },
 });
 
@@ -78,12 +81,12 @@ export function TenantArAgingReportPDF({ asOf, rows, summary }: TenantArAgingRep
 
       <View style={col.head} wrap={false}>
         <Text style={[col.th, col.total]}>{ar('الإجمالي')}</Text>
-        <Text style={[col.th, col.bucket]}>{ar('+60 يوم')}</Text>
+        <Text style={[col.th, col.bucket]}>{ar('+60')}</Text>
         <Text style={[col.th, col.bucket]}>{ar('31–60')}</Text>
         <Text style={[col.th, col.bucket]}>{ar('1–30')}</Text>
         <Text style={[col.th, col.bucket]}>{ar('جاري')}</Text>
         <Text style={[col.th, col.shop]}>{ar('المحل')}</Text>
-        <Text style={[col.th, col.tenant]}>{ar('المستأجر')}</Text>
+        <Text style={[col.thAr, col.tenant]}>{ar('المستأجر')}</Text>
       </View>
 
       {rows.map((r, i) => (
@@ -92,25 +95,51 @@ export function TenantArAgingReportPDF({ asOf, rows, summary }: TenantArAgingRep
             <PdfMoneyText amount={Number(r.total_outstanding)} />
           </View>
           <View style={col.bucket}>
-            {r.bucket_90_plus > 0 ? <PdfMoneyText amount={r.bucket_90_plus} /> : <Text>—</Text>}
+            {r.bucket_90_plus > 0 ? (
+              <PdfMoneyText amount={r.bucket_90_plus} />
+            ) : (
+              <Text style={col.tdMuted}>—</Text>
+            )}
           </View>
           <View style={col.bucket}>
-            {r.bucket_60 > 0 ? <PdfMoneyText amount={r.bucket_60} /> : <Text>—</Text>}
+            {r.bucket_60 > 0 ? (
+              <PdfMoneyText amount={r.bucket_60} />
+            ) : (
+              <Text style={col.tdMuted}>—</Text>
+            )}
           </View>
           <View style={col.bucket}>
-            {r.bucket_30 > 0 ? <PdfMoneyText amount={r.bucket_30} /> : <Text>—</Text>}
+            {r.bucket_30 > 0 ? (
+              <PdfMoneyText amount={r.bucket_30} />
+            ) : (
+              <Text style={col.tdMuted}>—</Text>
+            )}
           </View>
           <View style={col.bucket}>
-            {r.bucket_current > 0 ? <PdfMoneyText amount={r.bucket_current} /> : <Text>—</Text>}
+            {r.bucket_current > 0 ? (
+              <PdfMoneyText amount={r.bucket_current} />
+            ) : (
+              <Text style={col.tdMuted}>—</Text>
+            )}
           </View>
-          <Text style={[col.td, col.shop]}>{r.shop_number || '—'}</Text>
+          <Text style={[col.tdMuted, col.shop]}>{r.shop_number || '—'}</Text>
           <Text style={[col.td, col.tenant]}>{ar(r.tenant_name)}</Text>
         </View>
       ))}
 
       <View style={col.foot} wrap={false}>
-        <Text style={pdfBase.footLabel}>{ar('إجمالي الذمم:')}</Text>
-        <PdfMoneyText amount={summary.totalOutstanding} style={{ fontSize: 10, fontWeight: 'bold' }} />
+        <View style={col.total}>
+          <PdfMoneyText
+            amount={summary.totalOutstanding}
+            style={{ fontSize: 10, fontWeight: 'bold' }}
+          />
+        </View>
+        <Text style={col.bucket} />
+        <Text style={col.bucket} />
+        <Text style={col.bucket} />
+        <Text style={col.bucket} />
+        <Text style={col.shop} />
+        <Text style={[col.footLabel, col.tenant]}>{ar('إجمالي الذمم')}</Text>
       </View>
 
       <Text style={pdfBase.caption}>{ar('وثيقة محاسبية مُولَّدة آلياً من منظومة تاج مول')}</Text>

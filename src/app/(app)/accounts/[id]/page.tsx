@@ -133,22 +133,28 @@ export default function CategoryDetailPage() {
     return isDebitIncrease ? od - oc : oc - od;
   }, [ledgerResult, isDebitIncrease]);
 
-  const runningBalances = useMemo(() => {
-    if (isDebitIncrease) {
-      return computeRunningBalances(journalLines, openingBalance);
-    }
-    // Credit-normal accounts: credit increases balance
-    let bal = openingBalance;
-    return journalLines.map((line) => {
-      bal += toJournalAmount(line.credit) - toJournalAmount(line.debit);
-      return bal;
-    });
+  // رصيد تراكمي زمنياً ثم عرض الأحدث أولاً (مثل المصروفات)
+  const journalRowsNewestFirst = useMemo(() => {
+    const chronBalances =
+      isDebitIncrease
+        ? computeRunningBalances(journalLines, openingBalance)
+        : (() => {
+            let bal = openingBalance;
+            return journalLines.map((line) => {
+              bal += toJournalAmount(line.credit) - toJournalAmount(line.debit);
+              return bal;
+            });
+          })();
+
+    return journalLines
+      .map((line, i) => ({ line, balance: chronBalances[i] ?? openingBalance }))
+      .reverse();
   }, [journalLines, openingBalance, isDebitIncrease]);
 
   const periodDebit = journalLines.reduce((s, l) => s + toJournalAmount(l.debit), 0);
   const periodCredit = journalLines.reduce((s, l) => s + toJournalAmount(l.credit), 0);
-  const closingBalance = runningBalances.length
-    ? runningBalances[runningBalances.length - 1]
+  const closingBalance = journalRowsNewestFirst.length
+    ? journalRowsNewestFirst[0].balance
     : openingBalance;
 
   const monthName = monthNameAr(selectedMonthKey);
@@ -207,14 +213,16 @@ export default function CategoryDetailPage() {
                       closingBalance={closingBalance}
                       totalDebit={periodDebit}
                       totalCredit={periodCredit}
-                      lines={journalLines.map((l, i) => ({
+                      lines={[...journalRowsNewestFirst]
+                        .reverse()
+                        .map(({ line: l, balance }) => ({
                         entry_date: l.entry_date,
                         journal_number: l.journal_number,
                         journal_reference: l.journal_reference,
                         description: l.description,
                         debit: l.debit,
                         credit: l.credit,
-                        runningBalance: runningBalances[i] ?? 0,
+                        runningBalance: balance,
                       }))}
                     />
                   );
@@ -454,7 +462,7 @@ export default function CategoryDetailPage() {
                       </td>
                     </tr>
                   ) : null}
-                  {journalLines.map((line, i) => (
+                  {journalRowsNewestFirst.map(({ line, balance }, i) => (
                     <tr
                       key={`${line.journal_id}-${i}`}
                       className="border-b border-border/70 hover:bg-muted/20"
@@ -494,7 +502,7 @@ export default function CategoryDetailPage() {
                         className="px-3 py-2.5 text-left font-mono tabular-nums font-medium"
                         dir="ltr"
                       >
-                        {formatMoney(runningBalances[i] ?? 0, 'LYD')}
+                        {formatMoney(balance, 'LYD')}
                       </td>
                     </tr>
                   ))}

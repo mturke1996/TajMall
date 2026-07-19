@@ -22,7 +22,8 @@ export type CashTransferRow = {
 
 export type CashboxLedgerRow = {
   event_id: string;
-  source_type: 'transaction' | 'cash_transfer';
+  journal_id?: string | null;
+  source_type: 'transaction' | 'cash_transfer' | 'journal';
   event_kind: string;
   event_date: string;
   reference: string | null;
@@ -153,10 +154,13 @@ export function useSetLedgerEventReconciled(cashboxId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
-      sourceType: 'transaction' | 'cash_transfer';
+      sourceType: 'transaction' | 'cash_transfer' | 'journal';
       eventId: string;
       reconciled: boolean;
     }) => {
+      if (input.sourceType === 'journal') {
+        throw new Error('المطابقة البنكية متاحة للإيراد/المصروف والتحويلات فقط');
+      }
       const supabase = createSupabaseBrowserClient();
       const { error } = await supabase.rpc('set_ledger_event_reconciled', {
         p_source_type: input.sourceType,
@@ -176,4 +180,8 @@ export const LEDGER_KIND_LABELS: Record<string, string> = {
   EXPENSE: 'مصروف',
   TRANSFER_IN: 'تحويل وارد',
   TRANSFER_OUT: 'تحويل صادر',
+  VOUCHER: 'إذن صرف',
+  IN: 'وارد',
+  OUT: 'صادر',
+  TRANSACTION: 'معاملة',
 };

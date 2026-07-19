@@ -4,6 +4,7 @@ import { Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ReportShell } from './ReportShell';
 import { ar } from './arabicPDF';
 import { pdfBase, PDF } from './pdfBase';
+import { pdfFormatAmountRaw, PdfMoneyText } from './pdfMoney';
 
 export type VoucherLinePdf = { description: string; amount: number };
 
@@ -64,8 +65,7 @@ const s = StyleSheet.create({
   },
 
   /**
-   * شريط الإجمالي (محور ltr للصفحة): يساراً العملة أولاً ثم الرقم؛ يميناً عنوان الإذن.
-   * بصراً: [عملة][مبلغ]············[إجمالي مبلغ الإذن]
+   * شريط الإجمالي: يساراً الرقم ثم العملة؛ يميناً عنوان الإذن.
    */
   totalBox: {
     direction: 'ltr',
@@ -83,7 +83,7 @@ const s = StyleSheet.create({
     direction: 'ltr',
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 10,
+    gap: 6,
     flexShrink: 0,
   },
   totalCurr: {
@@ -104,8 +104,7 @@ const s = StyleSheet.create({
     color: '#FBF8F1',
     fontWeight: 'bold',
     textAlign: 'right',
-    letterSpacing: 0.3,
-    flexShrink: 1,
+        flexShrink: 1,
     maxWidth: '58%',
     paddingLeft: 12,
   },
@@ -142,11 +141,6 @@ const s = StyleSheet.create({
   },
 
 });
-
-/** أرقام المبالغ بعرض لاتيني ثابت */
-function fmtMoneyNum(amount: number): string {
-  return new Intl.NumberFormat('en-US').format(Math.round(amount || 0));
-}
 
 export function VoucherPDF({
   voucher,
@@ -192,22 +186,23 @@ export function VoucherPDF({
       {voucher.lines.map((l, i) => (
         <View key={i} style={[s.tableRowRtl, i % 2 !== 0 && pdfBase.rowEven]}>
           <Text style={[pdfBase.td, s.th_desc]}>{ar(l.description)}</Text>
-          <Text style={[pdfBase.td, s.th_amount, s.tdAmountNum]} wrap={false}>
-            {fmtMoneyNum(l.amount)}
-          </Text>
+          <View style={[pdfBase.td, s.th_amount]}>
+            <PdfMoneyText amount={l.amount} style={s.tdAmountNum} align="center" />
+          </View>
         </View>
       ))}
 
-      {/* إجمالي الإذن — أقصى اليسار: العملة ثم المبلغ؛ أقصى اليمين: العنوان */}
+      {/* إجمالي الإذن — مبلغ واحد معزول: الرقم ثم العملة */}
       <View style={s.totalBox} wrap={false}>
-        <View style={s.totalLeftCluster} wrap={false}>
-          <Text style={s.totalCurr} wrap={false}>
-            {ar(currency)}
-          </Text>
-          <Text style={s.totalNum} wrap={false}>
-            {fmtMoneyNum(voucher.total)}
-          </Text>
-        </View>
+        <PdfMoneyText
+          amount={voucher.total}
+          currency={currency}
+          light
+          align="left"
+          style={s.totalNum}
+          currStyle={s.totalCurr}
+          containerStyle={{ width: 'auto', flexShrink: 0 }}
+        />
         <Text style={s.totalLabel}>{ar('إجمالي مبلغ الإذن')}</Text>
       </View>
 

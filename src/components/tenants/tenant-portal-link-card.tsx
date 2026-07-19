@@ -9,31 +9,28 @@ import { buildWhatsAppLink } from '@/lib/whatsapp';
 import { toast } from 'sonner';
 
 /**
- * رابط بوابة ذاتية للمستأجر — بلا كلمة مرور، مقصور على بيانات هذا
- * المستأجر فقط (يُنفَّذ بالكامل على الخادم، انظر migration 045 وصفحة
- * /portal/[token]). لا يوجد دفع أونلاين حالياً — يتطلب اختيار بوابة
- * دفع (Sadad/محلية) قبل إضافته.
+ * رابط بوابة ذاتية للمستأجر — الرمز يُجلب عبر RPC آمن فقط.
  */
 export function TenantPortalLinkCard({
   contactId,
   contactName,
   phone,
-  portalToken,
 }: {
   contactId: string;
   contactName: string;
   phone: string | null;
-  portalToken: string | null;
 }) {
   const ensureToken = useEnsureTenantPortalToken();
   const [copied, setCopied] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
 
-  const link = portalToken ? tenantPortalUrl(portalToken) : null;
+  const link = token ? tenantPortalUrl(token) : null;
 
   function handleGenerate() {
     ensureToken.mutate(
-      { contactId, existingToken: portalToken },
+      { contactId },
       {
+        onSuccess: (t) => setToken(t),
         onError: (e) =>
           toast.error('تعذّر توليد الرابط', {
             description: e instanceof Error ? e.message : undefined,
@@ -65,7 +62,7 @@ export function TenantPortalLinkCard({
       </div>
       <p className="text-[11.5px] leading-relaxed text-ink-mute">
         رابط خاص يتيح للمستأجر متابعة ذمّته وسجل سداده دون حساب دخول. لا يعرض أي بيانات أخرى في
-        النظام.
+        النظام. يظهر الرمز فقط بعد توليده من هنا (صلاحية مدير/محاسب).
       </p>
 
       {!link ? (
@@ -81,16 +78,23 @@ export function TenantPortalLinkCard({
           ) : (
             <Link2 className="h-3.5 w-3.5" />
           )}
-          توليد رابط
+          عرض / توليد الرابط
         </Button>
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="truncate rounded-md border border-border bg-canvas-sunken px-2.5 py-1.5 font-mono text-[11px] text-ink-mute" dir="ltr">
+          <div
+            className="truncate rounded-md border border-border bg-canvas-sunken px-2.5 py-1.5 font-mono text-[11px] text-ink-mute"
+            dir="ltr"
+          >
             {link}
           </div>
           <div className="flex flex-wrap gap-1.5">
             <Button size="sm" variant="outline" className="gap-1.5" onClick={handleCopy}>
-              {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-emerald-600" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
               نسخ
             </Button>
             {phone && (

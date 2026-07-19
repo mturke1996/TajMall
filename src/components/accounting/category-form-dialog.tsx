@@ -22,12 +22,13 @@ import { useCreateCategory, useUpdateCategory } from '@/lib/db/queries';
 import type { CategoryRow } from '@/lib/db/types';
 import { Loader2 } from 'lucide-react';
 
+/** kind إرثي (tx_kind): إيراد/مصروف فقط في قوائم التشغيل؛ الأصول/الخصوم/حقوق الملكية خارجها. */
 const ACCOUNT_TYPES: { value: CategoryRow['type']; label: string; kind: CategoryRow['kind'] }[] = [
   { value: 'REVENUE', label: 'إيراد', kind: 'REVENUE' },
   { value: 'EXPENSE', label: 'مصروف', kind: 'EXPENSE' },
-  { value: 'ASSET', label: 'أصل', kind: 'EXPENSE' },
-  { value: 'LIABILITY', label: 'خصم', kind: 'EXPENSE' },
-  { value: 'EQUITY', label: 'حقوق ملكية', kind: 'REVENUE' },
+  { value: 'ASSET', label: 'أصل', kind: 'OPENING' },
+  { value: 'LIABILITY', label: 'خصم', kind: 'ADJUSTMENT' },
+  { value: 'EQUITY', label: 'حقوق ملكية', kind: 'OPENING' },
 ];
 
 export function CategoryFormDialog({

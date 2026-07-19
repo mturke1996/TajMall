@@ -20,6 +20,7 @@ import type {
   DisbursementVoucherWithLines,
   SaveDisbursementVoucherInput,
 } from "./types";
+import { CONTACT_LIST_COLUMNS } from "@/lib/db/contact-columns";
 
 /**
  * Centralised TanStack Query hooks over Supabase JS.
@@ -79,7 +80,8 @@ export function useCategories(kind?: "REVENUE" | "EXPENSE") {
         .select("*")
         .eq("active", true)
         .order("sort_order", { ascending: true });
-      if (kind) q = q.eq("kind", kind);
+      // فلترة بنوع الحساب المحاسبي (type) لا بحقل kind القديم
+      if (kind) q = q.eq("type", kind);
       const { data, error } = await q;
       if (error) throw error;
       return (data as CategoryRow[]) ?? [];
@@ -355,13 +357,16 @@ export function useContacts(kind?: ContactKind) {
       const supabase = createSupabaseBrowserClient();
       let q = supabase
         .from("contacts")
-        .select("*")
+        .select(CONTACT_LIST_COLUMNS)
         .eq("is_active", true)
         .order("name", { ascending: true });
       if (kind) q = q.eq("kind", kind);
       const { data, error } = await q;
       if (error) throw error;
-      return (data as ContactRow[]) ?? [];
+      return ((data as unknown as ContactRow[]) ?? []).map((c) => ({
+        ...c,
+        portal_token: null,
+      }));
     },
   });
 }
@@ -373,11 +378,11 @@ export function useContact(id: string) {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
         .from("contacts")
-        .select("*")
+        .select(CONTACT_LIST_COLUMNS)
         .eq("id", id)
         .single();
       if (error) throw error;
-      return data as ContactRow;
+      return { ...(data as unknown as ContactRow), portal_token: null };
     },
     enabled: !!id,
   });

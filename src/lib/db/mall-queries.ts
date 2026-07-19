@@ -102,6 +102,87 @@ export function useCloseFiscalPeriod() {
   });
 }
 
+export type YearClosePreview = {
+  year: number;
+  already_closed: boolean;
+  existing_journal_id: string | null;
+  total_revenue: number;
+  total_expense: number;
+  net_income: number;
+  open_periods: number;
+  closed_periods: number;
+  can_close: boolean;
+};
+
+/** معاينة إقفال السنة — قراءة فقط، بلا أي تعديل */
+export function usePreviewFiscalYearClose() {
+  return useMutation({
+    mutationFn: async (year: number) => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc('preview_fiscal_year_close', {
+        p_year: year,
+      });
+      if (error) throw error;
+      const d = data as Record<string, unknown>;
+      return {
+        year: Number(d.year),
+        already_closed: Boolean(d.already_closed),
+        existing_journal_id: (d.existing_journal_id as string) ?? null,
+        total_revenue: Number(d.total_revenue ?? 0),
+        total_expense: Number(d.total_expense ?? 0),
+        net_income: Number(d.net_income ?? 0),
+        open_periods: Number(d.open_periods ?? 0),
+        closed_periods: Number(d.closed_periods ?? 0),
+        can_close: Boolean(d.can_close),
+      } satisfies YearClosePreview;
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'تعذّرت معاينة إقفال السنة');
+    },
+  });
+}
+
+/** إقفال سنوي يدوي بعد المعاينة — لا يُغلق الفترات إلا إذا طُلب */
+export function useCloseFiscalYear() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { year: number; closePeriods?: boolean }) => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc('close_fiscal_year', {
+        p_year: vars.year,
+        p_close_periods: vars.closePeriods ?? false,
+      });
+      if (error) throw error;
+      return data as {
+        year: number;
+        journal_id: string;
+        total_revenue: number;
+        total_expense: number;
+        net_income: number;
+        periods_closed: number;
+        periods_auto_closed: boolean;
+      };
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: mqk.fiscalPeriods });
+      qc.invalidateQueries({ queryKey: ['journal_entries'] });
+      qc.invalidateQueries({ queryKey: ['trial_balance'] });
+      qc.invalidateQueries({ queryKey: ['profit_loss'] });
+      qc.invalidateQueries({ queryKey: ['balance_sheet'] });
+      qc.invalidateQueries({ queryKey: ['ledger'] });
+      qc.invalidateQueries({ queryKey: ['categories'] });
+      toast.success(`تم إنشاء قيد إقفال سنة ${data.year}`, {
+        description: `صافي النتيجة: ${Number(data.net_income).toLocaleString('ar-LY')} د.ل${
+          data.periods_auto_closed ? ' · أُغلقت فترات السنة' : ' · أغلق الفترات يدوياً إن رغبت'
+        }`,
+      });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'فشل إقفال السنة المالية');
+    },
+  });
+}
+
 // ── Mall Units ────────────────────────────────────────────────────
 export function useMallUnits() {
   return useQuery<MallUnitRow[]>({

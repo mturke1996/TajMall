@@ -4,13 +4,13 @@ import { Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ReportShell } from './ReportShell';
 import { ar } from './arabicPDF';
 import { pdfBase, PDF } from './pdfBase';
-import { PdfMoneyText, pdfFmtNum } from './pdfBrandKit';
+import { PdfMoneyText } from './pdfBrandKit';
+import { PDF_TABLE_ROW } from './pdfTable';
 
+/** أعمدة: رصيد | اسم | رمز → الرمز يميناً */
 const col = StyleSheet.create({
   row: {
-    direction: 'rtl',
-    flexDirection: 'row',
-    alignItems: 'center',
+    ...PDF_TABLE_ROW,
     paddingVertical: 6,
     paddingHorizontal: 6,
     borderBottomWidth: 0.5,
@@ -18,8 +18,7 @@ const col = StyleSheet.create({
   },
   rowAlt: { backgroundColor: PDF.rowAlt },
   head: {
-    direction: 'rtl',
-    flexDirection: 'row',
+    ...PDF_TABLE_ROW,
     backgroundColor: PDF.headerBg,
     paddingVertical: 7,
     paddingHorizontal: 6,
@@ -27,21 +26,22 @@ const col = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: PDF.border,
   },
-  th: { color: PDF.white, fontSize: 8.5, fontWeight: 'bold' },
-  td: { fontSize: 8.5, color: PDF.text },
-  code: { width: '18%', textAlign: 'right' },
-  name: { flex: 1, textAlign: 'right', paddingRight: 4 },
-  balance: { width: '22%', textAlign: 'center' },
+  th: { color: PDF.white, fontSize: 8.5, fontWeight: 'bold', textAlign: 'center' },
+  thAr: { color: PDF.white, fontSize: 8.5, fontWeight: 'bold', textAlign: 'right' },
+  td: { fontSize: 8.5, color: PDF.text, textAlign: 'right' },
+  code: { width: '18%', textAlign: 'center' },
+  name: { flex: 1, paddingHorizontal: 4 },
+  balance: { width: '22%' },
   section: {
     marginTop: 12,
     marginBottom: 4,
     fontSize: 10,
     fontWeight: 'bold',
     color: PDF.primary,
+    textAlign: 'right',
   },
   foot: {
-    direction: 'rtl',
-    flexDirection: 'row',
+    ...PDF_TABLE_ROW,
     justifyContent: 'space-between',
     marginTop: 10,
     paddingVertical: 10,
@@ -78,7 +78,7 @@ function SectionRows({
       <Text style={col.section}>{ar(title)}</Text>
       <View style={col.head} wrap={false}>
         <Text style={[col.th, col.balance]}>{ar('الرصيد')}</Text>
-        <Text style={[col.th, col.name]}>{ar('اسم الحساب')}</Text>
+        <Text style={[col.thAr, col.name]}>{ar('اسم الحساب')}</Text>
         <Text style={[col.th, col.code]}>{ar('الرمز')}</Text>
       </View>
       {rows.map((r, i) => (
@@ -87,7 +87,7 @@ function SectionRows({
             <PdfMoneyText amount={Number(r.balance)} />
           </View>
           <Text style={[col.td, col.name]}>{ar(r.category_name)}</Text>
-          <Text style={[col.td, col.code]}>{r.category_code}</Text>
+          <Text style={[col.td, col.code, { textAlign: 'center' }]}>{r.category_code}</Text>
         </View>
       ))}
       <View style={[col.row, { backgroundColor: PDF.rowAlt }]} wrap={false}>
@@ -128,9 +128,18 @@ export function BalanceSheetReportPDF({
       <SectionRows title="حقوق الملكية" rows={equity} />
 
       <View style={col.foot} wrap={false}>
-        <Text style={pdfBase.footLabel}>{ar('الأصول = الخصوم + حقوق الملكية')}</Text>
-        <Text style={{ fontSize: 9, fontWeight: 'bold', color: balanced ? PDF.primary : '#b91c1c' }}>
+        <Text
+          style={{
+            fontSize: 9,
+            fontWeight: 'bold',
+            color: balanced ? PDF.primary : '#b91c1c',
+            textAlign: 'left',
+          }}
+        >
           {balanced ? ar('متوازنة') : ar('غير متوازنة')}
+        </Text>
+        <Text style={[pdfBase.footLabel, { textAlign: 'right' }]}>
+          {ar('الأصول = الخصوم + حقوق الملكية')}
         </Text>
       </View>
 

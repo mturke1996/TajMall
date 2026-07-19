@@ -34,16 +34,34 @@ export const PDF = {
   paleGold: p.paleGold,
 };
 
+/** مساحة التذييل والرأس — محتوى التقرير لا يختلط معهما */
+export const PDF_PAGINATION = {
+  headerReserve: 78,
+  footerBottom: 10,
+  footerHeight: 46,
+  /** paddingBottom للصفحة فقط — يمنع تداخل الجسم مع التذييل المثبّت */
+  footerReserve: 56,
+} as const;
+
 export const pdfBase = {
+  /**
+   * الصفحة بدون direction:'rtl' — RTL على مستوى الصفحة يعكس الأرقام اللاتينية
+   * (2014→4102) ويقلب موضع العملة. العربية تُحاذى بـ textAlign:'right' في العناصر.
+   */
   page: {
-    direction: 'rtl',
     fontFamily: PDF_FONT_FAMILY,
     fontSize: 9,
     color: PDF.text,
     backgroundColor: PDF.white,
-    paddingTop: 28,
-    paddingBottom: 48,
+    paddingTop: PDF_PAGINATION.headerReserve,
+    paddingBottom: PDF_PAGINATION.footerReserve,
     paddingHorizontal: 36,
+  },
+
+  /** كتلة المحتوى المتدفق — منفصلة عن التذييل/الرأس المثبّتين */
+  pageFlow: {
+    width: '100%',
+    flexDirection: 'column',
   },
 
   pageAccentBar: {
@@ -114,8 +132,7 @@ export const pdfBase = {
     fontSize: 11.5,
     fontWeight: 'bold',
     color: PDF.primary,
-    letterSpacing: 0.15,
-    textAlign: 'right',
+        textAlign: 'right',
   },
 
   brandSub: {
@@ -138,8 +155,7 @@ export const pdfBase = {
     alignSelf: 'flex-start',
     paddingBottom: 3,
     marginBottom: 6,
-    letterSpacing: 1.2,
-    fontWeight: 'bold',
+        fontWeight: 'bold',
     textAlign: 'left',
     borderBottomWidth: 1.5,
     borderBottomColor: PDF.logoGreen,
@@ -150,8 +166,7 @@ export const pdfBase = {
     fontWeight: 'bold',
     color: PDF.primary,
     textAlign: 'left',
-    letterSpacing: 0.2,
-    lineHeight: 1.3,
+        lineHeight: 1.3,
   },
 
   reportSub: {
@@ -202,8 +217,7 @@ export const pdfBase = {
     fontSize: 7.5,
     color: '#ffffff',
     fontWeight: 'bold',
-    letterSpacing: 1.4,
-    textAlign: 'right',
+        textAlign: 'right',
   },
 
   luxeRibbonHint: {
@@ -211,8 +225,7 @@ export const pdfBase = {
     color: '#ffffff',
     opacity: 0.7,
     fontWeight: 'normal',
-    letterSpacing: 0.6,
-    textAlign: 'left',
+        textAlign: 'left',
   },
 
   /** صف الملخص: أول عنصر في JSX = خلية التاريخ → تُرسَم يمين الورقة، ثم الفواصل والخلايا نحو اليسار */
@@ -251,8 +264,7 @@ export const pdfBase = {
     fontSize: 7.5,
     color: PDF.muted,
     fontWeight: 'bold',
-    letterSpacing: 1.1,
-    marginBottom: 12,
+        marginBottom: 12,
     textAlign: 'right',
   },
 
@@ -290,8 +302,7 @@ export const pdfBase = {
     color: PDF.logoGreen,
     fontWeight: 'bold',
     marginTop: 3,
-    letterSpacing: 0.4,
-    textAlign: 'right',
+        textAlign: 'right',
   },
 
   luxeGregorian: {
@@ -301,8 +312,7 @@ export const pdfBase = {
     paddingTop: 8,
     borderTopWidth: 0.5,
     borderTopColor: PDF.border,
-    letterSpacing: 0.8,
-    textAlign: 'right',
+        textAlign: 'right',
   },
 
   luxeValue: {
@@ -310,38 +320,34 @@ export const pdfBase = {
     fontWeight: 'bold',
     color: PDF.primary,
     textAlign: 'right',
-    letterSpacing: 0.2,
-    lineHeight: 1.15,
+        lineHeight: 1.15,
   },
 
-  /** صف عملة + رقم — LTR؛ العملة أيسر والمبلغ على يمينها؛ المحتوى يُحاذى يمين الخلية */
+  /** صف رقم + عملة — row-reverse مثل Etlala (الرقم ثم د.ل في القراءة العربية) */
   luxeMoneyRow: {
     width: '100%',
-    flexDirection: 'row',
-    direction: 'ltr',
+    flexDirection: 'row-reverse',
     alignItems: 'baseline',
-    justifyContent: 'flex-end',
-    gap: 6,
+    justifyContent: 'flex-start',
   },
 
   luxeMoneyCurrency: {
     fontSize: 13,
     fontWeight: 'bold',
     color: PDF.primary,
-    letterSpacing: 0.2,
-  },
+      },
 
   luxeValueSub: {
     fontSize: 8,
     color: PDF.muted,
     marginTop: 6,
     textAlign: 'right',
-    letterSpacing: 0.4,
-  },
+      },
 
   tableHead: {
-    direction: 'rtl',
+    direction: 'ltr',
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: PDF.headerBg,
     paddingVertical: 8,
     paddingHorizontal: 9,
@@ -358,7 +364,7 @@ export const pdfBase = {
   },
 
   tableRow: {
-    direction: 'rtl',
+    direction: 'ltr',
     flexDirection: 'row',
     paddingVertical: 7,
     paddingHorizontal: 8,
@@ -470,14 +476,13 @@ export const pdfBase = {
     paddingRight: 6,
     borderBottomWidth: 1.5,
     borderBottomColor: PDF.logoGreen,
-    letterSpacing: 0.2,
-    textAlign: 'right',
+        textAlign: 'right',
   },
 
   caption: {
     fontSize: 8,
     color: PDF.muted,
-    marginTop: 12,
+    marginTop: 8,
     textAlign: 'center',
   },
 

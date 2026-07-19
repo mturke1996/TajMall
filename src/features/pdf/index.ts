@@ -3,7 +3,14 @@
 
 // Core
 export { registerPdfFonts, PDF_FONT_FAMILY } from './pdfFonts';
-export { ar, arMoney, arDate } from './arabicPDF';
+export { ar, arMoney, arDate, ltrAmountCurrency, ltrNum } from './arabicPDF';
+export { PDF_TABLE_ROW, PDF_AR_CELL, PDF_NUM_CELL } from './pdfTable';
+export {
+  PdfMoneyText as PdfMoneyTextCore,
+  PdfNumberText,
+  pdfFormatMoneyLtr,
+  pdfFormatAmountLtr,
+} from './pdfMoney';
 export { ReportShell } from './ReportShell';
 export { DownloadPdfButton } from './download-button';
 export { TajMallPdfToolbar } from './taj-mall-pdf-toolbar';
@@ -23,7 +30,7 @@ export {
 } from './pdfBrandKit';
 
 // Base Styles
-export { PDF, pdfBase } from './pdfBase';
+export { PDF, pdfBase, PDF_PAGINATION } from './pdfBase';
 
 // Report PDFs (journals & business)
 export { JournalPDF, type JournalEntryPdfModel } from './JournalPDF';

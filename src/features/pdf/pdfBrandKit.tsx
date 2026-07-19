@@ -5,7 +5,14 @@ import { View, Text, StyleSheet, Image } from "@react-pdf/renderer";
 import { PDF_FONT_FAMILY } from "./pdfFonts";
 import { ar } from "./arabicPDF";
 import { BRAND, buildPdfFooterLine } from "@/lib/brand";
+import { PDF_PAGINATION } from "./pdfBase";
 import { usePdfLogoDataUri } from "./pdf-logo-context";
+import {
+  pdfFormatAmountRaw,
+  pdfFormatMoneyLtr,
+  PdfMoneyText as PdfMoneyTextImpl,
+  PDF_CURRENCY_AR,
+} from "./pdfMoney";
 
 const bp = BRAND.pdfPalette;
 
@@ -44,8 +51,8 @@ export const pdfBrandStyles = StyleSheet.create({
     fontSize: 9,
     color: PDFPalette.text,
     backgroundColor: PDFPalette.white,
-    paddingTop: 30,
-    paddingBottom: 56,
+    paddingTop: PDF_PAGINATION.headerReserve,
+    paddingBottom: PDF_PAGINATION.footerReserve,
     paddingHorizontal: 36,
   },
 
@@ -79,8 +86,7 @@ export const pdfBrandStyles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "bold",
     color: "#a3a3a3",
-    letterSpacing: 1.2,
-    marginBottom: 4,
+        marginBottom: 4,
     textAlign: "right",
   },
   titleAr: { 
@@ -109,8 +115,7 @@ export const pdfBrandStyles = StyleSheet.create({
     marginBottom: 3,
     textAlign: "right",
     lineHeight: 1.35,
-    letterSpacing: 0.2,
-  },
+      },
   engineer: {
     fontSize: 10,
     fontWeight: "bold",
@@ -123,8 +128,7 @@ export const pdfBrandStyles = StyleSheet.create({
     fontWeight: "bold",
     color: PDFPalette.muted,
     textAlign: "right",
-    letterSpacing: 0.6,
-  },
+      },
 
   divider: {
     borderBottomWidth: 2,
@@ -199,23 +203,21 @@ export const pdfBrandStyles = StyleSheet.create({
     lineHeight: 1.55,
   },
 
-  // Footer Styles
+  // Footer — كتلة display:block مثبتة أسفل الصفحة (منفصلة عن الجسم)
   footer: {
     position: "absolute",
-    bottom: 14,
+    bottom: PDF_PAGINATION.footerBottom,
     left: 36,
     right: 36,
-    textAlign: "center",
     borderTopWidth: 1,
     borderTopColor: PDFPalette.border,
-    paddingTop: 8,
+    paddingTop: 5,
+    paddingBottom: 2,
   },
-  footerBlock: {
-    marginTop: 14,
-    textAlign: "center",
-    borderTopWidth: 1,
-    borderTopColor: PDFPalette.border,
-    paddingTop: 8,
+  footerInner: {
+    width: "100%",
+    flexDirection: "column",
+    alignItems: "center",
   },
   footerBrand: {
     fontSize: 9.5,
@@ -503,7 +505,7 @@ export const PdfLogoMark = ({ size = 64 }: { size?: number }) => {
 // Helper Functions
 // ============================================================
 export function pdfFmtNum(n: number): string {
-  return new Intl.NumberFormat("en-US").format(Math.round(n || 0));
+  return pdfFormatAmountRaw(n);
 }
 
 export function pdfFmtDate(iso?: string): string {
@@ -520,42 +522,42 @@ export function pdfFmtDate(iso?: string): string {
 }
 
 export function pdfFmtMoneyLibyan(n: number): string {
-  return `${LIBYAN_CURRENCY_LABEL} ${pdfFmtNum(n)}`;
+  return pdfFormatMoneyLtr(n, LIBYAN_CURRENCY_LABEL || PDF_CURRENCY_AR);
 }
 
-/** مكوّن يعرض المبلغ ثم العملة بشكل مضمون بدون انعكاس RTL */
+/**
+ * مبلغ بترتيب ثابت: الرقم ثم «د.ل» — انظر pdfMoney.tsx
+ * (currStyle مُتجاهَل؛ الإبقاء للتوافق مع الاستدعاءات القديمة)
+ */
 export const PdfMoneyText = ({
   amount,
   style,
   currStyle,
   containerStyle,
+  currency,
+  align,
+  color,
+  light,
 }: {
   amount: number;
   style?: any;
   currStyle?: any;
   containerStyle?: any;
+  currency?: string;
+  align?: 'left' | 'center' | 'right';
+  color?: string;
+  light?: boolean;
 }) => (
-  <View
-    wrap={false}
-    style={[
-      {
-        flexDirection: "row-reverse",
-        alignItems: "baseline",
-        justifyContent: "flex-start",
-      },
-      containerStyle,
-    ]}
-  >
-    <Text style={style}>{pdfFmtNum(amount)}</Text>
-    <Text
-      style={[
-        { fontSize: 9, color: PDFPalette.text, fontWeight: "bold", marginRight: 3 },
-        currStyle,
-      ]}
-    >
-      {LIBYAN_CURRENCY_LABEL}
-    </Text>
-  </View>
+  <PdfMoneyTextImpl
+    amount={amount}
+    style={style}
+    currStyle={currStyle}
+    containerStyle={containerStyle}
+    currency={currency ?? LIBYAN_CURRENCY_LABEL}
+    align={align}
+    color={color}
+    light={light}
+  />
 );
 
 // ============================================================
@@ -573,24 +575,28 @@ export const TajMallPdfFooter = ({
   fixed?: boolean;
 }) => {
   const strip = buildPdfFooterLine();
-  const content = (
-    <>
+  const block = (
+    <View style={pdfBrandStyles.footerInner}>
       <Text style={pdfBrandStyles.footerBrand}>{ar(companyName)}</Text>
       <Text style={pdfBrandStyles.footerEng}>{ar(tagline)}</Text>
       {strip ? <Text style={pdfBrandStyles.footerMuted}>{ar(strip)}</Text> : null}
       <Text style={pdfBrandStyles.footerNote}>{ar(footerNote)}</Text>
-    </>
+    </View>
   );
 
   if (fixed) {
     return (
       <View style={pdfBrandStyles.footer} fixed>
-        {content}
+        {block}
       </View>
     );
   }
 
-  return <View style={pdfBrandStyles.footerBlock}>{content}</View>;
+  return (
+    <View style={[pdfBrandStyles.footer, { position: 'relative', bottom: 0, left: 0, right: 0 }]}>
+      {block}
+    </View>
+  );
 };
 
 // ============================================================

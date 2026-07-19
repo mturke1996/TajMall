@@ -9,6 +9,8 @@
  * عند استخدام Tajawal (تضارب بين أشكال العرض والخط الحقيقي).
  */
 
+import { pdfFormatMoneyLtr, pdfFormatAmountRaw } from './pdfMoney';
+
 /**
  * للعرض داخل مكوّنات @react-pdf/renderer: أعد النص كما هو (أو سلسلة الأرقام).
  */
@@ -18,20 +20,21 @@ export function ar(text: string | number | null | undefined): string {
 }
 
 /**
- * تنسيق المال بالدينار الليبي
- */
-export function arMoney(amount: number, currency = 'د.ل'): string {
-  const formatted = new Intl.NumberFormat('en-US').format(Math.round(amount || 0));
-  return `${formatted} ${currency}`;
-}
-
-/**
- * مبلغ + عملة بترتيب «الرقم ثم العملة» داخل سياق RTL في react-pdf؛ يمنع انقلاب ترتيب البيدي للعملات العربية.
+ * مبلغ + عملة — للنص العادي فقط؛ داخل PDF استخدم PdfMoneyText.
+ * ترتيب Etlala: العملة ثم الرقم في السلسلة (للسياقات التي لا تدعم المكوّن).
  */
 export function ltrAmountCurrency(amount: number, currency = 'د.ل'): string {
-  const formatted = new Intl.NumberFormat('en-US').format(Math.round(amount || 0));
-  const curr = String(currency ?? '').trim();
-  return `\u202A${formatted}\u00A0${curr}\u202C`;
+  return pdfFormatMoneyLtr(amount, currency);
+}
+
+/** تنسيق المال بالدينار الليبي */
+export function arMoney(amount: number, currency = 'د.ل'): string {
+  return pdfFormatMoneyLtr(amount, currency);
+}
+
+/** رقم معزول LTR */
+export function ltrNum(amount: number): string {
+  return pdfFormatAmountRaw(amount);
 }
 
 /**

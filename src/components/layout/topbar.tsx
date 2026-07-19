@@ -60,7 +60,7 @@ export function TopBar({
   onOpenMobileNav?: () => void;
   onOpenSearch?: () => void;
 }) {
-  const { isViewer, loading: permLoading } = usePermission();
+  const { isViewer, loading: permLoading, can } = usePermission();
 
   return (
     <header
@@ -105,11 +105,13 @@ export function TopBar({
         <NewTransactionButton variant="outline" size="sm" />
         <NotificationBell />
         <ThemeToggle />
-        <Button size="icon-sm" variant="ghost" className="hidden md:flex" asChild>
-          <Link href="/users" prefetch={true} aria-label="المستخدمون والصلاحيات">
-            <Shield className="h-4 w-4" />
-          </Link>
-        </Button>
+        {can('org.users') && (
+          <Button size="icon-sm" variant="ghost" className="hidden md:flex" asChild>
+            <Link href="/users" prefetch={true} aria-label="المستخدمون والصلاحيات">
+              <Shield className="h-4 w-4" />
+            </Link>
+          </Button>
+        )}
         <UserMenu />
       </div>
     </header>
