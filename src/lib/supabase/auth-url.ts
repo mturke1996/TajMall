@@ -6,5 +6,6 @@ export function getAppOrigin(): string {
 }
 
 export function resetPasswordRedirectUrl(): string {
-  return `${getAuthRedirectOrigin()}/auth/callback?next=${encodeURIComponent('/login/reset-password')}`;
+  // Supabase يُلحق token_hash&type=recovery أو code — نعالجهما في /login/reset-password
+  return `${getAuthRedirectOrigin()}/login/reset-password`;
 }
