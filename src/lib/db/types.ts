@@ -345,3 +345,78 @@ export type AccountMappingRow = {
   created_at: string;
   updated_at: string;
 };
+
+/** مراسلة رسمية أو اعتيادية — migration 058 */
+export type CorrespondenceLetterType = 'official' | 'routine';
+export type CorrespondenceLetterStatus = 'draft' | 'issued' | 'archived';
+
+export type CorrespondenceLetterRow = {
+  id: string;
+  letter_number: string;
+  letter_date: string;
+  letter_type: CorrespondenceLetterType;
+  subject: string;
+  recipient_name: string;
+  recipient_title: string | null;
+  body: string;
+  reference_number: string | null;
+  status: CorrespondenceLetterStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SaveCorrespondenceLetterInput = {
+  letter_number: string;
+  letter_date: string;
+  letter_type: CorrespondenceLetterType;
+  subject: string;
+  recipient_name: string;
+  recipient_title?: string;
+  body: string;
+  reference_number?: string;
+  status?: CorrespondenceLetterStatus;
+};
+
+export type ReceiptVoucherLineRow = {
+  id: string;
+  receipt_id: string;
+  sort_order: number;
+  description: string;
+  amount: string;
+  created_at: string;
+};
+
+export type ReceiptVoucherRow = {
+  id: string;
+  receipt_number: string;
+  receipt_date: string;
+  payer_name: string;
+  cashbox_id: string | null;
+  category_id: string | null;
+  method: PaymentMethod;
+  bank_name: string | null;
+  account_number: string | null;
+  notes: string | null;
+  total_amount: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ReceiptVoucherWithLines = ReceiptVoucherRow & {
+  receipt_voucher_lines: ReceiptVoucherLineRow[];
+};
+
+export type SaveReceiptVoucherInput = {
+  receipt_number: string;
+  receipt_date: string;
+  payer_name: string;
+  cashbox_id?: string;
+  category_id?: string;
+  method: PaymentMethod;
+  bank_name?: string;
+  account_number?: string;
+  notes?: string;
+  lines: Array<{ description: string; amount: number }>;
+};

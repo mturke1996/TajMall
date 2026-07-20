@@ -5,6 +5,7 @@ export function isNavActive(pathname: string, href: string): boolean {
   if (href === '/dashboard') return pathname === '/dashboard';
   // مركز التقارير فقط — لا يفعّل على /reports/ledger وغيرها
   if (href === '/reports') return pathname === '/reports';
+  if (href === '/documents') return pathname === '/documents';
 
   const [path, queryString] = href.split('?');
 

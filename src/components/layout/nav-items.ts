@@ -25,6 +25,7 @@ import {
   CalendarRange,
   TrendingUp,
   PieChart,
+  Stamp,
   type LucideIcon,
 } from 'lucide-react';
 import type { PermissionKey } from '@/lib/constants';
@@ -112,6 +113,13 @@ export const NAV: NavSection[] = [
         label: 'Vouchers',
         icon: Receipt,
         permission: 'voucher.view',
+      },
+      {
+        href: '/documents',
+        labelAr: 'الوثائق والمراسلات',
+        label: 'Documents',
+        icon: Stamp,
+        permission: 'document.view',
       },
     ],
   },

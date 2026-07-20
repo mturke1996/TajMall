@@ -124,6 +124,8 @@ export const PERMISSION_KEYS = [
   'journal.view', 'journal.create', 'journal.post', 'journal.reverse',
   // voucher
   'voucher.view', 'voucher.create', 'voucher.approve', 'voucher.post', 'voucher.cancel',
+  // documents (مركز الوثائق والمراسلات)
+  'document.view', 'document.create', 'document.update', 'document.delete',
   // org
   'org.settings', 'org.branches', 'org.users', 'org.roles', 'org.audit',
 ] as const;

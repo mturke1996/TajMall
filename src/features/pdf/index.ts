@@ -44,3 +44,6 @@ export { CashFlowReportPDF } from './CashFlowReportPDF';
 export { BalanceSheetReportPDF } from './BalanceSheetReportPDF';
 export { TenantArAgingReportPDF } from './TenantArAgingReportPDF';
 export { TenantChargeInvoicePDF } from './TenantChargeInvoicePDF';
+export { OfficialLetterPDF } from './OfficialLetterPDF';
+export { ReceiptVoucherPDF } from './ReceiptVoucherPDF';
+export { VoucherPDF } from './VoucherPDF';

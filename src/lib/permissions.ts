@@ -34,6 +34,10 @@ const ALL: PermissionKey[] = [
   'voucher.approve',
   'voucher.post',
   'voucher.cancel',
+  'document.view',
+  'document.create',
+  'document.update',
+  'document.delete',
   'org.settings',
   'org.branches',
   'org.users',
@@ -78,6 +82,9 @@ export function can(role: string | null | undefined, key: PermissionKey): boolea
     // يبقى لـ owner/admin/accountant فقط، حتى لو كان cashier يستطيع
     // إنشاء وإرسال الإذن للاعتماد.
     if (g === 'voucher' && key === 'voucher.approve') return false;
+    if (g === 'document') {
+      return key === 'document.view' || key === 'document.create';
+    }
     if (g === 'revenue' || g === 'expense' || g === 'voucher') return true;
     if (g === 'cashbox') return key === 'cashbox.manage' || key === 'cashbox.view';
     if (g === 'journal') return key === 'journal.view';
