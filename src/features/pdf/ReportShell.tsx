@@ -6,7 +6,7 @@ import { Document, Page, Text, View } from '@react-pdf/renderer';
 
 import { ar, arDateParts } from './arabicPDF';
 
-import { pdfBase } from './pdfBase';
+import { pdfBase, PDF } from './pdfBase';
 
 import { TajMallPdfFooter, TajMallPdfHeader, PdfLogoMark, PdfMoneyText } from './pdfBrandKit';
 
@@ -36,6 +36,26 @@ export type ReportShellMetaCell = {
 
   valueDirection?: 'ltr' | 'rtl';
 
+  /** تصغير خط المبلغ تلقائياً عند كبر الرقم */
+  adaptiveMoney?: boolean;
+
+};
+
+
+
+/** يُستبدل بخلية التاريخ عند تمرير فترة (ربع / نصف / سنة) */
+export type ReportShellPeriodSummary = {
+
+  eyebrow: string;
+
+  title: string;
+
+  subtitle: string;
+
+  hint: string;
+
+  badge?: string;
+
 };
 
 
@@ -60,6 +80,8 @@ export function ReportShell({
 
   metaCells = [],
 
+  periodSummary,
+
   summaryPrimaryDateIso,
 
   summaryPrimaryDateLabel,
@@ -72,6 +94,9 @@ export function ReportShell({
 
   headerProps,
 
+  /** عنوان ملف PDF الداخلي (يظهر في قارئ PDF والمشاركة) */
+  documentTitle,
+
 }: {
 
   title: string;
@@ -79,6 +104,8 @@ export function ReportShell({
   subtitle?: string;
 
   metaCells?: ReportShellMetaCell[];
+
+  periodSummary?: ReportShellPeriodSummary;
 
   summaryPrimaryDateIso?: string;
 
@@ -101,6 +128,8 @@ export function ReportShell({
     companyInfo?: any;
 
   };
+
+  documentTitle?: string;
 
 }) {
 
@@ -132,7 +161,7 @@ export function ReportShell({
 
   return (
 
-    <Document title={`${BRAND.name} - ${title}`} author={BRAND.fullName}>
+    <Document title={documentTitle ?? `${BRAND.name} - ${title}`} author={BRAND.fullName}>
 
       <Page size="A4" style={pdfBase.page} wrap>
 
@@ -214,27 +243,99 @@ export function ReportShell({
 
                 <View style={pdfBase.luxeDateCell}>
 
-                  <Text style={pdfBase.luxeEyebrow}>{ar(luxeBigDateLabel)}</Text>
+                  {periodSummary ? (
 
-                  <View style={pdfBase.luxeDateBlock}>
+                    <>
 
-                    <Text style={pdfBase.luxeDay}>{dateParts.day}</Text>
+                      <Text style={pdfBase.luxeEyebrow}>{ar(periodSummary.eyebrow)}</Text>
 
-                    <View style={pdfBase.luxeDateTexts}>
+                      {periodSummary.badge ? (
 
-                      <Text style={pdfBase.luxeMonthYear}>{ar(dateParts.monthYear)}</Text>
+                        <View
 
-                      <Text style={pdfBase.luxeWeekday}>{ar(dateParts.weekday)}</Text>
+                          style={{
 
-                    </View>
+                            alignSelf: 'flex-end',
 
-                  </View>
+                            backgroundColor: PDF.logoGreen,
 
-                  <Text style={pdfBase.luxeGregorian}>
+                            paddingVertical: 3,
 
-                    {ar(`ميلادي · ${dateParts.gregorian}`)}
+                            paddingHorizontal: 8,
 
-                  </Text>
+                            borderRadius: 3,
+
+                            marginBottom: 8,
+
+                          }}
+
+                        >
+
+                          <Text
+
+                            style={{
+
+                              fontSize: 7.5,
+
+                              fontWeight: 'bold',
+
+                              color: '#fff',
+
+                              textAlign: 'right',
+
+                            }}
+
+                          >
+
+                            {ar(periodSummary.badge)}
+
+                          </Text>
+
+                        </View>
+
+                      ) : null}
+
+                      <Text style={pdfBase.luxeMonthYear}>{ar(periodSummary.title)}</Text>
+
+                      <Text style={[pdfBase.luxeWeekday, { marginTop: 4 }]}>
+
+                        {ar(periodSummary.subtitle)}
+
+                      </Text>
+
+                      <Text style={pdfBase.luxeGregorian}>{ar(periodSummary.hint)}</Text>
+
+                    </>
+
+                  ) : (
+
+                    <>
+
+                      <Text style={pdfBase.luxeEyebrow}>{ar(luxeBigDateLabel)}</Text>
+
+                      <View style={pdfBase.luxeDateBlock}>
+
+                        <Text style={pdfBase.luxeDay}>{dateParts.day}</Text>
+
+                        <View style={pdfBase.luxeDateTexts}>
+
+                          <Text style={pdfBase.luxeMonthYear}>{ar(dateParts.monthYear)}</Text>
+
+                          <Text style={pdfBase.luxeWeekday}>{ar(dateParts.weekday)}</Text>
+
+                        </View>
+
+                      </View>
+
+                      <Text style={pdfBase.luxeGregorian}>
+
+                        {ar(`ميلادي · ${dateParts.gregorian}`)}
+
+                      </Text>
+
+                    </>
+
+                  )}
 
                 </View>
 
@@ -258,11 +359,15 @@ export function ReportShell({
 
                         align="right"
 
+                        adaptive={c.adaptiveMoney !== false}
+
+                        adaptiveBase={15}
+
                         style={pdfBase.luxeValue}
 
                         currStyle={pdfBase.luxeMoneyCurrency}
 
-                        containerStyle={{ justifyContent: 'flex-start' }}
+                        containerStyle={{ justifyContent: 'flex-start', maxWidth: '100%' }}
 
                       />
 

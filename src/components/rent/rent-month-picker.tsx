@@ -57,30 +57,43 @@ export function RentMonthPicker({
         {keys.map((key) => {
           const isSelected = selected.includes(key);
           const status = statusByMonth.get(key);
+          const isExempt = status === 'exempt';
           const statusClass =
-            showStatus && status ? RENT_MONTH_STATUS_CLASS[status] : 'border-border bg-card';
+            showStatus && status
+              ? RENT_MONTH_STATUS_CLASS[status]
+              : 'border-border bg-card';
+
           return (
             <button
               key={key}
               type="button"
-              onClick={() =>
-                onChange(
-                  singleMonth
-                    ? selected.includes(key)
-                      ? []
-                      : [key]
-                    : maxMonths != null && maxMonths > 0
-                      ? toggleMonthInSelectionCapped(selected, key, maxMonths)
-                      : toggleMonthInSelection(selected, key),
-                )
-              }
+              disabled={isExempt}
+              title={isExempt ? 'شهر بدون مطالبة' : undefined}
+              onClick={() => {
+                if (isExempt) return;
+                if (singleMonth) {
+                  onChange(selected.includes(key) ? [] : [key]);
+                  return;
+                }
+                if (maxMonths != null && maxMonths > 0) {
+                  onChange(toggleMonthInSelectionCapped(selected, key, maxMonths));
+                  return;
+                }
+                onChange(toggleMonthInSelection(selected, key));
+              }}
               className={cn(
-                'rounded-lg px-2 py-2 text-[11px] touch-manipulation transition-colors',
+                'rounded-lg px-2 py-2 text-[11px] touch-manipulation transition-colors border-2',
                 statusClass,
+                isExempt && 'opacity-50 cursor-not-allowed',
                 isSelected && 'ring-2 ring-sage-600 ring-offset-1',
               )}
             >
-              <RentMonthLabel monthKey={key} layout="stacked" />
+              <RentMonthLabel
+                monthKey={key}
+                status={isExempt ? 'exempt' : undefined}
+                statusLabel={isExempt ? 'بدون مطالبة' : undefined}
+                layout="stacked"
+              />
             </button>
           );
         })}

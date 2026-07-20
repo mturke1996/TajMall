@@ -11,18 +11,21 @@ import { cn, formatMoney } from '@/lib/utils';
 export function TenantCurrentMonthBadge({
   tenant,
   monthKey,
+  periodLabel,
   className,
 }: {
   tenant: TenantRentSummary;
   monthKey?: string | null;
+  periodLabel?: string | null;
   className?: string;
 }) {
   const pres = getTenantRentStatusPresentation(tenant.current_month_status);
   const Icon = pres.icon;
   const label =
-    monthKey || tenant.current_month_key
+    periodLabel ??
+    (monthKey || tenant.current_month_key
       ? monthNameAr(monthKey || tenant.current_month_key!)
-      : currentMonthNameAr();
+      : currentMonthNameAr());
 
   return (
     <span
@@ -45,9 +48,11 @@ export function TenantCurrentMonthBadge({
 export function TenantRentListStats({
   tenant,
   compact = false,
+  periodLabel,
 }: {
   tenant: TenantRentSummary;
   compact?: boolean;
+  periodLabel?: string | null;
 }) {
   const rent =
     Number(tenant.current_month_amount) ||
@@ -78,9 +83,10 @@ export function TenantRentListStats({
   }
 
   const monthLabel =
-    tenant.current_month_key
-      ? monthNameAr(tenant.current_month_key)
-      : currentMonthNameAr();
+    periodLabel ??
+    (tenant.current_month_key
+      ? monthNameAr(tenant.current_month_key.split(',')[0] ?? tenant.current_month_key)
+      : currentMonthNameAr());
 
   return (
     <dl className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[12px]">

@@ -1,76 +1,18 @@
 // @ts-nocheck
 import React from 'react';
-import { Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Text, View } from '@react-pdf/renderer';
 import { ReportShell } from './ReportShell';
 import { ar } from './arabicPDF';
-import { pdfBase, PDF } from './pdfBase';
-import { PdfMoneyText, pdfFmtNum } from './pdfBrandKit';
-import { PDF_TABLE_ROW } from './pdfTable';
+import { PDF } from './pdfBase';
+import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTable';
 
-/**
- * أعمدة الجدول (يسار ← يمين فيزيائياً في Yoga):
- * رصيد | دائن | مدين | بيان | مرجع | رقم | تاريخ
- * → التاريخ على يمين الورقة (بداية القراءة العربية)
- */
-const col = StyleSheet.create({
-  row: {
-    ...PDF_TABLE_ROW,
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-    borderBottomWidth: 0.5,
-    borderBottomColor: PDF.border,
-  },
-  rowAlt: { backgroundColor: PDF.rowAlt },
-  head: {
-    ...PDF_TABLE_ROW,
-    backgroundColor: PDF.headerBg,
-    paddingVertical: 7,
-    paddingHorizontal: 6,
-    marginBottom: 2,
-    borderBottomWidth: 1,
-    borderBottomColor: PDF.border,
-  },
-  th: { color: PDF.white, fontSize: 8.5, fontWeight: 'bold', textAlign: 'center' },
-  thAr: { color: PDF.white, fontSize: 8.5, fontWeight: 'bold', textAlign: 'right' },
-  td: { fontSize: 8.5, color: PDF.text, textAlign: 'right' },
-  tdMuted: { fontSize: 8, color: PDF.muted, textAlign: 'center' },
-  date: { width: '14%' },
-  number: { width: '12%' },
-  ref: { width: '14%' },
-  desc: { flex: 1, paddingHorizontal: 4 },
-  debit: { width: '15%' },
-  credit: { width: '15%' },
-  balance: { width: '15%' },
-  openRow: {
-    ...PDF_TABLE_ROW,
-    paddingVertical: 6,
-    paddingHorizontal: 6,
-    backgroundColor: PDF.logoGreenSoft,
-    borderBottomWidth: 0.5,
-    borderBottomColor: PDF.border,
-  },
-  foot: {
-    ...PDF_TABLE_ROW,
-    marginTop: 4,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    backgroundColor: PDF.logoGreenSoft,
-    borderTopWidth: 1.5,
-    borderTopColor: PDF.primary,
-  },
-  footHint: {
-    fontSize: 7,
-    color: PDF.muted,
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  footLabel: {
-    fontSize: 8.5,
-    fontWeight: 'bold',
-    color: PDF.text,
-    textAlign: 'right',
-  },
-});
+const W = {
+  balance: '14%',
+  credit: '13%',
+  debit: '13%',
+  desc: '42%',
+  meta: '18%',
+};
 
 export type LedgerReportPdfProps = {
   category: { name_ar: string; code: string; type: string };
@@ -89,6 +31,7 @@ export type LedgerReportPdfProps = {
     credit: number;
     runningBalance: number;
   }>;
+  documentTitle?: string;
 };
 
 export function LedgerReportPDF({
@@ -100,100 +43,129 @@ export function LedgerReportPDF({
   totalDebit,
   totalCredit,
   lines,
+  documentTitle,
 }: LedgerReportPdfProps) {
   const periodLabel =
     startDate || endDate
-      ? `${startDate ?? '…'} ← ${endDate ?? '…'}`
+      ? `${startDate ?? '…'} — ${endDate ?? '…'}`
       : 'كل الفترات';
 
   return (
     <ReportShell
       title={`دفتر الأستاذ — ${category.name_ar}`}
-      subtitle={`كشف حساب تفصيلي للبند ${category.code}`}
+      subtitle={`${category.code} · ${periodLabel}`}
+      documentTitle={documentTitle}
+      periodSummary={{
+        eyebrow: 'General Ledger',
+        title: category.name_ar,
+        subtitle: `${lines.length} حركة · ${category.code}`,
+        hint: periodLabel,
+      }}
       metaCells={[
-        { label: 'البند', value: `${category.code} · ${category.name_ar}` },
-        { label: 'الفترة', value: periodLabel },
-        { label: 'عدد الحركات', value: pdfFmtNum(lines.length) },
+        { label: 'الرصيد الافتتاحي', moneyAmount: openingBalance, adaptiveMoney: true },
+        { label: 'الرصيد الختامي', moneyAmount: closingBalance, adaptiveMoney: true },
       ]}
     >
-      <Text style={pdfBase.sectionTitle}>{ar('حركات البند والرصيد التراكمي')}</Text>
-
-      <View style={col.head} wrap={false}>
-        <Text style={[col.th, col.balance]}>{ar('الرصيد')}</Text>
-        <Text style={[col.th, col.credit]}>{ar('دائن')}</Text>
-        <Text style={[col.th, col.debit]}>{ar('مدين')}</Text>
-        <Text style={[col.thAr, col.desc]}>{ar('البيان')}</Text>
-        <Text style={[col.th, col.ref]}>{ar('المرجع')}</Text>
-        <Text style={[col.th, col.number]}>{ar('رقم القيد')}</Text>
-        <Text style={[col.th, col.date]}>{ar('التاريخ')}</Text>
-      </View>
-
-      <View style={col.openRow} wrap={false}>
-        <View style={col.balance}>
-          <PdfMoneyText amount={openingBalance} />
+      <View style={pdfReportTable.hero} wrap={false}>
+        <View style={pdfReportTable.heroCell}>
+          <Text style={pdfReportTable.heroLabel}>{ar('نوع البند')}</Text>
+          <Text style={pdfReportTable.heroValue}>{ar(category.type)}</Text>
         </View>
-        <Text style={[col.tdMuted, col.credit]}>—</Text>
-        <Text style={[col.tdMuted, col.debit]}>—</Text>
-        <Text style={[col.footLabel, col.desc]}>{ar('الرصيد الافتتاحي')}</Text>
-        <Text style={[col.tdMuted, col.ref]}>—</Text>
-        <Text style={[col.tdMuted, col.number]}>—</Text>
-        <Text style={[col.tdMuted, col.date]}>—</Text>
+        <View style={pdfReportTable.heroCell}>
+          <Text style={pdfReportTable.heroLabel}>{ar('الفترة')}</Text>
+          <Text style={pdfReportTable.heroValue}>{periodLabel}</Text>
+        </View>
+        <View style={pdfReportTable.heroCell}>
+          <Text style={pdfReportTable.heroLabel}>{ar('الحركات')}</Text>
+          <Text style={pdfReportTable.heroValue}>{ar(String(lines.length))}</Text>
+        </View>
       </View>
 
-      {lines.length === 0 ? (
-        <Text style={[pdfBase.caption, { paddingVertical: 12 }]}>
-          {ar('لا توجد حركات مرحّلة ضمن الفترة المحددة.')}
-        </Text>
-      ) : (
-        lines.map((l, i) => (
-          <View key={i} style={[col.row, i % 2 === 1 ? col.rowAlt : {}]} wrap={false}>
-            <View style={col.balance}>
-              <PdfMoneyText amount={Number(l.runningBalance)} />
-            </View>
-            <View style={col.credit}>
-              {l.credit > 0 ? (
-                <PdfMoneyText amount={Number(l.credit)} />
-              ) : (
-                <Text style={col.tdMuted}>—</Text>
-              )}
-            </View>
-            <View style={col.debit}>
-              {l.debit > 0 ? (
-                <PdfMoneyText amount={Number(l.debit)} />
-              ) : (
-                <Text style={col.tdMuted}>—</Text>
-              )}
-            </View>
-            <Text style={[col.td, col.desc]}>{ar(l.description ?? '—')}</Text>
-            <Text style={[col.tdMuted, col.ref]}>{l.journal_reference ?? '—'}</Text>
-            <Text style={[col.tdMuted, col.number]}>{l.journal_number}</Text>
-            <Text style={[col.tdMuted, col.date]}>{l.entry_date}</Text>
+      <View style={pdfReportTable.tableWrap}>
+        <View style={pdfReportTable.tableHead} wrap={false}>
+          <Text style={[pdfReportTable.th, { width: W.balance }]}>{ar('الرصيد')}</Text>
+          <Text style={[pdfReportTable.th, { width: W.credit }]}>{ar('دائن')}</Text>
+          <Text style={[pdfReportTable.th, { width: W.debit }]}>{ar('مدين')}</Text>
+          <Text style={[pdfReportTable.thAr, { width: W.desc }]}>{ar('البيان')}</Text>
+          <Text style={[pdfReportTable.th, { width: W.meta }]}>{ar('تاريخ / قيد')}</Text>
+        </View>
+
+        <View
+          style={[pdfReportTable.tableRow, { backgroundColor: PDF.logoGreenSoft }]}
+          wrap={false}
+        >
+          <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
+            <PdfReportMoney amount={openingBalance} bold />
           </View>
-        ))
-      )}
+          <Text style={[pdfReportTable.tdMuted, { width: W.credit }]}>—</Text>
+          <Text style={[pdfReportTable.tdMuted, { width: W.debit }]}>—</Text>
+          <Text style={[pdfReportTable.tdAr, { width: W.desc, fontWeight: 'bold' }]}>
+            {ar('الرصيد الافتتاحي')}
+          </Text>
+          <Text style={[pdfReportTable.tdMuted, { width: W.meta }]}>—</Text>
+        </View>
 
-      <View style={col.foot} wrap={false}>
-        <View style={col.balance}>
-          <Text style={col.footHint}>{ar('رصيد ختامي')}</Text>
-          <PdfMoneyText amount={closingBalance} style={{ fontSize: 9.5, fontWeight: 'bold', color: PDF.primary }} />
-        </View>
-        <View style={col.credit}>
-          <Text style={[col.footHint, { color: PDF.danger }]}>{ar('إجمالي دائن')}</Text>
-          <PdfMoneyText amount={totalCredit} style={{ fontSize: 9.5, fontWeight: 'bold', color: PDF.danger }} />
-        </View>
-        <View style={col.debit}>
-          <Text style={[col.footHint, { color: PDF.success }]}>{ar('إجمالي مدين')}</Text>
-          <PdfMoneyText amount={totalDebit} style={{ fontSize: 9.5, fontWeight: 'bold', color: PDF.success }} />
-        </View>
-        <Text style={[col.footLabel, col.desc]}>{ar('إجمالي الفترة')}</Text>
-        <Text style={[col.tdMuted, col.ref]}>—</Text>
-        <Text style={[col.tdMuted, col.number]}>{pdfFmtNum(lines.length)}</Text>
-        <Text style={[col.tdMuted, col.date]}>—</Text>
+        {lines.length === 0 ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <Text style={pdfReportTable.tdMuted}>
+              {ar('لا توجد حركات مرحّلة في الفترة')}
+            </Text>
+          </View>
+        ) : (
+          lines.map((l, i) => (
+            <View
+              key={`${l.journal_number}-${i}`}
+              style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]}
+            >
+              <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
+                <PdfReportMoney amount={Number(l.runningBalance)} />
+              </View>
+              <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
+                <PdfReportMoney amount={Number(l.credit)} color={PDF.danger} />
+              </View>
+              <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
+                <PdfReportMoney amount={Number(l.debit)} color={PDF.success} />
+              </View>
+              <View style={{ width: W.desc, ...pdfReportTable.tdAr }}>
+                <Text style={pdfReportTable.tdAr}>{ar(l.description ?? '—')}</Text>
+                {l.journal_reference ? (
+                  <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>
+                    {ar(l.journal_reference)}
+                  </Text>
+                ) : null}
+              </View>
+              <View style={{ width: W.meta, alignItems: 'center' }}>
+                <Text style={{ fontSize: 8, color: PDF.text, textAlign: 'center' }}>
+                  {l.entry_date}
+                </Text>
+                <Text style={{ fontSize: 7.5, color: PDF.muted, textAlign: 'center' }}>
+                  #{l.journal_number}
+                </Text>
+              </View>
+            </View>
+          ))
+        )}
       </View>
 
-      <Text style={pdfBase.caption}>
-        {ar('وثيقة محاسبية مُولَّدة آلياً من منظومة تاج مول')}
-      </Text>
+      <View style={pdfReportTable.totalBar} wrap={false}>
+        <View style={pdfReportTable.totalCluster}>
+          <View style={pdfReportTable.totalMini}>
+            <Text style={pdfReportTable.totalMiniLabel}>{ar('دائن')}</Text>
+            <PdfReportMoney amount={totalCredit} bold />
+          </View>
+          <View style={pdfReportTable.totalMini}>
+            <Text style={pdfReportTable.totalMiniLabel}>{ar('مدين')}</Text>
+            <PdfReportMoney amount={totalDebit} bold />
+          </View>
+          <View style={pdfReportTable.totalMini}>
+            <Text style={pdfReportTable.totalMiniLabel}>{ar('ختامي')}</Text>
+            <PdfReportMoney amount={closingBalance} bold />
+          </View>
+        </View>
+        <Text style={pdfReportTable.totalLabel}>{ar('إجمالي دفتر الأستاذ')}</Text>
+      </View>
+
+      <PdfReportCaption />
     </ReportShell>
   );
 }

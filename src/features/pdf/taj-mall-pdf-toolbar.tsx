@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, type ReactElement } from 'react';
+import { useState, useRef, useCallback, useEffect, type ReactElement } from 'react';
 import { FileDown, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,12 @@ import { PdfPreviewDialog } from './pdf-preview-dialog';
 type Props = {
   /** بدون امتداد .pdf */
   fileName: string;
+  /** عنوان واضح في نافذة المشاركة (واتساب، إلخ) */
+  shareTitle?: string;
+  /** نص توضيحي يُرفق مع المشاركة */
+  shareText?: string;
+  /** يُبطل التخزين المؤقت عند تغيّر الفترة أو الفلتر */
+  cacheKey?: string;
   render: () => Promise<ReactElement>;
   disabled?: boolean;
   showDownload?: boolean;
@@ -19,6 +25,9 @@ type Props = {
 
 export function TajMallPdfToolbar({
   fileName,
+  shareTitle,
+  shareText,
+  cacheKey,
   render,
   disabled,
   showDownload = true,
@@ -55,6 +64,12 @@ export function TajMallPdfToolbar({
     },
     [revokePreviewUrl],
   );
+
+  useEffect(() => {
+    blobRef.current = null;
+    setPreviewOpen(false);
+    revokePreviewUrl();
+  }, [fileName, cacheKey, revokePreviewUrl]);
 
   async function ensureBlob(): Promise<Blob> {
     if (blobRef.current) return blobRef.current;
@@ -98,13 +113,15 @@ export function TajMallPdfToolbar({
     }
   }
 
+  const shareMeta = { title: shareTitle, text: shareText };
+
   async function handleDownload() {
     if (dlBusy || disabled) return;
     setDlBusy(true);
     const id = toast.loading('جاري تجهيز التحميل…');
     try {
       const blob = await ensureBlob();
-      const mode = await savePdfBlob(blob, fileName);
+      const mode = await savePdfBlob(blob, fileName, shareMeta);
       toast.success(
         mode === 'share' ? 'اختر «حفظ في الملفات» من قائمة المشاركة' : 'تم تنزيل الملف',
         { id },
@@ -125,7 +142,7 @@ export function TajMallPdfToolbar({
     setShareBusy(true);
     try {
       const blob = await ensureBlob();
-      await savePdfBlob(blob, fileName);
+      await savePdfBlob(blob, fileName, shareMeta);
     } catch (e) {
       console.error(e);
       if (!(e instanceof Error && e.name === 'AbortError')) {
@@ -178,6 +195,7 @@ export function TajMallPdfToolbar({
         onOpenChange={closePreview}
         url={previewUrl}
         fileName={fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`}
+        displayTitle={shareTitle}
         onDownload={handleDownload}
         downloadBusy={dlBusy}
         canShare={canShareFiles}

@@ -34,6 +34,7 @@ export function shouldUseInAppPdfViewer(): boolean {
 export async function savePdfBlob(
   blob: Blob,
   fileName: string,
+  shareMeta?: { title?: string; text?: string },
 ): Promise<'share' | 'download'> {
   const name = normalizePdfFileName(fileName);
   const file = new File([blob], name, { type: 'application/pdf' });
@@ -47,7 +48,8 @@ export async function savePdfBlob(
     try {
       await navigator.share({
         files: [file],
-        title: name.replace(/\.pdf$/i, ''),
+        title: shareMeta?.title ?? name.replace(/\.pdf$/i, ''),
+        text: shareMeta?.text,
       });
       return 'share';
     } catch (err) {

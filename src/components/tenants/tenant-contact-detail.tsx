@@ -126,6 +126,14 @@ export function TenantContactDetail({
                   monthlyRent={monthlyRent}
                   journalEntries={journalEntries}
                   journalsLoading={jeLoading}
+                  contractStartYear={
+                    contact.contract_start
+                      ? new Date(contact.contract_start).getFullYear()
+                      : rent.rent_claim_start
+                        ? new Date(rent.rent_claim_start).getFullYear()
+                        : null
+                  }
+                  claimStart={rent.rent_claim_start ?? contact.contract_start ?? null}
                   className="border-0 shadow-none rounded-none"
                 />
               </TabsContent>

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { Suspense, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Scale, CheckCircle, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +25,8 @@ import {
   type TrialBalanceRowView,
   type TrialBalanceSummary,
 } from '@/components/accounting/trial-balance-mobile-list';
+import { parseReportPeriod } from '@/lib/report-period';
+import { formatAccountingReportExportNames } from '@/lib/report-pdf-export';
 
 const EMPTY_SUMMARY: TrialBalanceSummary = {
   total_opening_debit: 0,
@@ -34,9 +37,10 @@ const EMPTY_SUMMARY: TrialBalanceSummary = {
   total_closing_credit: 0,
 };
 
-export default function TrialBalancePage() {
-  const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+function TrialBalanceContent() {
+  const searchParams = useSearchParams();
+  const initialYear = parseReportPeriod(searchParams).year;
+  const [selectedYear, setSelectedYear] = useState<number>(initialYear);
 
   const { data: rawBalanceData, isLoading, isError, error } = useTrialBalance(selectedYear);
 
@@ -98,6 +102,19 @@ export default function TrialBalancePage() {
   );
   const isBalanced = difference < 0.01;
 
+  const pdfExport = useMemo(
+    () =>
+      formatAccountingReportExportNames({
+        reportKindAr: 'ميزان المراجعة',
+        reportKindEn: 'trial-balance',
+        periodLabel: `السنة المالية ${selectedYear}`,
+        periodSlugEn: `fy-${selectedYear}`,
+        statsLine: `${balanceData.length} بند محاسبي.`,
+        balanced: isBalanced,
+      }),
+    [selectedYear, balanceData.length, isBalanced],
+  );
+
   return (
     <>
       <PageHeader
@@ -107,7 +124,7 @@ export default function TrialBalancePage() {
         actions={
           <>
             <ExportCsvButton
-              fileName={`ميزان-المراجعة-${selectedYear}`}
+              fileName={pdfExport.fileName}
               disabled={balanceData.length === 0}
               headers={[
                 'الكود',
@@ -135,14 +152,20 @@ export default function TrialBalancePage() {
               ])}
             />
             <TajMallPdfToolbar
-              fileName={`ميزان-المراجعة-${selectedYear}`}
+              fileName={pdfExport.fileName}
+              shareTitle={pdfExport.shareTitle}
+              shareText={pdfExport.shareText}
               disabled={balanceData.length === 0}
               render={async () => {
                 const { TrialBalanceReportPDF } = await import(
                   '@/features/pdf/TrialBalanceReportPDF'
                 );
                 return (
-                  <TrialBalanceReportPDF year={selectedYear} rows={balanceData} />
+                  <TrialBalanceReportPDF
+                    year={selectedYear}
+                    rows={balanceData}
+                    documentTitle={pdfExport.documentTitle}
+                  />
                 );
               }}
             />
@@ -272,5 +295,19 @@ export default function TrialBalancePage() {
         </Card>
       </AccountingPageBody>
     </>
+  );
+}
+
+export default function TrialBalancePage() {
+  return (
+    <Suspense
+      fallback={
+        <AccountingPageBody>
+          <AccountingLoading />
+        </AccountingPageBody>
+      }
+    >
+      <TrialBalanceContent />
+    </Suspense>
   );
 }

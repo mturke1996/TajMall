@@ -34,6 +34,7 @@ export { PDF, pdfBase, PDF_PAGINATION } from './pdfBase';
 
 // Report PDFs (journals & business)
 export { JournalPDF, type JournalEntryPdfModel } from './JournalPDF';
+export { PeriodJournalEntryPDF } from './PeriodJournalEntryPDF';
 export { TransactionsReportPDF } from './TransactionsReportPDF';
 export { TenantsReportPDF } from './TenantsReportPDF';
 export { ContactDossierPDF } from './ContactDossierPDF';

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { Suspense, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,8 @@ import {
   AccountingError,
   AccountingLoading,
 } from '@/components/accounting/accounting-states';
+import { parseReportPeriod } from '@/lib/report-period';
+import { formatAccountingReportExportNames } from '@/lib/report-pdf-export';
 
 type LineItem = { name_ar: string; code: string; amount: number };
 
@@ -70,12 +73,17 @@ function PnLLineList({
   );
 }
 
-export default function ProfitLossPage() {
-  const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
-  const [periodType, setPeriodType] = useState<'YEAR' | 'QUARTER' | 'MONTH'>('YEAR');
+function ProfitLossContent() {
+  const searchParams = useSearchParams();
+  const initialPeriod = parseReportPeriod(searchParams);
+  const [selectedYear, setSelectedYear] = useState<number>(initialPeriod.year);
+  const [periodType, setPeriodType] = useState<'YEAR' | 'QUARTER' | 'MONTH'>(
+    initialPeriod.mode === 'month' ? 'MONTH' : 'YEAR',
+  );
   const [selectedQuarter, setSelectedQuarter] = useState<number>(1);
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedMonth, setSelectedMonth] = useState<number>(
+    initialPeriod.month ?? new Date().getMonth() + 1,
+  );
 
   const rpcPeriod = toProfitLossRpcPeriod(periodType);
 
@@ -144,6 +152,26 @@ export default function ProfitLossPage() {
 
   const hasData = revenues.length > 0 || expenses.length > 0;
 
+  const periodSlugEn = useMemo(() => {
+    if (periodType === 'QUARTER') return `${selectedYear}-q${selectedQuarter}`;
+    if (periodType === 'MONTH') {
+      return `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+    }
+    return `fy-${selectedYear}`;
+  }, [periodType, selectedYear, selectedQuarter, selectedMonth]);
+
+  const pdfExport = useMemo(
+    () =>
+      formatAccountingReportExportNames({
+        reportKindAr: 'الأرباح والخسائر',
+        reportKindEn: 'profit-loss',
+        periodLabel: periodText,
+        periodSlugEn,
+        statsLine: `${revenues.length + expenses.length} بند · صافي ${netIncome >= 0 ? 'ربح' : 'خسارة'}.`,
+      }),
+    [periodText, periodSlugEn, revenues.length, expenses.length, netIncome],
+  );
+
   return (
     <>
       <PageHeader
@@ -153,7 +181,7 @@ export default function ProfitLossPage() {
         actions={
           <>
             <ExportCsvButton
-              fileName={`الأرباح-والخسائر-${selectedYear}-${periodType}`}
+              fileName={pdfExport.fileName}
               disabled={!hasData}
               headers={['النوع', 'الكود', 'البند', 'المبلغ']}
               rows={[
@@ -165,7 +193,9 @@ export default function ProfitLossPage() {
               ]}
             />
             <TajMallPdfToolbar
-              fileName={`الأرباح-والخسائر-${selectedYear}-${periodType}`}
+              fileName={pdfExport.fileName}
+              shareTitle={pdfExport.shareTitle}
+              shareText={pdfExport.shareText}
               disabled={!hasData}
               render={async () => {
                 const { ProfitLossReportPDF } = await import(
@@ -177,6 +207,7 @@ export default function ProfitLossPage() {
                     periodText={periodText}
                     revenues={revenues}
                     expenses={expenses}
+                    documentTitle={pdfExport.documentTitle}
                   />
                 );
               }}
@@ -347,5 +378,19 @@ export default function ProfitLossPage() {
         )}
       </AccountingPageBody>
     </>
+  );
+}
+
+export default function ProfitLossPage() {
+  return (
+    <Suspense
+      fallback={
+        <AccountingPageBody>
+          <AccountingLoading />
+        </AccountingPageBody>
+      }
+    >
+      <ProfitLossContent />
+    </Suspense>
   );
 }

@@ -83,3 +83,39 @@ pg_restore --no-owner --no-privileges -L toc.txt -d "<connection-string>" fluxen
 نسخة احتياطية لم تُختبَر استرجاعها = لا نسخة احتياطية فعلياً. يُستحسن كل
 شهرين تقريباً تحميل آخر نسخة وتجربة استعادتها على قاعدة فارغة للتأكد أن
 العملية تعمل بالكامل.
+
+---
+
+## النسخ الاحتياطي المحلي البارد (تطبيق سطح المكتب Tauri)
+
+طبقة **مستقلة** عن GitHub Actions: لقطة كاملة لبيانات الأعمال تُحفظ على جهاز
+التشغيل داخل تطبيق **Taj Mall** (Tauri).
+
+| | |
+|--|--|
+| **المكان** | `%APPDATA%\ly.tajmall.fluxen\backups\` (Windows) |
+| **الملفات** | `{id}.sqlite` + `{id}.zip` (JSON محمول) لكل لقطة |
+| **متى** | زر «إنشاء نسخة» من `/settings/backup`، أو تلقائياً عند فتح التطبيق (مرة كل 24 ساعة كحد أقصى) |
+| **الصلاحية** | `owner` / `admin` فقط |
+| **الاستخدام اليومي** | **لا** — التطبيق لا يقرأ من هذه الملفات؛ Supabase يبقى مصدر الحقيقة |
+
+### ماذا يحتوي الأرشيف ZIP؟
+
+- `manifest.json` — المعرّف، الوقت، أعداد الصفوف، checksum
+- `tables/<table>.json` — كل صفوف الجدول (`select *`) بنفس جودة البيانات الحية
+
+### استعادة طارئة لاستضافة / مشروع Supabase آخر
+
+1. أنشئ مشروعاً جديداً وطبق عليه هجرات `supabase/migrations`.
+2. أنشئ مستخدمي Auth المطابقين لصفوف `profiles` إن أمكن (أو تجاهل أخطاء FK على `profiles`).
+3. من جهاز فيه Node و`DIRECT_URL` للقاعدة **الجديدة**:
+
+```bash
+# PowerShell
+$env:DIRECT_URL="postgresql://postgres:[PASSWORD]@db.[REF].supabase.co:5432/postgres"
+npm run backup:restore-cold -- path\to\fluxen-cold-backup-XXXX.zip
+```
+
+السكربت: [`scripts/restore-cold-backup.mjs`](../scripts/restore-cold-backup.mjs).
+
+هذا مسار **هجرة / كارثة** فقط — ليس بديلاً عن العمل اليومي على Supabase.

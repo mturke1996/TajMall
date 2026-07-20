@@ -11,6 +11,7 @@ import {
   RENT_MONTH_STATUS_LABEL,
   RENT_MONTH_STATUS_TEXT_CLASS,
 } from '@/lib/rent-months';
+import { isCalendarMonthOutstanding } from '@/lib/rent-exempt-months';
 import { cn, formatMoney } from '@/lib/utils';
 
 export function TenantRentCalendar({
@@ -39,9 +40,7 @@ export function TenantRentCalendar({
   }
 
   const paid = data.months.filter((m) => m.status === 'paid').length;
-  const unpaid = data.months.filter(
-    (m) => m.status === 'unpaid' || m.status === 'partial' || m.status === 'no_charge',
-  ).length;
+  const unpaid = data.months.filter(isCalendarMonthOutstanding).length;
 
   return (
     <div className="space-y-3">
@@ -75,7 +74,7 @@ export function TenantRentCalendar({
       </div>
 
       <div className="flex flex-wrap gap-3 text-[11px] text-ink-mute">
-        {(['paid', 'partial', 'unpaid', 'no_charge'] as const).map((s) => (
+        {(['paid', 'partial', 'unpaid', 'no_charge', 'exempt'] as const).map((s) => (
           <span key={s} className="flex items-center gap-1">
             <span className={cn('h-2.5 w-2.5 rounded-sm', RENT_MONTH_LEGEND_SWATCH[s])} />
             <span className={RENT_MONTH_STATUS_TEXT_CLASS[s]}>

@@ -22,6 +22,7 @@ export function AccountingSummaryGrid({
       className={cn(
         'grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4',
         stats.length === 3 && 'lg:grid-cols-3',
+        stats.length >= 4 && 'lg:grid-cols-4',
         className,
       )}
     >

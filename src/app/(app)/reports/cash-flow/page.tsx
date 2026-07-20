@@ -18,6 +18,7 @@ import {
   AccountingError,
   AccountingLoading,
 } from '@/components/accounting/accounting-states';
+import { formatAccountingReportExportNames } from '@/lib/report-pdf-export';
 
 type CashFlowItem = {
   category: string;
@@ -123,6 +124,20 @@ export default function CashFlowPage() {
     };
   }, [rawCashFlow]);
 
+  const pdfExport = useMemo(
+    () =>
+      formatAccountingReportExportNames({
+        reportKindAr: 'التدفقات النقدية',
+        reportKindEn: 'cash-flow',
+        periodLabel: `عام ${selectedYear}`,
+        periodSlugEn: `fy-${selectedYear}`,
+        statsLine: cashFlowData
+          ? `صافي التغير ${cashFlowData.summary.netChange >= 0 ? '+' : ''}${cashFlowData.summary.netChange.toLocaleString('ar-LY')} د.ل.`
+          : undefined,
+      }),
+    [selectedYear, cashFlowData],
+  );
+
   return (
     <>
       <PageHeader
@@ -132,7 +147,7 @@ export default function CashFlowPage() {
         actions={
           <>
             <ExportCsvButton
-              fileName={`التدفقات-النقدية-${selectedYear}`}
+              fileName={pdfExport.fileName}
               disabled={!cashFlowData}
               headers={['النشاط', 'البند', 'الوصف', 'المبلغ']}
               rows={
@@ -149,12 +164,18 @@ export default function CashFlowPage() {
               }
             />
             <TajMallPdfToolbar
-              fileName={`التدفقات-النقدية-${selectedYear}`}
+              fileName={pdfExport.fileName}
+              shareTitle={pdfExport.shareTitle}
+              shareText={pdfExport.shareText}
               disabled={!cashFlowData}
               render={async () => {
                 const { CashFlowReportPDF } = await import('@/features/pdf/CashFlowReportPDF');
                 return (
-                  <CashFlowReportPDF year={selectedYear} data={cashFlowData!} />
+                  <CashFlowReportPDF
+                    year={selectedYear}
+                    data={cashFlowData!}
+                    documentTitle={pdfExport.documentTitle}
+                  />
                 );
               }}
             />

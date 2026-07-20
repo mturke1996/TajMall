@@ -10,6 +10,7 @@ import React from 'react';
 import { Text, View } from '@react-pdf/renderer';
 import { PDF_FONT_FAMILY } from './pdfFonts';
 import { PDF } from './pdfBase';
+import { pdfAdaptiveMoneySizes } from './pdfAdaptiveMoney';
 
 export const PDF_CURRENCY_AR = 'د.ل';
 
@@ -45,6 +46,9 @@ type PdfMoneyTextProps = {
   containerStyle?: any;
   color?: string;
   light?: boolean;
+  /** يصغّر الخط تلقائياً للمبالغ الطويلة */
+  adaptive?: boolean;
+  adaptiveBase?: number;
 };
 
 /** مكوّن يعرض المبلغ ثم العملة — مطابق لـ Etlala pdfKit.tsx */
@@ -57,12 +61,19 @@ export function PdfMoneyText({
   containerStyle,
   color,
   light = false,
+  adaptive = false,
+  adaptiveBase = 18,
 }: PdfMoneyTextProps) {
   const formatted = pdfFormatAmountRaw(amount);
   const sign = Number(amount) < 0 ? '-' : '';
   const curr = String(currency ?? PDF_CURRENCY_AR).trim() || PDF_CURRENCY_AR;
   const currColor = light ? 'rgba(255,255,255,0.92)' : PDF.muted;
   const amtColor = color || (light ? '#FBF8F1' : PDF.text);
+
+  const sizes = adaptive ? pdfAdaptiveMoneySizes(amount, adaptiveBase) : null;
+  const amountFontSize = sizes?.amountSize ?? (style?.fontSize as number | undefined) ?? 9;
+  const currencyFontSize =
+    sizes?.currencySize ?? (currStyle?.fontSize as number | undefined) ?? 8;
 
   const justify =
     align === 'right' ? 'flex-end' : align === 'left' ? 'flex-start' : 'center';
@@ -76,6 +87,7 @@ export function PdfMoneyText({
           alignItems: 'baseline',
           justifyContent: justify,
           width: '100%',
+          maxWidth: '100%',
         },
         containerStyle,
       ]}
@@ -84,11 +96,13 @@ export function PdfMoneyText({
         style={[
           {
             fontFamily: PDF_FONT_FAMILY,
-            fontSize: 9,
+            fontSize: amountFontSize,
             fontWeight: 'bold',
             color: amtColor,
+            flexShrink: 1,
           },
           style,
+          sizes ? { fontSize: amountFontSize } : null,
         ]}
       >
         {`${sign}${formatted}`}
@@ -97,12 +111,14 @@ export function PdfMoneyText({
         style={[
           {
             fontFamily: PDF_FONT_FAMILY,
-            fontSize: 8,
+            fontSize: currencyFontSize,
             color: currColor,
             fontWeight: 'bold',
             marginRight: 3,
+            flexShrink: 0,
           },
           currStyle,
+          sizes ? { fontSize: currencyFontSize } : null,
         ]}
       >
         {curr}

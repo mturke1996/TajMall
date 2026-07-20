@@ -249,8 +249,9 @@ export const pdfBase = {
   luxeCell: {
     direction: 'rtl',
     flex: 1,
+    minWidth: 0,
     paddingVertical: 18,
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
     justifyContent: 'center',
   },
 

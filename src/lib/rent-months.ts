@@ -5,6 +5,7 @@ export type RentMonthStatus =
   | 'partial'
   | 'unpaid'
   | 'no_charge'
+  | 'exempt'
   | 'na';
 
 export type RentMonthJournalLink = {
@@ -101,6 +102,7 @@ export const RENT_MONTH_STATUS_TEXT_CLASS: Record<RentMonthStatus, string> = {
   partial: 'text-amber-700',
   unpaid: 'text-red-700',
   no_charge: 'text-slate-600',
+  exempt: 'text-slate-500',
   na: 'text-ink-mute',
 };
 
@@ -170,6 +172,7 @@ export const RENT_MONTH_STATUS_LABEL: Record<RentMonthStatus, string> = {
   partial: 'جزئي',
   unpaid: 'غير مدفوع',
   no_charge: 'بلا مطالبة',
+  exempt: 'بدون مطالبة',
   na: '—',
 };
 
@@ -179,6 +182,7 @@ export const RENT_MONTH_STATUS_CLASS: Record<RentMonthStatus, string> = {
   partial: 'bg-white border-2 border-amber-400/80',
   unpaid: 'bg-white border-2 border-red-400/80',
   no_charge: 'bg-white border-2 border-slate-300',
+  exempt: 'bg-slate-50 border-2 border-dashed border-slate-300',
   na: 'bg-canvas-sunken border border-border',
 };
 
@@ -187,6 +191,7 @@ export const RENT_MONTH_CELL_FRAME: Record<RentMonthStatus, string> = {
   partial: 'bg-white border-2 border-amber-500 shadow-sm',
   unpaid: 'bg-white border-2 border-red-500 shadow-sm',
   no_charge: 'bg-white border-2 border-slate-400',
+  exempt: 'bg-slate-50/90 border-2 border-dashed border-slate-400',
   na: 'bg-canvas-sunken border border-border',
 };
 
@@ -199,4 +204,5 @@ export const RENT_MONTH_LEGEND_SWATCH: Record<
   partial: 'bg-white border-2 border-amber-500',
   unpaid: 'bg-white border-2 border-red-500',
   no_charge: 'bg-white border-2 border-slate-400',
+  exempt: 'bg-slate-50 border-2 border-dashed border-slate-400',
 };

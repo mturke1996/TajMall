@@ -15,6 +15,7 @@ import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { useSyncOverdueChargeReminders } from '@/lib/db/notification-queries';
 import { WhatsAppReminderButton } from '@/components/tenants/whatsapp-reminder-button';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
+import { formatAccountingReportExportNames } from '@/lib/report-pdf-export';
 
 type AgingRow = {
   tenant_id: string;
@@ -54,6 +55,18 @@ export default function TenantArAgingPage() {
     };
   }, [raw]);
 
+  const pdfExport = useMemo(
+    () =>
+      formatAccountingReportExportNames({
+        reportKindAr: 'أعمار ذمم المستأجرين',
+        reportKindEn: 'ar-aging',
+        periodLabel: `حتى ${asOf}`,
+        periodSlugEn: `as-of-${asOf}`,
+        statsLine: `${tenantCount} مستأجر · إجمالي ${totalOutstanding.toLocaleString('ar-LY')} د.ل.`,
+      }),
+    [asOf, tenantCount, totalOutstanding],
+  );
+
   return (
     <>
       <PageHeader
@@ -75,7 +88,7 @@ export default function TenantArAgingPage() {
               <Link href="/notifications">مركز الإشعارات</Link>
             </Button>
             <ExportCsvButton
-              fileName={`اعمار-الذمم-${asOf}`}
+              fileName={pdfExport.fileName}
               disabled={rows.length === 0}
               headers={['المستأجر', 'رقم المحل', 'الهاتف', 'إجمالي المتأخر', 'جاري', '1-30', '31-60', '+60']}
               rows={rows.map((r) => [
@@ -90,7 +103,9 @@ export default function TenantArAgingPage() {
               ])}
             />
             <TajMallPdfToolbar
-              fileName={`اعمار-الذمم-${asOf}`}
+              fileName={pdfExport.fileName}
+              shareTitle={pdfExport.shareTitle}
+              shareText={pdfExport.shareText}
               disabled={rows.length === 0}
               render={async () => {
                 const { TenantArAgingReportPDF } = await import('@/features/pdf/TenantArAgingReportPDF');
@@ -99,6 +114,7 @@ export default function TenantArAgingPage() {
                     asOf={asOf}
                     rows={rows}
                     summary={{ totalOutstanding, tenantCount }}
+                    documentTitle={pdfExport.documentTitle}
                   />
                 );
               }}

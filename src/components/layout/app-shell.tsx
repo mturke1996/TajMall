@@ -12,6 +12,7 @@ import { AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { NAV } from './nav-items';
 import { AppDataBootstrap } from './app-data-bootstrap';
+import { AutoColdBackup } from '@/components/backup/auto-cold-backup';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -70,6 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <MobileBottomNav />
       <NewTransactionDialog />
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
+      <AutoColdBackup />
     </div>
   );
 }

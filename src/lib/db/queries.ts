@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { mqk } from "@/lib/db/mall-queries";
@@ -529,6 +530,7 @@ export type TenantRentSummary = {
   total_balance: string;
   open_charges_total?: string | null;
   open_charges_count?: number | null;
+  rent_claim_start?: string | null;
 };
 
 export function useTenantRentSummary() {
@@ -548,22 +550,52 @@ export function useTenantRentSummary() {
 
 // ملخص إيجار المستأجرين لشهر محدد (YYYY-MM) عبر دالة Postgres
 // تستخدم نفس منطق tenant_rent_summary view تماماً لضمان تطابق الحالة.
+async function fetchTenantRentSummaryForMonth(
+  monthKey: string,
+): Promise<TenantRentSummary[]> {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc("tenant_rent_summary_for_month", {
+    p_month_key: monthKey,
+  });
+  if (error) throw error;
+  return ((data as TenantRentSummary[]) ?? []).sort((a, b) =>
+    a.name.localeCompare(b.name, "ar"),
+  );
+}
+
 export function useTenantRentSummaryForMonth(monthKey: string | null) {
   return useQuery<TenantRentSummary[]>({
     queryKey: ["tenant_rent_summary_for_month", monthKey],
     enabled: !!monthKey,
-    queryFn: async () => {
-      const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase.rpc(
-        "tenant_rent_summary_for_month",
-        { p_month_key: monthKey as string },
-      );
-      if (error) throw error;
-      return ((data as TenantRentSummary[]) ?? []).sort((a, b) =>
-        a.name.localeCompare(b.name, "ar"),
-      );
-    },
+    queryFn: () => fetchTenantRentSummaryForMonth(monthKey as string),
   });
+}
+
+export function useTenantRentSummaryForPeriod(monthKeys: string[]) {
+  const queries = useQueries({
+    queries: monthKeys.map((mk) => ({
+      queryKey: ["tenant_rent_summary_for_month", mk],
+      queryFn: () => fetchTenantRentSummaryForMonth(mk),
+      staleTime: 30_000,
+    })),
+  });
+
+  const isLoading =
+    monthKeys.length === 0
+      ? false
+      : queries.some((q) => q.isLoading || q.isFetching);
+  const isError = queries.some((q) => q.isError);
+  const error = queries.find((q) => q.error)?.error ?? null;
+
+  const data = useMemo(() => {
+    const rowsByMonth = new Map<string, TenantRentSummary[]>();
+    for (let i = 0; i < monthKeys.length; i++) {
+      rowsByMonth.set(monthKeys[i], queries[i]?.data ?? []);
+    }
+    return rowsByMonth;
+  }, [monthKeys, queries]);
+
+  return { data, isLoading, isError, error };
 }
 
 export type EmployeeSummary = {

@@ -57,11 +57,12 @@ const DialogContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         className={cn(
-          "absolute start-4 top-4 rounded-lg p-1.5",
+          // end = يسار في RTL / يمين في LTR — لا يتداخل مع عنوان النص
+          "absolute end-3 top-3 z-10 rounded-lg p-2",
           "text-muted-foreground transition-all duration-100",
           "hover:bg-canvas-sunken hover:text-foreground",
           "focus:outline-none focus:ring-2 focus:ring-ring/40",
-          "active:scale-95",
+          "active:scale-95 touch-manipulation",
         )}
       >
         <X className="h-4 w-4" />

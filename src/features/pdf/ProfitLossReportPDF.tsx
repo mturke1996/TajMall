@@ -1,79 +1,77 @@
 // @ts-nocheck
 import React from 'react';
-import { Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Text, View } from '@react-pdf/renderer';
 import { ReportShell } from './ReportShell';
 import { ar } from './arabicPDF';
-import { pdfBase, PDF } from './pdfBase';
-import { PdfMoneyText } from './pdfBrandKit';
-import { PDF_TABLE_ROW } from './pdfTable';
+import { PDF } from './pdfBase';
+import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTable';
 
-/** أعمدة: مبلغ | اسم | رمز → الرمز يميناً */
-const col = StyleSheet.create({
-  sectionHeader: {
-    backgroundColor: PDF.headerBg,
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-    marginTop: 10,
-    marginBottom: 5,
-    borderRadius: 2,
-  },
-  sectionTitle: {
-    color: PDF.white,
-    fontSize: 9.5,
-    fontWeight: 'bold',
-    textAlign: 'right',
-  },
-  row: {
-    ...PDF_TABLE_ROW,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: PDF.border,
-  },
-  rowAlt: { backgroundColor: PDF.rowAlt },
-  tdName: { flex: 1, textAlign: 'right', fontSize: 9, color: PDF.text, paddingHorizontal: 4 },
-  tdCode: { width: '20%', textAlign: 'center', fontSize: 8, color: PDF.muted },
-  tdAmt: { width: '25%' },
-  summaryRow: {
-    ...PDF_TABLE_ROW,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    backgroundColor: PDF.logoGreenSoft,
-    borderTopWidth: 1,
-    borderTopColor: PDF.primary,
-    marginTop: 2,
-    marginBottom: 10,
-  },
-  netIncomeRow: {
-    ...PDF_TABLE_ROW,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    backgroundColor: '#f0fdf4',
-    borderWidth: 1.5,
-    borderColor: PDF.primary,
-    borderRadius: 4,
-    marginTop: 15,
-  },
-  netLossRow: {
-    ...PDF_TABLE_ROW,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    backgroundColor: '#fef2f2',
-    borderWidth: 1.5,
-    borderColor: '#f87171',
-    borderRadius: 4,
-    marginTop: 15,
-  },
-});
+const W = { amount: '22%', name: '58%', code: '20%' };
 
 export type ProfitLossReportPdfProps = {
   year: number;
   periodText: string;
   revenues: Array<{ name_ar: string; code: string; amount: number }>;
   expenses: Array<{ name_ar: string; code: string; amount: number }>;
+  documentTitle?: string;
 };
 
-export function ProfitLossReportPDF({ year, periodText, revenues, expenses }: ProfitLossReportPdfProps) {
+function LineSection({
+  title,
+  rows,
+  tone,
+}: {
+  title: string;
+  rows: Array<{ name_ar: string; code: string; amount: number }>;
+  tone: 'revenue' | 'expense';
+}) {
+  const color = tone === 'revenue' ? PDF.success : PDF.danger;
+  const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
+  return (
+    <View style={{ marginBottom: 8 }}>
+      <View style={pdfReportTable.sectionBand}>
+        <Text style={pdfReportTable.sectionBandText}>{ar(title)}</Text>
+      </View>
+      <View style={pdfReportTable.tableWrap}>
+        {rows.length === 0 ? (
+          <View style={{ padding: 16, alignItems: 'center' }}>
+            <Text style={pdfReportTable.tdMuted}>{ar('لا توجد بنود')}</Text>
+          </View>
+        ) : (
+          rows.map((item, idx) => (
+            <View
+              key={item.code}
+              style={[pdfReportTable.tableRow, idx % 2 === 1 ? pdfReportTable.rowAlt : {}]}
+            >
+              <View style={[pdfReportTable.tdNum, { width: W.amount }]}>
+                <PdfReportMoney amount={Number(item.amount)} color={color} />
+              </View>
+              <Text style={[pdfReportTable.tdAr, { width: W.name }]}>{ar(item.name_ar)}</Text>
+              <Text style={[pdfReportTable.tdMuted, { width: W.code }]}>{item.code}</Text>
+            </View>
+          ))
+        )}
+        <View style={[pdfReportTable.tableRow, { backgroundColor: PDF.logoGreenSoft }]}>
+          <View style={[pdfReportTable.tdNum, { width: W.amount }]}>
+            <PdfReportMoney amount={total} color={color} bold />
+          </View>
+          <Text style={[pdfReportTable.tdAr, { width: W.name, fontWeight: 'bold' }]}>
+            {ar(`إجمالي ${title}`)}
+          </Text>
+          <Text style={{ width: W.code }} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+export function ProfitLossReportPDF({
+  year,
+  periodText,
+  revenues,
+  expenses,
+  documentTitle,
+}: ProfitLossReportPdfProps) {
   const totalRevenues = revenues.reduce((s, r) => s + Number(r.amount || 0), 0);
   const totalExpenses = expenses.reduce((s, r) => s + Number(r.amount || 0), 0);
   const netIncome = totalRevenues - totalExpenses;
@@ -81,102 +79,43 @@ export function ProfitLossReportPDF({ year, periodText, revenues, expenses }: Pr
 
   return (
     <ReportShell
-      title={`قائمة الأرباح والخسائر للعام ${year}`}
-      subtitle={`الفترة المحددة: ${periodText}`}
+      title="قائمة الأرباح والخسائر"
+      subtitle={`${periodText} · ${year}`}
+      documentTitle={documentTitle}
+      periodSummary={{
+        eyebrow: 'Profit & Loss',
+        title: periodText,
+        subtitle: `${revenues.length + expenses.length} بند`,
+        hint: isProfit ? 'صافي ربح' : 'صافي خسارة',
+        badge: isProfit ? 'ربح' : 'خسارة',
+      }}
       metaCells={[
-        { label: 'إجمالي الإيرادات', moneyAmount: totalRevenues },
-        { label: 'إجمالي المصروفات', moneyAmount: totalExpenses },
+        { label: 'إجمالي الإيرادات', moneyAmount: totalRevenues, adaptiveMoney: true },
+        { label: 'إجمالي المصروفات', moneyAmount: totalExpenses, adaptiveMoney: true },
       ]}
     >
-      <View style={col.sectionHeader} wrap={false}>
-        <Text style={col.sectionTitle}>{ar('الإيرادات التشغيلية')}</Text>
-      </View>
+      <LineSection title="الإيرادات" rows={revenues} tone="revenue" />
+      <LineSection title="المصروفات" rows={expenses} tone="expense" />
 
-      {revenues.length === 0 ? (
-        <Text style={[pdfBase.caption, { textAlign: 'center', marginVertical: 10 }]}>
-          {ar('لا توجد إيرادات مسجلة')}
-        </Text>
-      ) : (
-        revenues.map((item, idx) => (
-          <View key={item.code} style={[col.row, idx % 2 === 1 ? col.rowAlt : {}]} wrap={false}>
-            <View style={col.tdAmt}>
-              <PdfMoneyText amount={Number(item.amount)} style={{ color: '#15803d' }} />
-            </View>
-            <Text style={col.tdName}>{ar(item.name_ar)}</Text>
-            <Text style={col.tdCode}>{item.code}</Text>
+      <View
+        style={[
+          pdfReportTable.totalBar,
+          !isProfit ? pdfReportTable.totalBarWarn : {},
+        ]}
+        wrap={false}
+      >
+        <View style={pdfReportTable.totalCluster}>
+          <View style={pdfReportTable.totalMini}>
+            <Text style={pdfReportTable.totalMiniLabel}>{ar('صافي')}</Text>
+            <PdfReportMoney amount={Math.abs(netIncome)} bold />
           </View>
-        ))
-      )}
-
-      <View style={col.summaryRow} wrap={false}>
-        <View style={col.tdAmt}>
-          <PdfMoneyText
-            amount={totalRevenues}
-            style={{ fontWeight: 'bold', fontSize: 10, color: '#15803d' }}
-          />
         </View>
-        <Text style={[col.tdName, { fontWeight: 'bold' }]}>{ar('مجموع الإيرادات')}</Text>
-        <Text style={col.tdCode} />
-      </View>
-
-      <View style={col.sectionHeader} wrap={false}>
-        <Text style={col.sectionTitle}>{ar('المصروفات التشغيلية')}</Text>
-      </View>
-
-      {expenses.length === 0 ? (
-        <Text style={[pdfBase.caption, { textAlign: 'center', marginVertical: 10 }]}>
-          {ar('لا توجد مصروفات مسجلة')}
+        <Text style={pdfReportTable.totalLabel}>
+          {ar(isProfit ? 'صافي الربح التشغيلي' : 'صافي الخسارة التشغيلية')}
         </Text>
-      ) : (
-        expenses.map((item, idx) => (
-          <View key={item.code} style={[col.row, idx % 2 === 1 ? col.rowAlt : {}]} wrap={false}>
-            <View style={col.tdAmt}>
-              <PdfMoneyText amount={Number(item.amount)} style={{ color: '#b91c1c' }} />
-            </View>
-            <Text style={col.tdName}>{ar(item.name_ar)}</Text>
-            <Text style={col.tdCode}>{item.code}</Text>
-          </View>
-        ))
-      )}
-
-      <View style={col.summaryRow} wrap={false}>
-        <View style={col.tdAmt}>
-          <PdfMoneyText
-            amount={totalExpenses}
-            style={{ fontWeight: 'bold', fontSize: 10, color: '#b91c1c' }}
-          />
-        </View>
-        <Text style={[col.tdName, { fontWeight: 'bold' }]}>{ar('مجموع المصروفات')}</Text>
-        <Text style={col.tdCode} />
       </View>
 
-      <View style={isProfit ? col.netIncomeRow : col.netLossRow} wrap={false}>
-        <View style={col.tdAmt}>
-          <PdfMoneyText
-            amount={Math.abs(netIncome)}
-            style={{
-              fontWeight: 'bold',
-              fontSize: 12,
-              color: isProfit ? '#166534' : '#991b1b',
-            }}
-          />
-        </View>
-        <Text
-          style={[
-            col.tdName,
-            {
-              fontWeight: 'bold',
-              fontSize: 11,
-              color: isProfit ? '#166534' : '#991b1b',
-            },
-          ]}
-        >
-          {isProfit ? ar('صافي الربح التشغيلي') : ar('صافي الخسارة التشغيلية')}
-        </Text>
-        <Text style={col.tdCode} />
-      </View>
-
-      <Text style={pdfBase.caption}>{ar('وثيقة محاسبية مُولَّدة آلياً من منظومة تاج مول')}</Text>
+      <PdfReportCaption />
     </ReportShell>
   );
 }

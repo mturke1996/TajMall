@@ -18,6 +18,7 @@ import {
   Users,
   Coins,
   FileText,
+  FileSpreadsheet,
   Store,
   BookMarked,
   Scale,
@@ -174,6 +175,13 @@ export const NAV: NavSection[] = [
     title: 'Accounting & Reports',
     items: [
       {
+        href: '/reports',
+        labelAr: 'التقارير',
+        label: 'Reports',
+        icon: FileText,
+        permission: 'journal.view',
+      },
+      {
         href: '/journals',
         labelAr: 'دفتر اليومية',
         label: 'Journals',
@@ -186,6 +194,13 @@ export const NAV: NavSection[] = [
         label: 'Account Categories',
         icon: FolderTree,
         permission: 'account.view',
+      },
+      {
+        href: '/reports/journal-month',
+        labelAr: 'قيد الفترة',
+        label: 'Period Journal Entry',
+        icon: FileSpreadsheet,
+        permission: 'journal.view',
       },
       {
         href: '/reports/ledger',

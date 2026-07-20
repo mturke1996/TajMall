@@ -1,53 +1,12 @@
 // @ts-nocheck
 import React from 'react';
-import { Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Text, View } from '@react-pdf/renderer';
 import { ReportShell } from './ReportShell';
 import { ar } from './arabicPDF';
-import { pdfBase, PDF } from './pdfBase';
-import { PdfMoneyText } from './pdfBrandKit';
-import { PDF_TABLE_ROW } from './pdfTable';
+import { PDF } from './pdfBase';
+import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTable';
 
-/** أعمدة: مبلغ | بيان → البيان يميناً */
-const col = StyleSheet.create({
-  sectionHeader: {
-    backgroundColor: PDF.headerBg,
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-    marginTop: 10,
-    marginBottom: 5,
-    borderRadius: 2,
-  },
-  sectionTitle: {
-    color: PDF.white,
-    fontSize: 9.5,
-    fontWeight: 'bold',
-    textAlign: 'right',
-  },
-  row: {
-    ...PDF_TABLE_ROW,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: PDF.border,
-  },
-  rowAlt: { backgroundColor: PDF.rowAlt },
-  tdName: { flex: 1, textAlign: 'right', fontSize: 9, color: PDF.text },
-  tdAmt: { width: '25%' },
-  summaryRow: {
-    ...PDF_TABLE_ROW,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    backgroundColor: PDF.logoGreenSoft,
-    borderTopWidth: 1,
-    borderTopColor: PDF.primary,
-    marginTop: 2,
-    marginBottom: 10,
-  },
-  summaryValue: {
-    fontWeight: 'bold',
-    fontSize: 10,
-  },
-});
+const W = { amount: '24%', label: '76%' };
 
 export type CashFlowReportPdfProps = {
   year: number;
@@ -64,9 +23,64 @@ export type CashFlowReportPdfProps = {
       netChange: number;
     };
   };
+  documentTitle?: string;
 };
 
-export function CashFlowReportPDF({ year, data }: CashFlowReportPdfProps) {
+function FlowSection({
+  title,
+  items,
+  net,
+}: {
+  title: string;
+  items: Array<{ description: string; amount: number; isPositive: boolean }>;
+  net: number;
+}) {
+  return (
+    <View style={{ marginBottom: 8 }}>
+      <View style={pdfReportTable.sectionBand}>
+        <Text style={pdfReportTable.sectionBandText}>{ar(title)}</Text>
+      </View>
+      <View style={pdfReportTable.tableWrap}>
+        {items.length === 0 ? (
+          <View style={{ padding: 14, alignItems: 'center' }}>
+            <Text style={pdfReportTable.tdMuted}>{ar('لا توجد بنود')}</Text>
+          </View>
+        ) : (
+          items.map((item, idx) => (
+            <View
+              key={idx}
+              style={[pdfReportTable.tableRow, idx % 2 === 1 ? pdfReportTable.rowAlt : {}]}
+            >
+              <View style={[pdfReportTable.tdNum, { width: W.amount }]}>
+                <PdfReportMoney
+                  amount={item.amount}
+                  color={item.isPositive ? PDF.success : PDF.danger}
+                />
+              </View>
+              <Text style={[pdfReportTable.tdAr, { width: W.label }]}>
+                {ar(item.description)}
+              </Text>
+            </View>
+          ))
+        )}
+        <View style={[pdfReportTable.tableRow, { backgroundColor: PDF.logoGreenSoft }]}>
+          <View style={[pdfReportTable.tdNum, { width: W.amount }]}>
+            <PdfReportMoney
+              amount={net}
+              color={net >= 0 ? PDF.success : PDF.danger}
+              bold
+            />
+          </View>
+          <Text style={[pdfReportTable.tdAr, { width: W.label, fontWeight: 'bold' }]}>
+            {ar(`صافي ${title}`)}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+export function CashFlowReportPDF({ year, data, documentTitle }: CashFlowReportPdfProps) {
   const s = data.summary || {
     openingBalance: 0,
     closingBalance: 0,
@@ -75,152 +89,54 @@ export function CashFlowReportPDF({ year, data }: CashFlowReportPdfProps) {
     netFinancing: 0,
     netChange: 0,
   };
+  const periodLabel = `السنة المالية ${year}`;
 
   return (
     <ReportShell
-      title={`قائمة التدفقات النقدية للعام ${year}`}
-      subtitle={`ملخص مصادر النقد واستخداماته`}
+      title="قائمة التدفقات النقدية"
+      subtitle={periodLabel}
+      documentTitle={documentTitle}
+      periodSummary={{
+        eyebrow: 'Cash Flow',
+        title: periodLabel,
+        subtitle: `صافي التغير: ${s.netChange >= 0 ? '+' : ''}${s.netChange}`,
+        hint: 'مصادر واستخدامات النقد',
+      }}
       metaCells={[
-        { label: 'الرصيد الافتتاحي للنقد', moneyAmount: s.openingBalance },
-        { label: 'الرصيد الختامي للنقد', moneyAmount: s.closingBalance },
+        { label: 'رصيد افتتاحي', moneyAmount: s.openingBalance, adaptiveMoney: true },
+        { label: 'رصيد ختامي', moneyAmount: s.closingBalance, adaptiveMoney: true },
       ]}
     >
-      <View
-        style={[col.summaryRow, { backgroundColor: '#f8fafc', borderTopColor: '#64748b' }]}
-        wrap={false}
-      >
-        <View style={col.tdAmt}>
-          <PdfMoneyText amount={s.openingBalance} style={col.summaryValue} />
+      <View style={pdfReportTable.hero} wrap={false}>
+        <View style={pdfReportTable.heroCell}>
+          <Text style={pdfReportTable.heroLabel}>{ar('افتتاحي')}</Text>
+          <PdfReportMoney amount={s.openingBalance} bold />
         </View>
-        <Text style={[col.tdName, { fontWeight: 'bold' }]}>
-          {ar('النقد وما في حكمه - بداية الفترة')}
-        </Text>
+        <View style={pdfReportTable.heroCell}>
+          <Text style={pdfReportTable.heroLabel}>{ar('صافي التغير')}</Text>
+          <PdfReportMoney amount={s.netChange} bold />
+        </View>
+        <View style={pdfReportTable.heroCell}>
+          <Text style={pdfReportTable.heroLabel}>{ar('ختامي')}</Text>
+          <PdfReportMoney amount={s.closingBalance} bold />
+        </View>
       </View>
 
-      <View style={col.sectionHeader} wrap={false}>
-        <Text style={col.sectionTitle}>{ar('تدفقات نقدية من الأنشطة التشغيلية')}</Text>
-      </View>
+      <FlowSection title="الأنشطة التشغيلية" items={data.operating} net={s.netOperating} />
+      <FlowSection title="الأنشطة الاستثمارية" items={data.investing} net={s.netInvesting} />
+      <FlowSection title="الأنشطة التمويلية" items={data.financing} net={s.netFinancing} />
 
-      {data.operating.length === 0 ? (
-        <Text style={[pdfBase.caption, { textAlign: 'center', marginVertical: 8 }]}>
-          {ar('لا توجد تدفقات تشغيلية')}
-        </Text>
-      ) : (
-        data.operating.map((item, idx) => (
-          <View key={idx} style={[col.row, idx % 2 === 1 ? col.rowAlt : {}]} wrap={false}>
-            <View style={col.tdAmt}>
-              <PdfMoneyText
-                amount={item.amount}
-                style={{ color: item.isPositive ? '#166534' : '#991b1b' }}
-              />
-            </View>
-            <Text style={col.tdName}>{ar(item.description)}</Text>
+      <View style={pdfReportTable.totalBar} wrap={false}>
+        <View style={pdfReportTable.totalCluster}>
+          <View style={pdfReportTable.totalMini}>
+            <Text style={pdfReportTable.totalMiniLabel}>{ar('ختامي')}</Text>
+            <PdfReportMoney amount={s.closingBalance} bold />
           </View>
-        ))
-      )}
-
-      <View style={col.summaryRow} wrap={false}>
-        <View style={col.tdAmt}>
-          <PdfMoneyText
-            amount={s.netOperating}
-            style={[col.summaryValue, { color: s.netOperating >= 0 ? '#166534' : '#991b1b' }]}
-          />
         </View>
-        <Text style={[col.tdName, { fontWeight: 'bold' }]}>
-          {ar('صافي النقد من الأنشطة التشغيلية')}
-        </Text>
+        <Text style={pdfReportTable.totalLabel}>{ar('النقد — نهاية الفترة')}</Text>
       </View>
 
-      <View style={col.sectionHeader} wrap={false}>
-        <Text style={col.sectionTitle}>{ar('تدفقات نقدية من الأنشطة الاستثمارية')}</Text>
-      </View>
-
-      {data.investing.length === 0 ? (
-        <Text style={[pdfBase.caption, { textAlign: 'center', marginVertical: 8 }]}>
-          {ar('لا توجد تدفقات استثمارية')}
-        </Text>
-      ) : (
-        data.investing.map((item, idx) => (
-          <View key={idx} style={[col.row, idx % 2 === 1 ? col.rowAlt : {}]} wrap={false}>
-            <View style={col.tdAmt}>
-              <PdfMoneyText
-                amount={item.amount}
-                style={{ color: item.isPositive ? '#166534' : '#991b1b' }}
-              />
-            </View>
-            <Text style={col.tdName}>{ar(item.description)}</Text>
-          </View>
-        ))
-      )}
-
-      <View style={col.summaryRow} wrap={false}>
-        <View style={col.tdAmt}>
-          <PdfMoneyText
-            amount={s.netInvesting}
-            style={[col.summaryValue, { color: s.netInvesting >= 0 ? '#166534' : '#991b1b' }]}
-          />
-        </View>
-        <Text style={[col.tdName, { fontWeight: 'bold' }]}>
-          {ar('صافي النقد من الأنشطة الاستثمارية')}
-        </Text>
-      </View>
-
-      <View style={col.sectionHeader} wrap={false}>
-        <Text style={col.sectionTitle}>{ar('تدفقات نقدية من الأنشطة التمويلية')}</Text>
-      </View>
-
-      {data.financing.length === 0 ? (
-        <Text style={[pdfBase.caption, { textAlign: 'center', marginVertical: 8 }]}>
-          {ar('لا توجد تدفقات تمويلية')}
-        </Text>
-      ) : (
-        data.financing.map((item, idx) => (
-          <View key={idx} style={[col.row, idx % 2 === 1 ? col.rowAlt : {}]} wrap={false}>
-            <View style={col.tdAmt}>
-              <PdfMoneyText
-                amount={item.amount}
-                style={{ color: item.isPositive ? '#166534' : '#991b1b' }}
-              />
-            </View>
-            <Text style={col.tdName}>{ar(item.description)}</Text>
-          </View>
-        ))
-      )}
-
-      <View style={col.summaryRow} wrap={false}>
-        <View style={col.tdAmt}>
-          <PdfMoneyText
-            amount={s.netFinancing}
-            style={[col.summaryValue, { color: s.netFinancing >= 0 ? '#166534' : '#991b1b' }]}
-          />
-        </View>
-        <Text style={[col.tdName, { fontWeight: 'bold' }]}>
-          {ar('صافي النقد من الأنشطة التمويلية')}
-        </Text>
-      </View>
-
-      <View
-        style={[
-          col.summaryRow,
-          {
-            backgroundColor: '#f0fdf4',
-            borderTopColor: PDF.primary,
-            borderWidth: 1,
-            borderColor: PDF.primary,
-            marginTop: 10,
-          },
-        ]}
-        wrap={false}
-      >
-        <View style={col.tdAmt}>
-          <PdfMoneyText amount={s.closingBalance} style={[col.summaryValue, { fontSize: 11 }]} />
-        </View>
-        <Text style={[col.tdName, { fontWeight: 'bold', fontSize: 10 }]}>
-          {ar('النقد وما في حكمه - نهاية الفترة')}
-        </Text>
-      </View>
-
-      <Text style={pdfBase.caption}>{ar('وثيقة محاسبية مُولَّدة آلياً من منظومة تاج مول')}</Text>
+      <PdfReportCaption />
     </ReportShell>
   );
 }

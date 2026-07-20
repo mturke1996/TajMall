@@ -14,6 +14,8 @@ type PdfPreviewDialogProps = {
   onOpenChange: (open: boolean) => void;
   url: string | null;
   fileName: string;
+  /** عنوان واضح للعرض (بدلاً من اسم الملف التقني) */
+  displayTitle?: string;
   onDownload: () => void;
   downloadBusy?: boolean;
   canShare?: boolean;
@@ -26,6 +28,7 @@ export function PdfPreviewDialog({
   onOpenChange,
   url,
   fileName,
+  displayTitle,
   onDownload,
   downloadBusy,
   canShare,
@@ -43,10 +46,15 @@ export function PdfPreviewDialog({
         dir="rtl"
         aria-describedby={undefined}
       >
-        <DialogTitle className="sr-only">عرض {fileName}</DialogTitle>
+        <DialogTitle className="sr-only">عرض {displayTitle ?? fileName}</DialogTitle>
 
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-canvas px-3 py-2.5">
-          <p className="min-w-0 flex-1 truncate text-sm font-semibold">{fileName}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{displayTitle ?? fileName}</p>
+            {displayTitle ? (
+              <p className="truncate text-[11px] text-muted-foreground">{fileName}</p>
+            ) : null}
+          </div>
           <div className="flex shrink-0 items-center gap-1">
             {canShare && onShare ? (
               <Button

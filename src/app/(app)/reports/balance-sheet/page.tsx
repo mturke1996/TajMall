@@ -15,6 +15,7 @@ import { AccountingBackfillBanner } from '@/components/accounting/accounting-bac
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
+import { formatAccountingReportExportNames } from '@/lib/report-pdf-export';
 
 type BsRow = {
   category_id: string;
@@ -45,6 +46,19 @@ export default function BalanceSheetPage() {
   }, [raw]);
 
   const hasData = assets.length + liabilities.length + equity.length > 0;
+
+  const pdfExport = useMemo(
+    () =>
+      formatAccountingReportExportNames({
+        reportKindAr: 'الميزانية العمومية',
+        reportKindEn: 'balance-sheet',
+        periodLabel: `حتى ${asOf}`,
+        periodSlugEn: `as-of-${asOf}`,
+        statsLine: `${assets.length + liabilities.length + equity.length} بند.`,
+        balanced: isBalanced,
+      }),
+    [asOf, assets.length, liabilities.length, equity.length, isBalanced],
+  );
 
   function SectionTable({
     title,
@@ -113,7 +127,7 @@ export default function BalanceSheetPage() {
         actions={
           <>
             <ExportCsvButton
-              fileName={`الميزانية-العمومية-${asOf}`}
+              fileName={pdfExport.fileName}
               disabled={!hasData}
               headers={['التصنيف', 'الكود', 'البند', 'الرصيد']}
               rows={[
@@ -126,7 +140,9 @@ export default function BalanceSheetPage() {
               ]}
             />
             <TajMallPdfToolbar
-              fileName={`الميزانية-العمومية-${asOf}`}
+              fileName={pdfExport.fileName}
+              shareTitle={pdfExport.shareTitle}
+              shareText={pdfExport.shareText}
               disabled={!hasData}
               render={async () => {
                 const { BalanceSheetReportPDF } = await import('@/features/pdf/BalanceSheetReportPDF');
@@ -149,6 +165,7 @@ export default function BalanceSheetPage() {
                       balance: r.balance,
                     }))}
                     summary={summary}
+                    documentTitle={pdfExport.documentTitle}
                   />
                 );
               }}

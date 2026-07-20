@@ -1,4 +1,7 @@
 import { isRentCategoryCode } from '@/lib/charge-invoice';
+import {
+  applyExemptOverlayToCalendarMonths,
+} from '@/lib/rent-exempt-months';
 import type { TenantChargeWithRelations, TransactionWithRelations } from '@/lib/db/types';
 import {
   monthKey,
@@ -8,10 +11,11 @@ import {
 } from '@/lib/rent-months';
 
 const STATUS_RANK: Record<RentMonthStatus, number> = {
-  paid: 5,
-  partial: 4,
-  unpaid: 3,
-  no_charge: 2,
+  paid: 6,
+  partial: 5,
+  unpaid: 4,
+  no_charge: 3,
+  exempt: 2,
   na: 1,
 };
 
@@ -112,6 +116,10 @@ export function buildRentCalendarFromCharges(
   year: number,
   monthlyRent: number,
   charges: TenantChargeWithRelations[],
+  exemptOptions?: {
+    claimStart?: string | null;
+    manualExemptMonths?: ReadonlySet<string> | string[];
+  },
 ): TenantRentCalendar {
   const tenantRent = charges.filter(
     (c) =>
@@ -157,6 +165,10 @@ export function buildRentCalendarFromCharges(
     return emptyMonth(year, i + 1, monthlyRent);
   });
 
+  const resolvedMonths = exemptOptions
+    ? applyExemptOverlayToCalendarMonths(months, exemptOptions)
+    : months;
+
   let contractId: string | null = null;
   for (const c of tenantRent) {
     if (c.contract_id) {
@@ -170,7 +182,7 @@ export function buildRentCalendarFromCharges(
     tenant_id: tenantId,
     monthly_rent: monthlyRent,
     contract_id: contractId,
-    months,
+    months: resolvedMonths,
   };
 }
 
@@ -277,15 +289,28 @@ export function buildMergedTenantRentCalendar(input: {
   monthlyRent: number;
   charges: TenantChargeWithRelations[];
   rpcCalendar?: TenantRentCalendar | null;
+  exemptOptions?: {
+    claimStart?: string | null;
+    manualExemptMonths?: ReadonlySet<string> | string[];
+  };
 }): TenantRentCalendar {
   const fromCharges = buildRentCalendarFromCharges(
     input.tenantId,
     input.year,
     input.monthlyRent,
     input.charges,
+    input.exemptOptions,
   );
 
-  return mergeTenantRentCalendars(fromCharges, input.rpcCalendar ?? null) ?? fromCharges;
+  const merged =
+    mergeTenantRentCalendars(fromCharges, input.rpcCalendar ?? null) ?? fromCharges;
+
+  if (!input.exemptOptions) return merged;
+
+  return {
+    ...merged,
+    months: applyExemptOverlayToCalendarMonths(merged.months, input.exemptOptions),
+  };
 }
 
 export function monthStatusLabelForCalendar(

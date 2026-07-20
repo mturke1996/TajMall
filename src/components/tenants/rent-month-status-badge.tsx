@@ -8,6 +8,7 @@ const BADGE: Record<RentMonthStatus, string> = {
   partial: 'bg-amber-100 text-amber-950 border-amber-300',
   unpaid: 'bg-red-100 text-red-900 border-red-300',
   no_charge: 'bg-slate-100 text-slate-800 border-slate-300',
+  exempt: 'bg-slate-50 text-slate-700 border-dashed border-slate-400',
   na: 'bg-canvas-sunken text-ink-mute border-border',
 };
 

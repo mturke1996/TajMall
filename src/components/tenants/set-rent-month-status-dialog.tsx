@@ -53,6 +53,8 @@ type Props = {
   charges: TenantChargeWithRelations[];
   journalEntries: JournalEntryRow[];
   journalsLoading?: boolean;
+  claimStart?: string | null;
+  manualExemptMonths?: string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -65,6 +67,8 @@ export function SetRentMonthStatusDialog({
   charges,
   journalEntries,
   journalsLoading = false,
+  claimStart,
+  manualExemptMonths = [],
   open,
   onOpenChange,
 }: Props) {
@@ -136,8 +140,11 @@ export function SetRentMonthStatusDialog({
   }, [selectedKey, remaining]);
 
   const calendarMonths: RentCalendarMonth[] = useMemo(() => {
-    return buildRentCalendarFromCharges(tenantId, year, monthlyRent, charges).months;
-  }, [tenantId, year, monthlyRent, charges]);
+    return buildRentCalendarFromCharges(tenantId, year, monthlyRent, charges, {
+      claimStart,
+      manualExemptMonths,
+    }).months;
+  }, [tenantId, year, monthlyRent, charges, claimStart, manualExemptMonths]);
 
   function parsePartialAmount(): number | null {
     const n = Number(String(partialAmount).replace(/,/g, '').trim());
@@ -148,6 +155,14 @@ export function SetRentMonthStatusDialog({
   async function savePaid() {
     if (selected.length === 0) {
       toast.error('اختر شهر إيجار واحداً على الأقل');
+      return;
+    }
+    const blocked = selected.filter((m) => {
+      const st = calendarMonths.find((c) => c.month === m)?.status;
+      return st === 'exempt';
+    });
+    if (blocked.length > 0) {
+      toast.error(`${formatMonthsLabelAr(blocked)} — شهر بدون مطالبة`);
       return;
     }
     if (!areConsecutiveMonths(selected)) {
@@ -245,7 +260,7 @@ export function SetRentMonthStatusDialog({
         className="max-w-lg w-[calc(100%-1.5rem)] max-h-[90dvh] overflow-y-auto rounded-2xl p-0 gap-0"
         dir="rtl"
       >
-        <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
+        <DialogHeader className="px-5 pt-5 pb-3 pe-12 border-b border-border">
           <DialogTitle>ربط شهر (أو شهرين) بقيد الدفع</DialogTitle>
           <p className="text-sm text-ink-mute text-start leading-relaxed pt-1">
             {tenantName} — مثل تسجيل الإيراد: اختر{' '}

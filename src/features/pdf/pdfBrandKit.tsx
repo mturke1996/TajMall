@@ -538,6 +538,8 @@ export const PdfMoneyText = ({
   align,
   color,
   light,
+  adaptive,
+  adaptiveBase,
 }: {
   amount: number;
   style?: any;
@@ -547,6 +549,8 @@ export const PdfMoneyText = ({
   align?: 'left' | 'center' | 'right';
   color?: string;
   light?: boolean;
+  adaptive?: boolean;
+  adaptiveBase?: number;
 }) => (
   <PdfMoneyTextImpl
     amount={amount}
@@ -557,6 +561,8 @@ export const PdfMoneyText = ({
     align={align}
     color={color}
     light={light}
+    adaptive={adaptive}
+    adaptiveBase={adaptiveBase}
   />
 );
 

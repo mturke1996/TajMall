@@ -1,6 +1,6 @@
 {
   "name": "saas-fluxen",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "description": "Fluxen - Modern SaaS ERP for Revenue & Expense Management",
   "scripts": {
@@ -14,13 +14,17 @@
     "clean": "node scripts/clean-next.mjs",
     "rebuild": "npm run clean && npm run build",
     "audit:rent": "node scripts/audit-supabase-remote.mjs",
+    "verify:tenant-period": "npx tsx scripts/verify-tenant-rent-period.mjs",
+    "verify:tenant-pdf": "npx tsx scripts/verify-tenant-rent-pdf.mjs",
+    "verify:pdf-adaptive": "npx tsx scripts/verify-pdf-adaptive-money.mjs",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "backup:restore-cold": "node scripts/restore-cold-backup.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 // ── Query Keys ───────────────────────────────────────────────────
 export const qk = {
   journalEntries: ['journal_entries'] as const,
+  journalEntriesPeriod: (start: string, end: string, status: string | null) =>
+    ['journal_entries_period', start, end, status] as const,
   journalEntry: (id: string) => ['journal_entry', id] as const,
   journalLines: (journalId: string) => ['journal_lines', journalId] as const,
   journalSummary: ['journal_summary'] as const,
@@ -192,6 +194,63 @@ export function useJournalEntries(filters?: {
       }
 
       return list;
+    },
+  });
+}
+
+/**
+ * قيود اليومية لفترة تاريخية (شهر/سنة) — مرتّبة زمنياً للتقارير المحاسبية.
+ * يفضّل RPC get_journal_entries_for_period مع fallback على الـ view.
+ */
+export function useJournalEntriesForPeriod(filters: {
+  startDate: string;
+  endDate: string;
+  status?: JournalStatus | 'ALL' | null;
+  enabled?: boolean;
+  limit?: number;
+}) {
+  const status =
+    filters.status && filters.status !== 'ALL' ? filters.status : null;
+  const limit = filters.limit ?? 2000;
+  const enabled = filters.enabled !== false && !!filters.startDate && !!filters.endDate;
+
+  return useQuery<JournalEntryRow[]>({
+    queryKey: qk.journalEntriesPeriod(filters.startDate, filters.endDate, status),
+    enabled,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+
+      const { data, error } = await supabase.rpc('get_journal_entries_for_period', {
+        p_start_date: filters.startDate,
+        p_end_date: filters.endDate,
+        p_status: status ?? 'ALL',
+        p_limit: limit,
+      });
+
+      if (!error) return (data as JournalEntryRow[]) ?? [];
+
+      const msg = error.message ?? '';
+      const rpcMissing =
+        msg.includes('get_journal_entries_for_period') ||
+        msg.includes('schema cache') ||
+        error.code === 'PGRST202';
+
+      if (!rpcMissing) throw error;
+
+      let q = supabase
+        .from('journal_entries_with_totals')
+        .select('*')
+        .gte('entry_date', filters.startDate)
+        .lte('entry_date', filters.endDate)
+        .order('entry_date', { ascending: true })
+        .order('number', { ascending: true })
+        .limit(limit);
+
+      if (status) q = q.eq('status', status);
+
+      const { data: rows, error: viewError } = await q;
+      if (viewError) throw viewError;
+      return (rows as JournalEntryRow[]) ?? [];
     },
   });
 }

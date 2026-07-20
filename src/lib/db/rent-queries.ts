@@ -17,6 +17,8 @@ import type { ChargeAllocationInput, TransactionWithRelations } from '@/lib/db/t
 export const rentQk = {
   calendar: (tenantId: string, year: number) =>
     ['tenant_rent_calendar', tenantId, year] as const,
+  exemptMonths: (tenantId: string) =>
+    ['tenant_rent_exempt_months', tenantId] as const,
 };
 
 export function useTenantRentCalendar(tenantId: string, year = currentYear()) {
@@ -95,6 +97,7 @@ export function invalidateRentCalendarQueries(
   });
   qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
   qc.invalidateQueries({ queryKey: ['mall_rent_charges_year'] });
+  qc.invalidateQueries({ queryKey: rentQk.exemptMonths(tenantId) });
   for (const month of months) {
     const y = Number(month.slice(0, 4));
     if (!Number.isNaN(y)) {
@@ -206,4 +209,67 @@ export async function buildRentMonthAllocations(
   }
 
   return allocations;
+}
+
+export function useTenantRentExemptMonths(tenantId: string) {
+  return useQuery({
+    queryKey: rentQk.exemptMonths(tenantId),
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase
+        .from('tenant_rent_exempt_months')
+        .select('id, tenant_id, month_key, source, notes, created_at')
+        .eq('tenant_id', tenantId)
+        .order('month_key', { ascending: true });
+      if (error) {
+        if (error.code === '42P01' || error.message.includes('does not exist')) {
+          return [];
+        }
+        throw error;
+      }
+      return data ?? [];
+    },
+    enabled: !!tenantId,
+    staleTime: 30_000,
+  });
+}
+
+export function useSetTenantRentExemptMonths() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      tenantId: string;
+      exemptMonths: string[];
+      removeMonths?: string[];
+      claimStart?: string | null;
+    }) => {
+      const supabase = createSupabaseBrowserClient();
+
+      if (input.removeMonths?.length) {
+        const { error: removeErr } = await supabase.rpc(
+          'set_tenant_rent_exempt_months',
+          {
+            p_tenant_id: input.tenantId,
+            p_months: input.removeMonths,
+            p_exempt: false,
+            p_claim_start: null,
+          },
+        );
+        if (removeErr) throw removeErr;
+      }
+
+      const { data, error } = await supabase.rpc('set_tenant_rent_exempt_months', {
+        p_tenant_id: input.tenantId,
+        p_months: input.exemptMonths,
+        p_exempt: true,
+        p_claim_start: input.claimStart ?? null,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_d, vars) => {
+      const touched = [...vars.exemptMonths, ...(vars.removeMonths ?? [])];
+      invalidateRentCalendarQueries(qc, vars.tenantId, touched);
+    },
+  });
 }

@@ -34,6 +34,11 @@ import {
   LedgerMobileList,
 } from '@/components/accounting/ledger-mobile-list';
 import { accountTypeLabelAr } from '@/lib/accounting-labels';
+import {
+  parseReportPeriod,
+  reportPeriodDateRange,
+} from '@/lib/report-period';
+import { formatAccountingReportExportNames } from '@/lib/report-pdf-export';
 
 function GeneralLedgerContent() {
   const searchParams = useSearchParams();
@@ -45,11 +50,16 @@ function GeneralLedgerContent() {
 
   useEffect(() => {
     const cat = searchParams.get('category');
-    const year = searchParams.get('year');
     if (cat) setSelectedCatId(cat);
-    if (year) {
-      setStartDate(`${year}-01-01`);
-      setEndDate(`${year}-12-31`);
+
+    const hasPeriod =
+      searchParams.has('year') ||
+      searchParams.has('month') ||
+      searchParams.has('mode');
+    if (hasPeriod) {
+      const range = reportPeriodDateRange(parseReportPeriod(searchParams));
+      setStartDate(range.startDate);
+      setEndDate(range.endDate);
     }
   }, [searchParams]);
 
@@ -109,6 +119,31 @@ function GeneralLedgerContent() {
     setSelectedCatId('');
   };
 
+  const ledgerPeriodLabel =
+    startDate || endDate
+      ? `${startDate || '…'} — ${endDate || '…'}`
+      : 'كل الفترات';
+
+  const ledgerPeriodSlugEn =
+    startDate || endDate
+      ? `${startDate || 'start'}-to-${endDate || 'end'}`
+      : 'all-periods';
+
+  const pdfExport = useMemo(
+    () =>
+      formatAccountingReportExportNames({
+        reportKindAr: 'دفتر الأستاذ',
+        reportKindEn: 'general-ledger',
+        periodLabel: ledgerPeriodLabel,
+        periodSlugEn: ledgerPeriodSlugEn,
+        extraFileSlug: selectedCategory?.code,
+        statsLine: selectedCategory
+          ? `${selectedCategory.name_ar} · ${linesWithBalance.length} حركة.`
+          : undefined,
+      }),
+    [ledgerPeriodLabel, ledgerPeriodSlugEn, selectedCategory, linesWithBalance.length],
+  );
+
   return (
     <>
       <PageHeader
@@ -118,7 +153,7 @@ function GeneralLedgerContent() {
         actions={
           <div className="flex flex-wrap gap-2">
             <ExportCsvButton
-              fileName={`دفتر-الأستاذ-${selectedCategory?.name_ar ?? ''}`}
+              fileName={pdfExport.fileName}
               disabled={linesWithBalance.length === 0 && openingBalance === 0}
               headers={['التاريخ', 'رقم القيد', 'المرجع', 'الوصف', 'مدين', 'دائن', 'الرصيد التراكمي']}
               rows={[
@@ -136,7 +171,9 @@ function GeneralLedgerContent() {
               ]}
             />
             <TajMallPdfToolbar
-              fileName={`دفتر-الأستاذ-${selectedCategory?.name_ar ?? ''}`}
+              fileName={pdfExport.fileName}
+              shareTitle={pdfExport.shareTitle}
+              shareText={pdfExport.shareText}
               disabled={linesWithBalance.length === 0 && openingBalance === 0}
               render={async () => {
                 const { LedgerReportPDF } = await import('@/features/pdf/LedgerReportPDF');
@@ -150,6 +187,7 @@ function GeneralLedgerContent() {
                     totalDebit={totalDebit}
                     totalCredit={totalCredit}
                     lines={[...linesWithBalance].reverse()}
+                    documentTitle={pdfExport.documentTitle}
                   />
                 );
               }}

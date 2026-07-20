@@ -9,6 +9,8 @@ import {
   Wallet,
   Landmark,
   Users,
+  FileText,
+  FileSpreadsheet,
 } from 'lucide-react';
 import type { PermissionKey } from '@/lib/constants';
 
@@ -22,6 +24,14 @@ export type AccountingNavItem = {
 };
 
 export const ACCOUNTING_NAV_ITEMS: AccountingNavItem[] = [
+  {
+    href: '/reports',
+    labelAr: 'التقارير',
+    description: 'مركز التقارير والفترة',
+    icon: FileText,
+    permission: 'journal.view',
+    step: 0,
+  },
   {
     href: '/journals',
     labelAr: 'دفتر اليومية',
@@ -39,12 +49,20 @@ export const ACCOUNTING_NAV_ITEMS: AccountingNavItem[] = [
     step: 2,
   },
   {
+    href: '/reports/journal-month',
+    labelAr: 'قيد الفترة',
+    description: 'قيد ملخّص: إجمالي كل بند',
+    icon: FileSpreadsheet,
+    permission: 'journal.view',
+    step: 3,
+  },
+  {
     href: '/reports/ledger',
     labelAr: 'دفتر الأستاذ',
     description: 'كشف حساب تفصيلي لكل بند',
     icon: BookMarked,
     permission: 'journal.view',
-    step: 3,
+    step: 4,
   },
   {
     href: '/reports/trial-balance',
@@ -52,7 +70,7 @@ export const ACCOUNTING_NAV_ITEMS: AccountingNavItem[] = [
     description: 'توازن المدين والدائن',
     icon: Scale,
     permission: 'journal.view',
-    step: 4,
+    step: 5,
   },
   {
     href: '/reports/balance-sheet',
@@ -60,7 +78,7 @@ export const ACCOUNTING_NAV_ITEMS: AccountingNavItem[] = [
     description: 'الأصول والخصوم وحقوق الملكية',
     icon: Landmark,
     permission: 'journal.view',
-    step: 5,
+    step: 6,
   },
   {
     href: '/reports/profit-loss',
@@ -68,7 +86,7 @@ export const ACCOUNTING_NAV_ITEMS: AccountingNavItem[] = [
     description: 'الإيرادات مقابل المصروفات',
     icon: TrendingUp,
     permission: 'journal.view',
-    step: 6,
+    step: 7,
   },
   {
     href: '/reports/cash-flow',
@@ -76,7 +94,7 @@ export const ACCOUNTING_NAV_ITEMS: AccountingNavItem[] = [
     description: 'حركة النقد',
     icon: Wallet,
     permission: 'journal.view',
-    step: 7,
+    step: 8,
   },
   {
     href: '/reports/ar-aging',
@@ -84,7 +102,7 @@ export const ACCOUNTING_NAV_ITEMS: AccountingNavItem[] = [
     description: 'متأخرات المستأجرين',
     icon: Users,
     permission: 'journal.view',
-    step: 8,
+    step: 9,
   },
   {
     href: '/reports/periods',
@@ -92,7 +110,7 @@ export const ACCOUNTING_NAV_ITEMS: AccountingNavItem[] = [
     description: 'إغلاق الفترات والترحيل',
     icon: CalendarRange,
     permission: 'journal.view',
-    step: 9,
+    step: 10,
   },
 ];
 

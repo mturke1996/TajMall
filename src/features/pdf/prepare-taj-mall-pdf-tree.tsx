@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactElement } from 'react';
+import React, { type ReactElement } from 'react';
 import { fetchBrandLogoDataUri } from './fetch-brand-logo-data-uri';
 import { PdfLogoProvider } from './pdf-logo-context';
 

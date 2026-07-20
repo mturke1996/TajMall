@@ -21,11 +21,18 @@ import {
   TenantCurrentMonthBadge,
   TenantRentListStats,
 } from './tenant-rent-list-meta';
+import { TenantRentPeriodSelector } from './tenant-rent-period-selector';
 import {
   MobilePageActionBar,
   MOBILE_PAGE_ACTION_PADDING,
 } from '@/components/layout/mobile-page-action-bar';
-import { monthKey, monthNameAr } from '@/lib/rent-months';
+import {
+  formatPeriodLabelAr,
+  formatPeriodShortLabelAr,
+  tenantPeriodExpectedRent,
+  tenantPeriodPaid,
+  type TenantRentPeriodSelection,
+} from '@/lib/tenant-rent-period';
 
 export type TenantsDirectoryProps = {
   tenants: TenantRentSummary[];
@@ -35,14 +42,14 @@ export type TenantsDirectoryProps = {
   onSearchChange: (q: string) => void;
   statusFilter: string;
   onStatusFilterChange: (s: string) => void;
-  selectedMonthKey: string;
-  onSelectedMonthChange: (monthKey: string) => void;
-  year: number;
+  periodSelection: TenantRentPeriodSelection;
+  onPeriodSelectionChange: (selection: TenantRentPeriodSelection) => void;
   stats: {
     total: number;
     paid: number;
     partial: number;
     unpaid: number;
+    noRentSet?: number;
     expectedTotal: number;
     collectedTotal: number;
   };
@@ -82,18 +89,14 @@ export function TenantsDirectory({
   onSearchChange,
   statusFilter,
   onStatusFilterChange,
-  selectedMonthKey,
-  onSelectedMonthChange,
-  year,
+  periodSelection,
+  onPeriodSelectionChange,
   stats,
   onAddTenant,
 }: TenantsDirectoryProps) {
-  const monthName = monthNameAr(selectedMonthKey);
-
-  const yearMonths = Array.from({ length: 12 }, (_, i) => {
-    const key = monthKey(year, i + 1);
-    return { key, label: monthNameAr(key) };
-  });
+  const periodLabel = formatPeriodLabelAr(periodSelection);
+  const periodShort = formatPeriodShortLabelAr(periodSelection);
+  const isMultiMonth = periodSelection.mode !== 'month';
 
   const filterChips = [
     { key: 'ALL', label: 'الكل', count: stats.total },
@@ -104,7 +107,7 @@ export function TenantsDirectory({
       ][]
     ).map(([key, cfg]) => ({
       key,
-      label: `${monthName} — ${cfg.shortLabel}`,
+      label: cfg.shortLabel,
       count:
         key === 'paid_full'
           ? stats.paid
@@ -112,7 +115,8 @@ export function TenantsDirectory({
             ? stats.partial
             : key === 'unpaid'
               ? stats.unpaid
-              : tenants.filter((t) => t.current_month_status === key).length,
+              : (stats.noRentSet ??
+                tenants.filter((t) => t.current_month_status === key).length),
       icon: cfg.icon,
     })),
   ];
@@ -142,7 +146,7 @@ export function TenantsDirectory({
                 <Icon className={cn('h-5 w-5', cfg.color)} />
                 <div>
                   <p className="text-[11px] text-ink-mute leading-tight">
-                    {monthName}
+                    {periodShort}
                   </p>
                   <p className={cn('text-sm font-bold', cfg.color)}>
                     {cfg.shortLabel}
@@ -155,7 +159,7 @@ export function TenantsDirectory({
             );
           })}
           <div className="flex min-w-[10rem] shrink-0 snap-center flex-col justify-center rounded-xl border border-sage-200 bg-sage-50 p-3 sm:min-w-0">
-            <p className="text-[11px] text-ink-mute">تحصيل {monthName}</p>
+            <p className="text-[11px] text-ink-mute">تحصيل {periodShort}</p>
             <p className="text-sm font-bold text-sage-800 leading-snug tabular-nums">
               {formatMoney(stats.collectedTotal, 'LYD')}
             </p>
@@ -177,36 +181,18 @@ export function TenantsDirectory({
           />
         </div>
 
-        <div
-          className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1"
-          role="listbox"
-          aria-label="أشهر السنة"
-        >
-          {yearMonths.map((m) => {
-            const active = selectedMonthKey === m.key;
-            return (
-              <button
-                key={m.key}
-                type="button"
-                role="option"
-                aria-selected={active}
-                onClick={() => onSelectedMonthChange(m.key)}
-                className={cn(
-                  'inline-flex shrink-0 snap-center items-center justify-center rounded-lg border px-2.5 py-1.5 text-[12px] font-semibold touch-manipulation min-w-[3.25rem]',
-                  active
-                    ? 'border-sage-700 bg-sage-700 text-white'
-                    : 'border-border bg-card text-ink hover:bg-secondary',
-                )}
-              >
-                {m.label}
-              </button>
-            );
-          })}
-        </div>
+        <TenantRentPeriodSelector
+          selection={periodSelection}
+          onChange={onPeriodSelectionChange}
+        />
 
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1">
           {filterChips.map((chip) => {
             const Icon = 'icon' in chip ? chip.icon : null;
+            const isAll = chip.key === 'ALL';
+            const chipLabel = isAll
+              ? chip.label
+              : `${periodShort} · ${chip.label}`;
             return (
               <StatusFilterChip
                 key={chip.key}
@@ -214,8 +200,8 @@ export function TenantsDirectory({
                 onClick={() => onStatusFilterChange(chip.key)}
               >
                 {Icon && <Icon className="h-3.5 w-3.5" />}
-                <span className="max-w-[8rem] truncate sm:max-w-none">
-                  {chip.key === 'ALL' ? chip.label : chip.label}
+                <span className="max-w-[10rem] truncate sm:max-w-none">
+                  {chipLabel}
                 </span>
                 <span
                   className={cn(
@@ -233,7 +219,13 @@ export function TenantsDirectory({
 
       {!isLoading && (
         <p className="text-[12px] text-ink-mute">
-          {filteredTenants.length} مستأجر · شهر {monthName} {year}
+          {filteredTenants.length} مستأجر · {periodLabel}
+          {isMultiMonth && (
+            <span className="mr-1 text-ink-mute/80">
+              {' '}
+              (مجموع {periodSelection.mode === 'year' ? '12' : periodSelection.mode === 'half' ? '6' : '3'} أشهر)
+            </span>
+          )}
         </p>
       )}
 
@@ -259,10 +251,16 @@ export function TenantsDirectory({
               <thead>
                 <tr className="border-b bg-canvas-sunken/80 text-right text-[12px] text-ink-mute">
                   <th className="px-4 py-3 font-semibold">المستأجر</th>
-                  <th className="px-4 py-3 font-semibold">شهر ({monthName})</th>
-                  <th className="px-4 py-3 font-semibold">إيجار</th>
+                  <th className="px-4 py-3 font-semibold">
+                    {isMultiMonth ? `الفترة (${periodShort})` : `شهر (${periodShort})`}
+                  </th>
+                  <th className="px-4 py-3 font-semibold">
+                    {isMultiMonth ? 'إيجار الفترة' : 'إيجار'}
+                  </th>
                   <th className="px-4 py-3 font-semibold">القيود</th>
-                  <th className="px-4 py-3 font-semibold">إجمالي المسدد</th>
+                  <th className="px-4 py-3 font-semibold">
+                    {isMultiMonth ? 'مسدّد الفترة' : 'إجمالي المسدد'}
+                  </th>
                   <th className="px-4 py-3 font-semibold w-[180px]">إجراءات</th>
                 </tr>
               </thead>
@@ -271,7 +269,8 @@ export function TenantsDirectory({
                   <TenantTableRow
                     key={tenant.id}
                     tenant={tenant}
-                    monthKey={selectedMonthKey}
+                    periodLabel={periodShort}
+                    isMultiMonth={isMultiMonth}
                     striped={i % 2 === 1}
                   />
                 ))}
@@ -284,7 +283,7 @@ export function TenantsDirectory({
               <TenantCard
                 key={tenant.id}
                 tenant={tenant}
-                monthKey={selectedMonthKey}
+                periodLabel={periodShort}
               />
             ))}
           </div>
@@ -294,7 +293,7 @@ export function TenantsDirectory({
               <TenantMobileRow
                 key={tenant.id}
                 tenant={tenant}
-                monthKey={selectedMonthKey}
+                periodLabel={periodShort}
               />
             ))}
           </ul>
@@ -326,17 +325,20 @@ function journalCount(tenant: TenantRentSummary): number {
 
 function TenantTableRow({
   tenant,
-  monthKey: mk,
+  periodLabel,
+  isMultiMonth,
   striped,
 }: {
   tenant: TenantRentSummary;
-  monthKey: string;
+  periodLabel: string;
+  isMultiMonth: boolean;
   striped: boolean;
 }) {
-  const rent =
-    Number(tenant.current_month_amount) || Number(tenant.monthly_rent) || 0;
-  const paid = Number(tenant.current_month_paid) || 0;
-  const totalPaid = Number(tenant.total_rent_paid) || paid;
+  const rent = tenantPeriodExpectedRent(tenant);
+  const paid = tenantPeriodPaid(tenant);
+  const totalPaid = isMultiMonth
+    ? paid
+    : Number(tenant.total_rent_paid) || paid;
   const journals = journalCount(tenant);
 
   return (
@@ -360,10 +362,15 @@ function TenantTableRow({
         </p>
       </td>
       <td className="px-4 py-3">
-        <TenantCurrentMonthBadge tenant={tenant} monthKey={mk} />
+        <TenantCurrentMonthBadge tenant={tenant} periodLabel={periodLabel} />
       </td>
       <td className="px-4 py-3 tabular-nums font-medium">
         {rent > 0 ? formatMoney(rent, 'LYD') : '—'}
+        {isMultiMonth && paid > 0 && paid < rent && (
+          <p className="text-[10px] text-amber-700 font-normal">
+            مسدّد {formatMoney(paid, 'LYD')}
+          </p>
+        )}
       </td>
       <td className="px-4 py-3 tabular-nums font-medium text-sage-800">
         {journals}
@@ -380,10 +387,10 @@ function TenantTableRow({
 
 function TenantCard({
   tenant,
-  monthKey: mk,
+  periodLabel,
 }: {
   tenant: TenantRentSummary;
-  monthKey: string;
+  periodLabel: string;
 }) {
   return (
     <Card
@@ -394,7 +401,7 @@ function TenantCard({
       )}
     >
       <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
-        <TenantCurrentMonthBadge tenant={tenant} monthKey={mk} />
+        <TenantCurrentMonthBadge tenant={tenant} periodLabel={periodLabel} />
       </div>
       <div className="p-4">
         <Link href={`/contacts/${tenant.id}`} className="block group">
@@ -404,7 +411,7 @@ function TenantCard({
           </p>
         </Link>
         <div className="mt-3">
-          <TenantRentListStats tenant={tenant} />
+          <TenantRentListStats tenant={tenant} periodLabel={periodLabel} />
         </div>
         <div className="mt-3">
           <Button size="sm" variant="outline" className="w-full" asChild>
@@ -418,10 +425,10 @@ function TenantCard({
 
 function TenantMobileRow({
   tenant,
-  monthKey: mk,
+  periodLabel,
 }: {
   tenant: TenantRentSummary;
-  monthKey: string;
+  periodLabel: string;
 }) {
   return (
     <li className="bg-card">
@@ -434,7 +441,7 @@ function TenantMobileRow({
             <p className="font-semibold text-[15px] truncate">{tenant.name}</p>
             <TenantCurrentMonthBadge
               tenant={tenant}
-              monthKey={mk}
+              periodLabel={periodLabel}
               className="shrink-0"
             />
           </div>
@@ -446,7 +453,7 @@ function TenantMobileRow({
               </span>
             )}
           </p>
-          <TenantRentListStats tenant={tenant} compact />
+          <TenantRentListStats tenant={tenant} compact periodLabel={periodLabel} />
         </div>
         <ChevronLeft className="h-5 w-5 shrink-0 text-ink-mute mt-1" aria-hidden />
       </Link>
