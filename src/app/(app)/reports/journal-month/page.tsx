@@ -35,7 +35,6 @@ import {
   fetchPeriodJournalEntry,
   applyPeriodJournalCategoryFilter,
   formatPeriodJournalExportNames,
-  periodJournalGrossMovement,
   type PeriodJournalEntryModel,
 } from '@/lib/period-journal-entry';
 import {
@@ -90,16 +89,6 @@ function JournalMonthContent() {
     }
   }, [categoryParam]);
 
-  const onCategoryChange = (value: string) => {
-    setCategoryFilterId(value);
-    const params = reportPeriodToSearchParams(period);
-    if (statusFilter !== 'POSTED') params.set('status', statusFilter);
-    if (value !== ALL_CATEGORIES) params.set('category', value);
-    router.replace(`/reports/journal-month?${params.toString()}`, {
-      scroll: false,
-    });
-  };
-
   const statusParam = searchParams.get('status');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
     if (
@@ -112,6 +101,16 @@ function JournalMonthContent() {
     }
     return 'POSTED';
   });
+
+  const onCategoryChange = (value: string) => {
+    setCategoryFilterId(value);
+    const params = reportPeriodToSearchParams(period);
+    if (statusFilter !== 'POSTED') params.set('status', statusFilter);
+    if (value !== ALL_CATEGORIES) params.set('category', value);
+    router.replace(`/reports/journal-month?${params.toString()}`, {
+      scroll: false,
+    });
+  };
 
   const onStatusChange = (value: StatusFilter) => {
     setStatusFilter(value);
@@ -174,8 +173,7 @@ function JournalMonthContent() {
     return () => {
       cancelled = true;
     };
-    // sourceEntryKey يغطي تغيّر قائمة القيود دون إعادة طلب لا نهائية
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sourceEntries عبر المصدر sourceEntryKey
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sourceEntries عبر sourceEntryKey
   }, [entriesLoading, sourceEntryKey, period.year, period.month, period.mode, statusFilter]);
 
   const selectedCategory = useMemo(
@@ -202,6 +200,13 @@ function JournalMonthContent() {
     );
   }, [model, categoryFilterId, selectedCategory]);
 
+  /** دائماً النموذج الشامل — لزر تقرير شامل PDF */
+  const comprehensiveModel = useMemo(() => {
+    if (!model) return null;
+    return applyPeriodJournalCategoryFilter(model, ALL_CATEGORIES, null);
+  }, [model]);
+
+  const isSingleCategoryView = categoryFilterId !== ALL_CATEGORIES;
   const isLoading = entriesLoading || aggLoading || categoriesLoading;
   const isError = entriesError || !!aggError;
   const errorMessage =
@@ -210,6 +215,11 @@ function JournalMonthContent() {
   const exportNames = useMemo(
     () => formatPeriodJournalExportNames(period, displayModel),
     [period, displayModel],
+  );
+
+  const comprehensiveExportNames = useMemo(
+    () => formatPeriodJournalExportNames(period, comprehensiveModel),
+    [period, comprehensiveModel],
   );
 
   const csvRows = useMemo(
@@ -224,7 +234,36 @@ function JournalMonthContent() {
     [displayModel],
   );
 
-  const pdfFileName = exportNames.fileName;
+  const renderComprehensivePdf = useCallback(async () => {
+    const { PeriodJournalEntryPDF } = await import(
+      '@/features/pdf/PeriodJournalEntryPDF'
+    );
+    if (!comprehensiveModel) throw new Error('لا توجد بيانات للقيد');
+    return (
+      <PeriodJournalEntryPDF
+        model={comprehensiveModel}
+        documentTitle={comprehensiveExportNames.documentTitle}
+      />
+    );
+  }, [comprehensiveModel, comprehensiveExportNames.documentTitle]);
+
+  const renderCategoryPdf = useCallback(async () => {
+    const { PeriodJournalEntryPDF } = await import(
+      '@/features/pdf/PeriodJournalEntryPDF'
+    );
+    if (!displayModel) throw new Error('لا توجد بيانات للقيد');
+    return (
+      <PeriodJournalEntryPDF
+        model={displayModel}
+        documentTitle={exportNames.documentTitle}
+      />
+    );
+  }, [displayModel, exportNames.documentTitle]);
+
+  const comprehensivePdfDisabled =
+    isLoading || !comprehensiveModel || comprehensiveModel.lines.length === 0;
+  const categoryPdfDisabled =
+    isLoading || !displayModel || displayModel.lines.length === 0;
 
   return (
     <>
@@ -232,9 +271,9 @@ function JournalMonthContent() {
         eyebrow="مركز التقارير"
         title="قيد الفترة المحاسبي"
         description={
-          displayModel?.categoryFilter
-            ? `بند واحد: ${displayModel.categoryFilter.name_ar} · ${periodLabel}`
-            : `قيد واحد ملخّص — كل البنود بإجمالي حركتها · ${periodLabel}`
+          isSingleCategoryView && displayModel?.categoryFilter
+            ? `كشف بند: ${displayModel.categoryFilter.name_ar} · ${periodLabel}`
+            : `تقرير شامل — مجاميع ثم مجموع كل بند (مدين + خزينة) · ${periodLabel}`
         }
         actions={
           <>
@@ -245,37 +284,36 @@ function JournalMonthContent() {
               </Link>
             </Button>
             <ExportCsvButton
-              fileName={pdfFileName}
+              fileName={exportNames.fileName}
               headers={['الرمز', 'البند', 'مدين', 'دائن', 'الصافي']}
               rows={csvRows}
-              disabled={!displayModel || displayModel.lines.length === 0}
+              disabled={categoryPdfDisabled}
             />
             <TajMallPdfToolbar
-              fileName={pdfFileName}
-              shareTitle={exportNames.shareTitle}
-              shareText={exportNames.shareText}
-              cacheKey={`pje:${startDate}:${endDate}:${statusFilter}:${categoryFilterId}:${displayModel?.lines.length ?? 0}:${displayModel?.totalDebit ?? 0}`}
-              disabled={isLoading || !displayModel || displayModel.lines.length === 0}
-              render={async () => {
-                const { PeriodJournalEntryPDF } = await import(
-                  '@/features/pdf/PeriodJournalEntryPDF'
-                );
-                if (!displayModel) throw new Error('لا توجد بيانات للقيد');
-                return (
-                  <PeriodJournalEntryPDF
-                    model={displayModel}
-                    documentTitle={exportNames.documentTitle}
-                  />
-                );
-              }}
+              fileName={comprehensiveExportNames.fileName}
+              shareTitle={comprehensiveExportNames.shareTitle}
+              shareText={comprehensiveExportNames.shareText}
+              cacheKey={`pje-comp:${startDate}:${endDate}:${statusFilter}:${comprehensiveModel?.lines.length ?? 0}:${comprehensiveModel?.totalDebit ?? 0}`}
+              disabled={comprehensivePdfDisabled}
+              openLabel="تقرير شامل PDF"
+              render={renderComprehensivePdf}
             />
+            {isSingleCategoryView ? (
+              <TajMallPdfToolbar
+                fileName={exportNames.fileName}
+                shareTitle={exportNames.shareTitle}
+                shareText={exportNames.shareText}
+                cacheKey={`pje-cat:${startDate}:${endDate}:${statusFilter}:${categoryFilterId}:${displayModel?.lines.length ?? 0}:${displayModel?.totalDebit ?? 0}`}
+                disabled={categoryPdfDisabled}
+                openLabel="كشف البند PDF"
+                render={renderCategoryPdf}
+              />
+            ) : null}
           </>
         }
       />
 
       <AccountingPageBody>
-        <AccountingBackfillBanner />
-
         <AccountingFilterCard>
           <div className="space-y-4">
             <ReportPeriodFilter value={period} onChange={setPeriod} />
@@ -298,9 +336,9 @@ function JournalMonthContent() {
                   </SelectContent>
                 </Select>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  {categoryFilterId === ALL_CATEGORIES
-                    ? 'يعرض كل البنود التي تحركت خلال الفترة.'
-                    : 'يعرض إجمالي حركة البند المحدد فقط — مناسب للطباعة والمشاركة.'}
+                  {isSingleCategoryView
+                    ? 'بند واحد: كشف مزدوج كامل (مدين + دائن + الطرف المقابل).'
+                    : 'جميع البنود: مجاميع ثم مجموع كل بند على حدة (مدين البند + دائن الخزينة) — بدون تفصيل القيود.'}
                 </p>
               </div>
               <div className="space-y-2">
@@ -343,7 +381,7 @@ function JournalMonthContent() {
             }
             description={
               displayModel?.categoryFilter
-                ? `البند «${displayModel.categoryFilter.name_ar}» لم يتحرك في ${periodLabel}. جرّب «جميع البنود» أو بنداً آخر.`
+                ? `البند «${displayModel.categoryFilter.name_ar}» لم يتحرك في ${periodLabel}.`
                 : 'اختر شهراً فيه قيود مرحّلة، أو غيّر فلتر المصدر.'
             }
           >
@@ -356,9 +394,15 @@ function JournalMonthContent() {
                 عرض جميع البنود
               </Button>
             ) : (
-              <Button size="sm" asChild>
-                <Link href="/journals">دفتر اليومية</Link>
-              </Button>
+              <>
+                <AccountingBackfillBanner
+                  title="قد توجد معاملات غير مرحّلة"
+                  description="إن كانت لديك معاملات قديمة ولم تظهر هنا، اضغط ترحيل لإنشاء قيودها في دفتر اليومية."
+                />
+                <Button size="sm" asChild>
+                  <Link href="/journals">دفتر اليومية</Link>
+                </Button>
+              </>
             )}
           </AccountingEmpty>
         ) : (
@@ -366,8 +410,10 @@ function JournalMonthContent() {
             <AccountingSummaryGrid
               stats={[
                 {
-                  label: displayModel.categoryFilter ? 'بند في القيد' : 'بنود القيد',
-                  value: displayModel.lines.length,
+                  label: displayModel.categoryFilter ? 'قيود مرتبطة' : 'بنود تحرّكت',
+                  value: displayModel.categoryFilter
+                    ? displayModel.vouchers.length
+                    : displayModel.lines.length,
                   currency: '',
                 },
                 {
@@ -381,18 +427,9 @@ function JournalMonthContent() {
                   tone: 'negative',
                 },
                 {
-                  label: displayModel.categoryFilter ? 'إجمالي الحركة' : 'فرق التوازن',
-                  value: displayModel.categoryFilter
-                    ? periodJournalGrossMovement(
-                        displayModel.totalDebit,
-                        displayModel.totalCredit,
-                      )
-                    : Math.abs(displayModel.totalDebit - displayModel.totalCredit),
-                  tone: displayModel.categoryFilter
-                    ? 'default'
-                    : displayModel.balanced
-                      ? 'positive'
-                      : 'negative',
+                  label: 'فرق التوازن',
+                  value: Math.abs(displayModel.totalDebit - displayModel.totalCredit),
+                  tone: displayModel.balanced ? 'positive' : 'negative',
                 },
               ]}
             />
@@ -406,43 +443,30 @@ function JournalMonthContent() {
                   </CardTitle>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {displayModel.categoryFilter
-                      ? `إجمالي حركة البند للفترة · ${displayModel.categoryFilter.code}`
-                      : `مبني على ${displayModel.sourceEntryCount} قيد مصدر · ${displayModel.sourceLineCount} بند تفصيلي → ${displayModel.lines.length} بند ملخّص`}
+                      ? `كشف مزدوج · ${displayModel.categoryFilter.code}`
+                      : `مجاميع ${displayModel.lines.length} بند · ثم مجموع كل بند`}
                   </p>
                 </div>
-                {displayModel.categoryFilter ? (
-                  <Badge variant="outline" className="font-normal normal-case tracking-normal">
-                    كشف بند — حركة الفترة
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant={displayModel.balanced ? 'success' : 'danger'}
-                    className="font-normal normal-case tracking-normal"
-                  >
-                    {displayModel.balanced ? 'قيد متوازن' : 'غير متوازن'}
-                  </Badge>
-                )}
+                <Badge
+                  variant={displayModel.balanced ? 'success' : 'danger'}
+                  className="font-normal normal-case tracking-normal"
+                >
+                  {displayModel.balanced ? 'متوازن — مدين = دائن' : 'غير متوازن'}
+                </Badge>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/40 text-muted-foreground">
-                        <th className="px-4 py-2.5 text-right font-medium">
-                          الرمز
-                        </th>
-                        <th className="px-4 py-2.5 text-right font-medium">
-                          البند المحاسبي
-                        </th>
-                        <th className="px-4 py-2.5 text-left font-medium">
-                          مدين
-                        </th>
-                        <th className="px-4 py-2.5 text-left font-medium">
-                          دائن
-                        </th>
-                        <th className="px-4 py-2.5 text-left font-medium">
-                          الصافي
-                        </th>
+                        <th className="px-4 py-2.5 text-right font-medium">الرمز</th>
+                        <th className="px-4 py-2.5 text-right font-medium">البند المحاسبي</th>
+                        <th className="px-4 py-2.5 text-left font-medium">مدين</th>
+                        <th className="px-4 py-2.5 text-left font-medium">دائن</th>
+                        <th className="px-4 py-2.5 text-left font-medium">الصافي</th>
+                        {displayModel.categoryFilter ? (
+                          <th className="px-4 py-2.5 text-left font-medium">حركات</th>
+                        ) : null}
                       </tr>
                     </thead>
                     <tbody>
@@ -455,43 +479,34 @@ function JournalMonthContent() {
                             {line.category_code || '—'}
                           </td>
                           <td className="px-4 py-2.5">
-                            <p className="font-semibold">{line.category_name}</p>
-                            <p className="text-[11px] text-muted-foreground">
-                              {displayModel.categoryFilter
-                                ? 'إجمالي حركة البند للفترة'
-                                : 'إجمالي حركة الفترة'}
+                            <p className="font-semibold">
+                              {line.category_name}
+                              {displayModel.categoryFilter?.id === line.category_id
+                                ? ' ★'
+                                : ''}
                             </p>
                           </td>
-                          <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700">
-                            {line.debit > 0
-                              ? formatMoney(line.debit, '')
-                              : '—'}
+                          <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
+                            {formatMoney(line.debit, '')}
                           </td>
-                          <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600">
-                            {line.credit > 0
-                              ? formatMoney(line.credit, '')
-                              : '—'}
+                          <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
+                            {formatMoney(line.credit, '')}
                           </td>
                           <td className="px-4 py-2.5 text-left font-mono tabular-nums">
                             {formatMoney(Math.abs(line.net), '')}
-                            <span className="mr-1 text-[10px] text-muted-foreground">
-                              {line.net > 0.005
-                                ? 'مدين'
-                                : line.net < -0.005
-                                  ? 'دائن'
-                                  : ''}
-                            </span>
                           </td>
+                          {displayModel.categoryFilter ? (
+                            <td className="px-4 py-2.5 text-left tabular-nums text-muted-foreground">
+                              {line.movements.length}
+                            </td>
+                          ) : null}
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr className="bg-sage-50/80 font-bold">
-                        <td
-                          colSpan={2}
-                          className="px-4 py-3 text-right text-sm"
-                        >
-                          إجمالي القيد
+                        <td colSpan={2} className="px-4 py-3 text-right text-sm">
+                          الإجمالي
                         </td>
                         <td className="px-4 py-3 text-left font-mono tabular-nums text-emerald-800">
                           {formatMoney(displayModel.totalDebit, '')}
@@ -501,16 +516,232 @@ function JournalMonthContent() {
                         </td>
                         <td className="px-4 py-3 text-left font-mono tabular-nums">
                           {formatMoney(
-                            Math.abs(displayModel.totalDebit - displayModel.totalCredit),
+                            Math.abs(
+                              displayModel.totalDebit - displayModel.totalCredit,
+                            ),
                             '',
                           )}
                         </td>
+                        {displayModel.categoryFilter ? (
+                          <td className="px-4 py-3 text-left tabular-nums text-muted-foreground font-normal">
+                            {displayModel.sourceLineCount}
+                          </td>
+                        ) : null}
                       </tr>
                     </tfoot>
                   </table>
                 </div>
               </CardContent>
             </Card>
+
+            {displayModel.categoryFilter
+              ? displayModel.vouchers.map((voucher, vIndex) => (
+                  <Card key={voucher.journal_id} className="border-border/80">
+                    <CardHeader className="border-b pb-3 space-y-0">
+                      <CardTitle className="text-base">
+                        {vIndex + 1}/{displayModel.vouchers.length} · قيد #
+                        {voucher.journal_number} · {voucher.entry_date}
+                      </CardTitle>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {voucher.journal_description || 'قيد مزدوج'}
+                        {voucher.balanced ? ' · متوازن' : ' · غير متوازن'}
+                      </p>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-muted/40 text-muted-foreground">
+                              <th className="px-4 py-2.5 text-right font-medium">الرمز</th>
+                              <th className="px-4 py-2.5 text-right font-medium">البند</th>
+                              <th className="px-4 py-2.5 text-left font-medium">مدين</th>
+                              <th className="px-4 py-2.5 text-left font-medium">دائن</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {voucher.lines.map((vl, i) => (
+                              <tr
+                                key={`${voucher.journal_id}-${vl.category_id}-${i}`}
+                                className="border-b last:border-0 hover:bg-muted/30"
+                              >
+                                <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                                  {vl.category_code || '—'}
+                                </td>
+                                <td className="px-4 py-2.5">
+                                  <p className="font-semibold">
+                                    {vl.category_name}
+                                    {vl.is_focus ? ' ★' : ''}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {[
+                                      vl.line_description,
+                                      vl.cashbox_name && `خزينة: ${vl.cashbox_name}`,
+                                      vl.contact_name && `جهة: ${vl.contact_name}`,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(' · ') || '—'}
+                                  </p>
+                                </td>
+                                <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
+                                  {formatMoney(vl.debit, '')}
+                                </td>
+                                <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
+                                  {formatMoney(vl.credit, '')}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-sage-50/80 font-bold">
+                              <td colSpan={2} className="px-4 py-3 text-right text-sm">
+                                {voucher.balanced
+                                  ? 'إجمالي القيد — مدين = دائن'
+                                  : 'إجمالي القيد — فرق'}
+                              </td>
+                              <td className="px-4 py-3 text-left font-mono tabular-nums text-emerald-800">
+                                {formatMoney(voucher.totalDebit, '')}
+                              </td>
+                              <td className="px-4 py-3 text-left font-mono tabular-nums text-red-700">
+                                {formatMoney(voucher.totalCredit, '')}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              : model
+                ? displayModel.lines.map((line, lineIndex) => {
+                    const catModel = applyPeriodJournalCategoryFilter(
+                      model,
+                      line.category_id,
+                      {
+                        id: line.category_id,
+                        code: line.category_code,
+                        name_ar: line.category_name,
+                        type: line.category_type,
+                      },
+                    );
+                    const focusLine =
+                      catModel.lines.find((l) => l.category_id === line.category_id) ??
+                      line;
+                    const contraLines = catModel.lines.filter(
+                      (l) => l.category_id !== line.category_id,
+                    );
+                    const cashboxCredit = contraLines.reduce(
+                      (s, l) => s + l.credit,
+                      0,
+                    );
+
+                    return (
+                      <Card
+                        key={line.category_id}
+                        className="border-border/80"
+                      >
+                        <CardHeader className="border-b pb-3 space-y-0">
+                          <CardTitle className="text-base">
+                            {lineIndex + 1}/{displayModel.lines.length} ·{' '}
+                            {line.category_code || '—'} — {line.category_name}
+                          </CardTitle>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            مجموع البند فقط · مدين{' '}
+                            {formatMoney(focusLine.debit, '')} · دائن خزينة{' '}
+                            {formatMoney(cashboxCredit, '')}
+                            {catModel.balanced ? ' · متوازن' : ' · مراجعة'} ·{' '}
+                            {focusLine.movements.length} حركة مصدر
+                          </p>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b bg-muted/40 text-muted-foreground">
+                                  <th className="px-4 py-2.5 text-right font-medium">
+                                    الرمز
+                                  </th>
+                                  <th className="px-4 py-2.5 text-right font-medium">
+                                    الحساب
+                                  </th>
+                                  <th className="px-4 py-2.5 text-right font-medium">
+                                    الدور
+                                  </th>
+                                  <th className="px-4 py-2.5 text-left font-medium">
+                                    مدين
+                                  </th>
+                                  <th className="px-4 py-2.5 text-left font-medium">
+                                    دائن
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr className="border-b bg-sage-50/40">
+                                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                                    {focusLine.category_code || '—'}
+                                  </td>
+                                  <td className="px-4 py-2.5 font-semibold">
+                                    {focusLine.category_name} ★
+                                  </td>
+                                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                                    مدين البند
+                                  </td>
+                                  <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
+                                    {formatMoney(focusLine.debit, '')}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
+                                    {formatMoney(focusLine.credit, '')}
+                                  </td>
+                                </tr>
+                                {contraLines.map((cl) => (
+                                  <tr
+                                    key={cl.category_id}
+                                    className="border-b last:border-0 hover:bg-muted/30"
+                                  >
+                                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                                      {cl.category_code || '—'}
+                                    </td>
+                                    <td className="px-4 py-2.5 font-semibold">
+                                      {cl.category_name}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                                      {cl.credit > 0
+                                        ? 'دائن الخزينة'
+                                        : 'طرف مقابل'}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
+                                      {formatMoney(cl.debit, '')}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
+                                      {formatMoney(cl.credit, '')}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot>
+                                <tr className="bg-sage-50/80 font-bold">
+                                  <td
+                                    colSpan={3}
+                                    className="px-4 py-3 text-right text-sm"
+                                  >
+                                    {catModel.balanced
+                                      ? 'مجموع القيد — مدين = دائن'
+                                      : 'مجموع القيد — فرق'}
+                                  </td>
+                                  <td className="px-4 py-3 text-left font-mono tabular-nums text-emerald-800">
+                                    {formatMoney(catModel.totalDebit, '')}
+                                  </td>
+                                  <td className="px-4 py-3 text-left font-mono tabular-nums text-red-700">
+                                    {formatMoney(catModel.totalCredit, '')}
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                : null}
           </>
         )}
       </AccountingPageBody>

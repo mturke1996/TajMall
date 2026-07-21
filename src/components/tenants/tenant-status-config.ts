@@ -3,6 +3,7 @@ import {
   XCircle,
   AlertCircle,
   Clock,
+  CalendarOff,
   type LucideIcon,
 } from 'lucide-react';
 import { currentMonthNameAr } from '@/lib/rent-months';
@@ -11,7 +12,8 @@ export type TenantRentStatusKey =
   | 'paid_full'
   | 'paid_partial'
   | 'unpaid'
-  | 'no_rent_set';
+  | 'no_rent_set'
+  | 'exempt';
 
 export const TENANT_STATUS_CONFIG: Record<
   TenantRentStatusKey,
@@ -55,6 +57,14 @@ export const TENANT_STATUS_CONFIG: Record<
     color: 'text-slate-600',
     bg: 'bg-slate-50',
     border: 'border-slate-200',
+  },
+  exempt: {
+    label: 'بدون مطالبة',
+    shortLabel: 'بدون مطالبة',
+    icon: CalendarOff,
+    color: 'text-slate-500',
+    bg: 'bg-slate-50/80',
+    border: 'border-dashed border-slate-300',
   },
 };
 

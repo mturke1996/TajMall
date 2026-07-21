@@ -82,15 +82,19 @@ export function RecordSalaryPaymentDialog({
 
     try {
       const supabase = (await import('@/lib/supabase/client')).createSupabaseBrowserClient();
-      const { data: expenseCat, error: catErr } = await supabase
+      // قبول EXP-SAL (الأساسي) أو EXP-SLR (توافق قديم)
+      const { data: salaryCats, error: catErr } = await supabase
         .from('categories')
-        .select('id')
-        .eq('code', 'EXP-SLR')
-        .maybeSingle();
+        .select('id, code')
+        .in('code', ['EXP-SAL', 'EXP-SLR']);
 
       if (catErr) throw catErr;
+      const expenseCat =
+        salaryCats?.find((c) => c.code === 'EXP-SAL') ??
+        salaryCats?.find((c) => c.code === 'EXP-SLR') ??
+        null;
       if (!expenseCat) {
-        toast.error('فئة المصروفات "المرتبات" غير موجودة');
+        toast.error('فئة المصروفات "المرتبات" غير موجودة (EXP-SAL / EXP-SLR)');
         return;
       }
 

@@ -117,3 +117,15 @@ export function isCalendarMonthOutstanding(m: RentCalendarMonth): boolean {
     m.status === 'unpaid' || m.status === 'partial' || m.status === 'no_charge'
   );
 }
+
+/** أشهر تُعرض في التقويم / السجل — يخفي بدون مطالبة */
+export function filterVisibleCalendarMonths(
+  months: RentCalendarMonth[],
+): RentCalendarMonth[] {
+  return months.filter((m) => m.status !== 'exempt' && m.status !== 'na');
+}
+
+/** هل الشهر يدخل في المتوقع / غير المدفوع */
+export function isBillableRentMonthStatus(status: string | null | undefined): boolean {
+  return status !== 'exempt' && status !== 'no_rent_set' && status !== 'na';
+}

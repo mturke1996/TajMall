@@ -10,7 +10,7 @@ function EmployeesRedirectInner() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const extra: Record<string, string> = {};
+    const extra: Record<string, string> = { add: 'EMPLOYEE' };
     const add = searchParams.get('add');
     if (add) extra.add = add;
     router.replace(peopleSegmentHref('EMPLOYEE', extra));

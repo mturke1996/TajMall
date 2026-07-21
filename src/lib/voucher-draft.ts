@@ -5,6 +5,7 @@ export type VoucherDraftSnapshot = {
   number: string;
   voucherDate: string;
   payee: string;
+  contactId?: string;
   bank: string;
   account: string;
   method: string;
@@ -23,6 +24,7 @@ export function loadVoucherDraft(): VoucherDraftSnapshot | null {
       number: typeof d.number === 'string' ? d.number : '',
       voucherDate: typeof d.voucherDate === 'string' ? d.voucherDate : '',
       payee: typeof d.payee === 'string' ? d.payee : '',
+      contactId: typeof d.contactId === 'string' ? d.contactId : '',
       bank: typeof d.bank === 'string' ? d.bank : '',
       account: typeof d.account === 'string' ? d.account : '',
       method: typeof d.method === 'string' ? d.method : 'نقدي',

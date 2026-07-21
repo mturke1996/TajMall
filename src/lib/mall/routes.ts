@@ -58,6 +58,7 @@ export const LEGACY_MALL_REDIRECTS: Record<string, MallTab> = {
 export const LEGACY_PEOPLE_SEGMENT: Record<string, PeopleSegment> = {
   '/employees': 'EMPLOYEE',
   '/vendors': 'VENDOR',
+  '/customers': 'CUSTOMER',
 };
 
 export function contactBackHref(kind: string) {

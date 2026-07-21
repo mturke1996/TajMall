@@ -24,7 +24,12 @@ import {
   saveVoucherDraft,
 } from '@/lib/voucher-draft';
 import { voucherUiMethodToPaymentMethod } from '@/lib/voucher-db';
-import { useCreateDisbursementVoucher, useCashboxes, useCategories } from '@/lib/db/queries';
+import {
+  useCreateDisbursementVoucher,
+  useCashboxes,
+  useCategories,
+  useContacts,
+} from '@/lib/db/queries';
 import { toast } from 'sonner';
 import { usePermission } from '@/lib/supabase/use-permission';
 
@@ -37,6 +42,15 @@ export default function NewVoucherPage() {
   const createDisbursementVoucher = useCreateDisbursementVoucher();
   const { data: cashboxes = [] } = useCashboxes();
   const { data: expenseCategories = [] } = useCategories('EXPENSE');
+  const { data: vendors = [] } = useContacts('VENDOR');
+  const { data: employees = [] } = useContacts('EMPLOYEE');
+  const payeeContacts = useMemo(
+    () => [
+      ...vendors.map((c) => ({ ...c, group: 'مورد' as const })),
+      ...employees.map((c) => ({ ...c, group: 'موظف' as const })),
+    ],
+    [vendors, employees],
+  );
   const [cashboxId, setCashboxId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [number, setNumber] = useState('');
@@ -44,6 +58,7 @@ export default function NewVoucherPage() {
     new Date().toISOString().slice(0, 10),
   );
   const [payee, setPayee] = useState('');
+  const [contactId, setContactId] = useState('');
   const [bank, setBank] = useState('');
   const [account, setAccount] = useState('');
   const [method, setMethod] = useState<VoucherPdfModel['method']>('نقدي');
@@ -59,6 +74,7 @@ export default function NewVoucherPage() {
     setNumber(d.number);
     if (d.voucherDate) setVoucherDate(d.voucherDate);
     setPayee(d.payee);
+    setContactId(d.contactId ?? '');
     setBank(d.bank);
     setAccount(d.account);
     setMethod(METHOD_SET.has(d.method) ? (d.method as VoucherPdfModel['method']) : 'نقدي');
@@ -106,6 +122,7 @@ export default function NewVoucherPage() {
       number,
       voucherDate,
       payee,
+      contactId: contactId || undefined,
       bank,
       account,
       method,
@@ -153,6 +170,7 @@ export default function NewVoucherPage() {
         voucher_number: num,
         voucher_date: voucherDate,
         payee: payee.trim(),
+        contact_id: contactId || null,
         bank_name: bank.trim() || null,
         account_number: account.trim() || null,
         method: voucherUiMethodToPaymentMethod(method),
@@ -185,6 +203,7 @@ export default function NewVoucherPage() {
     setNumber('');
     setVoucherDate(new Date().toISOString().slice(0, 10));
     setPayee('');
+    setContactId('');
     setBank('');
     setAccount('');
     setMethod('نقدي');
@@ -361,6 +380,38 @@ export default function NewVoucherPage() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>المستفيد من الدليل (مورد / موظف)</Label>
+            <Select
+              value={contactId || '__none__'}
+              onValueChange={(v) => {
+                if (v === '__none__') {
+                  setContactId('');
+                  return;
+                }
+                setContactId(v);
+                const party = payeeContacts.find((c) => c.id === v);
+                if (party?.name) setPayee(party.name);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="اختر مورداً أو موظفاً" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— بدون ربط بجهة —</SelectItem>
+                {payeeContacts.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.group}: {c.name}
+                    {c.phone ? ` · ${c.phone}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-ink-mute">
+              الاختيار يملأ اسم المستفيد تلقائياً ويُحفظ الربط في النظام (راتب أو صرف لمورد).
+            </p>
           </div>
 
           <div className="space-y-2">

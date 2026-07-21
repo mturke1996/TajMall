@@ -50,6 +50,7 @@ export type TenantsDirectoryProps = {
     partial: number;
     unpaid: number;
     noRentSet?: number;
+    exempt?: number;
     expectedTotal: number;
     collectedTotal: number;
   };
@@ -115,8 +116,12 @@ export function TenantsDirectory({
             ? stats.partial
             : key === 'unpaid'
               ? stats.unpaid
-              : (stats.noRentSet ??
-                tenants.filter((t) => t.current_month_status === key).length),
+              : key === 'exempt'
+                ? (stats.exempt ??
+                  tenants.filter((t) => t.current_month_status === 'exempt')
+                    .length)
+                : (stats.noRentSet ??
+                  tenants.filter((t) => t.current_month_status === key).length),
       icon: cfg.icon,
     })),
   ];

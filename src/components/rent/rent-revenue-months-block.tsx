@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { PieChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,8 @@ import {
 } from '@/components/ui/select';
 import { RentMonthPicker } from '@/components/rent/rent-month-picker';
 import { buildRentCalendarFromCharges } from '@/lib/rent-calendar-from-charges';
+import { useTenantRentExemptMonths } from '@/lib/db/rent-queries';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { rentChargesByMonth, sumRentMonthsRemaining } from '@/lib/rent-journal-link';
 import {
   areConsecutiveMonths,
@@ -39,6 +42,7 @@ type Props = {
   partialAmount: string;
   onPartialAmountChange: (value: string) => void;
   maxMonths?: number;
+  claimStart?: string | null;
 };
 
 export function RentRevenueMonthsBlock({
@@ -53,9 +57,26 @@ export function RentRevenueMonthsBlock({
   partialAmount,
   onPartialAmountChange,
   maxMonths,
+  claimStart = null,
 }: Props) {
   const defaultYear = yearsProp?.[0] ?? currentYear();
   const [year, setYear] = useState(defaultYear);
+  const { data: exemptRows = [] } = useTenantRentExemptMonths(tenantId);
+  const { data: contactClaim } = useQuery({
+    queryKey: ['tenant-claim-start', tenantId],
+    enabled: !!tenantId && claimStart == null,
+    queryFn: async () => {
+      const sb = createSupabaseBrowserClient();
+      const { data, error } = await sb
+        .from('contacts')
+        .select('contract_start')
+        .eq('id', tenantId)
+        .single();
+      if (error) throw error;
+      return data?.contract_start ?? null;
+    },
+  });
+  const resolvedClaimStart = claimStart ?? contactClaim ?? null;
 
   const years = yearsProp ?? [currentYear(), currentYear() - 1];
 
@@ -76,8 +97,11 @@ export function RentRevenueMonthsBlock({
 
   const calendarMonths: RentCalendarMonth[] = useMemo(
     () =>
-      buildRentCalendarFromCharges(tenantId, year, monthlyRent, charges).months,
-    [tenantId, year, monthlyRent, charges],
+      buildRentCalendarFromCharges(tenantId, year, monthlyRent, charges, {
+        claimStart: resolvedClaimStart,
+        manualExemptMonths: exemptRows.map((r) => r.month_key),
+      }).months,
+    [tenantId, year, monthlyRent, charges, resolvedClaimStart, exemptRows],
   );
 
   useEffect(() => {
@@ -90,6 +114,15 @@ export function RentRevenueMonthsBlock({
     if (!selectedKey) return;
     onPartialAmountChange(totalRemaining > 0 ? String(totalRemaining) : '');
   }, [selectedKey, totalRemaining, onPartialAmountChange]);
+
+  // أزل من التحديد أي شهر أصبح بدون مطالبة
+  useEffect(() => {
+    const exemptSet = new Set(
+      calendarMonths.filter((m) => m.status === 'exempt').map((m) => m.month),
+    );
+    if (!exemptSet.size || !selected.some((m) => exemptSet.has(m))) return;
+    onSelectedChange(selected.filter((m) => !exemptSet.has(m)));
+  }, [calendarMonths, selected, onSelectedChange]);
 
   const suggestedFull = useMemo(() => {
     if (selected.length === 0) return 0;

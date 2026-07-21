@@ -14,25 +14,25 @@ export const pdfReportTable = StyleSheet.create({
     borderWidth: 1,
     borderColor: PDF.border,
     borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: 16,
   },
+  /** رأس أعمدة — استخدم fixed لتكراره في الصفحة التالية عند انقسام الجدول */
   tableHead: {
     ...PDF_TABLE_ROW,
     backgroundColor: PDF.headerBg,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
     borderBottomColor: PDF.border,
   },
   tableRow: {
     ...PDF_TABLE_ROW,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: PDF.border,
     alignItems: 'flex-start',
-    minHeight: 24,
+    minHeight: 28,
   },
   rowAlt: {
     backgroundColor: PDF.rowAlt,
@@ -69,15 +69,15 @@ export const pdfReportTable = StyleSheet.create({
     paddingTop: 1,
   },
   sectionTitle: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: 'bold',
     color: PDF.primary,
     textAlign: 'right',
-    marginBottom: 8,
-    marginTop: 4,
-    paddingRight: 4,
-    borderRightWidth: 3,
-    borderRightColor: PDF.logoGreen,
+    marginBottom: 10,
+    marginTop: 8,
+    paddingBottom: 5,
+    borderBottomWidth: 1.5,
+    borderBottomColor: PDF.border,
   },
   sectionBand: {
     backgroundColor: PDF.headerBg,
@@ -195,10 +195,10 @@ export const pdfReportTable = StyleSheet.create({
     direction: 'ltr',
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
-    gap: 6,
-    marginBottom: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    marginTop: 10,
+    marginBottom: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: PDF.border,
     backgroundColor: PDF.mutedBg,
@@ -206,8 +206,7 @@ export const pdfReportTable = StyleSheet.create({
   },
   docInfoCell: {
     direction: 'rtl',
-    flex: 1,
-    minWidth: 0,
+    width: '32%',
   },
   docInfoLabel: {
     fontSize: 7,
@@ -230,13 +229,36 @@ export function PdfReportMoney({
   color,
   bold,
   light,
+  /** عند true يُعرض 0 بدل الشرطة — مناسب لأعمدة مدين/دائن */
+  showZero = false,
 }: {
   amount: number;
   color?: string;
   bold?: boolean;
   light?: boolean;
+  showZero?: boolean;
 }) {
   if (!amount || Math.abs(amount) < 0.0005) {
+    if (showZero) {
+      return (
+        <PdfMoneyText
+          amount={0}
+          align="center"
+          adaptive
+          adaptiveBase={9}
+          color={color}
+          light={light}
+          style={{
+            fontSize: 8.5,
+            fontWeight: bold ? 'bold' : 'normal',
+            textAlign: 'center',
+            ...(light ? { color: '#FBF8F1' } : {}),
+          }}
+          currStyle={light ? { fontSize: 7.5, color: 'rgba(255,255,255,0.9)' } : undefined}
+          containerStyle={{ justifyContent: 'center', width: '100%' }}
+        />
+      );
+    }
     return (
       <Text style={[pdfReportTable.tdMuted, light && { color: 'rgba(255,255,255,0.65)' }]}>
         {ar('—')}

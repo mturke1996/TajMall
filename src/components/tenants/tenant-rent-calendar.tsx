@@ -11,7 +11,10 @@ import {
   RENT_MONTH_STATUS_LABEL,
   RENT_MONTH_STATUS_TEXT_CLASS,
 } from '@/lib/rent-months';
-import { isCalendarMonthOutstanding } from '@/lib/rent-exempt-months';
+import {
+  filterVisibleCalendarMonths,
+  isCalendarMonthOutstanding,
+} from '@/lib/rent-exempt-months';
 import { cn, formatMoney } from '@/lib/utils';
 
 export function TenantRentCalendar({
@@ -39,8 +42,10 @@ export function TenantRentCalendar({
     );
   }
 
-  const paid = data.months.filter((m) => m.status === 'paid').length;
-  const unpaid = data.months.filter(isCalendarMonthOutstanding).length;
+  const exemptCount = data.months.filter((m) => m.status === 'exempt').length;
+  const visible = filterVisibleCalendarMonths(data.months);
+  const paid = visible.filter((m) => m.status === 'paid').length;
+  const unpaid = visible.filter(isCalendarMonthOutstanding).length;
 
   return (
     <div className="space-y-3">
@@ -54,27 +59,39 @@ export function TenantRentCalendar({
         </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
-        {data.months.map((m) => (
-          <div
-            key={m.month}
-            title={`${formatMonthLabelAr(m.month)} — ${RENT_MONTH_STATUS_LABEL[m.status]}`}
-            className={cn(
-              'rounded-lg px-2 py-2.5 text-center',
-              RENT_MONTH_CELL_FRAME[m.status],
-            )}
-          >
-            <RentMonthLabel
-              monthKey={m.month}
-              status={m.status}
-              statusLabel={RENT_MONTH_STATUS_LABEL[m.status]}
-            />
-          </div>
-        ))}
-      </div>
+      {exemptCount > 0 && (
+        <p className="text-[11px] text-ink-mute">
+          استُبعد {exemptCount} شهر بدون مطالبة من العرض والإجماليات
+        </p>
+      )}
+
+      {visible.length === 0 ? (
+        <p className="text-sm text-ink-mute py-2 text-center">
+          لا أشهر مطالَبة في هذه السنة
+        </p>
+      ) : (
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+          {visible.map((m) => (
+            <div
+              key={m.month}
+              title={`${formatMonthLabelAr(m.month)} — ${RENT_MONTH_STATUS_LABEL[m.status]}`}
+              className={cn(
+                'rounded-lg px-2 py-2.5 text-center',
+                RENT_MONTH_CELL_FRAME[m.status],
+              )}
+            >
+              <RentMonthLabel
+                monthKey={m.month}
+                status={m.status}
+                statusLabel={RENT_MONTH_STATUS_LABEL[m.status]}
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3 text-[11px] text-ink-mute">
-        {(['paid', 'partial', 'unpaid', 'no_charge', 'exempt'] as const).map((s) => (
+        {(['paid', 'partial', 'unpaid', 'no_charge'] as const).map((s) => (
           <span key={s} className="flex items-center gap-1">
             <span className={cn('h-2.5 w-2.5 rounded-sm', RENT_MONTH_LEGEND_SWATCH[s])} />
             <span className={RENT_MONTH_STATUS_TEXT_CLASS[s]}>

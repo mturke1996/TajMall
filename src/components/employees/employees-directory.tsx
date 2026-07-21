@@ -6,7 +6,6 @@ import {
   Search,
   Loader2,
   DollarSign,
-  Phone,
   Plus,
   ChevronLeft,
   Users,
@@ -16,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { ContactPhoneActions } from '@/components/contacts/contact-phone-actions';
 import { cn, formatMoney } from '@/lib/utils';
 import type { EmployeeSummary } from '@/lib/db/queries';
 import {
@@ -215,19 +215,26 @@ export function EmployeesDirectory({
                           )}
                         </p>
                       )}
-                      {emp.phone && (
-                        <p className="mt-0.5 flex items-center gap-1 text-[12px] text-ink-mute">
-                          <Phone className="h-3 w-3 shrink-0" />
-                          <span dir="ltr">{emp.phone}</span>
-                        </p>
-                      )}
                     </div>
                     <ChevronLeft className="h-5 w-5 shrink-0 text-ink-mute" aria-hidden />
                   </Link>
-                  <div className="flex divide-x divide-border border-t border-border rtl:divide-x-reverse">
+                  <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
+                    {emp.phone ? (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        <ContactPhoneActions
+                          name={emp.name}
+                          phone={emp.phone}
+                          kind="EMPLOYEE"
+                          compact
+                        />
+                      </div>
+                    ) : null}
                     <Button
                       variant="ghost"
-                      className="h-11 flex-1 rounded-none gap-1.5 text-[13px] touch-manipulation"
+                      className="h-10 flex-1 min-w-[5rem] gap-1.5 text-[13px] touch-manipulation"
                       disabled={salary === 0}
                       onClick={() => onRecordSalary(emp)}
                     >
@@ -236,7 +243,7 @@ export function EmployeesDirectory({
                     </Button>
                     <Button
                       variant="ghost"
-                      className="h-11 flex-1 rounded-none gap-1.5 text-[13px] touch-manipulation"
+                      className="h-10 flex-1 min-w-[5rem] gap-1.5 text-[13px] touch-manipulation"
                       asChild
                     >
                       <Link href={`/contacts/${emp.id}`}>الملف</Link>
@@ -319,12 +326,15 @@ function EmployeeCard({
               {formatMoney(paidLastYear, 'LYD')}
             </span>
           </div>
-          {emp.phone && (
-            <p className="flex items-center gap-2 py-1 text-ink-mute">
-              <Phone className="h-3.5 w-3.5 shrink-0" />
-              <span dir="ltr">{emp.phone}</span>
-            </p>
-          )}
+          {emp.phone ? (
+            <div className="pt-1" onClick={(e) => e.stopPropagation()}>
+              <ContactPhoneActions
+                name={emp.name}
+                phone={emp.phone}
+                kind="EMPLOYEE"
+              />
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-4 flex gap-2 border-t border-border pt-3">

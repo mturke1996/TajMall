@@ -204,6 +204,7 @@ export type DisbursementVoucherRow = {
   voucher_number: string;
   voucher_date: string;
   payee: string;
+  contact_id: string | null;
   bank_name: string | null;
   account_number: string | null;
   method: PaymentMethod;
@@ -237,6 +238,7 @@ export type SaveDisbursementVoucherInput = {
   voucher_number: string;
   voucher_date: string;
   payee: string;
+  contact_id?: string | null;
   bank_name?: string | null;
   account_number?: string | null;
   method: PaymentMethod;

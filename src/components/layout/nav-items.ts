@@ -176,6 +176,13 @@ export const NAV: NavSection[] = [
         icon: Landmark,
         permission: 'expense.view',
       },
+      {
+        href: '/mall?tab=people&segment=CUSTOMER',
+        labelAr: 'العملاء',
+        label: 'Customers',
+        icon: Store,
+        permission: 'revenue.view',
+      },
     ],
   },
   {
@@ -250,6 +257,27 @@ export const NAV: NavSection[] = [
         labelAr: 'أعمار ذمم المستأجرين',
         label: 'AR Aging',
         icon: Users,
+        permission: 'journal.view',
+      },
+      {
+        href: '/reports/vendor-spend',
+        labelAr: 'إنفاق الموردين',
+        label: 'Vendor Spend',
+        icon: Landmark,
+        permission: 'journal.view',
+      },
+      {
+        href: '/reports/customer-revenue',
+        labelAr: 'إيراد العملاء',
+        label: 'Customer Revenue',
+        icon: Store,
+        permission: 'journal.view',
+      },
+      {
+        href: '/reports/employee-spend',
+        labelAr: 'إنفاق الموظفين',
+        label: 'Employee Spend',
+        icon: Briefcase,
         permission: 'journal.view',
       },
       {

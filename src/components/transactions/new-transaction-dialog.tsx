@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { ArrowDownToLine, ArrowUpFromLine, Loader2, X, User, Building2, Briefcase, Plus, FileStack, Trash2 } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Loader2, X, User, Building2, Briefcase, Plus, FileStack, Trash2, Landmark, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,14 @@ import {
   type RentLinkMode,
 } from '@/components/rent/rent-revenue-months-block';
 import { isRentCategoryCode } from '@/lib/charge-invoice';
+import {
+  contactKindLabelAr,
+  isCustomerServiceRevenueCode,
+  isEmployeeSalaryCode,
+  isVendorServiceExpenseCode,
+  suggestedContactKindForTx,
+  type PartyContactFilter,
+} from '@/lib/party-contacts';
 import { useTenantChargesForTenant } from '@/lib/db/mall-queries';
 import {
   getJournalIdForTransaction,
@@ -57,7 +65,7 @@ export function NewTransactionDialog() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [description, setDescription] = useState('');
   const [contactId, setContactId] = useState('');
-  const [contactKind, setContactKind] = useState<'ALL' | 'TENANT' | 'EMPLOYEE' | 'CUSTOMER' | 'VENDOR'>('ALL');
+  const [contactKind, setContactKind] = useState<PartyContactFilter>('ALL');
   const [showNewContact, setShowNewContact] = useState(false);
   const [newContactName, setNewContactName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +104,7 @@ export function NewTransactionDialog() {
       setDate(new Date().toISOString().slice(0, 10));
       setDescription('');
       setContactId('');
-      setContactKind('ALL');
+      setContactKind(suggestedContactKindForTx(defaultKind, null));
       setShowNewContact(false);
       setNewContactName('');
       setError(null);
@@ -241,19 +249,24 @@ export function NewTransactionDialog() {
   async function handleCreateContact(e: React.FormEvent) {
     e.preventDefault();
     if (!newContactName.trim()) return;
-    
+
+    const createKind =
+      contactKind === 'ALL' ? (isRevenue ? 'CUSTOMER' : 'VENDOR') : contactKind;
+    const label = contactKindLabelAr(createKind);
+
     try {
       const newContact = await createContact.mutateAsync({
         name: newContactName.trim(),
-        kind: contactKind === 'ALL' ? 'CUSTOMER' : contactKind,
+        kind: createKind,
         is_active: true,
       });
       setContactId(newContact.id);
+      setContactKind(createKind);
       setShowNewContact(false);
       setNewContactName('');
-      toast.success('تم إضافة العميل');
+      toast.success(`تم إضافة ${label}`);
     } catch {
-      toast.error('فشل إضافة العميل');
+      toast.error(`فشل إضافة ${label}`);
     }
   }
 
@@ -396,7 +409,11 @@ export function NewTransactionDialog() {
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => { setKind('REVENUE'); setCategoryId(''); }}
+              onClick={() => {
+                setKind('REVENUE');
+                setCategoryId('');
+                setContactKind(suggestedContactKindForTx('REVENUE', null));
+              }}
               className={cn(
                 'rounded-md py-2 text-sm font-medium',
                 kind === 'REVENUE' ? 'bg-pastel-green text-pastel-greenInk' : 'bg-canvas-sunken'
@@ -406,7 +423,11 @@ export function NewTransactionDialog() {
             </button>
             <button
               type="button"
-              onClick={() => { setKind('EXPENSE'); setCategoryId(''); }}
+              onClick={() => {
+                setKind('EXPENSE');
+                setCategoryId('');
+                setContactKind(suggestedContactKindForTx('EXPENSE', null));
+              }}
               className={cn(
                 'rounded-md py-2 text-sm font-medium',
                 kind === 'EXPENSE' ? 'bg-pastel-red text-pastel-redInk' : 'bg-canvas-sunken'
@@ -436,7 +457,12 @@ export function NewTransactionDialog() {
               <Label>البند</Label>
               <select
                 value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
+                onChange={(e) => {
+                  const nextId = e.target.value;
+                  setCategoryId(nextId);
+                  const code = categoriesAll.find((c) => c.id === nextId)?.code;
+                  setContactKind(suggestedContactKindForTx(kind, code));
+                }}
                 className="h-10 w-full rounded border px-2 text-sm"
                 disabled={catsLoading}
               >
@@ -501,46 +527,65 @@ export function NewTransactionDialog() {
             />
           </div>
 
-          {/* العميل / المستأجر / الموظف */}
+          {/* الجهة: عميل / مورد / مستأجر / موظف */}
           <div className="border rounded-md p-3 space-y-2 bg-canvas-sunken/30">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <Label className="flex items-center gap-1.5">
                 <User className="h-3.5 w-3.5 text-ink-mute" />
                 {isRevenue ? 'المسدد' : 'المستفيد'} (اختياري)
               </Label>
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  onClick={() => setContactKind('ALL')}
-                  className={cn(
-                    'px-2 py-0.5 text-[10px] rounded',
-                    contactKind === 'ALL' ? 'bg-sage-100 text-sage-700' : 'text-ink-mute'
-                  )}
-                >
-                  الكل
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setContactKind('TENANT')}
-                  className={cn(
-                    'px-2 py-0.5 text-[10px] rounded',
-                    contactKind === 'TENANT' ? 'bg-sage-100 text-sage-700' : 'text-ink-mute'
-                  )}
-                >
-                  <Building2 className="h-3 w-3 inline" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setContactKind('EMPLOYEE')}
-                  className={cn(
-                    'px-2 py-0.5 text-[10px] rounded',
-                    contactKind === 'EMPLOYEE' ? 'bg-sage-100 text-sage-700' : 'text-ink-mute'
-                  )}
-                >
-                  <Briefcase className="h-3 w-3 inline" />
-                </button>
+              <div className="flex flex-wrap justify-end gap-1">
+                {(
+                  [
+                    { id: 'ALL' as const, label: 'الكل', icon: null },
+                    { id: 'CUSTOMER' as const, label: 'عميل', icon: Store },
+                    { id: 'VENDOR' as const, label: 'مورد', icon: Landmark },
+                    { id: 'TENANT' as const, label: 'مستأجر', icon: Building2 },
+                    { id: 'EMPLOYEE' as const, label: 'موظف', icon: Briefcase },
+                  ] as const
+                ).map((chip) => {
+                  const Icon = chip.icon;
+                  return (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      title={chip.label}
+                      onClick={() => setContactKind(chip.id)}
+                      className={cn(
+                        'inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] rounded',
+                        contactKind === chip.id
+                          ? 'bg-sage-100 text-sage-700'
+                          : 'text-ink-mute hover:bg-secondary',
+                      )}
+                    >
+                      {Icon ? <Icon className="h-3 w-3" /> : null}
+                      <span>{chip.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
+            {selectedCategory &&
+            isCustomerServiceRevenueCode(selectedCategory.code) &&
+            isRevenue ? (
+              <p className="text-[10px] leading-snug text-ink-mute">
+                إيراد خدمة/مواقف — يمكن ربطه بعميل مباشرة دون عقد إيجار.
+              </p>
+            ) : null}
+            {selectedCategory &&
+            isVendorServiceExpenseCode(selectedCategory.code) &&
+            !isRevenue ? (
+              <p className="text-[10px] leading-snug text-ink-mute">
+                مصروف تشغيلي — يُفضَّل ربطه بمورد لتتبع الإنفاق.
+              </p>
+            ) : null}
+            {selectedCategory &&
+            isEmployeeSalaryCode(selectedCategory.code) &&
+            !isRevenue ? (
+              <p className="text-[10px] leading-snug text-ink-mute">
+                مصروف مرتبات — يُفضَّل ربطه بموظف.
+              </p>
+            ) : null}
 
             {showNewContact ? (
               <form onSubmit={handleCreateContact} className="flex gap-2">

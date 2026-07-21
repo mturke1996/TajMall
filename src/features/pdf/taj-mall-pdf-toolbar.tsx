@@ -20,6 +20,8 @@ type Props = {
   render: () => Promise<ReactElement>;
   disabled?: boolean;
   showDownload?: boolean;
+  /** نص زر العرض — افتراضي: عرض PDF */
+  openLabel?: string;
   className?: string;
 };
 
@@ -31,6 +33,7 @@ export function TajMallPdfToolbar({
   render,
   disabled,
   showDownload = true,
+  openLabel = 'عرض PDF',
   className,
 }: Props) {
   const [openBusy, setOpenBusy] = useState(false);
@@ -169,7 +172,7 @@ export function TajMallPdfToolbar({
           ) : (
             <FileText className="h-4 w-4 stroke-[1.6]" />
           )}
-          عرض PDF
+          {openLabel}
         </Button>
         {showDownload ? (
           <Button

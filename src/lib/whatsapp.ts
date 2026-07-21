@@ -24,6 +24,28 @@ export function buildWhatsAppLink(phone: string, message: string): string | null
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 
+/** رابط اتصال هاتفي — للأرقام المحلية والدولية بعد التطبيع. */
+export function buildTelLink(phone: string): string | null {
+  const normalized = normalizeLibyanPhone(phone);
+  if (!normalized) return null;
+  return `tel:+${normalized}`;
+}
+
+/** رسالة ترحيب عامة لأي جهة اتصال (مورد/عميل/مستأجر/موظف). */
+export function buildContactWhatsAppMessage(input: {
+  contactName: string;
+  kindLabelAr?: string;
+}): string {
+  const kind = input.kindLabelAr ? ` (${input.kindLabelAr})` : '';
+  return [
+    `السلام عليكم ${input.contactName}${kind}،`,
+    '',
+    'تحية طيبة من إدارة تاج مول.',
+    '',
+    'إدارة تاج مول',
+  ].join('\n');
+}
+
 /** رسالة تذكير جاهزة لمستأجر متأخر عن السداد — قابلة للتعديل قبل الإرسال داخل واتساب. */
 export function buildRentReminderMessage(input: {
   tenantName: string;

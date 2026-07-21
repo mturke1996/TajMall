@@ -6,6 +6,7 @@ import { PDF_FONT_FAMILY } from "./pdfFonts";
 import { ar } from "./arabicPDF";
 import { BRAND, buildPdfFooterLine } from "@/lib/brand";
 import { PDF_PAGINATION } from "./pdfBase";
+import { PDF_TABLE_ROW } from "./pdfTable";
 import { usePdfLogoDataUri } from "./pdf-logo-context";
 import {
   pdfFormatAmountRaw,
@@ -100,6 +101,79 @@ export const pdfBrandStyles = StyleSheet.create({
     paddingRight: 0,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  /** ترويسة التقارير — نمط rkeaz: عنوان يسار · هوية يمين · خط فاصل */
+  flowHeaderWrap: {
+    marginBottom: 16,
+  },
+  flowHeaderTop: {
+    ...PDF_TABLE_ROW,
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  flowHeaderTitleCol: {
+    alignItems: "flex-start",
+    justifyContent: "center",
+    maxWidth: "42%",
+    paddingTop: 4,
+  },
+  flowHeaderTitleEn: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#b8c5d6",
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  flowHeaderTitleAr: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: PDFPalette.primary,
+    textAlign: "right",
+    lineHeight: 1.35,
+  },
+  flowHeaderSubtitle: {
+    marginTop: 4,
+    fontSize: 9,
+    color: PDFPalette.muted,
+    textAlign: "right",
+  },
+  flowHeaderIdentity: {
+    ...PDF_TABLE_ROW,
+    justifyContent: "flex-end",
+    flex: 1,
+    marginLeft: 12,
+  },
+  flowHeaderIdentityText: {
+    alignItems: "flex-end",
+    flexShrink: 1,
+    maxWidth: 240,
+    marginRight: 10,
+  },
+  flowHeaderLogo: {
+    paddingLeft: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  flowHeaderCompany: {
+    fontSize: 12.5,
+    fontWeight: "bold",
+    color: PDFPalette.primary,
+    textAlign: "right",
+    lineHeight: 1.35,
+    marginBottom: 2,
+  },
+  flowHeaderTagline: {
+    fontSize: 8,
+    color: PDFPalette.muted,
+    textAlign: "right",
+    lineHeight: 1.4,
+  },
+  flowHeaderDivider: {
+    borderBottomWidth: 2,
+    borderBottomColor: PDFPalette.primary,
+    paddingBottom: 2,
   },
 
   accountingLetterhead: {
@@ -570,6 +644,41 @@ export const PdfLogoMark = ({ size = 64 }: { size?: number }) => {
   }
   return <PdfLogoFallback size={size} />;
 };
+
+/** ترويسة تقرير — تدفق طبيعي، مسافات واضحة (نمط rkeaz-group) */
+export function PdfReportHeaderFlow({
+  title,
+  subtitle,
+  titleEn = "REPORT",
+}: {
+  title: string;
+  subtitle?: string;
+  titleEn?: string;
+}) {
+  return (
+    <View style={pdfBrandStyles.flowHeaderWrap} wrap={false}>
+      <View style={pdfBrandStyles.flowHeaderTop}>
+        <View style={pdfBrandStyles.flowHeaderTitleCol}>
+          <Text style={pdfBrandStyles.flowHeaderTitleEn}>{titleEn}</Text>
+          <Text style={pdfBrandStyles.flowHeaderTitleAr}>{ar(title)}</Text>
+          {subtitle ? (
+            <Text style={pdfBrandStyles.flowHeaderSubtitle}>{ar(subtitle)}</Text>
+          ) : null}
+        </View>
+        <View style={pdfBrandStyles.flowHeaderIdentity}>
+          <View style={pdfBrandStyles.flowHeaderIdentityText}>
+            <Text style={pdfBrandStyles.flowHeaderCompany}>{ar(BRAND.fullName)}</Text>
+            <Text style={pdfBrandStyles.flowHeaderTagline}>{ar(BRAND.tagline)}</Text>
+          </View>
+          <View style={pdfBrandStyles.flowHeaderLogo}>
+            <PdfLogoMark size={46} />
+          </View>
+        </View>
+      </View>
+      <View style={pdfBrandStyles.flowHeaderDivider} />
+    </View>
+  );
+}
 
 /** ترويسة وثيقة محاسبية — شعار في الأعلى وسطاً (معايير كشف/ميزان مراجعة) */
 export function PdfAccountingLetterhead({

@@ -1,35 +1,29 @@
-import { Plus, Coins } from 'lucide-react';
-import { PageHeader } from '@/components/layout/page-header';
-import { Button } from '@/components/ui/button';
-import { EmptyState } from '@/components/data/empty-state';
+'use client';
 
-export default function CustomersPage() {
-  const customers: Array<{ id: string }> = [];
+import { Suspense, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
+import { peopleSegmentHref } from '@/lib/mall/routes';
+
+function CustomersRedirectInner() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace(peopleSegmentHref('CUSTOMER', { add: 'CUSTOMER' }));
+  }, [router]);
 
   return (
-    <>
-      <PageHeader
-        eyebrow="بيانات أساسية"
-        title="العملاء"
-        description="قاعدة بيانات العملاء وأرصدتهم."
-        actions={
-          <Button size="sm" className="gap-1.5">
-            <Plus className="stroke-[1.6]" />
-            عميل جديد
-          </Button>
-        }
-      />
+    <div className="flex h-48 items-center justify-center gap-2 text-ink-mute">
+      <Loader2 className="h-5 w-5 animate-spin" />
+      جارٍ التحويل…
+    </div>
+  );
+}
 
-      <div className="flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-7">
-        {customers.length === 0 ? (
-          <EmptyState
-            icon={Coins}
-            title="لا يوجد عملاء بعد"
-            description="أضف عملاءك لتربط معاملات الإيرادات بهم وتتبع أرصدتهم بسهولة."
-            action={{ label: 'إضافة عميل جديد', href: '/customers/new' }}
-          />
-        ) : null}
-      </div>
-    </>
+export default function CustomersRedirectPage() {
+  return (
+    <Suspense fallback={null}>
+      <CustomersRedirectInner />
+    </Suspense>
   );
 }

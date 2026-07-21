@@ -11,6 +11,8 @@ import {
   Users,
   FileText,
   FileSpreadsheet,
+  Store,
+  Briefcase,
 } from 'lucide-react';
 import type { PermissionKey } from '@/lib/constants';
 
@@ -105,12 +107,36 @@ export const ACCOUNTING_NAV_ITEMS: AccountingNavItem[] = [
     step: 9,
   },
   {
+    href: '/reports/vendor-spend',
+    labelAr: 'إنفاق الموردين',
+    description: 'مصروفات حسب المورد',
+    icon: Landmark,
+    permission: 'journal.view',
+    step: 10,
+  },
+  {
+    href: '/reports/customer-revenue',
+    labelAr: 'إيراد العملاء',
+    description: 'إيرادات حسب العميل',
+    icon: Store,
+    permission: 'journal.view',
+    step: 11,
+  },
+  {
+    href: '/reports/employee-spend',
+    labelAr: 'إنفاق الموظفين',
+    description: 'مرتبات حسب الموظف',
+    icon: Briefcase,
+    permission: 'journal.view',
+    step: 12,
+  },
+  {
     href: '/reports/periods',
     labelAr: 'الفترات المالية',
     description: 'إغلاق الفترات والترحيل',
     icon: CalendarRange,
     permission: 'journal.view',
-    step: 10,
+    step: 13,
   },
 ];
 

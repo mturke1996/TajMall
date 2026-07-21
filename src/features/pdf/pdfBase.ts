@@ -36,7 +36,8 @@ export const PDF = {
 
 /** مساحة التذييل والرأس — محتوى التقرير لا يختلط معهما */
 export const PDF_PAGINATION = {
-  headerReserve: 68,
+  /** حجز علوي بسيط — الرأس في تدفق الصفحة (مثل rkeaz) */
+  headerReserve: 28,
   headerCompact: 22,
   footerBottom: 10,
   footerHeight: 46,
@@ -63,6 +64,7 @@ export const pdfBase = {
   pageFlow: {
     width: '100%',
     flexDirection: 'column',
+    paddingTop: 8,
   },
 
   pageAccentBar: {
@@ -75,23 +77,29 @@ export const pdfBase = {
   },
 
   /**
-   * الرأس: شريط بارتفاع محجوز فيه كتلتان مثبتتان بإحداثيات صريحة.
-   *   - brandBoxFixed   → ثابت على يمين الورقة (الشعار + الاسم)
-   *   - titleBoxAtLeft  → ثابت على يسار الورقة (نوع التقرير + العنوان)
-   * بهذا لا يتلامس النصّان مهما طال أحدهما.
+   * الرأس المثبّت — عنوان يسار · شعار واسم يمين (التصميم الأصلي)
    */
   header: {
-    position: 'relative',
-    width: '100%',
-    minHeight: 62,
-    marginBottom: 10,
-    paddingBottom: 10,
-    paddingTop: 0,
+    position: 'absolute',
+    top: 2,
+    left: 36,
+    right: 36,
+    minHeight: 54,
+    paddingBottom: 6,
     borderBottomWidth: 1,
     borderBottomColor: PDF.border,
   },
 
-  /** عنوان التقرير — مثبَّت على الحافة اليسرى للورقة، النص أيضاً يُحاذى لليسار */
+  /** مسافة بين أقسام التقرير */
+  sectionGap: {
+    marginBottom: 16,
+  },
+
+  blockGap: {
+    marginBottom: 12,
+  },
+
+  /** @deprecated — استخدم PdfReportHeaderFlow */
   titleBoxAtLeft: {
     position: 'absolute',
     left: 0,
@@ -109,7 +117,7 @@ export const pdfBase = {
     direction: 'rtl',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     maxWidth: '48%',
   },
 
@@ -455,7 +463,7 @@ export const pdfBase = {
     color: PDF.muted,
   },
 
-  /** أعلى يمين الصفحة — بعيد عن التذييل، متوافق مع RTL */
+  /** رقم الصفحة — أعلى يمين الورقة */
   pageNumber: {
     position: 'absolute',
     top: 8,

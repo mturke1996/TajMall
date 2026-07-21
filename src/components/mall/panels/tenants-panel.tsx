@@ -16,7 +16,9 @@ import { peopleSegmentHref } from '@/lib/mall/routes';
 import { Button } from '@/components/ui/button';
 import {
   aggregateTenantSummariesForPeriod,
+  buildTenantMatchingMonthNumbers,
   buildTenantsReportPeriodContext,
+  collectTenantMonthStatuses,
   computeTenantPeriodStats,
   defaultTenantRentPeriodSelection,
   filterTenantsByStatusAndSearch,
@@ -59,23 +61,67 @@ export function MallTenantsPanel() {
 
   const isLoading = isSingleMonth ? singleLoading : periodLoading;
 
+  const monthStatusesByTenant = useMemo(() => {
+    if (isSingleMonth || periodLoading) return undefined;
+    return collectTenantMonthStatuses(rowsByMonth ?? new Map(), monthKeys);
+  }, [isSingleMonth, periodLoading, rowsByMonth, monthKeys]);
+
   const filteredTenants = useMemo(
-    () => filterTenantsByStatusAndSearch(tenants, statusFilter, searchQuery),
-    [tenants, statusFilter, searchQuery],
+    () =>
+      filterTenantsByStatusAndSearch(
+        tenants,
+        statusFilter,
+        searchQuery,
+        monthStatusesByTenant,
+      ),
+    [tenants, statusFilter, searchQuery, monthStatusesByTenant],
   );
 
-  const stats = useMemo(() => computeTenantPeriodStats(tenants), [tenants]);
+  const stats = useMemo(() => {
+    if (!monthStatusesByTenant) return computeTenantPeriodStats(tenants);
+    // سنة/ربع/نصف: العدّ بعدد المستأجرين الذين لديهم شهر واحد على الأقل بالحالة
+    return {
+      ...computeTenantPeriodStats(tenants),
+      paid: tenants.filter((t) =>
+        (monthStatusesByTenant.get(t.id) ?? []).some((e) => e.status === 'paid_full'),
+      ).length,
+      partial: tenants.filter((t) =>
+        (monthStatusesByTenant.get(t.id) ?? []).some(
+          (e) => e.status === 'paid_partial',
+        ),
+      ).length,
+      unpaid: tenants.filter((t) =>
+        (monthStatusesByTenant.get(t.id) ?? []).some((e) => e.status === 'unpaid'),
+      ).length,
+      noRentSet: tenants.filter((t) =>
+        (monthStatusesByTenant.get(t.id) ?? []).some((e) => e.status === 'no_rent_set'),
+      ).length,
+      exempt: tenants.filter((t) =>
+        (monthStatusesByTenant.get(t.id) ?? []).some((e) => e.status === 'exempt'),
+      ).length,
+    };
+  }, [tenants, monthStatusesByTenant]);
 
   const periodLabel = formatPeriodLabelAr(periodSelection);
   const statusLabel =
     statusFilter === 'ALL'
       ? 'الكل'
       : getTenantStatus(statusFilter).shortLabel;
-  const pdfCacheKey = `${periodSelectionKey(periodSelection)}:${statusFilter}:${searchQuery.trim()}`;
+  /** سنة/ربع/نصف + حالة دفع → PDF يعرض أرقام الشهور بدل المبالغ */
+  const showMonthNumbersInPdf =
+    !isSingleMonth &&
+    statusFilter !== 'ALL' &&
+    (statusFilter === 'paid_full' ||
+      statusFilter === 'paid_partial' ||
+      statusFilter === 'unpaid' ||
+      statusFilter === 'no_rent_set' ||
+      statusFilter === 'exempt');
+  const pdfCacheKey = `${periodSelectionKey(periodSelection)}:${statusFilter}:${searchQuery.trim()}:m${showMonthNumbersInPdf ? 1 : 0}`;
   const pdfFileName = `إيجارات-المستأجرين-${periodLabel.replace(/\s+/g, '-')}-${statusLabel}`;
   const pdfPeriod = buildTenantsReportPeriodContext(
     periodSelection,
     statusFilter === 'ALL' ? undefined : statusLabel,
+    { showMonthNumbers: showMonthNumbersInPdf },
   );
 
   return (
@@ -90,12 +136,21 @@ export function MallTenantsPanel() {
             const { TenantsReportPDF } = await import('@/features/pdf/TenantsReportPDF');
             const filterNote =
               statusFilter === 'ALL' ? '' : ` · ${statusLabel} فقط`;
+            const monthNumbersByTenantId = showMonthNumbersInPdf
+              ? buildTenantMatchingMonthNumbers(
+                  filteredTenants.map((t) => t.id),
+                  rowsByMonth ?? new Map(),
+                  monthKeys,
+                  statusFilter,
+                )
+              : undefined;
             return (
               <TenantsReportPDF
                 titleAr="تقرير إيجارات المستأجرين"
                 subtitleAr={`${filteredTenants.length} مستأجر · ${periodLabel}${filterNote}`}
                 rows={filteredTenants}
                 period={pdfPeriod}
+                monthNumbersByTenantId={monthNumbersByTenantId}
               />
             );
           }}

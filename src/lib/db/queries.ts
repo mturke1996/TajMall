@@ -522,7 +522,12 @@ export type TenantRentSummary = {
   current_month_key?: string | null;
   current_month_amount?: string | null;
   current_month_paid: string;
-  current_month_status: "no_rent_set" | "paid_full" | "paid_partial" | "unpaid";
+  current_month_status:
+    | "no_rent_set"
+    | "paid_full"
+    | "paid_partial"
+    | "unpaid"
+    | "exempt";
   total_rent_paid?: string | null;
   rent_linked_journals_count?: number | null;
   journal_entries_count?: number | null;
@@ -1060,6 +1065,7 @@ export function useCreateDisbursementVoucher() {
           voucher_number: input.voucher_number.trim(),
           voucher_date: input.voucher_date,
           payee: input.payee.trim(),
+          contact_id: input.contact_id || null,
           bank_name: input.bank_name?.trim() || null,
           account_number: input.account_number?.trim() || null,
           method: input.method,

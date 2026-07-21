@@ -10,7 +10,13 @@ import { peopleSegmentHref } from '@/lib/mall/routes';
 import { cn } from '@/lib/utils';
 import { MOBILE_PAGE_ACTION_PADDING } from '@/components/layout/mobile-page-action-bar';
 
-export function MallEmployeesPanel({ embedded }: { embedded?: boolean }) {
+export function MallEmployeesPanel({
+  embedded,
+  onAddEmployee,
+}: {
+  embedded?: boolean;
+  onAddEmployee?: () => void;
+}) {
   const router = useRouter();
   const { data: employees = [], isLoading: summaryLoading } = useEmployeeSummary();
   const { data: contacts = [] } = useContacts('EMPLOYEE');
@@ -70,8 +76,10 @@ export function MallEmployeesPanel({ embedded }: { embedded?: boolean }) {
           onSearchChange={setSearchQuery}
           stats={stats}
           onRecordSalary={setSalaryEmployee}
-          onAddEmployee={() =>
-            router.push(peopleSegmentHref('EMPLOYEE', { add: 'EMPLOYEE' }))
+          onAddEmployee={
+            onAddEmployee ??
+            (() =>
+              router.push(peopleSegmentHref('EMPLOYEE', { add: 'EMPLOYEE' })))
           }
         />
       </div>

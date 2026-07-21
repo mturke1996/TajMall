@@ -58,7 +58,20 @@ export function MallPeoplePanel() {
           counts={directory.segmentCounts}
           onChange={setSegment}
         />
-        <MallEmployeesPanel embedded />
+        <MallEmployeesPanel
+          embedded
+          onAddEmployee={() => directory.openAdd('EMPLOYEE')}
+        />
+        <ContactFormDialog
+          open={directory.isAddOpen}
+          onOpenChange={directory.setIsAddOpen}
+          formData={directory.formData}
+          onFormChange={directory.setFormData}
+          editingId={directory.editingId}
+          onSubmit={directory.handleSubmit}
+          isPending={directory.isPending}
+          lockKind={!!directory.editingId}
+        />
       </div>
     );
   }

@@ -8,7 +8,7 @@ import { ar, arDateParts } from './arabicPDF';
 
 import { pdfBase, PDF, PDF_PAGINATION } from './pdfBase';
 
-import { TajMallPdfFooter, TajMallPdfHeader, PdfLogoMark, PdfMoneyText } from './pdfBrandKit';
+import { TajMallPdfFooter, TajMallPdfHeader, PdfLogoMark, PdfReportHeaderFlow, PdfMoneyText } from './pdfBrandKit';
 
 import { BRAND } from '@/lib/brand';
 
@@ -178,65 +178,21 @@ export function ReportShell({
 
         <View style={pdfBase.pageAccentBar} fixed />
 
-
-
-        {showHeader && (
-
-          <View style={pdfBase.header} fixed>
-
-            <View style={pdfBase.titleBoxAtLeft} wrap={false}>
-
-              <Text style={pdfBase.reportType}>{ar('تقرير')}</Text>
-
-              <Text style={pdfBase.reportTitle}>{ar(title)}</Text>
-
-              {subtitle ? <Text style={pdfBase.reportSub}>{ar(subtitle)}</Text> : null}
-
-            </View>
-
-            <View style={pdfBase.brandBoxFixed} wrap={false}>
-
-              <View style={pdfBase.brandTexts}>
-
-                <Text style={pdfBase.brandName}>{ar(BRAND.fullName)}</Text>
-
-                <Text style={pdfBase.brandSub}>{ar(BRAND.tagline)}</Text>
-
-              </View>
-
-              <PdfLogoMark size={56} />
-
-            </View>
-
-          </View>
-
-        )}
-
-
-
-        {headerProps && (
-
-          <TajMallPdfHeader
-
-            titleEn={headerProps.titleEn || title}
-
-            subtitleAr={headerProps.subtitleAr || subtitle || ''}
-
-            refLine={headerProps.refLine}
-
-            companyInfo={headerProps.companyInfo}
-
-          />
-
-        )}
-
-
-
-        {/* جسم الصفحة — كتلة مستقلة عن التذييل */}
-
         <View style={pdfBase.pageFlow}>
+          {showHeader ? (
+            <PdfReportHeaderFlow title={title} subtitle={subtitle} titleEn="REPORT" />
+          ) : null}
 
-          {showSummary && metaCells.length > 0 && (
+          {headerProps ? (
+            <TajMallPdfHeader
+              titleEn={headerProps.titleEn || title}
+              subtitleAr={headerProps.subtitleAr || subtitle || ''}
+              refLine={headerProps.refLine}
+              companyInfo={headerProps.companyInfo}
+            />
+          ) : null}
+
+          {showSummary && metaCells.length > 0 ? (
 
             <View style={pdfBase.luxe} wrap={false}>
 
@@ -416,12 +372,9 @@ export function ReportShell({
 
             </View>
 
-          )}
-
-
+          ) : null}
 
           {children}
-
         </View>
 
 
@@ -453,3 +406,37 @@ export function ReportShell({
 }
 
 
+
+/** رأس + تذييل + ترقيم — صفحة واحدة ضمن Document متعدد الصفحات */
+export function ReportPageFrame({
+  title,
+  subtitle,
+  titleEn = 'REPORT',
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  titleEn?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Page size="A4" style={pdfBase.page} wrap>
+      <View style={pdfBase.pageAccentBar} fixed />
+
+      <View style={pdfBase.pageFlow}>
+        <PdfReportHeaderFlow title={title} subtitle={subtitle} titleEn={titleEn} />
+        {children}
+      </View>
+
+      <TajMallPdfFooter fixed />
+
+      <Text
+        style={pdfBase.pageNumber}
+        render={({ pageNumber, totalPages }) =>
+          ar(`صفحة ${pageNumber ?? 1} من ${totalPages ?? 1}`)
+        }
+        fixed
+      />
+    </Page>
+  );
+}

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { MobilePageActionBar, MOBILE_PAGE_ACTION_PADDING } from '@/components/layout/mobile-page-action-bar';
 import { MobileContactListItem } from '@/components/contacts/mobile-contact-list-item';
+import { ContactPhoneActions } from '@/components/contacts/contact-phone-actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -402,8 +403,17 @@ export function ContactsDirectory({
                             {kindInfo?.label}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-ink-mute" dir="ltr">
-                          {contact.phone || '—'}
+                        <td className="px-4 py-3 text-ink-mute">
+                          {contact.phone ? (
+                            <ContactPhoneActions
+                              name={contact.name}
+                              phone={contact.phone}
+                              kind={contact.kind}
+                              compact
+                            />
+                          ) : (
+                            '—'
+                          )}
                         </td>
                         <td className="px-4 py-3 text-ink-mute max-w-[200px] truncate">
                           <ContactSubtitle contact={contact} />

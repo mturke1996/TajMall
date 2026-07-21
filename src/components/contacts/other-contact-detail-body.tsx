@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MobileTransactionList } from '@/components/data/mobile-transaction-list';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { ContactRentLinks } from '@/components/contacts/contact-rent-links';
+import { ContactPhoneActions } from '@/components/contacts/contact-phone-actions';
 import { TenantRentHistory } from '@/components/tenants/tenant-rent-history';
 import { TenantProfileCharges } from '@/components/tenants/tenant-profile-charges';
 import { TenantRentCalendarPanel } from '@/components/tenants/tenant-rent-calendar-panel';
@@ -95,6 +96,21 @@ export function OtherContactDetailBody({
               {formatMoney(totals.expense, 'LYD')}
             </p>
           </Card>
+          {!isTenant ? (
+            <Card className="min-w-[9.5rem] shrink-0 snap-center p-4 md:min-w-0">
+              <p className="text-xs text-ink-mute">صافي الحركة</p>
+              <p
+                className={cn(
+                  'text-lg font-bold sm:text-xl',
+                  totals.revenue - totals.expense >= 0
+                    ? 'text-sage-800'
+                    : 'text-amber-800',
+                )}
+              >
+                {formatMoney(totals.revenue - totals.expense, 'LYD')}
+              </p>
+            </Card>
+          ) : null}
           <Card className="min-w-[9.5rem] shrink-0 snap-center p-4 md:min-w-0">
             <p className="text-xs text-ink-mute">عدد المعاملات</p>
             <p className="text-lg font-bold sm:text-xl">{transactions.length}</p>
@@ -122,13 +138,62 @@ export function OtherContactDetailBody({
             </div>
             <dl className="space-y-2 text-sm">
               {contact.phone && (
-                <div className="flex justify-between gap-2">
-                  <dt className="text-ink-mute flex items-center gap-1">
-                    <Phone className="h-3.5 w-3.5" /> هاتف
-                  </dt>
-                  <dd>{contact.phone}</dd>
+                <div className="space-y-2">
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-ink-mute flex items-center gap-1">
+                      <Phone className="h-3.5 w-3.5" /> هاتف
+                    </dt>
+                    <dd dir="ltr">{contact.phone}</dd>
+                  </div>
+                  <ContactPhoneActions
+                    name={contact.name}
+                    phone={contact.phone}
+                    kind={contact.kind}
+                  />
                 </div>
               )}
+              {contact.phone2 && (
+                <div className="space-y-2">
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-ink-mute flex items-center gap-1">
+                      <Phone className="h-3.5 w-3.5" /> هاتف 2
+                    </dt>
+                    <dd dir="ltr">{contact.phone2}</dd>
+                  </div>
+                  <ContactPhoneActions
+                    name={contact.name}
+                    phone={contact.phone2}
+                    kind={contact.kind}
+                    compact
+                  />
+                </div>
+              )}
+              {contact.kind === 'EMPLOYEE' && contact.job_title ? (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-ink-mute">المسمى الوظيفي</dt>
+                  <dd className="font-medium">{contact.job_title}</dd>
+                </div>
+              ) : null}
+              {contact.kind === 'EMPLOYEE' && contact.department ? (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-ink-mute">القسم</dt>
+                  <dd className="font-medium">{contact.department}</dd>
+                </div>
+              ) : null}
+              {contact.kind === 'EMPLOYEE' && contact.salary ? (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-ink-mute">الراتب الشهري</dt>
+                  <dd className="font-medium tabular-nums">
+                    {formatMoney(Number(contact.salary), 'LYD')}
+                  </dd>
+                </div>
+              ) : null}
+              {contact.kind === 'EMPLOYEE' && contact.hire_date ? (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-ink-mute">تاريخ التعيين</dt>
+                  <dd>{formatDate(contact.hire_date)}</dd>
+                </div>
+              ) : null}
               {contact.monthly_rent && (
                 <div className="flex justify-between gap-2">
                   <dt className="text-ink-mute">إيجار شهري</dt>

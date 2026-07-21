@@ -109,6 +109,19 @@ export function getTenantCurrentMonthPresentation(
             : '',
         tone: 'rose',
       };
+    case 'exempt':
+      return {
+        ...base,
+        amount: 0,
+        paid: 0,
+        remaining: 0,
+        percentPaid: 0,
+        headline: 'بدون مطالبة',
+        subtitle: `${monthName} · مستبعد من الإيجار المستحق`,
+        badgeLabel: 'بدون مطالبة',
+        badgeDetail: '',
+        tone: 'neutral',
+      };
     default:
       return {
         ...base,

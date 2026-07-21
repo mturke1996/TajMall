@@ -43,6 +43,9 @@ export function RentMonthPicker({
   const statusByMonth = new Map(
     (calendarMonths ?? []).map((m) => [m.month, m.status]),
   );
+  // إخفاء أشهر بدون مطالبة من شبكة الاختيار
+  const visibleKeys = keys.filter((key) => statusByMonth.get(key) !== 'exempt');
+  const hiddenExempt = keys.length - visibleKeys.length;
 
   return (
     <div className={cn('space-y-2', className)}>
@@ -53,11 +56,15 @@ export function RentMonthPicker({
             ? 'اختر شهراً أو شهرين متتاليين (مثل مايو + يونيو) — يظهران مدفوعين بنفس القيد.'
             : 'اختر شهراً أو عدة أشهر متتالية. عند اختيار غير متتالي يُعاد التحديد من الشهر الجديد.'}
       </p>
+      {hiddenExempt > 0 && (
+        <p className="text-[11px] text-ink-mute">
+          {hiddenExempt} شهر بدون مطالبة مخفي من الاختيار
+        </p>
+      )}
       <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
-        {keys.map((key) => {
+        {visibleKeys.map((key) => {
           const isSelected = selected.includes(key);
           const status = statusByMonth.get(key);
-          const isExempt = status === 'exempt';
           const statusClass =
             showStatus && status
               ? RENT_MONTH_STATUS_CLASS[status]
@@ -67,10 +74,7 @@ export function RentMonthPicker({
             <button
               key={key}
               type="button"
-              disabled={isExempt}
-              title={isExempt ? 'شهر بدون مطالبة' : undefined}
               onClick={() => {
-                if (isExempt) return;
                 if (singleMonth) {
                   onChange(selected.includes(key) ? [] : [key]);
                   return;
@@ -84,14 +88,12 @@ export function RentMonthPicker({
               className={cn(
                 'rounded-lg px-2 py-2 text-[11px] touch-manipulation transition-colors border-2',
                 statusClass,
-                isExempt && 'opacity-50 cursor-not-allowed',
                 isSelected && 'ring-2 ring-sage-600 ring-offset-1',
               )}
             >
               <RentMonthLabel
                 monthKey={key}
-                status={isExempt ? 'exempt' : undefined}
-                statusLabel={isExempt ? 'بدون مطالبة' : undefined}
+                status={status}
                 layout="stacked"
               />
             </button>

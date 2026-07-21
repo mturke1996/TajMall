@@ -15,6 +15,8 @@ import {
   CalendarRange,
   FileSpreadsheet,
   ArrowLeft,
+  Store,
+  Briefcase,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -96,6 +98,24 @@ const REPORT_CARDS: ReportCard[] = [
     titleAr: 'أعمار ذمم المستأجرين',
     description: 'تحليل المتأخرات حسب الأعمار',
     icon: Users,
+  },
+  {
+    href: '/reports/vendor-spend',
+    titleAr: 'إنفاق الموردين',
+    description: 'مصروفات مجمّعة حسب المورد المرتبط',
+    icon: Landmark,
+  },
+  {
+    href: '/reports/customer-revenue',
+    titleAr: 'إيراد العملاء',
+    description: 'إيرادات خدمات/مواقف مربوطة بعملاء',
+    icon: Store,
+  },
+  {
+    href: '/reports/employee-spend',
+    titleAr: 'إنفاق الموظفين',
+    description: 'مرتبات ومصروفات مربوطة بموظفين',
+    icon: Briefcase,
   },
   {
     href: '/reports/budget',
