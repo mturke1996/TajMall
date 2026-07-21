@@ -13,7 +13,11 @@ import type {
   PeriodJournalLine,
   PeriodJournalMovement,
 } from '@/lib/period-journal-entry';
-import { applyPeriodJournalCategoryFilter } from '@/lib/period-journal-entry';
+import {
+  applyPeriodJournalCategoryFilter,
+  buildContraLinesForFocus,
+  periodLineCashboxKindsLabel,
+} from '@/lib/period-journal-entry';
 
 /**
  * قيد الفترة المحاسبي — PDF
@@ -161,7 +165,12 @@ function sortLines(lines: PeriodJournalLine[]): PeriodJournalLine[] {
     const oA = TYPE_ORDER[a.category_type ?? ''] ?? 99;
     const oB = TYPE_ORDER[b.category_type ?? ''] ?? 99;
     if (oA !== oB) return oA - oB;
-    return (a.category_code || 'zzzz').localeCompare(b.category_code || 'zzzz', 'ar');
+    const codeCmp = (a.category_code || 'zzzz').localeCompare(
+      b.category_code || 'zzzz',
+      'ar',
+    );
+    if (codeCmp !== 0) return codeCmp;
+    return (a.cashbox_name || '').localeCompare(b.cashbox_name || '', 'ar');
   });
 }
 
@@ -173,7 +182,7 @@ function flattenLines(lines: PeriodJournalLine[], focusCategoryId: string): Flat
         ...m,
         category_id: line.category_id,
         category_code: line.category_code,
-        category_name: line.category_name,
+        category_name: line.cashbox_name || line.category_name,
         is_focus: line.category_id === focusCategoryId,
       });
     }
@@ -192,7 +201,7 @@ function movementStatement(m: PeriodJournalMovement): string {
     m.line_description,
     m.journal_description,
     m.contact_name ? `جهة: ${m.contact_name}` : null,
-    m.cashbox_name ? `خزينة: ${m.cashbox_name}` : null,
+    m.cashbox_name || null,
     m.contra_label ? `مقابل: ${m.contra_label}` : null,
   ].filter(Boolean);
   return parts.join(' · ') || '—';
@@ -210,14 +219,14 @@ function UnifiedSummaryTable({ lines }: { lines: PeriodJournalLine[] }) {
         <Text style={[pdfReportTable.th, { width: W.net }]}>{ar('الصافي')}</Text>
         <Text style={[pdfReportTable.th, { width: W.credit }]}>{ar('دائن')}</Text>
         <Text style={[pdfReportTable.th, { width: W.debit }]}>{ar('مدين')}</Text>
-        <Text style={[pdfReportTable.th, { width: W.type }]}>{ar('النوع')}</Text>
+        <Text style={[pdfReportTable.th, { width: W.type }]}>{ar('الخزينة')}</Text>
         <Text style={[pdfReportTable.thAr, { width: W.name }]}>{ar('الحساب')}</Text>
         <Text style={[pdfReportTable.thAr, { width: W.code }]}>{ar('الرمز')}</Text>
       </View>
 
       {sorted.map((line, i) => (
         <View
-          key={line.category_id}
+          key={line.rowKey}
           style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]}
           wrap={false}
         >
@@ -231,9 +240,20 @@ function UnifiedSummaryTable({ lines }: { lines: PeriodJournalLine[] }) {
             <PdfReportMoney amount={line.debit} color={PDF.success} showZero />
           </View>
           <Text style={[pdfReportTable.tdMuted, { width: W.type, fontSize: 7.5 }]}>
-            {ar(accountTypeLabelAr(line.category_type))}
+            {ar(periodLineCashboxKindsLabel(line))}
           </Text>
-          <Text style={[pdfReportTable.tdAr, { width: W.name }]}>{ar(line.category_name)}</Text>
+          <View style={{ width: W.name, ...pdfReportTable.tdAr }}>
+            <Text style={pdfReportTable.tdAr}>
+              {ar(line.cashbox_name || line.category_name)}
+            </Text>
+            <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>
+              {ar(
+                line.cashbox_name
+                  ? line.category_name
+                  : accountTypeLabelAr(line.category_type),
+              )}
+            </Text>
+          </View>
           <Text style={[pdfReportTable.tdMuted, { width: W.code }]}>
             {ar(line.category_code || '—')}
           </Text>
@@ -281,7 +301,10 @@ function SingleCategoryLedger({
   sectionLabel?: string;
 }) {
   const rows = flattenLines(lines, focusCategoryId);
-  const focusLine = lines.find((l) => l.category_id === focusCategoryId);
+  const focusRows = lines.filter((l) => l.category_id === focusCategoryId);
+  const focusDebit = focusRows.reduce((s, l) => s + l.debit, 0);
+  const focusCredit = focusRows.reduce((s, l) => s + l.credit, 0);
+  const focusMovements = focusRows.reduce((s, l) => s + l.movements.length, 0);
 
   return (
     <>
@@ -294,20 +317,20 @@ function SingleCategoryLedger({
         )}
       </Text>
 
-      {focusLine ? (
+      {focusRows.length > 0 ? (
         <View style={[pdfReportTable.hero, { marginBottom: 10 }]} wrap={false}>
           <View style={pdfReportTable.heroCell}>
             <Text style={pdfReportTable.heroLabel}>{ar('مدين البند')}</Text>
-            <PdfReportMoney amount={focusLine.debit} bold color={PDF.success} showZero />
+            <PdfReportMoney amount={focusDebit} bold color={PDF.success} showZero />
           </View>
           <View style={pdfReportTable.heroCell}>
             <Text style={pdfReportTable.heroLabel}>{ar('دائن البند')}</Text>
-            <PdfReportMoney amount={focusLine.credit} bold color={PDF.danger} showZero />
+            <PdfReportMoney amount={focusCredit} bold color={PDF.danger} showZero />
           </View>
           <View style={pdfReportTable.heroCell}>
             <Text style={pdfReportTable.heroLabel}>{ar('الحركات')}</Text>
             <Text style={pdfReportTable.heroValue}>
-              {ar(String(focusLine.movements.length))}
+              {ar(String(focusMovements))}
             </Text>
           </View>
         </View>
@@ -426,21 +449,25 @@ function CategoryTotalPage({
   const cashboxCredit = contraLines.reduce((sum, l) => sum + l.credit, 0);
   const rows = [
     {
-      key: focusLine.category_id,
+      key: focusLine.rowKey,
       code: focusLine.category_code || '—',
-      name: focusLine.category_name,
+      name: focusLine.cashbox_name || focusLine.category_name,
       desc: 'مدين البند',
-      hint: 'مجموع الفترة',
+      hint: focusLine.cashbox_name
+        ? focusLine.category_name
+        : 'مجموع الفترة',
       debit: focusLine.debit,
       credit: focusLine.credit,
       focus: true,
     },
     ...contraLines.map((line) => ({
-      key: line.category_id,
+      key: line.rowKey,
       code: line.category_code || '—',
-      name: line.category_name,
+      name: line.cashbox_name || line.category_name,
       desc: line.credit > 0 ? 'دائن الخزينة' : 'طرف مقابل',
-      hint: accountTypeLabelAr(line.category_type),
+      hint: line.cashbox_name
+        ? line.category_name
+        : accountTypeLabelAr(line.category_type),
       debit: line.debit,
       credit: line.credit,
       focus: false,
@@ -457,10 +484,16 @@ function CategoryTotalPage({
         </View>
         <View style={s.categoryBandTitle}>
           <Text style={s.categoryBandEyebrow}>{ar(indexLabel)}</Text>
-          <Text style={s.categoryBandName}>{ar(focusLine.category_name)}</Text>
+          <Text style={s.categoryBandName}>
+            {ar(focusLine.cashbox_name || focusLine.category_name)}
+          </Text>
           <Text style={s.categoryBandMeta}>
             {ar(
-              `${focusLine.category_code || '—'} · ${accountTypeLabelAr(focusLine.category_type)} · ${periodLabel}`,
+              `${focusLine.category_code || '—'} · ${
+                focusLine.cashbox_name
+                  ? focusLine.category_name
+                  : accountTypeLabelAr(focusLine.category_type)
+              } · ${periodLabel}`,
             )}
           </Text>
         </View>
@@ -608,31 +641,29 @@ function ComprehensivePeriodJournalDocument({
       </ReportPageFrame>
 
       {sorted.map((line, index) => {
-        const catModel = applyPeriodJournalCategoryFilter(model, line.category_id, {
-          id: line.category_id,
-          code: line.category_code,
-          name_ar: line.category_name,
-          type: line.category_type,
-        });
-        const focusLine =
-          catModel.lines.find((l) => l.category_id === line.category_id) ?? line;
-        const contraLines = catModel.lines.filter(
-          (l) => l.category_id !== line.category_id,
-        );
+        const focusLine = line;
+        const contraLines = buildContraLinesForFocus(model, focusLine);
+        const totalDebit =
+          focusLine.debit + contraLines.reduce((s, l) => s + l.debit, 0);
+        const totalCredit =
+          focusLine.credit + contraLines.reduce((s, l) => s + l.credit, 0);
+        const balanced = Math.abs(totalDebit - totalCredit) <= 0.005;
 
         return (
           <ReportPageFrame
-            key={line.category_id}
+            key={line.rowKey}
             title={titleAr}
-            subtitle={`${line.category_code || '—'} — ${line.category_name}`}
+            subtitle={`${line.category_code || '—'} — ${
+              line.cashbox_name || line.category_name
+            }`}
             titleEn="JOURNAL"
           >
             <CategoryTotalPage
               focusLine={focusLine}
               contraLines={contraLines}
-              totalDebit={catModel.totalDebit}
-              totalCredit={catModel.totalCredit}
-              balanced={catModel.balanced}
+              totalDebit={totalDebit}
+              totalCredit={totalCredit}
+              balanced={balanced}
               movementCount={focusLine.movements.length}
               periodLabel={model.periodLabel}
               indexLabel={`بند ${index + 1} من ${sorted.length}`}

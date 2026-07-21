@@ -103,6 +103,8 @@ function withYear(
       const month = Number(selection.monthKey.slice(5, 7)) || 1;
       return { mode: 'month', monthKey: monthKey(year, month) };
     }
+    case 'ytd':
+      return { mode: 'ytd', year };
     case 'quarter':
       return { mode: 'quarter', year, quarter: selection.quarter };
     case 'half':
@@ -131,6 +133,9 @@ export function TenantRentPeriodSelector({
         onChange({ mode: 'month', monthKey: monthKey(year, month) });
         break;
       }
+      case 'ytd':
+        onChange({ mode: 'ytd', year });
+        break;
       case 'quarter':
         onChange({ mode: 'quarter', year, quarter: 1 });
         break;
@@ -142,6 +147,9 @@ export function TenantRentPeriodSelector({
         break;
     }
   };
+
+  const hideSubPeriodRow =
+    selection.mode === 'year' || selection.mode === 'ytd';
 
   return (
     <div className={cn('space-y-2.5', className)}>
@@ -171,19 +179,27 @@ export function TenantRentPeriodSelector({
         role="listbox"
         aria-label="اختيار السنة"
       >
-        {years.map((y) => (
-          <PeriodChip
-            key={y}
-            active={year === y}
-            onClick={() => onChange(withYear(selection, y))}
-            label={String(y)}
-            hint={selection.mode === 'year' ? '12 شهر' : 'سنة'}
-            className="min-w-[4.25rem]"
-          />
-        ))}
+        {years.map((y) => {
+          const ytdHint =
+            selection.mode === 'ytd'
+              ? `${getPeriodMonthKeys({ mode: 'ytd', year: y }).length} أشهر`
+              : selection.mode === 'year'
+                ? '12 شهر'
+                : 'سنة';
+          return (
+            <PeriodChip
+              key={y}
+              active={year === y}
+              onClick={() => onChange(withYear(selection, y))}
+              label={String(y)}
+              hint={ytdHint}
+              className="min-w-[4.25rem]"
+            />
+          );
+        })}
       </div>
 
-      {selection.mode !== 'year' && (
+      {!hideSubPeriodRow && (
         <div
           className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1"
           role="listbox"

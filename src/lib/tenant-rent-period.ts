@@ -1,4 +1,5 @@
 import {
+  currentCalendarMonthIndex,
   currentMonthKey,
   currentYear,
   monthKey,
@@ -6,12 +7,22 @@ import {
   yearMonthsAll,
 } from '@/lib/rent-months';
 import type { TenantRentSummary } from '@/lib/db/queries';
-import type { TenantRentStatusKey } from '@/components/tenants/tenant-status-config';
+import {
+  resolveStatusFilterKeys,
+  statusMatchesFilter,
+  type TenantRentStatusKey,
+} from '@/components/tenants/tenant-status-config';
 
-export type TenantRentPeriodMode = 'month' | 'quarter' | 'half' | 'year';
+export type TenantRentPeriodMode =
+  | 'month'
+  | 'ytd'
+  | 'quarter'
+  | 'half'
+  | 'year';
 
 export type TenantRentPeriodSelection =
   | { mode: 'month'; monthKey: string }
+  | { mode: 'ytd'; year: number }
   | { mode: 'quarter'; year: number; quarter: 1 | 2 | 3 | 4 }
   | { mode: 'half'; year: number; half: 1 | 2 }
   | { mode: 'year'; year: number };
@@ -22,10 +33,19 @@ export const PERIOD_MODE_OPTIONS: {
   shortLabel: string;
 }[] = [
   { mode: 'month', label: 'شهر', shortLabel: 'شهر' },
+  { mode: 'ytd', label: 'الأشهر الحالية', shortLabel: 'حتى الآن' },
   { mode: 'quarter', label: 'ربع سنة', shortLabel: 'ربع' },
   { mode: 'half', label: 'نصف سنة', shortLabel: 'نصف' },
   { mode: 'year', label: 'سنة كاملة', shortLabel: 'سنة' },
 ];
+
+/** آخر شهر يُضمَّن في «حتى الآن» لسنة معيّنة */
+export function ytdThroughMonth(year: number): number {
+  const cy = currentYear();
+  if (year < cy) return 12;
+  if (year > cy) return 1;
+  return currentCalendarMonthIndex();
+}
 
 const QUARTER_AR = ['الربع الأول', 'الربع الثاني', 'الربع الثالث', 'الربع الرابع'] as const;
 const HALF_AR = ['النصف الأول', 'النصف الثاني'] as const;
@@ -38,6 +58,7 @@ export function periodYear(selection: TenantRentPeriodSelection): number {
   switch (selection.mode) {
     case 'month':
       return Number(selection.monthKey.slice(0, 4));
+    case 'ytd':
     case 'quarter':
     case 'half':
     case 'year':
@@ -49,6 +70,12 @@ export function getPeriodMonthKeys(selection: TenantRentPeriodSelection): string
   switch (selection.mode) {
     case 'month':
       return [selection.monthKey];
+    case 'ytd': {
+      const through = ytdThroughMonth(selection.year);
+      return Array.from({ length: through }, (_, i) =>
+        monthKey(selection.year, i + 1),
+      );
+    }
     case 'year':
       return yearMonthsAll(selection.year);
     case 'quarter': {
@@ -66,6 +93,8 @@ export function formatPeriodShortLabelAr(selection: TenantRentPeriodSelection): 
   switch (selection.mode) {
     case 'month':
       return monthNameAr(selection.monthKey);
+    case 'ytd':
+      return `${ytdThroughMonth(selection.year)} أشهر`;
     case 'year':
       return String(selection.year);
     case 'quarter':
@@ -80,6 +109,10 @@ export function formatPeriodLabelAr(selection: TenantRentPeriodSelection): strin
   switch (selection.mode) {
     case 'month':
       return `${monthNameAr(selection.monthKey)} ${year}`;
+    case 'ytd': {
+      const through = ytdThroughMonth(selection.year);
+      return `من يناير إلى ${monthNameAr(monthKey(year, through))} ${year} (${through} أشهر)`;
+    }
     case 'year':
       return `سنة ${selection.year}`;
     case 'quarter':
@@ -192,6 +225,8 @@ export function periodSelectionKey(selection: TenantRentPeriodSelection): string
   switch (selection.mode) {
     case 'month':
       return `month:${selection.monthKey}`;
+    case 'ytd':
+      return `ytd:${selection.year}:${ytdThroughMonth(selection.year)}`;
     case 'quarter':
       return `quarter:${selection.year}:${selection.quarter}`;
     case 'half':
@@ -222,11 +257,17 @@ export type TenantMonthStatusEntry = {
 export function computeTenantPeriodStats(tenants: TenantRentSummary[]) {
   const expectedTotal = tenants.reduce((sum, t) => sum + tenantPeriodExpectedRent(t), 0);
   const collectedTotal = tenants.reduce((sum, t) => sum + tenantPeriodPaid(t), 0);
+  const partial = tenants.filter((t) => t.current_month_status === 'paid_partial').length;
+  const unpaid = tenants.filter((t) => t.current_month_status === 'unpaid').length;
   return {
     total: tenants.length,
     paid: tenants.filter((t) => t.current_month_status === 'paid_full').length,
-    partial: tenants.filter((t) => t.current_month_status === 'paid_partial').length,
-    unpaid: tenants.filter((t) => t.current_month_status === 'unpaid').length,
+    partial,
+    unpaid,
+    /** مستأجرون لديهم جزئي أو غير مدفوع (صف مجمّع) */
+    partialUnpaid: tenants.filter((t) =>
+      statusMatchesFilter(t.current_month_status, 'partial_unpaid'),
+    ).length,
     noRentSet: tenants.filter((t) => t.current_month_status === 'no_rent_set').length,
     exempt: tenants.filter((t) => t.current_month_status === 'exempt').length,
     expectedTotal,
@@ -245,8 +286,10 @@ export function filterTenantsByStatusAndSearch(
     if (statusFilter !== 'ALL') {
       const entries = monthStatusesByTenant?.get(t.id);
       if (entries) {
-        if (!entries.some((e) => e.status === statusFilter)) return false;
-      } else if (t.current_month_status !== statusFilter) {
+        if (!entries.some((e) => statusMatchesFilter(e.status, statusFilter))) {
+          return false;
+        }
+      } else if (!statusMatchesFilter(t.current_month_status, statusFilter)) {
         return false;
       }
     }
@@ -262,6 +305,7 @@ export function filterTenantsByStatusAndSearch(
 
 const PERIOD_MODE_LABEL_AR: Record<TenantRentPeriodMode, string> = {
   month: 'شهر',
+  ytd: 'الأشهر الحالية',
   quarter: 'ربع سنة',
   half: 'نصف سنة',
   year: 'سنة كاملة',
@@ -309,14 +353,14 @@ export function collectTenantMonthStatuses(
   return byTenant;
 }
 
-/** أرقام الشهور التي تطابق حالة الدفع المحددة */
+/** أرقام الشهور التي تطابق حالة الدفع المحددة (أو الفلتر المركّب) */
 export function matchingMonthNumbersForStatus(
   entries: TenantMonthStatusEntry[] | undefined,
   statusFilter: string,
 ): number[] {
   if (!entries?.length || !statusFilter || statusFilter === 'ALL') return [];
   const nums = entries
-    .filter((e) => e.status === statusFilter)
+    .filter((e) => statusMatchesFilter(e.status, statusFilter))
     .map((e) => e.monthNumber);
   return [...new Set(nums)].sort((a, b) => a - b);
 }
@@ -396,7 +440,7 @@ export function buildTenantMatchingMonthDetails(
       if (!idSet.has(row.id)) continue;
       if (
         statusFilter !== 'ALL' &&
-        row.current_month_status !== statusFilter
+        !statusMatchesFilter(row.current_month_status, statusFilter)
       ) {
         continue;
       }
@@ -445,6 +489,18 @@ export function buildSingleMonthMatchingDetails(
   return out;
 }
 
+function displayStatusForFilteredMonths(
+  statusFilter: string,
+  detail: TenantMatchingMonthDetail,
+): TenantRentStatusKey {
+  const keys = resolveStatusFilterKeys(statusFilter);
+  if (keys !== 'ALL' && keys.length === 1) return keys[0];
+  if (detail.expected <= 0) return 'no_rent_set';
+  if (detail.paid <= 0) return 'unpaid';
+  if (detail.paid < detail.expected) return 'paid_partial';
+  return 'paid_full';
+}
+
 /** يعيد بناء صف المستأجر ليعكس فقط الشهور المطابقة لفلتر الحالة */
 export function applyMatchingMonthDetailsToTenants(
   tenants: TenantRentSummary[],
@@ -459,7 +515,7 @@ export function applyMatchingMonthDetailsToTenants(
       ...t,
       current_month_amount: String(d.expected),
       current_month_paid: String(d.paid),
-      current_month_status: statusFilter as TenantRentStatusKey,
+      current_month_status: displayStatusForFilteredMonths(statusFilter, d),
       current_month_key: d.monthKeys.join(','),
     };
   });
@@ -534,6 +590,8 @@ export function withPeriodMode(
   switch (mode) {
     case 'month':
       return { mode: 'month', monthKey: currentMonthKey(year) };
+    case 'ytd':
+      return { mode: 'ytd', year };
     case 'quarter':
       return { mode: 'quarter', year, quarter: 1 };
     case 'half':

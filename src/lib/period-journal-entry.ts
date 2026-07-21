@@ -1,5 +1,6 @@
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { JournalEntryRow, JournalStatus } from '@/lib/db/journal-queries';
+import type { CashboxKind } from '@/lib/db/types';
 import { BRAND } from '@/lib/brand';
 import {
   formatReportPeriodLabelAr,
@@ -8,6 +9,7 @@ import {
   type ReportPeriod,
 } from '@/lib/report-period';
 import { buildPdfFileName } from '@/lib/report-pdf-export';
+import { resolveCashboxKind } from '@/lib/cashbox-labels';
 
 export type PeriodJournalExportNames = {
   /** اسم الملف بدون .pdf — للتحميل والمشاركة */
@@ -72,6 +74,9 @@ export type PeriodJournalMovement = {
   journal_description: string | null;
   line_description: string | null;
   cashbox_name: string | null;
+  cashbox_code: string | null;
+  /** CASH | BANK | CARD | OTHER */
+  cashbox_kind: CashboxKind | null;
   contact_name: string | null;
   debit: number;
   credit: number;
@@ -86,6 +91,8 @@ export type PeriodJournalVoucherLine = {
   category_name: string;
   category_type: string | null;
   cashbox_name: string | null;
+  cashbox_code: string | null;
+  cashbox_kind: CashboxKind | null;
   contact_name: string | null;
   line_description: string | null;
   debit: number;
@@ -115,6 +122,14 @@ export type PeriodJournalLine = {
   category_code: string;
   category_name: string;
   category_type: string | null;
+  /**
+   * عند وجود cashbox_id يُقسَم البند (مثل AST-CSH) صفاً لكل خزينة/مصرف.
+   * null = صف مجمّع عادي بدون تقسيم.
+   */
+  cashbox_id: string | null;
+  cashbox_name: string | null;
+  /** مفتاح صف فريد للواجهة (category + cashbox) */
+  rowKey: string;
   /** إجمالي المدين للفترة على هذا البند */
   debit: number;
   /** إجمالي الدائن للفترة على هذا البند */
@@ -124,6 +139,13 @@ export type PeriodJournalLine = {
   /** الحركات التفصيلية مرتبة بالتاريخ — مبالغ هذا البند فقط */
   movements: PeriodJournalMovement[];
 };
+
+export function periodLineRowKey(
+  categoryId: string,
+  cashboxId?: string | null,
+): string {
+  return cashboxId ? `${categoryId}::cb:${cashboxId}` : categoryId;
+}
 
 export type PeriodJournalEntryModel = {
   periodLabel: string;
@@ -160,7 +182,10 @@ type RawLine = {
   category_code: string | null;
   category_name: string | null;
   category_type: string | null;
+  cashbox_id: string | null;
   cashbox_name_ar: string | null;
+  cashbox_code: string | null;
+  cashbox_kind: CashboxKind | null;
   contact_name: string | null;
   sort_order: number | null;
 };
@@ -192,7 +217,8 @@ function sortPeriodLines(lines: PeriodJournalLine[]): PeriodJournalLine[] {
 
 /**
  * يجمع بنود القيود إلى ملخص فترة:
- * كل بند محاسبي مرة واحدة بإجمالي مدينه ودائنه الحقيقيين + حركاته.
+ * كل بند محاسبي مرة واحدة — ما عدا أسطر الخزينة/المصرف المرتبطة بـ cashbox_id
+ * فتُقسَم صفاً مستقلاً لكل خزينة (مجموع AST-CSH لكل بنك على حدة).
  */
 export function aggregatePeriodJournalLines(
   lines: RawLine[],
@@ -203,10 +229,20 @@ export function aggregatePeriodJournalLines(
   for (const line of lines) {
     const journal = journalsById.get(line.journal_id);
     if (!journal) continue;
-    const id = line.category_id || '_unknown';
+    const categoryId = line.category_id || '_unknown';
+    const cashboxId = line.cashbox_id || null;
+    const rowKey = periodLineRowKey(categoryId, cashboxId);
     const debit = Number(line.debit) || 0;
     const credit = Number(line.credit) || 0;
     if (debit === 0 && credit === 0) continue;
+
+    const cashbox_kind =
+      line.cashbox_kind ??
+      resolveCashboxKind({
+        kind: line.cashbox_kind,
+        code: line.cashbox_code,
+        name: line.cashbox_name_ar,
+      });
 
     const movement: PeriodJournalMovement = {
       journal_id: line.journal_id,
@@ -216,24 +252,32 @@ export function aggregatePeriodJournalLines(
       journal_description: journal.description,
       line_description: line.description,
       cashbox_name: line.cashbox_name_ar,
+      cashbox_code: line.cashbox_code,
+      cashbox_kind,
       contact_name: line.contact_name,
       debit,
       credit,
       contra_label: null,
     };
 
-    const existing = map.get(id);
+    const existing = map.get(rowKey);
     if (existing) {
       existing.debit += debit;
       existing.credit += credit;
       existing.net = existing.debit - existing.credit;
       existing.movements.push(movement);
+      if (!existing.cashbox_name && line.cashbox_name_ar) {
+        existing.cashbox_name = line.cashbox_name_ar;
+      }
     } else {
-      map.set(id, {
-        category_id: id,
+      map.set(rowKey, {
+        category_id: categoryId,
         category_code: line.category_code ?? '',
         category_name: line.category_name ?? 'بند غير معروف',
         category_type: line.category_type,
+        cashbox_id: cashboxId,
+        cashbox_name: line.cashbox_name_ar,
+        rowKey,
         debit,
         credit,
         net: debit - credit,
@@ -250,7 +294,44 @@ export function aggregatePeriodJournalLines(
     });
   }
 
-  return sortPeriodLines(Array.from(map.values()));
+  const sorted = sortPeriodLines(Array.from(map.values()));
+  // خزائن نفس البند: رتّب بالاسم بعد ترتيب الدليل
+  return sorted.sort((a, b) => {
+    if (a.category_id !== b.category_id) return 0;
+    if (!a.cashbox_id && !b.cashbox_id) return 0;
+    return (a.cashbox_name || '').localeCompare(b.cashbox_name || '', 'ar');
+  });
+}
+
+/** اسم الخزينة/المصرف لهذا الصف (صف واحد = خزينة واحدة عند التقسيم) */
+export function periodLineCashboxKindsLabel(line: PeriodJournalLine): string {
+  return line.cashbox_name?.trim() || '—';
+}
+
+/**
+ * أطراف مقابلة لصف تركيز (بند أو خزينة محددة) ضمن نفس القيود المصدر.
+ */
+export function buildContraLinesForFocus(
+  model: PeriodJournalEntryModel,
+  focusLine: PeriodJournalLine,
+): PeriodJournalLine[] {
+  const journalIds = new Set(focusLine.movements.map((m) => m.journal_id));
+  const related: PeriodJournalLine[] = [];
+  for (const line of model.lines) {
+    if (line.rowKey === focusLine.rowKey) continue;
+    const movements = line.movements.filter((m) => journalIds.has(m.journal_id));
+    if (movements.length === 0) continue;
+    const debit = movements.reduce((s, m) => s + m.debit, 0);
+    const credit = movements.reduce((s, m) => s + m.credit, 0);
+    related.push({
+      ...line,
+      debit,
+      credit,
+      net: debit - credit,
+      movements,
+    });
+  }
+  return sortPeriodLines(related);
 }
 
 export function buildPeriodJournalEntryModel(input: {
@@ -301,6 +382,8 @@ type JournalPeer = {
   category_id: string;
   category_name: string;
   cashbox_name: string | null;
+  cashbox_code: string | null;
+  cashbox_kind: CashboxKind | null;
   debit: number;
   credit: number;
 };
@@ -323,7 +406,7 @@ function buildContraLabel(peers: JournalPeer[]): string | null {
           : p.credit > EPS && p.debit <= EPS
             ? `دائن ${formatAmountPlain(p.credit)}`
             : `مدين ${formatAmountPlain(p.debit)} / دائن ${formatAmountPlain(p.credit)}`;
-      const cash = p.cashbox_name ? ` · خزينة ${p.cashbox_name}` : '';
+      const cash = p.cashbox_name ? ` · ${p.cashbox_name}` : '';
       return `${p.category_name}${cash} (${side})`;
     })
     .join(' + ');
@@ -340,6 +423,8 @@ export function attachContraLabels(lines: PeriodJournalLine[]): PeriodJournalLin
         category_id: line.category_id,
         category_name: line.category_name,
         cashbox_name: m.cashbox_name,
+        cashbox_code: m.cashbox_code,
+        cashbox_kind: m.cashbox_kind,
         debit: m.debit,
         credit: m.credit,
       });
@@ -401,6 +486,8 @@ export function buildPeriodJournalVouchers(
         category_name: line.category_name,
         category_type: line.category_type,
         cashbox_name: m.cashbox_name,
+        cashbox_code: m.cashbox_code,
+        cashbox_kind: m.cashbox_kind,
         contact_name: m.contact_name,
         line_description: m.line_description,
         debit: m.debit,
@@ -464,7 +551,9 @@ export function applyPeriodJournalCategoryFilter(
     };
   }
 
-  const existing = model.lines.find((l) => l.category_id === categoryId);
+  /** قد يكون البند مقسوماً على عدة خزائن — نأخذ كل الصفوف لنفس category_id */
+  const focusRows = model.lines.filter((l) => l.category_id === categoryId);
+  const existing = focusRows[0];
 
   const categoryFilter =
     existing != null
@@ -499,7 +588,9 @@ export function applyPeriodJournalCategoryFilter(
     };
   }
 
-  const journalIds = new Set(existing.movements.map((m) => m.journal_id));
+  const journalIds = new Set(
+    focusRows.flatMap((row) => row.movements.map((m) => m.journal_id)),
+  );
 
   const relatedLines: PeriodJournalLine[] = [];
   for (const line of model.lines) {
@@ -518,7 +609,7 @@ export function applyPeriodJournalCategoryFilter(
 
   const withLabels = attachContraLabels(relatedLines);
 
-  /** البند المختار أولاً، ثم بقية الأطراف بترتيب الدليل */
+  /** صفوف البند المختار (كل خزينة على حدة) أولاً، ثم بقية الأطراف */
   const focusFirst = [
     ...withLabels.filter((l) => l.category_id === categoryId),
     ...sortPeriodLines(withLabels.filter((l) => l.category_id !== categoryId)),
@@ -569,16 +660,82 @@ export async function fetchPeriodJournalEntry(input: {
 
   for (let i = 0; i < ids.length; i += chunkSize) {
     const chunk = ids.slice(i, i + chunkSize);
+    // الاسم والرمز متوفران في الـ view؛ النوع يُستنتج من الرمز/الاسم
+    // أو من جدول cashboxes إن سمح RLS
     const { data, error } = await supabase
       .from('journal_lines_with_categories')
       .select(
-        'journal_id, category_id, debit, credit, description, category_code, category_name, category_type, cashbox_name_ar, contact_name, sort_order',
+        'journal_id, category_id, debit, credit, description, category_code, category_name, category_type, cashbox_id, cashbox_name_ar, cashbox_code, contact_name, sort_order',
       )
       .in('journal_id', chunk)
       .order('sort_order', { ascending: true });
 
     if (error) throw error;
-    allLines.push(...((data as RawLine[]) ?? []));
+    allLines.push(
+      ...((data ?? []).map((row) => {
+        const base = row as Omit<RawLine, 'cashbox_kind'>;
+        return {
+          ...base,
+          cashbox_kind: resolveCashboxKind({
+            code: base.cashbox_code,
+            name: base.cashbox_name_ar,
+          }),
+        } as RawLine;
+      })),
+    );
+  }
+
+  const cashboxIds = [
+    ...new Set(
+      allLines
+        .map((l) => l.cashbox_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    ),
+  ];
+
+  if (cashboxIds.length > 0) {
+    const kindById = new Map<string, CashboxKind>();
+    const boxChunk = 100;
+    for (let i = 0; i < cashboxIds.length; i += boxChunk) {
+      const slice = cashboxIds.slice(i, i + boxChunk);
+      const { data: boxes, error: boxesError } = await supabase
+        .from('cashboxes')
+        .select('id, kind, name_ar, code')
+        .in('id', slice);
+
+      if (boxesError || !boxes?.length) {
+        if (boxesError) {
+          console.warn('[period-journal] cashbox kind lookup failed', boxesError);
+        }
+        break;
+      }
+      for (const b of boxes) {
+        if (b.id && b.kind) {
+          kindById.set(b.id as string, b.kind as CashboxKind);
+        }
+        if (b.id && b.name_ar) {
+          for (const line of allLines) {
+            if (line.cashbox_id === b.id) {
+              if (!line.cashbox_name_ar) line.cashbox_name_ar = b.name_ar as string;
+              if (!line.cashbox_code && b.code) {
+                line.cashbox_code = b.code as string;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    for (const line of allLines) {
+      if (!line.cashbox_id) continue;
+      line.cashbox_kind =
+        kindById.get(line.cashbox_id) ??
+        resolveCashboxKind({
+          kind: line.cashbox_kind,
+          code: line.cashbox_code,
+          name: line.cashbox_name_ar,
+        });
+    }
   }
 
   return buildPeriodJournalEntryModel({

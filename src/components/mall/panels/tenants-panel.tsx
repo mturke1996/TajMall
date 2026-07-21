@@ -30,7 +30,7 @@ import {
   sumMatchingMonthDetails,
   type TenantRentPeriodSelection,
 } from '@/lib/tenant-rent-period';
-import { getTenantStatus } from '@/components/tenants/tenant-status-config';
+import { getStatusFilterLabel } from '@/components/tenants/tenant-status-config';
 
 export function MallTenantsPanel() {
   const router = useRouter();
@@ -124,24 +124,19 @@ export function MallTenantsPanel() {
       );
     }
 
+    const hasStatus = (id: string, status: string) =>
+      (monthStatusesByTenant.get(id) ?? []).some((e) => e.status === status);
+
     const counts = {
-      paid: tenants.filter((t) =>
-        (monthStatusesByTenant.get(t.id) ?? []).some((e) => e.status === 'paid_full'),
+      paid: tenants.filter((t) => hasStatus(t.id, 'paid_full')).length,
+      partial: tenants.filter((t) => hasStatus(t.id, 'paid_partial')).length,
+      unpaid: tenants.filter((t) => hasStatus(t.id, 'unpaid')).length,
+      partialUnpaid: tenants.filter(
+        (t) =>
+          hasStatus(t.id, 'paid_partial') || hasStatus(t.id, 'unpaid'),
       ).length,
-      partial: tenants.filter((t) =>
-        (monthStatusesByTenant.get(t.id) ?? []).some(
-          (e) => e.status === 'paid_partial',
-        ),
-      ).length,
-      unpaid: tenants.filter((t) =>
-        (monthStatusesByTenant.get(t.id) ?? []).some((e) => e.status === 'unpaid'),
-      ).length,
-      noRentSet: tenants.filter((t) =>
-        (monthStatusesByTenant.get(t.id) ?? []).some((e) => e.status === 'no_rent_set'),
-      ).length,
-      exempt: tenants.filter((t) =>
-        (monthStatusesByTenant.get(t.id) ?? []).some((e) => e.status === 'exempt'),
-      ).length,
+      noRentSet: tenants.filter((t) => hasStatus(t.id, 'no_rent_set')).length,
+      exempt: tenants.filter((t) => hasStatus(t.id, 'exempt')).length,
     };
 
     if (statusFilter !== 'ALL') {
@@ -165,10 +160,7 @@ export function MallTenantsPanel() {
   ]);
 
   const periodLabel = formatPeriodLabelAr(periodSelection);
-  const statusLabel =
-    statusFilter === 'ALL'
-      ? 'الكل'
-      : getTenantStatus(statusFilter).shortLabel;
+  const statusLabel = getStatusFilterLabel(statusFilter);
   /** كل التقارير تعرض أرقام الشهور (1، 2، 3…) مع القيم */
   const showMonthNumbersInPdf = true;
   const pdfCacheKey = `${periodSelectionKey(periodSelection)}:${statusFilter}:${searchQuery.trim()}:months`;

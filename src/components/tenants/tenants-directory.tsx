@@ -14,6 +14,8 @@ import { Card } from '@/components/ui/card';
 import { cn, formatMoney } from '@/lib/utils';
 import type { TenantRentSummary } from '@/lib/db/queries';
 import {
+  PARTIAL_UNPAID_FILTER_CONFIG,
+  PARTIAL_UNPAID_FILTER_KEY,
   TENANT_STATUS_CONFIG,
   type TenantRentStatusKey,
 } from './tenant-status-config';
@@ -29,6 +31,7 @@ import {
 import {
   formatPeriodLabelAr,
   formatPeriodShortLabelAr,
+  getPeriodMonthKeys,
   tenantPeriodExpectedRent,
   tenantPeriodPaid,
   type TenantRentPeriodSelection,
@@ -49,6 +52,7 @@ export type TenantsDirectoryProps = {
     paid: number;
     partial: number;
     unpaid: number;
+    partialUnpaid?: number;
     noRentSet?: number;
     exempt?: number;
     expectedTotal: number;
@@ -101,6 +105,7 @@ export function TenantsDirectory({
   const periodLabel = formatPeriodLabelAr(periodSelection);
   const periodShort = formatPeriodShortLabelAr(periodSelection);
   const isMultiMonth = periodSelection.mode !== 'month';
+  const periodMonthCount = getPeriodMonthKeys(periodSelection).length;
 
   const badgeLabelFor = (tenantId: string) => {
     const months = matchingMonthsByTenantId?.[tenantId];
@@ -110,31 +115,55 @@ export function TenantsDirectory({
     return periodShort;
   };
 
+  const statusCount = (key: TenantRentStatusKey) => {
+    if (key === 'paid_full') return stats.paid;
+    if (key === 'paid_partial') return stats.partial;
+    if (key === 'unpaid') return stats.unpaid;
+    if (key === 'exempt') {
+      return (
+        stats.exempt ??
+        tenants.filter((t) => t.current_month_status === 'exempt').length
+      );
+    }
+    return (
+      stats.noRentSet ??
+      tenants.filter((t) => t.current_month_status === key).length
+    );
+  };
+
   const filterChips = [
     { key: 'ALL', label: 'الكل', count: stats.total },
     ...(
-      Object.entries(TENANT_STATUS_CONFIG) as [
-        TenantRentStatusKey,
-        (typeof TENANT_STATUS_CONFIG)[TenantRentStatusKey],
-      ][]
-    ).map(([key, cfg]) => ({
-      key,
-      label: cfg.shortLabel,
-      count:
-        key === 'paid_full'
-          ? stats.paid
-          : key === 'paid_partial'
-            ? stats.partial
-            : key === 'unpaid'
-              ? stats.unpaid
-              : key === 'exempt'
-                ? (stats.exempt ??
-                  tenants.filter((t) => t.current_month_status === 'exempt')
-                    .length)
-                : (stats.noRentSet ??
-                  tenants.filter((t) => t.current_month_status === key).length),
-      icon: cfg.icon,
-    })),
+      (
+        Object.entries(TENANT_STATUS_CONFIG) as [
+          TenantRentStatusKey,
+          (typeof TENANT_STATUS_CONFIG)[TenantRentStatusKey],
+        ][]
+      ).flatMap(([key, cfg]) => {
+        const chip = {
+          key,
+          label: cfg.shortLabel,
+          count: statusCount(key),
+          icon: cfg.icon,
+        };
+        if (key !== 'unpaid') return [chip];
+        return [
+          chip,
+          {
+            key: PARTIAL_UNPAID_FILTER_KEY,
+            label: PARTIAL_UNPAID_FILTER_CONFIG.shortLabel,
+            count:
+              stats.partialUnpaid ??
+              tenants.filter(
+                (t) =>
+                  t.current_month_status === 'paid_partial' ||
+                  t.current_month_status === 'unpaid',
+              ).length,
+            icon: PARTIAL_UNPAID_FILTER_CONFIG.icon,
+          },
+        ];
+      })
+    ),
   ];
 
   return (
@@ -239,7 +268,7 @@ export function TenantsDirectory({
           {isMultiMonth && (
             <span className="mr-1 text-ink-mute/80">
               {' '}
-              (مجموع {periodSelection.mode === 'year' ? '12' : periodSelection.mode === 'half' ? '6' : '3'} أشهر)
+              (مجموع {periodMonthCount} أشهر)
             </span>
           )}
         </p>

@@ -4,6 +4,7 @@ import {
   AlertCircle,
   Clock,
   CalendarOff,
+  Layers,
   type LucideIcon,
 } from 'lucide-react';
 import { currentMonthNameAr } from '@/lib/rent-months';
@@ -14,6 +15,14 @@ export type TenantRentStatusKey =
   | 'unpaid'
   | 'no_rent_set'
   | 'exempt';
+
+/** فلتر مركّب: جزئي أو غير مدفوع */
+export const PARTIAL_UNPAID_FILTER_KEY = 'partial_unpaid' as const;
+
+export type TenantStatusFilterKey =
+  | 'ALL'
+  | TenantRentStatusKey
+  | typeof PARTIAL_UNPAID_FILTER_KEY;
 
 export const TENANT_STATUS_CONFIG: Record<
   TenantRentStatusKey,
@@ -68,11 +77,64 @@ export const TENANT_STATUS_CONFIG: Record<
   },
 };
 
+export const PARTIAL_UNPAID_FILTER_CONFIG = {
+  key: PARTIAL_UNPAID_FILTER_KEY,
+  label: 'جزئي + غير مدفوع',
+  shortLabel: 'جزئي + غير مدفوع',
+  statuses: ['paid_partial', 'unpaid'] as TenantRentStatusKey[],
+  icon: Layers,
+  color: 'text-orange-900',
+  bg: 'bg-orange-50',
+  border: 'border-orange-300',
+};
+
 export { currentMonthNameAr };
 
+/** يحوّل فلتر الواجهة إلى حالات شهرية قابلة للمقارنة */
+export function resolveStatusFilterKeys(
+  filter: string,
+): TenantRentStatusKey[] | 'ALL' {
+  if (!filter || filter === 'ALL') return 'ALL';
+  if (filter === PARTIAL_UNPAID_FILTER_KEY) {
+    return [...PARTIAL_UNPAID_FILTER_CONFIG.statuses];
+  }
+  if (filter in TENANT_STATUS_CONFIG) {
+    return [filter as TenantRentStatusKey];
+  }
+  return 'ALL';
+}
+
+export function statusMatchesFilter(
+  status: string | undefined,
+  filter: string,
+): boolean {
+  const keys = resolveStatusFilterKeys(filter);
+  if (keys === 'ALL') return true;
+  return keys.includes(status as TenantRentStatusKey);
+}
+
+export function getStatusFilterLabel(filter: string): string {
+  if (!filter || filter === 'ALL') return 'الكل';
+  if (filter === PARTIAL_UNPAID_FILTER_KEY) {
+    return PARTIAL_UNPAID_FILTER_CONFIG.shortLabel;
+  }
+  return getTenantStatus(filter).shortLabel;
+}
+
 export function getTenantStatus(key: string | undefined) {
+  if (key === PARTIAL_UNPAID_FILTER_KEY) {
+    return {
+      label: PARTIAL_UNPAID_FILTER_CONFIG.label,
+      shortLabel: PARTIAL_UNPAID_FILTER_CONFIG.shortLabel,
+      icon: PARTIAL_UNPAID_FILTER_CONFIG.icon,
+      color: PARTIAL_UNPAID_FILTER_CONFIG.color,
+      bg: PARTIAL_UNPAID_FILTER_CONFIG.bg,
+      border: PARTIAL_UNPAID_FILTER_CONFIG.border,
+    };
+  }
   return (
-    TENANT_STATUS_CONFIG[key as TenantRentStatusKey] ?? TENANT_STATUS_CONFIG.no_rent_set
+    TENANT_STATUS_CONFIG[key as TenantRentStatusKey] ??
+    TENANT_STATUS_CONFIG.no_rent_set
   );
 }
 
