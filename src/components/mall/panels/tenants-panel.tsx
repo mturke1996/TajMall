@@ -16,7 +16,9 @@ import { peopleSegmentHref } from '@/lib/mall/routes';
 import { Button } from '@/components/ui/button';
 import {
   aggregateTenantSummariesForPeriod,
-  buildTenantMatchingMonthNumbers,
+  applyMatchingMonthDetailsToTenants,
+  buildSingleMonthMatchingDetails,
+  buildTenantMatchingMonthDetails,
   buildTenantsReportPeriodContext,
   collectTenantMonthStatuses,
   computeTenantPeriodStats,
@@ -25,6 +27,7 @@ import {
   formatPeriodLabelAr,
   getPeriodMonthKeys,
   periodSelectionKey,
+  sumMatchingMonthDetails,
   type TenantRentPeriodSelection,
 } from '@/lib/tenant-rent-period';
 import { getTenantStatus } from '@/components/tenants/tenant-status-config';
@@ -55,18 +58,18 @@ export function MallTenantsPanel() {
 
   const tenants = useMemo(() => {
     if (isSingleMonth) return singleMonthTenants;
-    if (periodLoading) return [];
     return aggregateTenantSummariesForPeriod(rowsByMonth, monthKeys);
-  }, [isSingleMonth, singleMonthTenants, rowsByMonth, monthKeys, periodLoading]);
+  }, [isSingleMonth, singleMonthTenants, rowsByMonth, monthKeys]);
 
-  const isLoading = isSingleMonth ? singleLoading : periodLoading;
+  const isLoading =
+    isSingleMonth ? singleLoading : periodLoading && tenants.length === 0;
 
   const monthStatusesByTenant = useMemo(() => {
-    if (isSingleMonth || periodLoading) return undefined;
+    if (isSingleMonth) return undefined;
     return collectTenantMonthStatuses(rowsByMonth ?? new Map(), monthKeys);
-  }, [isSingleMonth, periodLoading, rowsByMonth, monthKeys]);
+  }, [isSingleMonth, rowsByMonth, monthKeys]);
 
-  const filteredTenants = useMemo(
+  const baseFiltered = useMemo(
     () =>
       filterTenantsByStatusAndSearch(
         tenants,
@@ -77,11 +80,51 @@ export function MallTenantsPanel() {
     [tenants, statusFilter, searchQuery, monthStatusesByTenant],
   );
 
+  const matchingDetails = useMemo(() => {
+    if (isSingleMonth && singleMonthKey) {
+      return buildSingleMonthMatchingDetails(baseFiltered, singleMonthKey);
+    }
+    return buildTenantMatchingMonthDetails(
+      baseFiltered.map((t) => t.id),
+      rowsByMonth ?? new Map(),
+      monthKeys,
+      statusFilter,
+    );
+  }, [
+    isSingleMonth,
+    singleMonthKey,
+    statusFilter,
+    baseFiltered,
+    rowsByMonth,
+    monthKeys,
+  ]);
+
+  const filteredTenants = useMemo(() => {
+    // إعادة حساب المبالغ فقط عند فلتر حالة على فترة متعددة
+    if (isSingleMonth || statusFilter === 'ALL') return baseFiltered;
+    return applyMatchingMonthDetailsToTenants(
+      baseFiltered,
+      matchingDetails,
+      statusFilter,
+    );
+  }, [isSingleMonth, statusFilter, baseFiltered, matchingDetails]);
+
+  const matchingMonthNumbersByTenantId = useMemo(() => {
+    const out: Record<string, number[]> = {};
+    for (const [id, d] of Object.entries(matchingDetails)) {
+      out[id] = d.months;
+    }
+    return out;
+  }, [matchingDetails]);
+
   const stats = useMemo(() => {
-    if (!monthStatusesByTenant) return computeTenantPeriodStats(tenants);
-    // سنة/ربع/نصف: العدّ بعدد المستأجرين الذين لديهم شهر واحد على الأقل بالحالة
-    return {
-      ...computeTenantPeriodStats(tenants),
+    if (!monthStatusesByTenant) {
+      return computeTenantPeriodStats(
+        statusFilter === 'ALL' ? tenants : filteredTenants,
+      );
+    }
+
+    const counts = {
       paid: tenants.filter((t) =>
         (monthStatusesByTenant.get(t.id) ?? []).some((e) => e.status === 'paid_full'),
       ).length,
@@ -100,23 +143,35 @@ export function MallTenantsPanel() {
         (monthStatusesByTenant.get(t.id) ?? []).some((e) => e.status === 'exempt'),
       ).length,
     };
-  }, [tenants, monthStatusesByTenant]);
+
+    if (statusFilter !== 'ALL') {
+      const sums = sumMatchingMonthDetails(matchingDetails);
+      return {
+        total: tenants.length,
+        ...counts,
+        expectedTotal: sums.expected,
+        collectedTotal: sums.paid,
+      };
+    }
+
+    const all = computeTenantPeriodStats(tenants);
+    return { ...all, ...counts, total: tenants.length };
+  }, [
+    tenants,
+    filteredTenants,
+    monthStatusesByTenant,
+    statusFilter,
+    matchingDetails,
+  ]);
 
   const periodLabel = formatPeriodLabelAr(periodSelection);
   const statusLabel =
     statusFilter === 'ALL'
       ? 'الكل'
       : getTenantStatus(statusFilter).shortLabel;
-  /** سنة/ربع/نصف + حالة دفع → PDF يعرض أرقام الشهور بدل المبالغ */
-  const showMonthNumbersInPdf =
-    !isSingleMonth &&
-    statusFilter !== 'ALL' &&
-    (statusFilter === 'paid_full' ||
-      statusFilter === 'paid_partial' ||
-      statusFilter === 'unpaid' ||
-      statusFilter === 'no_rent_set' ||
-      statusFilter === 'exempt');
-  const pdfCacheKey = `${periodSelectionKey(periodSelection)}:${statusFilter}:${searchQuery.trim()}:m${showMonthNumbersInPdf ? 1 : 0}`;
+  /** كل التقارير تعرض أرقام الشهور (1، 2، 3…) مع القيم */
+  const showMonthNumbersInPdf = true;
+  const pdfCacheKey = `${periodSelectionKey(periodSelection)}:${statusFilter}:${searchQuery.trim()}:months`;
   const pdfFileName = `إيجارات-المستأجرين-${periodLabel.replace(/\s+/g, '-')}-${statusLabel}`;
   const pdfPeriod = buildTenantsReportPeriodContext(
     periodSelection,
@@ -136,26 +191,19 @@ export function MallTenantsPanel() {
             const { TenantsReportPDF } = await import('@/features/pdf/TenantsReportPDF');
             const filterNote =
               statusFilter === 'ALL' ? '' : ` · ${statusLabel} فقط`;
-            const monthNumbersByTenantId = showMonthNumbersInPdf
-              ? buildTenantMatchingMonthNumbers(
-                  filteredTenants.map((t) => t.id),
-                  rowsByMonth ?? new Map(),
-                  monthKeys,
-                  statusFilter,
-                )
-              : undefined;
             return (
               <TenantsReportPDF
                 titleAr="تقرير إيجارات المستأجرين"
                 subtitleAr={`${filteredTenants.length} مستأجر · ${periodLabel}${filterNote}`}
                 rows={filteredTenants}
                 period={pdfPeriod}
-                monthNumbersByTenantId={monthNumbersByTenantId}
+                monthNumbersByTenantId={matchingMonthNumbersByTenantId}
+                matchingDetailsByTenantId={matchingDetails}
               />
             );
           }}
         />
-        <WriteGuard>
+        <WriteGuard permission="journal.create">
           <Button
             size="sm"
             className="h-11 w-full sm:w-auto touch-manipulation"
@@ -178,6 +226,7 @@ export function MallTenantsPanel() {
         periodSelection={periodSelection}
         onPeriodSelectionChange={setPeriodSelection}
         stats={stats}
+        matchingMonthsByTenantId={matchingMonthNumbersByTenantId}
         onAddTenant={
           canWrite
             ? () => router.push(peopleSegmentHref('TENANT', { add: 'TENANT' }))

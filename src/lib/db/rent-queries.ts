@@ -34,13 +34,11 @@ export function useTenantRentCalendar(tenantId: string, year = currentYear()) {
       });
       if (error) {
         console.warn('[get_tenant_rent_calendar]', error.message);
-        return {
-          year,
-          tenant_id: tenantId,
-          monthly_rent: 0,
-          contract_id: null,
-          months: [],
-        };
+        throw new Error(
+          error.message?.includes('permission') || error.code === '42501'
+            ? 'لا صلاحية لعرض تقويم الإيجار'
+            : `تعذّر تحميل تقويم الإيجار: ${error.message}`,
+        );
       }
       const normalized = normalizeRpcRentCalendar(data, tenantId, year);
       if (normalized) return normalized;
@@ -337,6 +335,7 @@ export function useSetTenantRentPriceBands() {
           marked_paid?: number;
           marked_partial?: number;
           marked_unpaid?: number;
+          frozen_settled?: number;
         };
       };
     },

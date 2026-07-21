@@ -585,10 +585,11 @@ export function useTenantRentSummaryForPeriod(monthKeys: string[]) {
     })),
   });
 
+  // لا نُفرّغ القائمة أثناء إعادة الجلب — التحميل فقط قبل أول بيانات
   const isLoading =
-    monthKeys.length === 0
-      ? false
-      : queries.some((q) => q.isLoading || q.isFetching);
+    monthKeys.length > 0 &&
+    queries.every((q) => q.data === undefined) &&
+    queries.some((q) => q.isFetching || q.isPending);
   const isError = queries.some((q) => q.isError);
   const error = queries.find((q) => q.error)?.error ?? null;
 

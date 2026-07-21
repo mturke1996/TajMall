@@ -10,7 +10,10 @@ const inviteSchema = z.object({
   email: z.string().trim().email({ message: 'بريد إلكتروني غير صالح' }),
   full_name_ar: z.string().trim().max(200).optional().default(''),
   role: z.enum(ASSIGNABLE_ROLES).optional().default('viewer'),
-  password: z.string().min(6, 'كلمة المرور يجب أن تكون 6 أحرف على الأقل').optional(),
+  password: z
+    .string()
+    .min(10, 'كلمة المرور يجب أن تكون 10 أحرف على الأقل')
+    .optional(),
 });
 
 /**
@@ -106,7 +109,28 @@ export async function POST(req: Request) {
 
     const newId = invitedUser?.user?.id;
     if (newId) {
-      await admin.from('profiles').update({ full_name_ar, role }).eq('id', newId);
+      const { error: profileErr } = await admin
+        .from('profiles')
+        .update({ full_name_ar, role })
+        .eq('id', newId);
+      if (profileErr) {
+        // لا نترك مستخدماً بصلاحيات افتراضية خاطئة بعد إنشاء Auth
+        try {
+          await admin.auth.admin.deleteUser(newId);
+        } catch (rollbackErr) {
+          console.error('invite profile update failed; auth rollback failed', {
+            profileErr,
+            rollbackErr,
+          });
+        }
+        return NextResponse.json(
+          {
+            error:
+              'تعذّر تعيين الدور والاسم بعد إنشاء الحساب — أُلغي الحساب. أعد المحاولة.',
+          },
+          { status: 500 },
+        );
+      }
     }
 
     return NextResponse.json({ ok: true });

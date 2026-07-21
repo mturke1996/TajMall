@@ -158,7 +158,12 @@ export function buildRentCalendarFromCharges(
     const charge = byMonth.get(month);
 
     if (charge) {
-      const amount = Number(charge.amount) || 0;
+      // مبلغ المطالبة الفعلي (قد يكون مجمّداً بعد رفع الجدول)
+      const chargeAmount = Number(charge.amount) || 0;
+      const scheduledRaw = amountForMonth?.(month);
+      const scheduled =
+        scheduledRaw != null && scheduledRaw > 0 ? scheduledRaw : 0;
+      const amount = chargeAmount > 0 ? chargeAmount : scheduled;
       const paid = effectiveRentPaidOnCharge(charge);
       const journal_links = activeRentJournalLinks(charge).map((l) => ({
         journal_entry_id: l.journal_entry_id,

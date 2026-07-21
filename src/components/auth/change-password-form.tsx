@@ -43,7 +43,7 @@ function PasswordInput({
           onChange={(e) => onChange(e.target.value)}
           autoComplete={autoComplete}
           placeholder={placeholder}
-          minLength={6}
+          minLength={10}
           className="min-h-11 pe-10 touch-manipulation"
         />
         <button
@@ -74,8 +74,8 @@ export function ChangePasswordForm({ email }: Props) {
       setError('أدخل كلمة المرور الحالية.');
       return;
     }
-    if (newPassword.length < 6) {
-      setError('كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل.');
+    if (newPassword.length < 10) {
+      setError('كلمة المرور الجديدة يجب أن تكون 10 أحرف على الأقل.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -118,7 +118,7 @@ export function ChangePasswordForm({ email }: Props) {
         value={newPassword}
         onChange={setNewPassword}
         autoComplete="new-password"
-        placeholder="6 أحرف على الأقل"
+        placeholder="10 أحرف على الأقل"
       />
       <PasswordInput
         id="confirm-password"

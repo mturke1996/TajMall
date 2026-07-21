@@ -471,9 +471,18 @@ export function useTenantChargesForTenant(tenantId: string) {
     enabled: !!tenantId,
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
+      const { data: contracts, error: contractsErr } = await supabase
+        .from('lease_contracts')
+        .select('id')
+        .eq('tenant_id', tenantId);
+      if (contractsErr) throw contractsErr;
+      const contractIds = (contracts ?? []).map((c) => c.id).filter(Boolean);
+      if (contractIds.length === 0) return [];
+
       const { data, error } = await supabase
         .from('tenant_charges')
         .select(TENANT_CHARGE_SELECT)
+        .in('contract_id', contractIds)
         .order('due_date', { ascending: false });
       if (error) throw error;
       return ((data as TenantChargeWithRelations[]) ?? []).filter((c) =>

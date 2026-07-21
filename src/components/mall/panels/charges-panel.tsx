@@ -162,7 +162,7 @@ export function MallChargesPanel() {
   return (
     <div className="space-y-4">
       <MallPanelToolbar className="justify-stretch sm:justify-end">
-        <WriteGuard>
+        <WriteGuard permission="revenue.create">
           <Button
             variant="outline"
             onClick={() => syncReminders.mutate()}

@@ -193,14 +193,26 @@ export function SetRentPriceScheduleDialog({
         tenantId,
         bands: result.bands,
       });
-      const sync = data?.sync;
+      const sync = data?.sync as
+        | {
+            marked_paid?: number;
+            amount_changed?: number;
+            frozen_settled?: number;
+          }
+        | undefined;
       const paidN = sync?.marked_paid ?? 0;
       const amountN = sync?.amount_changed ?? data?.unpaid_charges_updated ?? 0;
+      const frozenN = sync?.frozen_settled ?? 0;
       const parts: string[] = ['تم حفظ جدول الأسعار'];
       if (amountN > 0) parts.push(`تحديث مبلغ ${amountN} شهر`);
       if (paidN > 0) {
         parts.push(
-          `${paidN} ${paidN === 1 ? 'شهر أصبح/بقي مدفوعاً' : 'أشهر أصبحت/بقيت مدفوعة'} بعد مطابقة السعر الجديد`,
+          `${paidN} ${paidN === 1 ? 'شهر أصبح/بقي مدفوعاً' : 'أشهر أصبحت/بقيت مدفوعة'} بعد مطابقة السعر`,
+        );
+      }
+      if (frozenN > 0) {
+        parts.push(
+          `${frozenN} ${frozenN === 1 ? 'شهر مسدَّد جُمِّد' : 'أشهر مسدَّدة جُمِّدت'} عند رفع السعر`,
         );
       }
       toast.success(parts.join(' · '));
@@ -342,9 +354,10 @@ export function SetRentPriceScheduleDialog({
             )}
 
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              عند الحفظ تُحدَّث مبالغ الشهور حسب الجدول. إذا كان المدفوع يغطي
-              السعر الجديد يُعلَّم الشهر مدفوعاً؛ وإن نقص يصبح جزئياً. خارج
-              النطاقات يُستخدم الإيجار الشهري الافتراضي.
+              عند الحفظ تُحدَّث فقط الشهور داخل نطاقات الجدول. التخفيض: إن غطّى
+              التحصيل السعر الجديد يُعلَّم مدفوعاً، وإلا جزئياً. رفع السعر لشهر
+              مسدَّد بالكامل لا يغيّر مطالبته (تُجمَّد على سعر التسوية). خارج
+              النطاقات يبقى الإيجار الافتراضي دون إعادة كتابة التاريخ.
             </p>
           </div>
         )}

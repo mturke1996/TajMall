@@ -34,8 +34,8 @@ function mapAuthError(message: string, field: 'current' | 'new'): string {
   if (/same password/i.test(m)) {
     return 'كلمة المرور الجديدة يجب أن تختلف عن الحالية.';
   }
-  if (/password should be at least/i.test(m) || /at least 6/i.test(m)) {
-    return 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل.';
+  if (/password should be at least/i.test(m) || /at least 6/i.test(m) || /at least 10/i.test(m)) {
+    return 'كلمة المرور الجديدة يجب أن تكون 10 أحرف على الأقل.';
   }
   if (/weak password/i.test(m)) {
     return 'كلمة المرور ضعيفة — اختر كلمة أقوى.';

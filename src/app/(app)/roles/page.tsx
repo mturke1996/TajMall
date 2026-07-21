@@ -2,20 +2,20 @@
 
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Plus, Users, Check } from 'lucide-react';
+import { Shield, Users, Check } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SYSTEM_ROLES, PERMISSION_KEYS } from '@/lib/constants';
 import { useProfiles } from '@/lib/db/queries';
+import { usePermission } from '@/lib/supabase/use-permission';
 import { cn } from '@/lib/utils';
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
-  owner:      'صلاحيات كاملة لكل وحدات النظام بدون استثناء.',
-  admin:      'إدارة المستخدمين والفروع والإعدادات والقيود.',
+  owner: 'صلاحيات كاملة لكل وحدات النظام بدون استثناء.',
+  admin: 'إدارة المستخدمين والفروع والإعدادات والقيود.',
   accountant: 'إنشاء وإدارة القيود والإيرادات والمصروفات والتقارير.',
-  cashier:    'تنفيذ الإيرادات والمصروفات النقدية اليومية.',
-  viewer:     'الاطلاع فقط على البيانات والتقارير دون أي تعديل.',
+  cashier: 'تنفيذ الإيرادات والمصروفات النقدية اليومية.',
+  viewer: 'الاطلاع فقط على البيانات والتقارير دون أي تعديل.',
 };
 
 const PERMISSION_GROUPS = (() => {
@@ -30,13 +30,13 @@ const PERMISSION_GROUPS = (() => {
 
 const GROUP_LABELS: Record<string, string> = {
   dashboard: 'لوحة التحكم',
-  revenue:   'الإيرادات',
-  expense:   'المصروفات',
-  cashbox:   'الخزائن',
-  account:   'الحسابات',
-  journal:   'القيود',
-  voucher:   'الإذونات',
-  org:       'الإدارة',
+  revenue: 'الإيرادات',
+  expense: 'المصروفات',
+  cashbox: 'الخزائن',
+  account: 'الحسابات',
+  journal: 'القيود',
+  voucher: 'الإذونات',
+  org: 'الإدارة',
 };
 
 type Access = 'full' | 'view' | 'none';
@@ -57,6 +57,8 @@ function roleAccess(roleName: string, group: string): Access {
 
 export default function RolesPage() {
   const { data: profiles } = useProfiles();
+  const { can, loading: permLoading } = usePermission();
+  const mayViewRoles = can('org.roles') || can('org.users');
 
   const countByRole = useMemo(() => {
     const m = new Map<string, number>();
@@ -68,18 +70,32 @@ export default function RolesPage() {
     return m;
   }, [profiles]);
 
+  if (permLoading) {
+    return (
+      <>
+        <PageHeader eyebrow="الإدارة" title="الأدوار والصلاحيات" />
+        <p className="px-4 py-8 text-sm text-ink-mute sm:px-8">جاري التحقق من الصلاحيات…</p>
+      </>
+    );
+  }
+
+  if (!mayViewRoles) {
+    return (
+      <>
+        <PageHeader eyebrow="الإدارة" title="الأدوار والصلاحيات" />
+        <p className="px-4 py-8 text-sm text-pastel-redInk sm:px-8">
+          غير مصرّح — تحتاج صلاحية إدارة الأدوار أو المستخدمين.
+        </p>
+      </>
+    );
+  }
+
   return (
     <>
       <PageHeader
         eyebrow="الإدارة"
         title="الأدوار والصلاحيات"
-        description="نظام RBAC مرن لتخصيص الصلاحيات لكل دور. هذه القوائم قابلة للتعديل لاحقاً."
-        actions={
-          <Button size="sm" className="gap-1.5">
-            <Plus className="stroke-[1.6]" />
-            دور جديد
-          </Button>
-        }
+        description="مصفوفة الصلاحيات الحالية للأدوار النظامية (للعرض). تعديل الأدوار المخصصة غير متاح بعد."
       />
 
       <div className="flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-6 md:gap-7 md:px-8 md:py-7">
@@ -101,121 +117,60 @@ export default function RolesPage() {
                   {countByRole.get(r.name) ?? 0}
                 </Badge>
               </div>
-              <h3 className="text-[15px] font-semibold tracking-tight">{r.nameAr}</h3>
-              <p className="text-[12.5px] leading-[1.6] text-ink-mute">
-                {ROLE_DESCRIPTIONS[r.name]}
-              </p>
-              <div className="border-t border-border pt-3 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
-                {r.name}
+              <div>
+                <h3 className="text-[14px] font-semibold text-ink">{r.nameAr}</h3>
+                <p className="mt-1 text-[12px] leading-relaxed text-ink-mute">
+                  {ROLE_DESCRIPTIONS[r.name] ?? ''}
+                </p>
               </div>
             </motion.div>
           ))}
         </section>
 
-        <article className="surface overflow-hidden">
-          <div className="border-b border-border px-4 py-3.5 sm:px-6 sm:py-4">
-            <h3 className="text-[15px] font-semibold tracking-tight">مصفوفة الصلاحيات</h3>
-            <p className="mt-1 text-[12.5px] text-ink-mute">
-              نظرة سريعة على ما يمكن لكل دور فعله. القيم الافتراضية مقترحة ويمكن تعديلها.
-            </p>
-          </div>
-          {/* Mobile: per-group cards */}
-          <ul className="flex flex-col divide-y divide-border md:hidden">
-            {Object.keys(PERMISSION_GROUPS).map((group) => (
-              <li key={group} className="px-4 py-3.5">
-                <p className="mb-2.5 text-[13px] font-semibold">
-                  {GROUP_LABELS[group] ?? group}
-                </p>
-                <div className="flex flex-wrap gap-1.5">
+        <section className="surface overflow-x-auto">
+          <table className="w-full min-w-[640px] border-collapse text-start text-[12.5px]">
+            <thead>
+              <tr className="border-b border-border bg-canvas-sunken/60">
+                <th className="px-3 py-2.5 text-start font-medium text-ink-mute">المجموعة</th>
+                {SYSTEM_ROLES.map((r) => (
+                  <th key={r.name} className="px-2 py-2.5 text-center font-medium text-ink-mute">
+                    {r.nameAr}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(PERMISSION_GROUPS).map(([group, keys]) => (
+                <tr key={group} className="border-b border-border/70">
+                  <td className="px-3 py-2.5 font-medium text-ink">
+                    {GROUP_LABELS[group] ?? group}
+                    <span className="ms-1 text-[11px] font-normal text-ink-mute">
+                      ({keys.length})
+                    </span>
+                  </td>
                   {SYSTEM_ROLES.map((r) => {
                     const access = roleAccess(r.name, group);
                     return (
-                      <span
-                        key={r.name}
-                        className={cn(
-                          'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11.5px] font-medium',
-                          access === 'full' &&
-                            'border-transparent bg-pastel-green text-pastel-greenInk',
-                          access === 'view' &&
-                            'border-transparent bg-pastel-blue text-pastel-blueInk',
-                          access === 'none' &&
-                            'border-border bg-canvas-sunken text-ink-mute',
-                        )}
-                      >
-                        {access === 'full' && <Check className="h-3 w-3 stroke-[2]" />}
-                        {r.nameAr}
-                        {access === 'view' && (
-                          <span className="text-[9.5px] opacity-80">قراءة</span>
-                        )}
-                        {access === 'none' && (
-                          <span className="text-[9.5px] opacity-70">—</span>
-                        )}
-                      </span>
+                      <td key={r.name} className="px-2 py-2.5 text-center">
+                        <span
+                          className={cn(
+                            'inline-flex items-center justify-center gap-0.5 rounded-md px-1.5 py-0.5 text-[11px]',
+                            access === 'full' && 'bg-pastel-green text-pastel-greenInk',
+                            access === 'view' && 'bg-pastel-blue text-pastel-blueInk',
+                            access === 'none' && 'bg-canvas-sunken text-ink-mute',
+                          )}
+                        >
+                          {access === 'full' && <Check className="h-3 w-3 stroke-[2]" />}
+                          {access === 'full' ? 'كامل' : access === 'view' ? 'عرض' : '—'}
+                        </span>
+                      </td>
                     );
                   })}
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          {/* Desktop: matrix table */}
-          <div className="hidden overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] md:block">
-            <table className="w-full min-w-[720px] text-[13px]">
-              <thead>
-                <tr className="bg-canvas-sunken">
-                  <th className="px-4 py-2.5 text-start text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-mute">
-                    المجموعة
-                  </th>
-                  {SYSTEM_ROLES.map((r) => (
-                    <th
-                      key={r.name}
-                      className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-mute"
-                    >
-                      {r.nameAr}
-                    </th>
-                  ))}
                 </tr>
-              </thead>
-              <tbody>
-                {Object.keys(PERMISSION_GROUPS).map((group) => (
-                  <tr key={group} className="border-b border-border">
-                    <td className="px-4 py-2.5 font-medium">
-                      {GROUP_LABELS[group] ?? group}
-                    </td>
-                    {SYSTEM_ROLES.map((r) => {
-                      const hasFull =
-                        r.name === 'owner' ||
-                        r.name === 'admin' ||
-                        (r.name === 'accountant' && group !== 'org') ||
-                        (r.name === 'cashier' &&
-                          ['revenue', 'expense', 'voucher', 'cashbox'].includes(group));
-                      const hasView =
-                        hasFull ||
-                        r.name === 'viewer' ||
-                        (r.name === 'cashier' &&
-                          ['dashboard', 'account', 'journal'].includes(group));
-                      return (
-                        <td key={r.name} className="px-4 py-2.5 text-center">
-                          {hasFull ? (
-                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-pastel-green text-pastel-greenInk">
-                              <Check className="h-3.5 w-3.5 stroke-[1.8]" />
-                            </span>
-                          ) : hasView ? (
-                            <span className="inline-flex h-6 items-center rounded-md bg-pastel-blue px-2 text-[10px] font-medium text-pastel-blueInk">
-                              قراءة
-                            </span>
-                          ) : (
-                            <span className="text-ink-mute">—</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
+              ))}
+            </tbody>
+          </table>
+        </section>
       </div>
     </>
   );

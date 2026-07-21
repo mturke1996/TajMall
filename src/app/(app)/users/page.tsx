@@ -101,8 +101,8 @@ export default function UsersPage() {
         toast.error('الرجاء إدخال كلمة مرور الحساب الجديد');
         return;
       }
-      if (invitePassword.trim().length < 6) {
-        toast.error('يجب أن تكون كلمة المرور 6 أحرف على الأقل');
+      if (invitePassword.trim().length < 10) {
+        toast.error('يجب أن تكون كلمة المرور 10 أحرف على الأقل');
         return;
       }
     }
@@ -452,7 +452,7 @@ export default function UsersPage() {
                   autoComplete="new-password"
                   value={invitePassword}
                   onChange={(e) => setInvitePassword(e.target.value)}
-                  placeholder="أدخل 6 أحرف على الأقل"
+                  placeholder="أدخل 10 أحرف على الأقل"
                 />
               </div>
             )}

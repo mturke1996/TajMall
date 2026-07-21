@@ -3,7 +3,7 @@
  * تقرير المستأجرين وإيجارات المحلات — عربي مع خط Tajawal والنص المنطقي.
  *
  * عند فلتر سنة/ربع/نصف + حالة دفع (مدفوع/جزئي/غير مدفوع):
- * تُعرض أرقام الشهور المطابقة بدل أعمدة المبالغ.
+ * تُعرض أرقام الشهور المطابقة مع إجمالي قيمة تلك الشهور.
  */
 import React from 'react';
 import { Text, View, StyleSheet } from '@react-pdf/renderer';
@@ -13,13 +13,22 @@ import { pdfBase, PDF } from './pdfBase';
 import { PdfMoneyText, pdfFmtNum } from './pdfBrandKit';
 import { PDF_TABLE_ROW } from './pdfTable';
 import type { TenantRentSummary } from '@/lib/db/queries';
+import { monthKey, monthNameAr } from '@/lib/rent-months';
 import {
   formatMonthNumbersList,
+  sumMatchingMonthDetails,
   tenantPeriodExpectedRent,
   tenantPeriodPaid,
   tenantsReportPeriodSummary,
+  type TenantMatchingMonthDetail,
   type TenantsReportPeriodContext,
 } from '@/lib/tenant-rent-period';
+
+/** أسماء الشهور من أرقامها — محلي لتجنّب كاش ديناميكي قديم للوحدة */
+function monthNumbersNamesAr(months: number[], year: number): string {
+  if (!months.length) return '—';
+  return months.map((n) => monthNameAr(monthKey(year, n))).join('، ');
+}
 
 const STATUS_AR: Record<string, string> = {
   paid_full: 'مدفوع',
@@ -58,15 +67,16 @@ const col = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 1.4,
   },
-  shop: { width: '13%' },
-  tenant: { flex: 1, paddingHorizontal: 4 },
+  shop: { width: '10%' },
+  tenant: { flex: 1, paddingHorizontal: 3, minWidth: 0 },
   rent: { width: '14%', minWidth: 0 },
   paid: { width: '14%', minWidth: 0 },
   remaining: { width: '14%', minWidth: 0 },
-  /** عمود أرقام الشهور بدل المبالغ الثلاثة */
-  months: { width: '42%', minWidth: 0, paddingHorizontal: 4 },
-  status: { width: '15%' },
-  phone: { width: '15%' },
+  /** عمود أرقام الشهور مع قيم مختصرة */
+  months: { width: '18%', minWidth: 0, paddingHorizontal: 2 },
+  monthVal: { width: '11%', minWidth: 0 },
+  status: { width: '11%' },
+  phone: { width: '11%' },
   foot: {
     ...PDF_TABLE_ROW,
     marginTop: 10,
@@ -165,9 +175,11 @@ export type TenantsReportPdfProps = {
   period: TenantsReportPeriodContext;
   /**
    * مستأجر → أرقام الشهور المطابقة لفلتر الحالة.
-   * عند توفره مع showMonthNumbers يُعرض عمود الشهور بدل المبالغ.
+   * عند توفره مع showMonthNumbers يُعرض عمود الشهور مع قيمها.
    */
   monthNumbersByTenantId?: Record<string, number[]>;
+  /** تفصيل المبالغ لكل مستأجر للشهور المطابقة */
+  matchingDetailsByTenantId?: Record<string, TenantMatchingMonthDetail>;
 };
 
 function PeriodTotalsStrip({
@@ -189,7 +201,7 @@ function PeriodTotalsStrip({
 }) {
   const scopeLabel =
     period.monthCount > 1
-      ? `مجموع ${period.monthCount} أشهر · ${period.periodRangeAr}`
+      ? `${period.modeLabelAr} · ${period.periodRangeAr} · ${period.monthCount} أشهر`
       : period.periodRangeAr;
 
   if (period.showMonthNumbers) {
@@ -198,29 +210,55 @@ function PeriodTotalsStrip({
         <View style={kpi.header}>
           <Text style={kpi.headerTitle}>
             {ar(
-              `ملخّص الشهور — ${period.statusFilterLabel ?? 'الحالة'} · ${scopeLabel}`,
+              `ملخّص ${period.statusFilterLabel ?? 'الحالة'} — ${scopeLabel}`,
             )}
           </Text>
           <Text style={kpi.headerBadge}>{ar(period.modeLabelAr)}</Text>
         </View>
         <View style={kpi.row}>
           <View style={[kpi.cell, kpi.cellFirst]}>
-            <Text style={kpi.label}>{ar('عدد المستأجرين')}</Text>
+            <Text style={kpi.label}>{ar('المستأجرون')}</Text>
             <Text style={kpi.valueText}>{pdfFmtNum(tenantCount)}</Text>
           </View>
           <View style={kpi.cell}>
-            <Text style={kpi.label}>{ar('إجمالي الشهور المطابقة')}</Text>
+            <Text style={kpi.label}>{ar('مجموع الشهور')}</Text>
             <Text style={kpi.valueText}>{pdfFmtNum(totalMatchingMonths)}</Text>
           </View>
           <View style={kpi.cell}>
-            <Text style={kpi.label}>{ar('الحالة')}</Text>
-            <Text style={kpi.valueText}>
-              {ar(period.statusFilterLabel ?? '—')}
-            </Text>
+            <Text style={kpi.label}>{ar('قيمة الشهور')}</Text>
+            <PdfMoneyText
+              amount={totalExpected}
+              align="right"
+              adaptive
+              adaptiveBase={11}
+              containerStyle={{ justifyContent: 'flex-start' }}
+            />
           </View>
           <View style={kpi.cell}>
-            <Text style={kpi.label}>{ar('الفترة')}</Text>
-            <Text style={kpi.valueText}>{ar(period.periodShortAr)}</Text>
+            <Text style={kpi.label}>{ar('المحصل')}</Text>
+            <PdfMoneyText
+              amount={totalCollected}
+              align="right"
+              adaptive
+              adaptiveBase={11}
+              color={PDF.success}
+              containerStyle={{ justifyContent: 'flex-start' }}
+            />
+          </View>
+          <View style={kpi.cell}>
+            <Text style={kpi.label}>{ar('المتبقي')}</Text>
+            <PdfMoneyText
+              amount={totalOutstanding}
+              align="right"
+              adaptive
+              adaptiveBase={11}
+              color={totalOutstanding > 0 ? PDF.danger : PDF.text}
+              containerStyle={{ justifyContent: 'flex-start' }}
+            />
+          </View>
+          <View style={kpi.cell}>
+            <Text style={kpi.label}>{ar('التحصيل')}</Text>
+            <Text style={kpi.valueText}>{`${collectionRate.toFixed(1)}%`}</Text>
           </View>
         </View>
       </View>
@@ -303,26 +341,42 @@ export function TenantsReportPDF({
   rows,
   period,
   monthNumbersByTenantId,
+  matchingDetailsByTenantId,
 }: TenantsReportPdfProps) {
   const showMonths = !!period.showMonthNumbers && !!monthNumbersByTenantId;
-  const totalExpected = rows.reduce((s, r) => s + tenantPeriodExpectedRent(r), 0);
-  const totalCollected = rows.reduce((s, r) => s + tenantPeriodPaid(r), 0);
+
+  const matchingSums = matchingDetailsByTenantId
+    ? sumMatchingMonthDetails(matchingDetailsByTenantId)
+    : null;
+
+  const totalExpected = showMonths
+    ? (matchingSums?.expected ??
+      rows.reduce((s, r) => s + tenantPeriodExpectedRent(r), 0))
+    : rows.reduce((s, r) => s + tenantPeriodExpectedRent(r), 0);
+  const totalCollected = showMonths
+    ? (matchingSums?.paid ??
+      rows.reduce((s, r) => s + tenantPeriodPaid(r), 0))
+    : rows.reduce((s, r) => s + tenantPeriodPaid(r), 0);
   const totalOutstanding = Math.max(0, totalExpected - totalCollected);
   const collectionRate = totalExpected > 0 ? (totalCollected / totalExpected) * 100 : 0;
   const periodSummary = tenantsReportPeriodSummary(period);
   const totalMatchingMonths = showMonths
-    ? rows.reduce(
+    ? (matchingSums?.months ??
+      rows.reduce(
         (s, r) => s + (monthNumbersByTenantId?.[r.id]?.length ?? 0),
         0,
-      )
+      ))
     : 0;
 
   const rentColumnLabel =
     period.monthCount > 1 ? ar('إيجار الفترة') : ar('الإيجار');
 
-  const monthsColumnLabel = period.statusFilterLabel
-    ? ar(`شهور ${period.statusFilterLabel}`)
-    : ar('أرقام الشهور');
+  const monthsColumnLabel =
+    period.monthCount === 1
+      ? ar('رقم الشهر')
+      : period.statusFilterLabel
+        ? ar(`شهور ${period.statusFilterLabel}`)
+        : ar('أرقام الشهور (1–12)');
 
   return (
     <ReportShell
@@ -332,18 +386,20 @@ export function TenantsReportPDF({
       metaCells={
         showMonths
           ? [
-              { label: 'عدد المستأجرين', value: pdfFmtNum(rows.length) },
+              { label: 'المستأجرون', value: pdfFmtNum(rows.length) },
               {
-                label: 'إجمالي الشهور',
+                label: 'مجموع الشهور',
                 value: pdfFmtNum(totalMatchingMonths),
               },
               {
-                label: 'الحالة',
-                value: period.statusFilterLabel ?? '—',
+                label: 'قيمة الشهور',
+                moneyAmount: totalExpected,
+                adaptiveMoney: true,
               },
               {
-                label: 'الفترة',
-                value: period.periodLabelAr,
+                label: 'المتبقي',
+                moneyAmount: totalOutstanding,
+                adaptiveMoney: true,
               },
             ]
           : [
@@ -379,7 +435,7 @@ export function TenantsReportPDF({
       <Text style={pdfBase.sectionTitle}>
         {ar(
           showMonths
-            ? `تفاصيل الشهور — ${period.periodLabelAr} · ${period.statusFilterLabel ?? ''}`
+            ? `تفاصيل الشهور والقيم — ${period.periodLabelAr} · ${period.statusFilterLabel ?? ''}`
             : period.monthCount > 1
               ? `تفاصيل المستأجرين — ${period.periodLabelAr}`
               : 'تفاصيل إيجارات المستأجرين',
@@ -391,6 +447,9 @@ export function TenantsReportPDF({
           <View style={col.head} wrap={false}>
             <Text style={[col.th, col.phone]}>{ar('الهاتف')}</Text>
             <Text style={[col.th, col.status]}>{ar('الحالة')}</Text>
+            <Text style={[col.th, col.monthVal]}>{ar('المتبقي')}</Text>
+            <Text style={[col.th, col.monthVal]}>{ar('المسدد')}</Text>
+            <Text style={[col.th, col.monthVal]}>{ar('القيمة')}</Text>
             <Text style={[col.th, col.months]}>{monthsColumnLabel}</Text>
             <Text style={[col.thAr, col.tenant]}>{ar('المستأجر')}</Text>
             <Text style={[col.th, col.shop]}>{ar('المحل')}</Text>
@@ -398,11 +457,16 @@ export function TenantsReportPDF({
 
           {rows.map((r, i) => {
             const months = monthNumbersByTenantId?.[r.id] ?? [];
+            const detail = matchingDetailsByTenantId?.[r.id];
+            const rent = detail?.expected ?? tenantPeriodExpectedRent(r);
+            const paid = detail?.paid ?? tenantPeriodPaid(r);
+            const remaining = Math.max(0, rent - paid);
             const shopLabel = r.shop_number
               ? r.floor
                 ? `${r.shop_number} (ط ${r.floor})`
                 : r.shop_number
               : '—';
+            const monthsNames = monthNumbersNamesAr(months, period.year);
 
             return (
               <View
@@ -414,9 +478,21 @@ export function TenantsReportPDF({
                 <Text style={[col.tdMuted, col.status]}>
                   {ar(STATUS_AR[r.current_month_status] ?? r.current_month_status)}
                 </Text>
-                <Text style={[col.tdMonths, col.months]}>
-                  {ar(formatMonthNumbersList(months))}
-                </Text>
+                <View style={col.monthVal}>
+                  <TableMoney amount={remaining} />
+                </View>
+                <View style={col.monthVal}>
+                  <TableMoney amount={paid} />
+                </View>
+                <View style={col.monthVal}>
+                  <TableMoney amount={rent} bold />
+                </View>
+                <View style={col.months}>
+                  <Text style={col.tdMonths}>
+                    {ar(formatMonthNumbersList(months))}
+                  </Text>
+                  <Text style={col.footHint}>{ar(monthsNames)}</Text>
+                </View>
                 <Text style={[col.td, col.tenant]}>{ar(r.name)}</Text>
                 <Text style={[col.tdMuted, col.shop]}>{ar(shopLabel)}</Text>
               </View>
@@ -426,6 +502,18 @@ export function TenantsReportPDF({
           <View style={col.foot} wrap={false}>
             <Text style={col.phone} />
             <Text style={col.status} />
+            <View style={col.monthVal}>
+              <Text style={col.footHint}>{ar('متبقي')}</Text>
+              <TableMoney amount={totalOutstanding} bold />
+            </View>
+            <View style={col.monthVal}>
+              <Text style={col.footHint}>{ar('محصّل')}</Text>
+              <TableMoney amount={totalCollected} bold color={PDF.success} />
+            </View>
+            <View style={col.monthVal}>
+              <Text style={col.footHint}>{ar('قيمة')}</Text>
+              <TableMoney amount={totalExpected} bold />
+            </View>
             <View style={col.months}>
               <Text style={col.footHint}>{ar('إجمالي الشهور')}</Text>
               <Text style={col.tdMonths}>{pdfFmtNum(totalMatchingMonths)}</Text>
@@ -509,7 +597,7 @@ export function TenantsReportPDF({
       <Text style={pdfBase.caption}>
         {ar(
           showMonths
-            ? `وثيقة مُولَّدة آلياً · ${period.periodLabelAr} · أرقام الشهور بحالة: ${period.statusFilterLabel ?? '—'}`
+            ? `وثيقة مُولَّدة آلياً · ${period.periodLabelAr} (${period.periodRangeAr}) · شهور بحالة «${period.statusFilterLabel ?? '—'}» · مجموع ${totalMatchingMonths} شهراً بقيمة ${pdfFmtNum(totalExpected)}`
             : period.statusFilterLabel
               ? `وثيقة مُولَّدة آلياً · ${period.periodLabelAr} · عرض: ${period.statusFilterLabel} فقط`
               : `وثيقة مُولَّدة آلياً · ${period.periodLabelAr} (${period.periodRangeAr})`,

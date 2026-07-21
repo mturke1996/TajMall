@@ -142,24 +142,26 @@ export default async function TenantPortalPage({ params }: { params: { token: st
     (m) => m.status === 'unpaid' || m.status === 'partial',
   ).length;
 
-  /** سعر العرض: جدول الأسعار الحالي، لا مبلغ تحصيل قديم */
+  /** عرض التقويم: مبلغ المطالبة إن وُجدت، وإلا سعر الجدول */
   function monthDisplayAmount(monthKeyStr: string, fallback = 0): number {
+    const fromCal = calendar?.months.find((m) => m.month === monthKeyStr);
+    const chargeAmt = Number(fromCal?.amount ?? 0);
+    if (fromCal && (fromCal.status === 'paid' || fromCal.status === 'partial' || fromCal.status === 'unpaid')) {
+      if (chargeAmt > 0) return chargeAmt;
+    }
     const fromBand = resolveAmountFromBands(bands, monthKeyStr, 0);
     if (fromBand > 0) return fromBand;
-    const fromCal = calendar?.months.find((m) => m.month === monthKeyStr);
     const scheduled = Number(
       (fromCal as { scheduled_amount?: number } | undefined)?.scheduled_amount ?? 0,
     );
     if (scheduled > 0) return scheduled;
-    const amt = Number(fromCal?.amount ?? 0);
-    if (amt > 0) return amt;
+    if (chargeAmt > 0) return chargeAmt;
     return fallback > 0 ? fallback : defaultRent;
   }
 
+  /** سجل المطالبات يعرض مبلغ المطالبة الفعلي دائماً */
   function chargeDisplayAmount(c: ChargeRow): number {
-    if (c.type !== 'RENT') return Number(c.amount) || 0;
-    const mk = String(c.due_date).slice(0, 7);
-    return monthDisplayAmount(mk, Number(c.amount) || 0);
+    return Number(c.amount) || 0;
   }
 
   return (

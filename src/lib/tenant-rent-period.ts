@@ -98,7 +98,10 @@ export function formatPeriodRangeHintAr(selection: TenantRentPeriodSelection): s
 }
 
 export function availableYears(anchor = currentYear()): number[] {
-  return [anchor - 1, anchor, anchor + 1];
+  const base = currentYear();
+  return [...new Set([base - 2, base - 1, base, base + 1, anchor])]
+    .filter((y) => Number.isFinite(y))
+    .sort((a, b) => a - b);
 }
 
 function computeAggregatedStatus(
@@ -324,6 +327,24 @@ export function formatMonthNumbersList(months: number[]): string {
   return months.join('، ');
 }
 
+/** أسماء الشهور بالعربية من أرقامها (مثل: يناير، مارس) */
+export function formatMonthNumbersNamesAr(
+  months: number[],
+  year: number,
+): string {
+  if (months.length === 0) return '—';
+  return months
+    .map((n) => monthNameAr(monthKey(year, n)))
+    .join('، ');
+}
+
+export type TenantMatchingMonthDetail = {
+  months: number[];
+  monthKeys: string[];
+  expected: number;
+  paid: number;
+};
+
 /**
  * خريطة مستأجر → أرقام الشهور المطابقة للفلتر.
  * تُستخدم في PDF عند سنة/ربع/نصف + مدفوع/جزئي/غير مدفوع.
@@ -334,13 +355,129 @@ export function buildTenantMatchingMonthNumbers(
   monthKeys: string[],
   statusFilter: string,
 ): Record<string, number[]> {
-  if (statusFilter === 'ALL' || monthKeys.length <= 1) return {};
-  const statuses = collectTenantMonthStatuses(rowsByMonth, monthKeys);
+  const details = buildTenantMatchingMonthDetails(
+    tenantIds,
+    rowsByMonth,
+    monthKeys,
+    statusFilter,
+  );
   const out: Record<string, number[]> = {};
   for (const id of tenantIds) {
-    out[id] = matchingMonthNumbersForStatus(statuses.get(id), statusFilter);
+    out[id] = details[id]?.months ?? [];
   }
   return out;
+}
+
+/**
+ * تفصيل الشهور (أرقام 1–12) مع مبالغ الإيجار/المسدد لكل مستأجر.
+ * statusFilter = ALL → كل شهور الفترة؛ وإلا الشهور المطابقة للحالة فقط.
+ */
+export function buildTenantMatchingMonthDetails(
+  tenantIds: string[],
+  rowsByMonth: Map<string, TenantRentSummary[]>,
+  monthKeys: string[],
+  statusFilter: string,
+): Record<string, TenantMatchingMonthDetail> {
+  if (monthKeys.length === 0) return {};
+
+  const idSet = new Set(tenantIds);
+  const out: Record<string, TenantMatchingMonthDetail> = {};
+
+  for (const id of tenantIds) {
+    out[id] = { months: [], monthKeys: [], expected: 0, paid: 0 };
+  }
+
+  for (const mk of monthKeys) {
+    const monthNumber = Number(mk.slice(5, 7));
+    if (!Number.isFinite(monthNumber) || monthNumber < 1 || monthNumber > 12) {
+      continue;
+    }
+    for (const row of rowsByMonth.get(mk) ?? []) {
+      if (!idSet.has(row.id)) continue;
+      if (
+        statusFilter !== 'ALL' &&
+        row.current_month_status !== statusFilter
+      ) {
+        continue;
+      }
+      const bucket = out[row.id] ?? {
+        months: [],
+        monthKeys: [],
+        expected: 0,
+        paid: 0,
+      };
+      if (!bucket.monthKeys.includes(mk)) {
+        bucket.months.push(monthNumber);
+        bucket.monthKeys.push(mk);
+        bucket.expected += monthExpected(row);
+        bucket.paid += monthPaid(row);
+      }
+      out[row.id] = bucket;
+    }
+  }
+
+  for (const id of Object.keys(out)) {
+    out[id].months = [...new Set(out[id].months)].sort((a, b) => a - b);
+    out[id].monthKeys.sort();
+  }
+
+  return out;
+}
+
+/** تفاصيل شهر واحد (وضع تقرير الشهر) — رقم الشهر 1–12 */
+export function buildSingleMonthMatchingDetails(
+  tenants: TenantRentSummary[],
+  monthKeyStr: string,
+): Record<string, TenantMatchingMonthDetail> {
+  const monthNumber = Number(monthKeyStr.slice(5, 7));
+  if (!Number.isFinite(monthNumber) || monthNumber < 1 || monthNumber > 12) {
+    return {};
+  }
+  const out: Record<string, TenantMatchingMonthDetail> = {};
+  for (const t of tenants) {
+    out[t.id] = {
+      months: [monthNumber],
+      monthKeys: [monthKeyStr],
+      expected: monthExpected(t),
+      paid: monthPaid(t),
+    };
+  }
+  return out;
+}
+
+/** يعيد بناء صف المستأجر ليعكس فقط الشهور المطابقة لفلتر الحالة */
+export function applyMatchingMonthDetailsToTenants(
+  tenants: TenantRentSummary[],
+  details: Record<string, TenantMatchingMonthDetail>,
+  statusFilter: string,
+): TenantRentSummary[] {
+  if (statusFilter === 'ALL') return tenants;
+  return tenants.map((t) => {
+    const d = details[t.id];
+    if (!d || d.months.length === 0) return t;
+    return {
+      ...t,
+      current_month_amount: String(d.expected),
+      current_month_paid: String(d.paid),
+      current_month_status: statusFilter as TenantRentStatusKey,
+      current_month_key: d.monthKeys.join(','),
+    };
+  });
+}
+
+/** إجماليات الشهور المطابقة عبر قائمة مستأجرين */
+export function sumMatchingMonthDetails(
+  details: Record<string, TenantMatchingMonthDetail>,
+): { months: number; expected: number; paid: number } {
+  let months = 0;
+  let expected = 0;
+  let paid = 0;
+  for (const d of Object.values(details)) {
+    months += d.months.length;
+    expected += d.expected;
+    paid += d.paid;
+  }
+  return { months, expected, paid };
 }
 
 export function buildTenantsReportPeriodContext(

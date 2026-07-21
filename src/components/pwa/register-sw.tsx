@@ -18,19 +18,14 @@ export function RegisterServiceWorker() {
     if (new URL(window.location.href).searchParams.has('nosw')) return;
 
     let refreshing = false;
+    const hadControllerAtRegister = !!navigator.serviceWorker.controller;
 
-    // Handle controller change (new SW activated)
+    // New SW took control — reload once. Skip toast on first install (no prior controller).
     const handleControllerChange = () => {
       if (refreshing) return;
+      if (!hadControllerAtRegister) return;
       refreshing = true;
-      
-      toast.success('تحديث متاح', {
-        description: 'تم تحديث التطبيق. سيتم تحديث الصفحة تلقائياً.',
-        action: {
-          label: 'تحديث الآن',
-          onClick: () => window.location.reload(),
-        },
-      });
+      window.location.reload();
     };
 
     // Listen for controller changes
@@ -54,6 +49,7 @@ export function RegisterServiceWorker() {
               setSwStatus('updated');
               toast.info('تحديث جديد متاح', {
                 description: 'هناك نسخة جديدة من التطبيق متاحة.',
+                id: 'pwa-sw-updatefound',
                 action: {
                   label: 'تحديث',
                   onClick: () => {

@@ -11,10 +11,10 @@ const nextConfig = {
     ],
   },
   // We run `tsc --noEmit` and `next lint` independently in CI (see package.json
-  // scripts `typecheck` and `lint`). Re-running them inside `next build`
-  // sometimes overflows the call stack on large monorepos.
-  typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
+  // scripts `typecheck` and `lint`). Keep build lean, but do NOT ignore type
+  // errors silently in local verification — typecheck script is the gate.
+  typescript: { ignoreBuildErrors: false },
+  eslint: { ignoreDuringBuilds: false },
   async redirects() {
     return [
       // /boss دُمجت في /users (كانت صفحة مكرّرة لنفس إدارة المستخدمين)

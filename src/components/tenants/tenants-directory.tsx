@@ -54,6 +54,8 @@ export type TenantsDirectoryProps = {
     expectedTotal: number;
     collectedTotal: number;
   };
+  /** عند فلتر حالة على فترة متعددة: أرقام الشهور المطابقة لكل مستأجر */
+  matchingMonthsByTenantId?: Record<string, number[]>;
   onAddTenant?: () => void;
 };
 
@@ -93,11 +95,20 @@ export function TenantsDirectory({
   periodSelection,
   onPeriodSelectionChange,
   stats,
+  matchingMonthsByTenantId,
   onAddTenant,
 }: TenantsDirectoryProps) {
   const periodLabel = formatPeriodLabelAr(periodSelection);
   const periodShort = formatPeriodShortLabelAr(periodSelection);
   const isMultiMonth = periodSelection.mode !== 'month';
+
+  const badgeLabelFor = (tenantId: string) => {
+    const months = matchingMonthsByTenantId?.[tenantId];
+    if (months && months.length > 0) {
+      return `${periodShort} · ${months.join('، ')}`;
+    }
+    return periodShort;
+  };
 
   const filterChips = [
     { key: 'ALL', label: 'الكل', count: stats.total },
@@ -274,7 +285,7 @@ export function TenantsDirectory({
                   <TenantTableRow
                     key={tenant.id}
                     tenant={tenant}
-                    periodLabel={periodShort}
+                    periodLabel={badgeLabelFor(tenant.id)}
                     isMultiMonth={isMultiMonth}
                     striped={i % 2 === 1}
                   />
@@ -288,7 +299,7 @@ export function TenantsDirectory({
               <TenantCard
                 key={tenant.id}
                 tenant={tenant}
-                periodLabel={periodShort}
+                periodLabel={badgeLabelFor(tenant.id)}
               />
             ))}
           </div>
@@ -298,7 +309,7 @@ export function TenantsDirectory({
               <TenantMobileRow
                 key={tenant.id}
                 tenant={tenant}
-                periodLabel={periodShort}
+                periodLabel={badgeLabelFor(tenant.id)}
               />
             ))}
           </ul>

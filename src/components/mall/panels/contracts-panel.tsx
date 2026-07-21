@@ -130,7 +130,7 @@ export function MallContractsPanel() {
   return (
     <div className="space-y-4">
       <MallPanelToolbar>
-        <WriteGuard>
+        <WriteGuard permission="journal.create">
           <Button
             onClick={handleOpenCreate}
             className="h-11 gap-2 bg-sage-700 hover:bg-sage-800 text-white touch-manipulation md:h-9"

@@ -94,6 +94,24 @@ export type TenantRentPeriodSelectorProps = {
   className?: string;
 };
 
+function withYear(
+  selection: TenantRentPeriodSelection,
+  year: number,
+): TenantRentPeriodSelection {
+  switch (selection.mode) {
+    case 'month': {
+      const month = Number(selection.monthKey.slice(5, 7)) || 1;
+      return { mode: 'month', monthKey: monthKey(year, month) };
+    }
+    case 'quarter':
+      return { mode: 'quarter', year, quarter: selection.quarter };
+    case 'half':
+      return { mode: 'half', year, half: selection.half };
+    case 'year':
+      return { mode: 'year', year };
+  }
+}
+
 export function TenantRentPeriodSelector({
   selection,
   onChange,
@@ -127,7 +145,7 @@ export function TenantRentPeriodSelector({
 
   return (
     <div className={cn('space-y-2.5', className)}>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div
           className="inline-flex items-center gap-0.5 rounded-full border border-border bg-canvas-sunken/60 p-0.5"
           role="tablist"
@@ -147,60 +165,76 @@ export function TenantRentPeriodSelector({
         </p>
       </div>
 
+      {/* اختيار السنة متاح دائماً مع كل الأنماط */}
       <div
         className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1"
         role="listbox"
-        aria-label="اختيار الفترة"
+        aria-label="اختيار السنة"
       >
-        {selection.mode === 'month' &&
-          Array.from({ length: 12 }, (_, i) => {
-            const key = monthKey(year, i + 1);
-            return (
-              <PeriodChip
-                key={key}
-                active={selection.monthKey === key}
-                onClick={() => onChange({ mode: 'month', monthKey: key })}
-                label={monthNameAr(key)}
-              />
-            );
-          })}
-
-        {selection.mode === 'quarter' &&
-          ([1, 2, 3, 4] as const).map((q) => (
-            <PeriodChip
-              key={q}
-              active={selection.quarter === q}
-              onClick={() => onChange({ mode: 'quarter', year, quarter: q })}
-              label={formatPeriodShortLabelAr({ mode: 'quarter', year, quarter: q })}
-              hint={QUARTER_HINTS[q - 1]}
-              className="min-w-[5.5rem]"
-            />
-          ))}
-
-        {selection.mode === 'half' &&
-          ([1, 2] as const).map((h) => (
-            <PeriodChip
-              key={h}
-              active={selection.half === h}
-              onClick={() => onChange({ mode: 'half', year, half: h })}
-              label={formatPeriodShortLabelAr({ mode: 'half', year, half: h })}
-              hint={HALF_HINTS[h - 1]}
-              className="min-w-[6.5rem]"
-            />
-          ))}
-
-        {selection.mode === 'year' &&
-          years.map((y) => (
-            <PeriodChip
-              key={y}
-              active={selection.year === y}
-              onClick={() => onChange({ mode: 'year', year: y })}
-              label={String(y)}
-              hint="12 شهر"
-              className="min-w-[4.75rem]"
-            />
-          ))}
+        {years.map((y) => (
+          <PeriodChip
+            key={y}
+            active={year === y}
+            onClick={() => onChange(withYear(selection, y))}
+            label={String(y)}
+            hint={selection.mode === 'year' ? '12 شهر' : 'سنة'}
+            className="min-w-[4.25rem]"
+          />
+        ))}
       </div>
+
+      {selection.mode !== 'year' && (
+        <div
+          className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1"
+          role="listbox"
+          aria-label="اختيار الفترة"
+        >
+          {selection.mode === 'month' &&
+            Array.from({ length: 12 }, (_, i) => {
+              const key = monthKey(year, i + 1);
+              return (
+                <PeriodChip
+                  key={key}
+                  active={selection.monthKey === key}
+                  onClick={() => onChange({ mode: 'month', monthKey: key })}
+                  label={monthNameAr(key)}
+                />
+              );
+            })}
+
+          {selection.mode === 'quarter' &&
+            ([1, 2, 3, 4] as const).map((q) => (
+              <PeriodChip
+                key={q}
+                active={selection.quarter === q}
+                onClick={() => onChange({ mode: 'quarter', year, quarter: q })}
+                label={formatPeriodShortLabelAr({
+                  mode: 'quarter',
+                  year,
+                  quarter: q,
+                })}
+                hint={QUARTER_HINTS[q - 1]}
+                className="min-w-[5.5rem]"
+              />
+            ))}
+
+          {selection.mode === 'half' &&
+            ([1, 2] as const).map((h) => (
+              <PeriodChip
+                key={h}
+                active={selection.half === h}
+                onClick={() => onChange({ mode: 'half', year, half: h })}
+                label={formatPeriodShortLabelAr({
+                  mode: 'half',
+                  year,
+                  half: h,
+                })}
+                hint={HALF_HINTS[h - 1]}
+                className="min-w-[6.5rem]"
+              />
+            ))}
+        </div>
+      )}
     </div>
   );
 }

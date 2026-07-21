@@ -72,8 +72,8 @@ export function ResetPasswordForm() {
     e.preventDefault();
     setError(null);
 
-    if (password.length < 6) {
-      setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل.');
+    if (password.length < 10) {
+      setError('كلمة المرور يجب أن تكون 10 أحرف على الأقل.');
       return;
     }
     if (password !== confirm) {
@@ -146,7 +146,7 @@ export function ResetPasswordForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="new-password"
-                  minLength={6}
+                  minLength={10}
                   required
                 />
                 <button
@@ -167,7 +167,7 @@ export function ResetPasswordForm() {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 autoComplete="new-password"
-                minLength={6}
+                minLength={10}
                 required
               />
             </div>

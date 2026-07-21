@@ -96,7 +96,7 @@ export function MallPeoplePanel() {
             تحصيل الإيجار
           </Button>
         )}
-        <WriteGuard>
+        <WriteGuard permission="document.create">
           <Button
             size="sm"
             className="h-11 flex-1 gap-1.5 touch-manipulation sm:flex-none md:h-9"
