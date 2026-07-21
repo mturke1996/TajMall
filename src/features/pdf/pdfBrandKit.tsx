@@ -97,9 +97,79 @@ export const pdfBrandStyles = StyleSheet.create({
   },
 
   logoWrap: {
-    paddingRight: 4,
+    paddingRight: 0,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  accountingLetterhead: {
+    width: "100%",
+    marginBottom: 12,
+  },
+  accountingLetterheadTop: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 0,
+    paddingBottom: 8,
+  },
+  accountingCompany: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: PDFPalette.primary,
+    textAlign: "center",
+    marginTop: 6,
+    lineHeight: 1.35,
+  },
+  accountingTagline: {
+    fontSize: 8,
+    color: PDFPalette.muted,
+    textAlign: "center",
+    marginTop: 2,
+    lineHeight: 1.4,
+  },
+  accountingTitleBand: {
+    direction: "rtl",
+    alignItems: "center",
+    paddingTop: 8,
+    paddingBottom: 10,
+    borderTopWidth: 2,
+    borderTopColor: PDFPalette.logoGreen,
+    borderBottomWidth: 1,
+    borderBottomColor: PDFPalette.border,
+  },
+  accountingTitleEn: {
+    fontSize: 8,
+    fontWeight: "bold",
+    color: PDFPalette.logoGreen,
+    textAlign: "center",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  accountingTitleAr: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: PDFPalette.primary,
+    textAlign: "center",
+    lineHeight: 1.35,
+  },
+  accountingSubtitle: {
+    fontSize: 9,
+    color: PDFPalette.text,
+    textAlign: "center",
+    marginTop: 4,
+    lineHeight: 1.4,
+  },
+  accountingPeriod: {
+    fontSize: 8.5,
+    color: PDFPalette.muted,
+    textAlign: "center",
+    marginTop: 4,
+  },
+  accountingRef: {
+    fontSize: 7.5,
+    color: PDFPalette.muted,
+    textAlign: "center",
+    marginTop: 3,
   },
 
   identityText: {
@@ -500,6 +570,44 @@ export const PdfLogoMark = ({ size = 64 }: { size?: number }) => {
   }
   return <PdfLogoFallback size={size} />;
 };
+
+/** ترويسة وثيقة محاسبية — شعار في الأعلى وسطاً (معايير كشف/ميزان مراجعة) */
+export function PdfAccountingLetterhead({
+  titleAr,
+  titleEn,
+  subtitle,
+  periodRange,
+  refLine,
+}: {
+  titleAr: string;
+  titleEn: string;
+  subtitle?: string;
+  periodRange?: string;
+  refLine?: string;
+}) {
+  return (
+    <View style={pdfBrandStyles.accountingLetterhead} wrap={false}>
+      <View style={pdfBrandStyles.accountingLetterheadTop}>
+        <PdfLogoMark size={72} />
+        <Text style={pdfBrandStyles.accountingCompany}>{ar(BRAND.fullName)}</Text>
+        <Text style={pdfBrandStyles.accountingTagline}>{ar(BRAND.tagline)}</Text>
+      </View>
+      <View style={pdfBrandStyles.accountingTitleBand}>
+        <Text style={pdfBrandStyles.accountingTitleEn}>{titleEn}</Text>
+        <Text style={pdfBrandStyles.accountingTitleAr}>{ar(titleAr)}</Text>
+        {subtitle ? (
+          <Text style={pdfBrandStyles.accountingSubtitle}>{ar(subtitle)}</Text>
+        ) : null}
+        {periodRange ? (
+          <Text style={pdfBrandStyles.accountingPeriod}>{ar(periodRange)}</Text>
+        ) : null}
+        {refLine ? (
+          <Text style={pdfBrandStyles.accountingRef}>{ar(refLine)}</Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
 
 // ============================================================
 // Helper Functions

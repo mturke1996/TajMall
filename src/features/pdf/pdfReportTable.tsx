@@ -174,19 +174,74 @@ export const pdfReportTable = StyleSheet.create({
     textAlign: 'right',
     lineHeight: 1.35,
   },
+  /** صف إجماليات محاسبي — خط مزدوج كميزان المراجعة */
+  totalsRow: {
+    ...PDF_TABLE_ROW,
+    backgroundColor: PDF.logoGreenSoft,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderTopWidth: 1.5,
+    borderTopColor: PDF.primary,
+    borderBottomWidth: 2,
+    borderBottomColor: PDF.primary,
+  },
+  totalsRowLabel: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: PDF.primary,
+    textAlign: 'right',
+  },
+  docInfoStrip: {
+    direction: 'ltr',
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: PDF.border,
+    backgroundColor: PDF.mutedBg,
+    borderRadius: 3,
+  },
+  docInfoCell: {
+    direction: 'rtl',
+    flex: 1,
+    minWidth: 0,
+  },
+  docInfoLabel: {
+    fontSize: 7,
+    color: PDF.muted,
+    fontWeight: 'bold',
+    marginBottom: 3,
+    textAlign: 'right',
+  },
+  docInfoValue: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: PDF.text,
+    textAlign: 'right',
+    lineHeight: 1.35,
+  },
 });
 
 export function PdfReportMoney({
   amount,
   color,
   bold,
+  light,
 }: {
   amount: number;
   color?: string;
   bold?: boolean;
+  light?: boolean;
 }) {
   if (!amount || Math.abs(amount) < 0.0005) {
-    return <Text style={pdfReportTable.tdMuted}>{ar('—')}</Text>;
+    return (
+      <Text style={[pdfReportTable.tdMuted, light && { color: 'rgba(255,255,255,0.65)' }]}>
+        {ar('—')}
+      </Text>
+    );
   }
   return (
     <PdfMoneyText
@@ -195,11 +250,14 @@ export function PdfReportMoney({
       adaptive
       adaptiveBase={9}
       color={color}
+      light={light}
       style={{
         fontSize: 8.5,
         fontWeight: bold ? 'bold' : 'normal',
         textAlign: 'center',
+        ...(light ? { color: '#FBF8F1' } : {}),
       }}
+      currStyle={light ? { fontSize: 7.5, color: 'rgba(255,255,255,0.9)' } : undefined}
       containerStyle={{ justifyContent: 'center', width: '100%' }}
     />
   );

@@ -25,26 +25,44 @@ export function formatPeriodJournalExportNames(
   period: ReportPeriod,
   model?: Pick<
     PeriodJournalEntryModel,
-    'lines' | 'sourceEntryCount' | 'periodLabel' | 'balanced'
+    'lines' | 'sourceEntryCount' | 'periodLabel' | 'balanced' | 'categoryFilter'
   > | null,
 ): PeriodJournalExportNames {
   const periodLabel = model?.periodLabel ?? formatReportPeriodLabelAr(period);
-  const fileName = buildPdfFileName('period-journal', formatReportPeriodSlugEn(period));
+  const categorySlug = model?.categoryFilter?.code;
+  const fileName = buildPdfFileName(
+    'period-journal',
+    formatReportPeriodSlugEn(period),
+    categorySlug,
+  );
 
-  const shareTitle = `قيد محاسبي — ${periodLabel} · ${BRAND.name}`;
+  const categoryNote = model?.categoryFilter
+    ? ` · بند ${model.categoryFilter.name_ar}`
+    : '';
+  const shareTitle = `قيد محاسبي — ${periodLabel}${categoryNote} · ${BRAND.name}`;
   const lineCount = model?.lines.length ?? 0;
   const entryCount = model?.sourceEntryCount ?? 0;
-  const balanceNote = model?.balanced === false ? ' (يتطلب مراجعة — غير متوازن)' : '';
+  const balanceNote =
+    model?.categoryFilter
+      ? ''
+      : model?.balanced === false
+        ? ' (يتطلب مراجعة — غير متوازن)'
+        : '';
+  const scopeLine = model?.categoryFilter
+    ? `بند محاسبي واحد: ${model.categoryFilter.name_ar} (${model.categoryFilter.code}).`
+    : lineCount > 0
+      ? `يتضمن ${lineCount} بنداً محاسبياً بإجمالي مدين/دائن، مبنياً على ${entryCount} قيد مصدر.`
+      : 'لا توجد حركة محاسبية في هذه الفترة.';
 
   const shareText = [
     `قيد محاسبي ملخّص للفترة: ${periodLabel}${balanceNote}.`,
-    lineCount > 0
-      ? `يتضمن ${lineCount} بنداً محاسبياً بإجمالي مدين/دائن، مبنياً على ${entryCount} قيد مصدر.`
-      : 'لا توجد حركة محاسبية في هذه الفترة.',
+    scopeLine,
     `${BRAND.fullName} — ${BRAND.tagline}`,
   ].join('\n');
 
-  const documentTitle = `${BRAND.name} — قيد محاسبي — ${periodLabel}`;
+  const documentTitle = model?.categoryFilter
+    ? `${BRAND.name} — قيد محاسبي — ${model.categoryFilter.name_ar} — ${periodLabel}`
+    : `${BRAND.name} — قيد محاسبي — ${periodLabel}`;
 
   return { fileName, shareTitle, shareText, documentTitle };
 }
@@ -69,6 +87,12 @@ export type PeriodJournalEntryModel = {
   title: string;
   description: string;
   statusFilter: JournalStatus | 'ALL';
+  /** عند عرض بند واحد فقط */
+  categoryFilter?: {
+    id: string;
+    code: string;
+    name_ar: string;
+  } | null;
   sourceEntryCount: number;
   sourceLineCount: number;
   lines: PeriodJournalLine[];
@@ -123,6 +147,16 @@ export function aggregatePeriodJournalLines(
   }
 
   return Array.from(map.values()).sort((a, b) => {
+    const typeOrder: Record<string, number> = {
+      ASSET: 1,
+      LIABILITY: 2,
+      EQUITY: 3,
+      REVENUE: 4,
+      EXPENSE: 5,
+    };
+    const oA = typeOrder[a.category_type ?? ''] ?? 99;
+    const oB = typeOrder[b.category_type ?? ''] ?? 99;
+    if (oA !== oB) return oA - oB;
     const codeA = a.category_code || 'zzzz';
     const codeB = b.category_code || 'zzzz';
     return codeA.localeCompare(codeB, 'ar');
@@ -150,12 +184,73 @@ export function buildPeriodJournalEntryModel(input: {
     title: `قيد محاسبي — ${periodLabel}`,
     description: `ملخص حركة الحسابات للفترة ${periodLabel} (إجمالي كل بند)`,
     statusFilter: input.statusFilter ?? 'POSTED',
+    categoryFilter: null,
     sourceEntryCount: input.entries.length,
     sourceLineCount: input.lines.filter((l) => journalIds.has(l.journal_id)).length,
     lines: aggregated,
     totalDebit,
     totalCredit,
     balanced: Math.abs(totalDebit - totalCredit) <= 0.005,
+  };
+}
+
+/** إجمالي حركة البند (أكبر جانب مدين/دائن — للعرض لا للتوازن) */
+export function periodJournalGrossMovement(debit: number, credit: number): number {
+  return Math.max(debit, credit);
+}
+
+type CategoryFilterMeta = {
+  id: string;
+  code: string;
+  name_ar: string;
+  type?: string | null;
+};
+
+/** تصفية القيد لبند محاسبي واحد — أو إرجاع الكل */
+export function applyPeriodJournalCategoryFilter(
+  model: PeriodJournalEntryModel,
+  categoryId: string | null | undefined,
+  categoryMeta?: CategoryFilterMeta | null,
+): PeriodJournalEntryModel {
+  if (!categoryId || categoryId === 'all') {
+    return { ...model, categoryFilter: null };
+  }
+
+  const existing = model.lines.find((l) => l.category_id === categoryId);
+  const lines: PeriodJournalLine[] = existing ? [existing] : [];
+
+  const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
+  const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
+
+  const categoryFilter =
+    existing != null
+      ? {
+          id: existing.category_id,
+          code: existing.category_code,
+          name_ar: existing.category_name,
+        }
+      : categoryMeta
+        ? {
+            id: categoryMeta.id,
+            code: categoryMeta.code,
+            name_ar: categoryMeta.name_ar,
+          }
+        : null;
+
+  return {
+    ...model,
+    categoryFilter,
+    lines,
+    totalDebit,
+    totalCredit,
+    /** التوازن يُقاس على القيد الكامل للفترة — ليس على بند واحد */
+    balanced: model.balanced,
+    title: categoryFilter
+      ? `قيد الفترة — ${categoryFilter.name_ar}`
+      : model.title,
+    description: categoryFilter
+      ? `إجمالي حركة البند ${categoryFilter.name_ar} (${categoryFilter.code}) — ${model.periodLabel}`
+      : model.description,
   };
 }
 

@@ -36,7 +36,8 @@ export const PDF = {
 
 /** مساحة التذييل والرأس — محتوى التقرير لا يختلط معهما */
 export const PDF_PAGINATION = {
-  headerReserve: 78,
+  headerReserve: 68,
+  headerCompact: 22,
   footerBottom: 10,
   footerHeight: 46,
   /** paddingBottom للصفحة فقط — يمنع تداخل الجسم مع التذييل المثبّت */
@@ -82,10 +83,10 @@ export const pdfBase = {
   header: {
     position: 'relative',
     width: '100%',
-    minHeight: 68,
-    marginBottom: 16,
-    paddingBottom: 14,
-    paddingTop: 4,
+    minHeight: 62,
+    marginBottom: 10,
+    paddingBottom: 10,
+    paddingTop: 0,
     borderBottomWidth: 1,
     borderBottomColor: PDF.border,
   },
@@ -94,7 +95,7 @@ export const pdfBase = {
   titleBoxAtLeft: {
     position: 'absolute',
     left: 0,
-    top: 4,
+    top: 0,
     direction: 'rtl',
     alignItems: 'flex-start',
     maxWidth: '44%',
@@ -104,7 +105,7 @@ export const pdfBase = {
   brandBoxFixed: {
     position: 'absolute',
     right: 0,
-    top: 4,
+    top: 0,
     direction: 'rtl',
     flexDirection: 'row',
     alignItems: 'center',
@@ -457,7 +458,7 @@ export const pdfBase = {
   /** أعلى يمين الصفحة — بعيد عن التذييل، متوافق مع RTL */
   pageNumber: {
     position: 'absolute',
-    top: 11,
+    top: 8,
     right: 28,
     width: 120,
     textAlign: 'right',

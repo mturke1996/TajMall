@@ -6,7 +6,7 @@ import { Document, Page, Text, View } from '@react-pdf/renderer';
 
 import { ar, arDateParts } from './arabicPDF';
 
-import { pdfBase, PDF } from './pdfBase';
+import { pdfBase, PDF, PDF_PAGINATION } from './pdfBase';
 
 import { TajMallPdfFooter, TajMallPdfHeader, PdfLogoMark, PdfMoneyText } from './pdfBrandKit';
 
@@ -92,6 +92,8 @@ export function ReportShell({
 
   showHeader = true,
 
+  showSummary = true,
+
   headerProps,
 
   /** عنوان ملف PDF الداخلي (يظهر في قارئ PDF والمشاركة) */
@@ -116,6 +118,8 @@ export function ReportShell({
   showFooter?: boolean;
 
   showHeader?: boolean;
+
+  showSummary?: boolean;
 
   headerProps?: {
 
@@ -163,7 +167,14 @@ export function ReportShell({
 
     <Document title={documentTitle ?? `${BRAND.name} - ${title}`} author={BRAND.fullName}>
 
-      <Page size="A4" style={pdfBase.page} wrap>
+      <Page
+        size="A4"
+        style={[
+          pdfBase.page,
+          !showHeader && { paddingTop: PDF_PAGINATION.headerCompact },
+        ]}
+        wrap
+      >
 
         <View style={pdfBase.pageAccentBar} fixed />
 
@@ -193,7 +204,7 @@ export function ReportShell({
 
               </View>
 
-              <PdfLogoMark size={52} />
+              <PdfLogoMark size={56} />
 
             </View>
 
@@ -225,7 +236,7 @@ export function ReportShell({
 
         <View style={pdfBase.pageFlow}>
 
-          {metaCells.length > 0 && (
+          {showSummary && metaCells.length > 0 && (
 
             <View style={pdfBase.luxe} wrap={false}>
 
