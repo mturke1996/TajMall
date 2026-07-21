@@ -8,19 +8,28 @@ import {
   AlertCircle,
   Link2,
   Loader2,
+  Banknote,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useTenantChargesForTenant } from '@/lib/db/mall-queries';
-import { useTenantRentExemptMonths } from '@/lib/db/rent-queries';
+import {
+  useTenantRentExemptMonths,
+  useTenantRentPriceBands,
+} from '@/lib/db/rent-queries';
 import { buildMergedTenantRentCalendar } from '@/lib/rent-calendar-from-charges';
-import { isCalendarMonthOutstanding } from '@/lib/rent-exempt-months';
+import {
+  filterVisibleCalendarMonths,
+  isCalendarMonthOutstanding,
+} from '@/lib/rent-exempt-months';
 import { deriveTenantRentYears } from '@/lib/rent-calendar-years';
 import { SetRentMonthStatusDialog } from '@/components/tenants/set-rent-month-status-dialog';
 import { SetRentExemptMonthsDialog } from '@/components/tenants/set-rent-exempt-months-dialog';
+import { SetRentPriceScheduleDialog } from '@/components/tenants/set-rent-price-schedule-dialog';
 import { usePermission } from '@/lib/supabase/use-permission';
 import type { JournalEntryRow } from '@/lib/db/journal-queries';
 import { RentMonthLabel } from '@/components/rent/rent-month-label';
+import { resolveAmountFromBands } from '@/lib/rent-price-schedule';
 import {
   currentYear,
   formatMonthLabelAr,
@@ -65,9 +74,10 @@ function YearSection({
   months: RentCalendarMonth[];
   monthlyRent: number;
 }) {
-  const paidMonths = months.filter((m) => m.status === 'paid');
-  const exemptMonths = months.filter((m) => m.status === 'exempt');
-  const unpaidMonths = months.filter(isCalendarMonthOutstanding);
+  const exemptCount = months.filter((m) => m.status === 'exempt').length;
+  const visibleMonths = filterVisibleCalendarMonths(months);
+  const paidMonths = visibleMonths.filter((m) => m.status === 'paid');
+  const unpaidMonths = visibleMonths.filter(isCalendarMonthOutstanding);
 
   return (
     <div className="border-t border-border first:border-t-0">
@@ -79,18 +89,21 @@ function YearSection({
           <span className="rounded-full bg-emerald-600/90 text-white px-2.5 py-0.5 font-semibold">
             مدفوع {paidMonths.length}
           </span>
-          {exemptMonths.length > 0 && (
-            <span className="rounded-full bg-slate-500/90 text-white px-2.5 py-0.5 font-semibold">
-              بدون مطالبة {exemptMonths.length}
-            </span>
-          )}
           <span className="rounded-full bg-red-600/90 text-white px-2.5 py-0.5 font-semibold">
             مستحق {unpaidMonths.length}
           </span>
         </div>
       </div>
 
-      <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 sm:p-5">
+      {exemptCount > 0 && (
+        <p className="px-4 sm:px-5 pt-3 text-[11px] text-ink-mute leading-relaxed">
+          تم استبعاد {exemptCount}{' '}
+          {exemptCount === 1 ? 'شهر بدون مطالبة' : 'أشهر بدون مطالبة'} من العرض
+          والإجماليات — لا تُحسب كمستحق.
+        </p>
+      )}
+
+      <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
         <div className="rounded-xl border-2 border-emerald-200/80 bg-gradient-to-b from-emerald-50/90 to-white p-4 min-h-[6rem]">
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-700" />
@@ -126,24 +139,6 @@ function YearSection({
             </div>
           )}
         </div>
-
-        <div className="rounded-xl border-2 border-dashed border-slate-300 bg-gradient-to-b from-slate-50/90 to-white p-4 min-h-[6rem] sm:col-span-2 lg:col-span-1">
-          <div className="flex items-center gap-2 mb-2">
-            <CalendarOff className="h-4 w-4 text-slate-600" />
-            <h4 className="font-bold text-slate-800 text-sm">
-              بدون مطالبة ({exemptMonths.length})
-            </h4>
-          </div>
-          {exemptMonths.length === 0 ? (
-            <p className="text-sm text-ink-mute">لا أشهر معفاة</p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {exemptMonths.map((m) => (
-                <MonthChip key={m.month} m={m} />
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       <div className="border-t border-border bg-canvas-sunken/40 px-4 pb-4 pt-3 sm:px-5">
@@ -154,27 +149,45 @@ function YearSection({
               · شهرياً {formatMoney(monthlyRent, 'LYD')}
             </span>
           )}
+          {visibleMonths.length > 0 && (
+            <span className="ms-1">· {visibleMonths.length} شهر مطالَب</span>
+          )}
         </p>
-        <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6 md:grid-cols-12">
-          {months.map((m) => (
-            <div
-              key={m.month}
-              title={`${formatMonthLabelAr(m.month)} — ${RENT_MONTH_STATUS_LABEL[m.status]}`}
-              className={cn(
-                'rounded-lg px-1 py-2 text-center',
-                RENT_MONTH_CELL_FRAME[m.status],
-              )}
-            >
-              <RentMonthLabel
-                monthKey={m.month}
-                status={m.status}
-                statusLabel={RENT_MONTH_STATUS_LABEL[m.status]}
-                journalNumber={m.status === 'paid' ? m.journal_number : null}
-                partialProgress={monthPartialHint(m)}
-              />
-            </div>
-          ))}
-        </div>
+        {visibleMonths.length === 0 ? (
+          <p className="text-sm text-ink-mute py-2">
+            لا أشهر مطالَبة في هذه السنة
+          </p>
+        ) : (
+          <div
+            className={cn(
+              'grid gap-1.5',
+              visibleMonths.length <= 4
+                ? 'grid-cols-4'
+                : visibleMonths.length <= 6
+                  ? 'grid-cols-3 sm:grid-cols-6'
+                  : 'grid-cols-4 sm:grid-cols-6 md:grid-cols-12',
+            )}
+          >
+            {visibleMonths.map((m) => (
+              <div
+                key={m.month}
+                title={`${formatMonthLabelAr(m.month)} — ${RENT_MONTH_STATUS_LABEL[m.status]}`}
+                className={cn(
+                  'rounded-lg px-1 py-2 text-center',
+                  RENT_MONTH_CELL_FRAME[m.status],
+                )}
+              >
+                <RentMonthLabel
+                  monthKey={m.month}
+                  status={m.status}
+                  statusLabel={RENT_MONTH_STATUS_LABEL[m.status]}
+                  journalNumber={m.status === 'paid' ? m.journal_number : null}
+                  partialProgress={monthPartialHint(m)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -202,12 +215,30 @@ export function TenantRentCalendarPanel({
   const { canWrite } = usePermission();
   const { data: charges = [], isLoading } = useTenantChargesForTenant(tenantId);
   const { data: exemptRows = [] } = useTenantRentExemptMonths(tenantId);
+  const { data: priceBandRows = [] } = useTenantRentPriceBands(tenantId);
   const [statusOpen, setStatusOpen] = useState(false);
   const [exemptOpen, setExemptOpen] = useState(false);
+  const [priceOpen, setPriceOpen] = useState(false);
 
   const manualExemptMonths = useMemo(
     () => exemptRows.map((r) => r.month_key),
     [exemptRows],
+  );
+
+  const priceBands = useMemo(
+    () =>
+      priceBandRows.map((b) => ({
+        from_month: b.from_month,
+        to_month: b.to_month,
+        amount: Number(b.amount),
+        notes: b.notes,
+      })),
+    [priceBandRows],
+  );
+
+  const amountForMonth = useMemo(
+    () => (mk: string) => resolveAmountFromBands(priceBands, mk, monthlyRent),
+    [priceBands, monthlyRent],
   );
 
   const resolvedClaimStart = claimStart ?? null;
@@ -233,9 +264,10 @@ export function TenantRentCalendarPanel({
         monthlyRent,
         charges,
         exemptOptions,
+        amountForMonth,
       }),
     );
-  }, [years, tenantId, monthlyRent, charges, exemptOptions]);
+  }, [years, tenantId, monthlyRent, charges, exemptOptions, amountForMonth]);
 
   if (isLoading) {
     return (
@@ -263,13 +295,26 @@ export function TenantRentCalendarPanel({
                 <h2 className="text-base font-bold sm:text-lg">تقويم الإيجار</h2>
                 <p className="text-[12px] text-white/85 mt-0.5">
                   {tenantName}
-                  {monthlyRent > 0 &&
-                    ` · ${formatMoney(monthlyRent, 'LYD')} شهرياً`}
+                  {priceBands.length > 0
+                    ? ` · ${priceBands.length} نطاق سعري`
+                    : monthlyRent > 0
+                      ? ` · ${formatMoney(monthlyRent, 'LYD')} شهرياً`
+                      : ''}
                 </p>
               </div>
             </div>
             {canWrite && (
               <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-9 gap-1.5 bg-white/15 text-white border-white/30 hover:bg-white/25 touch-manipulation"
+                  onClick={() => setPriceOpen(true)}
+                >
+                  <Banknote className="h-4 w-4 shrink-0" />
+                  أسعار الشهور
+                </Button>
                 <Button
                   type="button"
                   size="sm"
@@ -313,6 +358,14 @@ export function TenantRentCalendarPanel({
 
       {canWrite && (
         <>
+          <SetRentPriceScheduleDialog
+            tenantId={tenantId}
+            tenantName={tenantName}
+            monthlyRent={monthlyRent}
+            years={years.length > 0 ? years : [currentYear()]}
+            open={priceOpen}
+            onOpenChange={setPriceOpen}
+          />
           <SetRentExemptMonthsDialog
             tenantId={tenantId}
             tenantName={tenantName}

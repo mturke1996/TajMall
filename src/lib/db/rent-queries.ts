@@ -19,6 +19,8 @@ export const rentQk = {
     ['tenant_rent_calendar', tenantId, year] as const,
   exemptMonths: (tenantId: string) =>
     ['tenant_rent_exempt_months', tenantId] as const,
+  priceBands: (tenantId: string) =>
+    ['tenant_rent_price_bands', tenantId] as const,
 };
 
 export function useTenantRentCalendar(tenantId: string, year = currentYear()) {
@@ -98,6 +100,7 @@ export function invalidateRentCalendarQueries(
   qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
   qc.invalidateQueries({ queryKey: ['mall_rent_charges_year'] });
   qc.invalidateQueries({ queryKey: rentQk.exemptMonths(tenantId) });
+  qc.invalidateQueries({ queryKey: rentQk.priceBands(tenantId) });
   for (const month of months) {
     const y = Number(month.slice(0, 4));
     if (!Number.isNaN(y)) {
@@ -272,4 +275,94 @@ export function useSetTenantRentExemptMonths() {
       invalidateRentCalendarQueries(qc, vars.tenantId, touched);
     },
   });
+}
+
+export type TenantRentPriceBandRow = {
+  id: string;
+  tenant_id: string;
+  from_month: string;
+  to_month: string;
+  amount: number | string;
+  notes: string | null;
+};
+
+export function useTenantRentPriceBands(tenantId: string) {
+  return useQuery({
+    queryKey: rentQk.priceBands(tenantId),
+    queryFn: async (): Promise<TenantRentPriceBandRow[]> => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase
+        .from('tenant_rent_price_bands')
+        .select('id, tenant_id, from_month, to_month, amount, notes')
+        .eq('tenant_id', tenantId)
+        .order('from_month', { ascending: true });
+      if (error) {
+        if (error.code === '42P01' || error.message.includes('does not exist')) {
+          return [];
+        }
+        throw error;
+      }
+      return (data as TenantRentPriceBandRow[]) ?? [];
+    },
+    enabled: !!tenantId,
+    staleTime: 30_000,
+  });
+}
+
+export function useSetTenantRentPriceBands() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      tenantId: string;
+      bands: Array<{
+        from_month: string;
+        to_month: string;
+        amount: number;
+        notes?: string | null;
+      }>;
+    }) => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc('set_tenant_rent_price_bands', {
+        p_tenant_id: input.tenantId,
+        p_bands: input.bands,
+      });
+      if (error) throw error;
+      return data as {
+        ok: boolean;
+        bands_count: number;
+        unpaid_charges_updated: number;
+        sync?: {
+          touched?: number;
+          amount_changed?: number;
+          marked_paid?: number;
+          marked_partial?: number;
+          marked_unpaid?: number;
+        };
+      };
+    },
+    onSuccess: (_d, vars) => {
+      invalidateRentCalendarQueries(qc, vars.tenantId, []);
+      qc.invalidateQueries({ queryKey: ['tenant_rent_summary_for_month'] });
+      qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
+    },
+  });
+}
+
+/** مبلغ الإيجار لشهر عبر الدالة SQL (جدول الأسعار → العقد → جهة الاتصال) */
+export async function resolveTenantRentAmountClient(
+  tenantId: string,
+  monthKey: string,
+): Promise<number> {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.rpc('resolve_tenant_rent_amount', {
+    p_tenant_id: tenantId,
+    p_month_key: monthKey,
+  });
+  if (error) {
+    if (error.code === '42883' || error.message.includes('does not exist')) {
+      return 0;
+    }
+    throw error;
+  }
+  return Number(data) || 0;
 }

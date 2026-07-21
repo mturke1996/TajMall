@@ -13,9 +13,10 @@ import {
 const STATUS_RANK: Record<RentMonthStatus, number> = {
   paid: 6,
   partial: 5,
-  unpaid: 4,
-  no_charge: 3,
-  exempt: 2,
+  // exempt أعلى من unpaid/no_charge حتى لا تظهر كمستحق
+  exempt: 4,
+  unpaid: 3,
+  no_charge: 2,
   na: 1,
 };
 
@@ -54,6 +55,11 @@ export function effectiveRentPaidOnCharge(
     return 0;
   }
 
+  // شهر مُعلَم مدفوعاً في قاعدة البيانات (مثلاً بعد تسوية سعر) يُعرض كاملاً
+  if (charge.status === 'PAID' && amount > 0) {
+    return amount;
+  }
+
   const links = charge.rent_journal_links ?? [];
   if (links.length > 0) {
     const fromLinks = activeRentJournalLinks(charge).reduce(
@@ -88,13 +94,22 @@ function pickBetterMonth(a: RentCalendarMonth, b: RentCalendarMonth): RentCalend
   return STATUS_RANK[a.status] >= STATUS_RANK[b.status] ? a : b;
 }
 
-function emptyMonth(year: number, index: number, monthlyRent: number): RentCalendarMonth {
+function emptyMonth(
+  year: number,
+  index: number,
+  monthlyRent: number,
+  amountForMonth?: (monthKeyStr: string) => number,
+): RentCalendarMonth {
   const month = monthKey(year, index);
-  if (monthlyRent > 0) {
+  const amount = Math.max(
+    0,
+    amountForMonth?.(month) ?? monthlyRent,
+  );
+  if (amount > 0) {
     return {
       month,
       status: 'no_charge',
-      amount: monthlyRent,
+      amount,
       paid: 0,
       charge_id: null,
       description: null,
@@ -120,6 +135,7 @@ export function buildRentCalendarFromCharges(
     claimStart?: string | null;
     manualExemptMonths?: ReadonlySet<string> | string[];
   },
+  amountForMonth?: (monthKeyStr: string) => number,
 ): TenantRentCalendar {
   const tenantRent = charges.filter(
     (c) =>
@@ -162,7 +178,7 @@ export function buildRentCalendarFromCharges(
       };
     }
 
-    return emptyMonth(year, i + 1, monthlyRent);
+    return emptyMonth(year, i + 1, monthlyRent, amountForMonth);
   });
 
   const resolvedMonths = exemptOptions
@@ -293,6 +309,8 @@ export function buildMergedTenantRentCalendar(input: {
     claimStart?: string | null;
     manualExemptMonths?: ReadonlySet<string> | string[];
   };
+  /** جدول أسعار متغير — يُستخدم للأشهر بلا مطالبة بعد */
+  amountForMonth?: (monthKeyStr: string) => number;
 }): TenantRentCalendar {
   const fromCharges = buildRentCalendarFromCharges(
     input.tenantId,
@@ -300,6 +318,7 @@ export function buildMergedTenantRentCalendar(input: {
     input.monthlyRent,
     input.charges,
     input.exemptOptions,
+    input.amountForMonth,
   );
 
   const merged =

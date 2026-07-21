@@ -173,12 +173,22 @@ async function upsertRentChargeClient(
   const due = `${month}-01`;
   const contractId = await ensureContractId(supabase, tenantId);
 
-  const { data: contact } = await supabase
-    .from('contacts')
-    .select('monthly_rent')
-    .eq('id', tenantId)
-    .single();
-  const rentAmount = Math.max(Number(contact?.monthly_rent) || 0, 1);
+  let rentAmount = 0;
+  const { data: resolved, error: resolveErr } = await supabase.rpc(
+    'resolve_tenant_rent_amount',
+    { p_tenant_id: tenantId, p_month_key: month },
+  );
+  if (!resolveErr && Number(resolved) > 0) {
+    rentAmount = Number(resolved);
+  } else {
+    const { data: contact } = await supabase
+      .from('contacts')
+      .select('monthly_rent')
+      .eq('id', tenantId)
+      .single();
+    rentAmount = Math.max(Number(contact?.monthly_rent) || 0, 1);
+  }
+  rentAmount = Math.max(rentAmount, 1);
 
   const { data: existing } = await supabase
     .from('tenant_charges')
