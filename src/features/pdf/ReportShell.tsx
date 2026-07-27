@@ -208,33 +208,6 @@ export function ReportShell({
     </Document>
   );
 }
-/** رأس + تذييل + ترقيم — صفحة واحدة ضمن Document متعدد الصفحات */
-export function ReportPageFrame({
-  title,
-  subtitle,
-  titleEn = 'REPORT',
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  titleEn?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Page size="A4" style={pdfBase.page} wrap>
-      <View style={pdfBase.pageAccentBar} fixed />
-      <View style={pdfBase.pageFlow}>
-        <PdfReportHeaderFlow title={title} subtitle={subtitle} titleEn={titleEn} />
-        {children}
-      </View>
-      <TajMallPdfFooter fixed />
-      <Text
-        style={pdfBase.pageNumber}
-        render={({ pageNumber, totalPages }) =>
-          ar(`صفحة ${pageNumber ?? 1} من ${totalPages ?? 1}`)
-        }
-        fixed
-      />
-    </Page>
-  );
-}
+
+/** إعادة تصدير للتوافق — التعريف في ReportPageFrame.tsx */
+export { ReportPageFrame } from './ReportPageFrame';

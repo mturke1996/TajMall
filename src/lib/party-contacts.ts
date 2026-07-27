@@ -85,6 +85,14 @@ export function contactKindLabelAr(kind: PartyContactFilter | ContactKind | stri
   }
 }
 
+/** نوع المعاملة الافتراضي عند فتح الحوار من ملف جهة. */
+export function suggestedTxKindForContact(
+  kind: ContactKind | string,
+): 'REVENUE' | 'EXPENSE' {
+  if (kind === 'CUSTOMER' || kind === 'TENANT') return 'REVENUE';
+  return 'EXPENSE';
+}
+
 export type PartyTxAggInput = {
   contactId: string;
   contactName: string;

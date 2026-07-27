@@ -12,6 +12,9 @@ export type VoucherPdfModel = {
   number: string;
   voucherDate: string;
   payee: string;
+  /** اسم الجهة المرتبطة إن وُجدت (مورد/موظف…) — يُعرض بجانب المستفيد */
+  contactName?: string;
+  contactKindLabelAr?: string;
   bank?: string;
   account?: string;
   method: 'نقدي' | 'صك' | 'حوالة';
@@ -149,22 +152,48 @@ export function VoucherPDF({
   voucher: VoucherPdfModel;
   currency?: string;
 }) {
+  const linkedParty =
+    voucher.contactName && voucher.contactName.trim() !== ''
+      ? voucher.contactName.trim()
+      : null;
+  const payeeDisplay = voucher.payee?.trim() || linkedParty || 'المستفيد';
+
   return (
     <ReportShell
       title="إذن صرف"
       subtitle={`رقم ${voucher.number}`}
+      documentTitle={`إذن صرف ${voucher.number}`}
       summaryPrimaryDateIso={voucher.voucherDate}
       summaryPrimaryDateLabel="تاريخ الإذن"
       metaCells={[
-        { label: 'المستفيد', value: voucher.payee },
+        { label: 'المستفيد', value: payeeDisplay },
+        ...(linkedParty && linkedParty !== payeeDisplay
+          ? [{ label: 'الجهة المرتبطة', value: linkedParty }]
+          : voucher.contactKindLabelAr
+            ? [{ label: 'نوع الجهة', value: voucher.contactKindLabelAr }]
+            : []),
         { label: 'نوع السداد', value: voucher.method },
+        {
+          label: 'إجمالي الإذن',
+          moneyAmount: voucher.total,
+          adaptiveMoney: true,
+        },
       ]}
     >
       {/* Hero — ترتيب JSX: يصرف إلى ثم السداد ثم المصرف؛ row-reverse يضع يصرف إلى يمين الورقة */}
       <View style={s.hero} wrap={false}>
         <View style={s.heroCell}>
           <Text style={s.heroLabel}>{ar('يصرف إلى')}</Text>
-          <Text style={s.heroValue}>{ar(voucher.payee)}</Text>
+          <Text style={s.heroValue}>{ar(payeeDisplay)}</Text>
+          {linkedParty && linkedParty !== payeeDisplay ? (
+            <Text style={[s.heroLabel, { marginTop: 6 }]}>
+              {ar(
+                voucher.contactKindLabelAr
+                  ? `${voucher.contactKindLabelAr}: ${linkedParty}`
+                  : `مرتبط: ${linkedParty}`,
+              )}
+            </Text>
+          ) : null}
         </View>
         <View style={s.heroCell}>
           <Text style={s.heroLabel}>{ar('نوع السداد')}</Text>

@@ -225,12 +225,18 @@ export default function NewVoucherPage() {
 
     const total = safeLines.reduce((s, l) => s + l.amount, 0);
 
+    const linked = contactId
+      ? payeeContacts.find((c) => c.id === contactId)
+      : undefined;
+
     return {
       number: number.trim() || 'مسودة',
       voucherDate: voucherDate
         ? `${voucherDate}T12:00:00.000Z`
         : new Date().toISOString(),
-      payee: payee.trim() || 'المستفيد',
+      payee: payee.trim() || linked?.name || 'المستفيد',
+      contactName: linked?.name,
+      contactKindLabelAr: linked?.group,
       bank: bank.trim() || undefined,
       account: account.trim() || undefined,
       method,
@@ -238,7 +244,18 @@ export default function NewVoucherPage() {
       total,
       notes: notes.trim() || undefined,
     };
-  }, [number, voucherDate, payee, bank, account, method, lines, notes]);
+  }, [
+    number,
+    voucherDate,
+    payee,
+    bank,
+    account,
+    method,
+    lines,
+    notes,
+    contactId,
+    payeeContacts,
+  ]);
 
   function addLine() {
     setLines((prev) => [...prev, { description: '', amount: '' }]);

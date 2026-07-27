@@ -1,7 +1,8 @@
 // @ts-nocheck
 import React from 'react';
 import { Document, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { ReportShell, ReportPageFrame } from './ReportShell';
+import { ReportShell } from './ReportShell';
+import { ReportPageFrame } from './ReportPageFrame';
 import { ar, arDateMedium } from './arabicPDF';
 import { PDF } from './pdfBase';
 import { PDF_TABLE_ROW } from './pdfTable';

@@ -22,6 +22,8 @@ import {
   MobilePageActionBar,
   MOBILE_PAGE_ACTION_PADDING,
 } from '@/components/layout/mobile-page-action-bar';
+import { useTxDialog } from '@/stores/transaction-dialog';
+import { usePermission } from '@/lib/supabase/use-permission';
 
 export type EnrichedEmployee = EmployeeSummary & {
   name: string;
@@ -140,7 +142,7 @@ export function EmployeesDirectory({
         </div>
       </div>
 
-      <div className="sticky top-0 z-20 -mx-4 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur-md md:static md:mx-0 md:z-auto md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+      <div className="sticky top-0 z-20 -mx-4 space-y-2 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur-md md:static md:mx-0 md:z-auto md:space-y-3 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
         <div className="relative">
           <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
           <Input
@@ -149,6 +151,14 @@ export function EmployeesDirectory({
             onChange={(e) => onSearchChange(e.target.value)}
             className="h-11 pr-10 text-base md:h-10 md:text-sm"
           />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5" asChild>
+            <Link href="/reports/employee-spend">
+              <TrendingUp className="h-3.5 w-3.5" />
+              تقرير إنفاق الموظفين
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -244,6 +254,20 @@ export function EmployeesDirectory({
                     <Button
                       variant="ghost"
                       className="h-10 flex-1 min-w-[5rem] gap-1.5 text-[13px] touch-manipulation"
+                      onClick={() =>
+                        useTxDialog.getState().open({
+                          kind: 'EXPENSE',
+                          contactId: emp.id,
+                          contactKind: 'EMPLOYEE',
+                        })
+                      }
+                    >
+                      <DollarSign className="h-4 w-4" />
+                      مصروف
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="h-10 flex-1 min-w-[5rem] gap-1.5 text-[13px] touch-manipulation"
                       asChild
                     >
                       <Link href={`/contacts/${emp.id}`}>الملف</Link>
@@ -276,6 +300,9 @@ function EmployeeCard({
   emp: EnrichedEmployee;
   onRecordSalary: (e: EnrichedEmployee) => void;
 }) {
+  const openTx = useTxDialog((s) => s.open);
+  const { can, loading: permLoading } = usePermission();
+  const canExpense = !permLoading && can('expense.create');
   const salary = Number(emp.salary) || 0;
   const paidLastYear = Number(emp.last_12_months_salary_paid) || 0;
   const monthsPaid = emp.months_with_payment || 0;
@@ -337,7 +364,7 @@ function EmployeeCard({
           ) : null}
         </div>
 
-        <div className="mt-4 flex gap-2 border-t border-border pt-3">
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3">
           <Button
             size="sm"
             className="h-10 flex-1 touch-manipulation"
@@ -347,6 +374,23 @@ function EmployeeCard({
             <Plus className="h-4 w-4 ml-1" />
             تسجيل راتب
           </Button>
+          {canExpense ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-10 flex-1 touch-manipulation"
+              onClick={() =>
+                openTx({
+                  kind: 'EXPENSE',
+                  contactId: emp.id,
+                  contactKind: 'EMPLOYEE',
+                })
+              }
+            >
+              <DollarSign className="h-4 w-4 ml-1" />
+              مصروف
+            </Button>
+          ) : null}
           <Button size="sm" variant="outline" className="h-10 flex-1 touch-manipulation" asChild>
             <Link href={`/contacts/${emp.id}`}>الملف</Link>
           </Button>

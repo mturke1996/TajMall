@@ -104,10 +104,13 @@ export default function JournalsPage() {
 function JournalsPageInner() {
   const searchParams = useSearchParams();
   const highlightId = searchParams.get('highlight');
+  const contactFromUrl = searchParams.get('contact');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<JournalStatus | 'ALL'>('ALL');
-  const [contactFilter, setContactFilter] = useState<string | 'ALL'>('ALL');
+  const [contactFilter, setContactFilter] = useState<string | 'ALL'>(
+    () => contactFromUrl || 'ALL',
+  );
   const [cashboxFilter, setCashboxFilter] = useState<string | 'ALL'>('ALL');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntryRow | null>(null);
@@ -123,6 +126,10 @@ function JournalsPageInner() {
   const { can, loading: permLoading } = usePermission();
   const { data: contacts = [] } = useContacts();
   const { data: cashboxes = [] } = useCashboxes();
+
+  useEffect(() => {
+    if (contactFromUrl) setContactFilter(contactFromUrl);
+  }, [contactFromUrl]);
 
   const {
     data: entries,

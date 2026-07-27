@@ -12,8 +12,12 @@ export {
   pdfFormatAmountLtr,
 } from './pdfMoney';
 export { ReportShell } from './ReportShell';
+export type { ReportShellMetaCell, ReportShellPeriodSummary } from './ReportShell';
+export { ReportPageFrame } from './ReportPageFrame';
 export { DownloadPdfButton } from './download-button';
 export { TajMallPdfToolbar } from './taj-mall-pdf-toolbar';
+export { PartyTotalsReportPDF } from './PartyTotalsReportPDF';
+export type { PartyTotalsReportPdfProps } from './PartyTotalsReportPDF';
 
 // Brand Kit
 export {

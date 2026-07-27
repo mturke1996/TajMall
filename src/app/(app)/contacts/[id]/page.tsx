@@ -48,6 +48,9 @@ import { contactBackHref } from '@/lib/mall/routes';
 import { TenantContactDetail } from '@/components/tenants/tenant-contact-detail';
 import { OtherContactDetailBody } from '@/components/contacts/other-contact-detail-body';
 import { fallbackTenantRentFromContact } from '@/lib/tenant-rent-fallback';
+import { useTxDialog } from '@/stores/transaction-dialog';
+import { suggestedTxKindForContact } from '@/lib/party-contacts';
+import { usePermission } from '@/lib/supabase/use-permission';
 
 const KIND_ICON: Record<ContactKind, typeof Building2> = {
   TENANT: Building2,
@@ -60,6 +63,8 @@ const KIND_ICON: Record<ContactKind, typeof Building2> = {
 export default function ContactDetailPage() {
   const params = useParams();
   const id = typeof params?.id === 'string' ? params.id : '';
+  const openTx = useTxDialog((s) => s.open);
+  const { can } = usePermission();
 
   const { data: contact, isLoading, isError } = useContact(id);
   const { data: transactions = [], isLoading: txLoading } = useContactTransactions(id);
@@ -198,6 +203,26 @@ export default function ContactDetailPage() {
             </Button>
             <div className="hidden flex-wrap items-center gap-2 sm:flex">
               <TajMallPdfToolbar fileName={pdfFileName} render={renderContactPdf} />
+              {!isTenant &&
+              can(
+                suggestedTxKindForContact(contact.kind) === 'REVENUE'
+                  ? 'revenue.create'
+                  : 'expense.create',
+              ) ? (
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    openTx({
+                      kind: suggestedTxKindForContact(contact.kind),
+                      contactId: id,
+                      contactKind: contact.kind,
+                    })
+                  }
+                >
+                  <Plus className="h-4 w-4 ml-1" />
+                  معاملة جديدة
+                </Button>
+              ) : null}
               {canRecordRent && (
                 <Button size="sm" onClick={() => setIsPayOpen(true)}>
                   <Plus className="h-4 w-4 ml-1" />
@@ -277,6 +302,26 @@ export default function ContactDetailPage() {
 
       <MobilePageActionBar>
         <div className="flex gap-2">
+          {!isTenant &&
+          can(
+            suggestedTxKindForContact(contact.kind) === 'REVENUE'
+              ? 'revenue.create'
+              : 'expense.create',
+          ) ? (
+            <Button
+              className="h-11 flex-1 gap-1.5 touch-manipulation"
+              onClick={() =>
+                openTx({
+                  kind: suggestedTxKindForContact(contact.kind),
+                  contactId: id,
+                  contactKind: contact.kind,
+                })
+              }
+            >
+              <Plus className="h-4 w-4" />
+              معاملة
+            </Button>
+          ) : null}
           {canRecordRent && (
             <Button
               className="h-11 flex-1 gap-1.5 touch-manipulation"
@@ -292,7 +337,7 @@ export default function ContactDetailPage() {
             showDownload={false}
             className={cn(
               'min-w-0 flex-1 [&>button]:h-11 [&>button]:w-full [&>button]:flex-1 [&>button]:px-2 [&>button]:text-[13px]',
-              !canRecordRent && 'flex-[2]',
+              !canRecordRent && isTenant && 'flex-[2]',
             )}
           />
           <Button

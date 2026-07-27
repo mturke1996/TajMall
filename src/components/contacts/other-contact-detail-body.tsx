@@ -109,6 +109,21 @@ export function OtherContactDetailBody({
               >
                 {formatMoney(totals.revenue - totals.expense, 'LYD')}
               </p>
+              <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[11px]">
+                <Link
+                  href={`/transactions?contact=${contactId}`}
+                  className="text-sage-700 hover:underline"
+                >
+                  المعاملات
+                </Link>
+                <span className="text-ink-mute">·</span>
+                <Link
+                  href={`/journals?contact=${contactId}`}
+                  className="text-sage-700 hover:underline"
+                >
+                  اليومية
+                </Link>
+              </div>
             </Card>
           ) : null}
           <Card className="min-w-[9.5rem] shrink-0 snap-center p-4 md:min-w-0">

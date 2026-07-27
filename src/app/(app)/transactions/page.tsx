@@ -17,12 +17,17 @@ import { transactionHighlightDomId } from '@/components/data/transactions-table'
 export default function TransactionsPage() {
   const searchParams = useSearchParams();
   const highlightId = searchParams.get('highlight');
+  const contactFilter = searchParams.get('contact');
   const [tab, setTab] = useState('all');
   const [query, setQuery] = useState('');
   const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
   const { data, isLoading } = useTransactions();
 
-  const rows = useMemo(() => data ?? [], [data]);
+  const rows = useMemo(() => {
+    const all = data ?? [];
+    if (!contactFilter) return all;
+    return all.filter((r) => r.contact?.id === contactFilter);
+  }, [data, contactFilter]);
 
   useEffect(() => {
     if (!highlightId || !rows.length) return;
@@ -77,7 +82,11 @@ export default function TransactionsPage() {
       <PageHeader
         eyebrow="المعاملات"
         title="جميع المعاملات"
-        description="إيرادات ومصروفات في مكان واحد."
+        description={
+          contactFilter
+            ? `معاملات مرتبطة بجهة محددة (${rows.length} قيد).`
+            : 'إيرادات ومصروفات في مكان واحد.'
+        }
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <TajMallPdfToolbar

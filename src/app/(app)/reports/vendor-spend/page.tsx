@@ -12,6 +12,7 @@ import { AccountingFilterCard } from '@/components/accounting/accounting-filter-
 import { ReportPeriodFilter } from '@/components/accounting/report-period-filter';
 import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { ContactPhoneActions } from '@/components/contacts/contact-phone-actions';
+import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { useVendorSpendReport } from '@/lib/db/party-report-queries';
 import {
   formatReportPeriodLabelAr,
@@ -36,15 +37,39 @@ function VendorSpendContent() {
 
   const { data: rows = [], isLoading, isError, error } = useVendorSpendReport(period);
   const total = useMemo(() => rows.reduce((s, r) => s + r.total, 0), [rows]);
+  const periodLabel = formatReportPeriodLabelAr(period);
+  const pdfCacheKey = `vendor-spend-${period.year}-${period.month ?? 'y'}-${period.mode}`;
 
   return (
     <>
       <PageHeader
         eyebrow="التقارير"
         title="إنفاق الموردين"
-        description={`تجميع مصروفات مرتبطة بموردين — ${formatReportPeriodLabelAr(period)}`}
+        description={`تجميع مصروفات مرتبطة بموردين — ${periodLabel}`}
         actions={
           <div className="flex flex-wrap gap-2">
+            <TajMallPdfToolbar
+              fileName={`إنفاق-موردين-${period.year}`}
+              shareTitle={`إنفاق الموردين — ${periodLabel}`}
+              cacheKey={pdfCacheKey}
+              disabled={isLoading || rows.length === 0}
+              render={async () => {
+                const { PartyTotalsReportPDF } = await import(
+                  '@/features/pdf/PartyTotalsReportPDF'
+                );
+                return (
+                  <PartyTotalsReportPDF
+                    titleAr="إنفاق الموردين"
+                    subtitleAr="مصروفات تشغيل مربوطة بموردين"
+                    partyLabelAr="المورد"
+                    amountLabelAr="الإنفاق"
+                    periodLabelAr={periodLabel}
+                    rows={rows}
+                    tone="expense"
+                  />
+                );
+              }}
+            />
             <ExportCsvButton
               fileName={`إنفاق-موردين-${period.year}`}
               headers={['المورد', 'الهاتف', 'الإجمالي', 'عدد المعاملات']}

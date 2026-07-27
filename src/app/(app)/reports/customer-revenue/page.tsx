@@ -12,6 +12,7 @@ import { AccountingFilterCard } from '@/components/accounting/accounting-filter-
 import { ReportPeriodFilter } from '@/components/accounting/report-period-filter';
 import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { ContactPhoneActions } from '@/components/contacts/contact-phone-actions';
+import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { useCustomerRevenueReport } from '@/lib/db/party-report-queries';
 import {
   formatReportPeriodLabelAr,
@@ -39,15 +40,39 @@ function CustomerRevenueContent() {
   const { data: rows = [], isLoading, isError, error } =
     useCustomerRevenueReport(period);
   const total = useMemo(() => rows.reduce((s, r) => s + r.total, 0), [rows]);
+  const periodLabel = formatReportPeriodLabelAr(period);
+  const pdfCacheKey = `customer-revenue-${period.year}-${period.month ?? 'y'}-${period.mode}`;
 
   return (
     <>
       <PageHeader
         eyebrow="التقارير"
         title="إيراد العملاء"
-        description={`تجميع إيرادات مربوطة بعملاء (خدمات/مواقف/…) — ${formatReportPeriodLabelAr(period)}`}
+        description={`تجميع إيرادات مربوطة بعملاء (خدمات/مواقف/…) — ${periodLabel}`}
         actions={
           <div className="flex flex-wrap gap-2">
+            <TajMallPdfToolbar
+              fileName={`إيراد-عملاء-${period.year}`}
+              shareTitle={`إيراد العملاء — ${periodLabel}`}
+              cacheKey={pdfCacheKey}
+              disabled={isLoading || rows.length === 0}
+              render={async () => {
+                const { PartyTotalsReportPDF } = await import(
+                  '@/features/pdf/PartyTotalsReportPDF'
+                );
+                return (
+                  <PartyTotalsReportPDF
+                    titleAr="إيراد العملاء"
+                    subtitleAr="خدمات ومواقف وإيرادات مربوطة بجهات عملاء"
+                    partyLabelAr="العميل"
+                    amountLabelAr="الإجمالي"
+                    periodLabelAr={periodLabel}
+                    rows={rows}
+                    tone="revenue"
+                  />
+                );
+              }}
+            />
             <ExportCsvButton
               fileName={`إيراد-عملاء-${period.year}`}
               headers={['العميل', 'الهاتف', 'الإجمالي', 'عدد المعاملات']}

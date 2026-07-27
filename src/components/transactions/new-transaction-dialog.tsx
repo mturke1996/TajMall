@@ -54,7 +54,13 @@ function extractSaveError(err: unknown): string {
 }
 
 export function NewTransactionDialog() {
-  const { isOpen, defaultKind, close } = useTxDialog();
+  const {
+    isOpen,
+    defaultKind,
+    prefillContactId,
+    prefillContactKind,
+    close,
+  } = useTxDialog();
   const { can, loading: permLoading } = usePermission();
   
   const [kind, setKind] = useState<TxKind>(defaultKind);
@@ -103,8 +109,17 @@ export function NewTransactionDialog() {
       setMethod('CASH');
       setDate(new Date().toISOString().slice(0, 10));
       setDescription('');
-      setContactId('');
-      setContactKind(suggestedContactKindForTx(defaultKind, null));
+      const prefKind =
+        prefillContactKind &&
+        (prefillContactKind === 'ALL' ||
+          prefillContactKind === 'TENANT' ||
+          prefillContactKind === 'EMPLOYEE' ||
+          prefillContactKind === 'CUSTOMER' ||
+          prefillContactKind === 'VENDOR')
+          ? prefillContactKind
+          : suggestedContactKindForTx(defaultKind, null);
+      setContactKind(prefKind);
+      setContactId(prefillContactId ?? '');
       setShowNewContact(false);
       setNewContactName('');
       setError(null);
@@ -113,7 +128,7 @@ export function NewTransactionDialog() {
       setRentLinkMode('full');
       setRentPartialAmount('');
     }
-  }, [isOpen, defaultKind, cashboxes]);
+  }, [isOpen, defaultKind, cashboxes, prefillContactId, prefillContactKind]);
 
   const createPerm = kind === 'REVENUE' ? 'revenue.create' : 'expense.create';
 

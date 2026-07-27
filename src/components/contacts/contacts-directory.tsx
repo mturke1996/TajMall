@@ -23,6 +23,9 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { ContactKind, ContactRow } from '@/lib/db/types';
 import { KIND_OPTIONS } from '@/components/contacts/contact-form-dialog';
+import { useTxDialog } from '@/stores/transaction-dialog';
+import { suggestedTxKindForContact } from '@/lib/party-contacts';
+import { usePermission } from '@/lib/supabase/use-permission';
 
 const KIND_STYLES: Record<
   ContactKind,
@@ -58,6 +61,41 @@ export type ContactsDirectoryProps = {
   /** المشاهد: إخفاء إضافة/تعديل/حذف */
   allowMutate?: boolean;
 };
+
+function QuickTxButton({
+  contact,
+  className,
+}: {
+  contact: ContactRow;
+  className?: string;
+}) {
+  const open = useTxDialog((s) => s.open);
+  const { can, loading } = usePermission();
+  const kind = suggestedTxKindForContact(contact.kind);
+  const perm = kind === 'REVENUE' ? 'revenue.create' : 'expense.create';
+  if (loading || !can(perm)) return null;
+  if (contact.kind === 'TENANT') return null;
+
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      className={cn('h-8 gap-1', className)}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        open({
+          kind,
+          contactId: contact.id,
+          contactKind: contact.kind,
+        });
+      }}
+    >
+      <Plus className="h-3.5 w-3.5" />
+      معاملة
+    </Button>
+  );
+}
 
 function ContactSubtitle({ contact }: { contact: ContactRow }) {
   if (contact.shop_number) {
@@ -420,6 +458,7 @@ export function ContactsDirectory({
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
+                            <QuickTxButton contact={contact} />
                             <Button size="sm" variant="outline" className="h-8" asChild>
                               <Link href={`/contacts/${contact.id}`}>الملف</Link>
                             </Button>
@@ -475,28 +514,31 @@ export function ContactsDirectory({
                       </p>
                     </div>
                   </Link>
-                  {allowMutate && (
-                    <div className="flex border-t border-border px-2 py-1.5">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="flex-1"
-                        onClick={() => onEdit(contact)}
-                      >
-                        <Edit2 className="h-4 w-4 ml-1" />
-                        تعديل
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="flex-1 text-red-600"
-                        onClick={() => onDelete(contact.id)}
-                      >
-                        <Trash2 className="h-4 w-4 ml-1" />
-                        حذف
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex border-t border-border px-2 py-1.5">
+                    <QuickTxButton contact={contact} className="flex-1" />
+                    {allowMutate && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="flex-1"
+                          onClick={() => onEdit(contact)}
+                        >
+                          <Edit2 className="h-4 w-4 ml-1" />
+                          تعديل
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="flex-1 text-red-600"
+                          onClick={() => onDelete(contact.id)}
+                        >
+                          <Trash2 className="h-4 w-4 ml-1" />
+                          حذف
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </Card>
               );
             })}
