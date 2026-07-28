@@ -633,7 +633,7 @@ export function applyPeriodJournalCategoryFilter(
       ? `كشف بند — ${categoryFilter.name_ar}`
       : model.title,
     description: categoryFilter
-      ? `قيود مزدوجة كاملة لـ «${categoryFilter.name_ar}»: كل قيد يعرض المدين والدائن (مثل خصم الخزينة) · ${model.periodLabel}`
+      ? `مجموع بند «${categoryFilter.name_ar}» فقط — قيد مزدوج (مدين + دائن الخزينة) بلا تفصيل · ${model.periodLabel}`
       : model.description,
   };
 }

@@ -275,7 +275,7 @@ function JournalMonthContent() {
         title="قيد الفترة المحاسبي"
         description={
           isSingleCategoryView && displayModel?.categoryFilter
-            ? `كشف بند: ${displayModel.categoryFilter.name_ar} · ${periodLabel}`
+            ? `مجموع بند ${displayModel.categoryFilter.name_ar} فقط (مدين + دائن) · ${periodLabel}`
             : `تقرير شامل — مجاميع ثم مجموع كل بند (مدين + خزينة) · ${periodLabel}`
         }
         actions={
@@ -340,7 +340,7 @@ function JournalMonthContent() {
                 </Select>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
                   {isSingleCategoryView
-                    ? 'بند واحد: كشف مزدوج كامل (مدين + دائن + الطرف المقابل).'
+                    ? 'بند واحد: قيد مزدوج بالمجموع فقط (مدين البند + دائن الخزينة) — بلا تفصيل قيود.'
                     : 'جميع البنود: مجاميع ثم مجموع كل بند على حدة (مدين البند + دائن الخزينة) — بدون تفصيل القيود.'}
                 </p>
               </div>
@@ -413,9 +413,12 @@ function JournalMonthContent() {
             <AccountingSummaryGrid
               stats={[
                 {
-                  label: displayModel.categoryFilter ? 'قيود مرتبطة' : 'بنود تحرّكت',
+                  label: displayModel.categoryFilter ? 'صفوف المجموع' : 'بنود تحرّكت',
                   value: displayModel.categoryFilter
-                    ? displayModel.vouchers.length
+                    ? displayModel.lines.filter(
+                        (l) =>
+                          l.category_id === displayModel.categoryFilter!.id,
+                      ).length
                     : displayModel.lines.length,
                   currency: '',
                 },
@@ -446,7 +449,7 @@ function JournalMonthContent() {
                   </CardTitle>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {displayModel.categoryFilter
-                      ? `كشف مزدوج · ${displayModel.categoryFilter.code}`
+                      ? `مجموع البند فقط · ${displayModel.categoryFilter.code} · بلا تفصيل قيود`
                       : `مجاميع ${displayModel.lines.length} بند · ثم مجموع كل بند`}
                   </p>
                 </div>
@@ -468,9 +471,6 @@ function JournalMonthContent() {
                         <th className="px-4 py-2.5 text-left font-medium">مدين</th>
                         <th className="px-4 py-2.5 text-left font-medium">دائن</th>
                         <th className="px-4 py-2.5 text-left font-medium">الصافي</th>
-                        {displayModel.categoryFilter ? (
-                          <th className="px-4 py-2.5 text-left font-medium">حركات</th>
-                        ) : null}
                       </tr>
                     </thead>
                     <tbody>
@@ -509,11 +509,6 @@ function JournalMonthContent() {
                           <td className="px-4 py-2.5 text-left font-mono tabular-nums">
                             {formatMoney(Math.abs(line.net), '')}
                           </td>
-                          {displayModel.categoryFilter ? (
-                            <td className="px-4 py-2.5 text-left tabular-nums text-muted-foreground">
-                              {line.movements.length}
-                            </td>
-                          ) : null}
                         </tr>
                       ))}
                     </tbody>
@@ -536,11 +531,6 @@ function JournalMonthContent() {
                             '',
                           )}
                         </td>
-                        {displayModel.categoryFilter ? (
-                          <td className="px-4 py-3 text-left tabular-nums text-muted-foreground font-normal">
-                            {displayModel.sourceLineCount}
-                          </td>
-                        ) : null}
                       </tr>
                     </tfoot>
                   </table>
@@ -548,88 +538,135 @@ function JournalMonthContent() {
               </CardContent>
             </Card>
 
-            {displayModel.categoryFilter
-              ? displayModel.vouchers.map((voucher, vIndex) => (
-                  <Card key={voucher.journal_id} className="border-border/80">
+            {(() => {
+              const contraSource = displayModel.categoryFilter
+                ? displayModel
+                : model;
+              if (!contraSource) return null;
+
+              const focusLines = displayModel.categoryFilter
+                ? displayModel.lines.filter(
+                    (l) => l.category_id === displayModel.categoryFilter!.id,
+                  )
+                : displayModel.lines;
+
+              return focusLines.map((line, lineIndex) => {
+                const focusLine = line;
+                const contraLines = buildContraLinesForFocus(
+                  contraSource,
+                  focusLine,
+                );
+                const cashboxCredit = contraLines.reduce(
+                  (s, l) => s + l.credit,
+                  0,
+                );
+                const totalDebit =
+                  focusLine.debit +
+                  contraLines.reduce((s, l) => s + l.debit, 0);
+                const totalCredit =
+                  focusLine.credit +
+                  contraLines.reduce((s, l) => s + l.credit, 0);
+                const balanced =
+                  Math.abs(totalDebit - totalCredit) <= 0.005;
+
+                return (
+                  <Card key={line.rowKey} className="border-border/80">
                     <CardHeader className="border-b pb-3 space-y-0">
                       <CardTitle className="text-base">
-                        {vIndex + 1}/{displayModel.vouchers.length} · قيد #
-                        {voucher.journal_number} · {voucher.entry_date}
+                        {lineIndex + 1}/{focusLines.length} ·{' '}
+                        {line.category_code || '—'} —{' '}
+                        {line.cashbox_name || line.category_name}
                       </CardTitle>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {voucher.journal_description || 'قيد مزدوج'}
-                        {voucher.balanced ? ' · متوازن' : ' · غير متوازن'}
-                        {(() => {
-                          const boxes = [
-                            ...new Set(
-                              voucher.lines
-                                .map((vl) => vl.cashbox_name?.trim())
-                                .filter(Boolean),
-                            ),
-                          ];
-                          return boxes.length ? ` · ${boxes.join('، ')}` : '';
-                        })()}
+                        {line.cashbox_name ? `${line.category_name} · ` : ''}
+                        مجموع البند فقط · مدين{' '}
+                        {formatMoney(focusLine.debit, '')} · دائن خزينة{' '}
+                        {formatMoney(cashboxCredit, '')}
+                        {balanced ? ' · متوازن' : ' · مراجعة'}
                       </p>
                     </CardHeader>
                     <CardContent className="p-0">
                       <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
+                        <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b bg-muted/40 text-muted-foreground">
-                              <th className="px-4 py-2.5 text-right font-medium">الرمز</th>
-                              <th className="px-4 py-2.5 text-right font-medium">البند</th>
-                              <th className="px-4 py-2.5 text-right font-medium">الخزينة</th>
-                              <th className="px-4 py-2.5 text-left font-medium">مدين</th>
-                              <th className="px-4 py-2.5 text-left font-medium">دائن</th>
+                              <th className="px-4 py-2.5 text-right font-medium">
+                                الرمز
+                              </th>
+                              <th className="px-4 py-2.5 text-right font-medium">
+                                الحساب
+                              </th>
+                              <th className="px-4 py-2.5 text-right font-medium">
+                                الدور
+                              </th>
+                              <th className="px-4 py-2.5 text-left font-medium">
+                                مدين
+                              </th>
+                              <th className="px-4 py-2.5 text-left font-medium">
+                                دائن
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {voucher.lines.map((vl, i) => (
+                            <tr className="border-b bg-sage-50/40">
+                              <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                                {focusLine.category_code || '—'}
+                              </td>
+                              <td className="px-4 py-2.5 font-semibold">
+                                {focusLine.cashbox_name ||
+                                  focusLine.category_name}{' '}
+                                ★
+                              </td>
+                              <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                                مدين البند
+                              </td>
+                              <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
+                                {formatMoney(focusLine.debit, '')}
+                              </td>
+                              <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
+                                {formatMoney(focusLine.credit, '')}
+                              </td>
+                            </tr>
+                            {contraLines.map((cl) => (
                               <tr
-                                key={`${voucher.journal_id}-${vl.category_id}-${i}`}
+                                key={cl.rowKey}
                                 className="border-b last:border-0 hover:bg-muted/30"
                               >
                                 <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                                  {vl.category_code || '—'}
+                                  {cl.category_code || '—'}
                                 </td>
-                                <td className="px-4 py-2.5">
-                                  <p className="font-semibold">
-                                    {vl.category_name}
-                                    {vl.is_focus ? ' ★' : ''}
-                                  </p>
-                                  <p className="text-[11px] text-muted-foreground">
-                                    {[
-                                      vl.line_description,
-                                      vl.contact_name && `جهة: ${vl.contact_name}`,
-                                    ]
-                                      .filter(Boolean)
-                                      .join(' · ') || '—'}
-                                  </p>
+                                <td className="px-4 py-2.5 font-semibold">
+                                  {cl.cashbox_name || cl.category_name}
                                 </td>
-                                <td className="px-4 py-2.5 text-xs font-medium text-ink">
-                                  {vl.cashbox_name?.trim() || '—'}
+                                <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                                  {cl.credit > 0
+                                    ? 'دائن الخزينة'
+                                    : 'طرف مقابل'}
                                 </td>
                                 <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
-                                  {formatMoney(vl.debit, '')}
+                                  {formatMoney(cl.debit, '')}
                                 </td>
                                 <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
-                                  {formatMoney(vl.credit, '')}
+                                  {formatMoney(cl.credit, '')}
                                 </td>
                               </tr>
                             ))}
                           </tbody>
                           <tfoot>
                             <tr className="bg-sage-50/80 font-bold">
-                              <td colSpan={3} className="px-4 py-3 text-right text-sm">
-                                {voucher.balanced
-                                  ? 'إجمالي القيد — مدين = دائن'
-                                  : 'إجمالي القيد — فرق'}
+                              <td
+                                colSpan={3}
+                                className="px-4 py-3 text-right text-sm"
+                              >
+                                {balanced
+                                  ? 'مجموع القيد — مدين = دائن'
+                                  : 'مجموع القيد — فرق'}
                               </td>
                               <td className="px-4 py-3 text-left font-mono tabular-nums text-emerald-800">
-                                {formatMoney(voucher.totalDebit, '')}
+                                {formatMoney(totalDebit, '')}
                               </td>
                               <td className="px-4 py-3 text-left font-mono tabular-nums text-red-700">
-                                {formatMoney(voucher.totalCredit, '')}
+                                {formatMoney(totalCredit, '')}
                               </td>
                             </tr>
                           </tfoot>
@@ -637,138 +674,9 @@ function JournalMonthContent() {
                       </div>
                     </CardContent>
                   </Card>
-                ))
-              : model
-                ? displayModel.lines.map((line, lineIndex) => {
-                    const focusLine = line;
-                    const contraLines = buildContraLinesForFocus(model, focusLine);
-                    const cashboxCredit = contraLines.reduce(
-                      (s, l) => s + l.credit,
-                      0,
-                    );
-                    const totalDebit =
-                      focusLine.debit +
-                      contraLines.reduce((s, l) => s + l.debit, 0);
-                    const totalCredit =
-                      focusLine.credit +
-                      contraLines.reduce((s, l) => s + l.credit, 0);
-                    const balanced =
-                      Math.abs(totalDebit - totalCredit) <= 0.005;
-
-                    return (
-                      <Card
-                        key={line.rowKey}
-                        className="border-border/80"
-                      >
-                        <CardHeader className="border-b pb-3 space-y-0">
-                          <CardTitle className="text-base">
-                            {lineIndex + 1}/{displayModel.lines.length} ·{' '}
-                            {line.category_code || '—'} —{' '}
-                            {line.cashbox_name || line.category_name}
-                          </CardTitle>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {line.cashbox_name
-                              ? `${line.category_name} · `
-                              : ''}
-                            مجموع البند فقط · مدين{' '}
-                            {formatMoney(focusLine.debit, '')} · دائن خزينة{' '}
-                            {formatMoney(cashboxCredit, '')}
-                            {balanced ? ' · متوازن' : ' · مراجعة'} ·{' '}
-                            {focusLine.movements.length} حركة مصدر
-                          </p>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b bg-muted/40 text-muted-foreground">
-                                  <th className="px-4 py-2.5 text-right font-medium">
-                                    الرمز
-                                  </th>
-                                  <th className="px-4 py-2.5 text-right font-medium">
-                                    الحساب
-                                  </th>
-                                  <th className="px-4 py-2.5 text-right font-medium">
-                                    الدور
-                                  </th>
-                                  <th className="px-4 py-2.5 text-left font-medium">
-                                    مدين
-                                  </th>
-                                  <th className="px-4 py-2.5 text-left font-medium">
-                                    دائن
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <tr className="border-b bg-sage-50/40">
-                                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                                    {focusLine.category_code || '—'}
-                                  </td>
-                                  <td className="px-4 py-2.5 font-semibold">
-                                    {focusLine.cashbox_name ||
-                                      focusLine.category_name}{' '}
-                                    ★
-                                  </td>
-                                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                                    مدين البند
-                                  </td>
-                                  <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
-                                    {formatMoney(focusLine.debit, '')}
-                                  </td>
-                                  <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
-                                    {formatMoney(focusLine.credit, '')}
-                                  </td>
-                                </tr>
-                                {contraLines.map((cl) => (
-                                  <tr
-                                    key={cl.rowKey}
-                                    className="border-b last:border-0 hover:bg-muted/30"
-                                  >
-                                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                                      {cl.category_code || '—'}
-                                    </td>
-                                    <td className="px-4 py-2.5 font-semibold">
-                                      {cl.cashbox_name || cl.category_name}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                                      {cl.credit > 0
-                                        ? 'دائن الخزينة'
-                                        : 'طرف مقابل'}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
-                                      {formatMoney(cl.debit, '')}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
-                                      {formatMoney(cl.credit, '')}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                              <tfoot>
-                                <tr className="bg-sage-50/80 font-bold">
-                                  <td
-                                    colSpan={3}
-                                    className="px-4 py-3 text-right text-sm"
-                                  >
-                                    {balanced
-                                      ? 'مجموع القيد — مدين = دائن'
-                                      : 'مجموع القيد — فرق'}
-                                  </td>
-                                  <td className="px-4 py-3 text-left font-mono tabular-nums text-emerald-800">
-                                    {formatMoney(totalDebit, '')}
-                                  </td>
-                                  <td className="px-4 py-3 text-left font-mono tabular-nums text-red-700">
-                                    {formatMoney(totalCredit, '')}
-                                  </td>
-                                </tr>
-                              </tfoot>
-                            </table>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })
-                : null}
+                );
+              });
+            })()}
           </>
         )}
       </AccountingPageBody>
