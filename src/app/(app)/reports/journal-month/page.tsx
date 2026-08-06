@@ -324,13 +324,18 @@ function JournalMonthContent() {
       '@/features/pdf/PeriodJournalEntryPDF'
     );
     if (!displayModel) throw new Error('لا توجد بيانات للقيد');
+    /** في وضع التجميع نحتاج البنود التفصيلية لفصل النقدي/المصارف */
+    const pdfModel =
+      displayModel.typeGroupFilter?.mode === 'group' && model
+        ? { ...displayModel, lines: model.lines }
+        : displayModel;
     return (
       <PeriodJournalEntryPDF
-        model={displayModel}
+        model={pdfModel}
         documentTitle={exportNames.documentTitle}
       />
     );
-  }, [displayModel, exportNames.documentTitle]);
+  }, [displayModel, model, exportNames.documentTitle]);
 
   const comprehensivePdfDisabled =
     isLoading || !comprehensiveModel || comprehensiveModel.lines.length === 0;
@@ -344,9 +349,9 @@ function JournalMonthContent() {
         title="قيد الفترة المحاسبي"
         description={
           isGroupedTypeView
-            ? `إيرادات معاً ومصاريف معاً · ${periodLabel}`
+            ? `إيرادات ومصاريف — كل بند مدين واضح، والنقدي/كل مصرف دائن بورقة · ${periodLabel}`
             : isTypeAggregateView && displayModel?.typeGroupFilter
-              ? `مجموع ${displayModel.typeGroupFilter.name_ar} فقط (مدين + دائن) · ${periodLabel}`
+              ? `${displayModel.typeGroupFilter.name_ar} — كل بند باسمه مدين، والنقدي/كل مصرف دائن بورقة · ${periodLabel}`
               : isSingleCategoryView && displayModel?.categoryFilter
                 ? `كشف بند ${displayModel.categoryFilter.name_ar} — النقدي بجدول مدين/دائن، وكل مصرف بورقة · ${periodLabel}`
                 : `اختر طريقة التجميع أعلاه — أو اعرض كل بند على حدة · ${periodLabel}`
@@ -695,14 +700,37 @@ function JournalMonthContent() {
                   : model;
               if (!contraSource) return null;
 
-if (displayModel.categoryFilter) {
-                const sections = buildCashBankSeparatedSections(
-                  displayModel,
-                  displayModel.categoryFilter.id,
-                );
+              const sectionSource =
+                displayModel.typeGroupFilter?.mode === 'group' && model
+                  ? model
+                  : displayModel;
 
+              const sections = displayModel.categoryFilter
+                ? buildCashBankSeparatedSections(
+                    displayModel,
+                    displayModel.categoryFilter.id,
+                  )
+                : displayModel.typeGroupFilter?.mode === 'group'
+                  ? [
+                      ...buildCashBankSeparatedSections(
+                        sectionSource,
+                        PERIOD_JOURNAL_TYPE_EXPENSE,
+                      ),
+                      ...buildCashBankSeparatedSections(
+                        sectionSource,
+                        PERIOD_JOURNAL_TYPE_REVENUE,
+                      ),
+                    ]
+                  : null;
+
+              if (sections && sections.length > 0) {
                 return sections.map((section, sectionIndex) => {
                   const focusLine = section.focusLine;
+                  const detailLines =
+                    section.focusDetailLines &&
+                    section.focusDetailLines.length > 0
+                      ? section.focusDetailLines
+                      : [focusLine];
                   const contraLines = section.contraLines;
                   const cashboxCredit = contraLines.reduce(
                     (s, l) => s + l.credit,
@@ -728,10 +756,11 @@ if (displayModel.categoryFilter) {
                       <CardHeader className="border-b pb-3 space-y-0">
                         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
                           <span>
-                            {sectionIndex + 1}/{sections.length} · البند:{' '}
-                            <span className="text-sage-800">
-                              {section.title}
-                            </span>
+                            {sectionIndex + 1}/{sections.length} ·{' '}
+                            {section.title}
+                            {detailLines.length > 1
+                              ? ` · ${detailLines.length} بند`
+                              : ''}
                           </span>
                           {kindBadge ? (
                             <Badge
@@ -747,7 +776,7 @@ if (displayModel.categoryFilter) {
                           ) : null}
                         </CardTitle>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          جدول محاسبي · مدين «{section.title}» · دائن «
+                          مدين بأسماء البنود · دائن «
                           {section.fundingLabel && section.fundingLabel !== '—'
                             ? section.fundingLabel
                             : 'الخزينة'}
@@ -779,28 +808,33 @@ if (displayModel.categoryFilter) {
                               </tr>
                             </thead>
                             <tbody>
-                              <tr className="border-b bg-sage-50/40">
-                                <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                                  {focusLine.category_code || '—'}
-                                </td>
-                                <td className="px-4 py-2.5">
-                                  <p className="text-[11px] font-medium text-emerald-800">
-                                    مدين — البند المحدد
-                                  </p>
-                                  <p className="text-base font-bold text-sage-900">
-                                    {focusLine.category_name}
-                                  </p>
-                                </td>
-                                <td className="px-4 py-2.5 text-xs font-semibold text-emerald-800">
-                                  مدين
-                                </td>
-                                <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
-                                  {formatMoney(focusLine.debit, '')}
-                                </td>
-                                <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
-                                  {formatMoney(focusLine.credit, '')}
-                                </td>
-                              </tr>
+                              {detailLines.map((dl) => (
+                                <tr
+                                  key={dl.rowKey}
+                                  className="border-b bg-sage-50/40"
+                                >
+                                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                                    {dl.category_code || '—'}
+                                  </td>
+                                  <td className="px-4 py-2.5">
+                                    <p className="text-[11px] font-medium text-emerald-800">
+                                      مدين — البند
+                                    </p>
+                                    <p className="text-base font-bold text-sage-900">
+                                      {dl.category_name}
+                                    </p>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-xs font-semibold text-emerald-800">
+                                    مدين
+                                  </td>
+                                  <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
+                                    {formatMoney(dl.debit, '')}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
+                                    {formatMoney(dl.credit, '')}
+                                  </td>
+                                </tr>
+                              ))}
                               {contraLines.map((cl) => (
                                 <tr
                                   key={cl.rowKey}
@@ -869,7 +903,6 @@ if (displayModel.categoryFilter) {
                         l.category_type === 'EXPENSE',
                     )
                   : displayModel.lines;
-
 
               return focusLines.map((line, lineIndex) => {
                 const focusLine = line;

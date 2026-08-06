@@ -17,6 +17,8 @@ import {
   buildCashBankSeparatedSections,
   buildContraLinesForFocus,
   periodLineCashboxKindsLabel,
+  PERIOD_JOURNAL_TYPE_EXPENSE,
+  PERIOD_JOURNAL_TYPE_REVENUE,
 } from '@/lib/period-journal-entry';
 
 /**
@@ -326,18 +328,26 @@ function CategoryTotalPage({
         ? `دائن ${fundingLabel}`
         : 'دائن الخزينة';
 
+  const debitLines =
+    section?.focusDetailLines && section.focusDetailLines.length > 0
+      ? section.focusDetailLines
+      : [focusLine];
+
   const rows = [
-    {
-      key: focusLine.rowKey,
-      code: categoryCode,
-      name: categoryName,
-      roleTag: 'مدين — البند المحدد',
-      desc: categoryName,
-      hint: `مدين · ${categoryCode}`,
-      debit: focusLine.debit,
-      credit: focusLine.credit,
+    ...debitLines.map((line, idx) => ({
+      key: line.rowKey || `debit-${idx}`,
+      code: line.category_code || '—',
+      name: line.category_name,
+      roleTag:
+        debitLines.length > 1
+          ? `مدين — ${line.category_name}`
+          : 'مدين — البند المحدد',
+      desc: line.category_name,
+      hint: `مدين · ${line.category_code || '—'}`,
+      debit: line.debit,
+      credit: line.credit,
       focus: true,
-    },
+    })),
     ...contraLines.map((line) => {
       const creditName = contraAccountName(line, section);
       return {
@@ -371,12 +381,20 @@ function CategoryTotalPage({
         </View>
         <View style={s.categoryBandTitle}>
           <Text style={s.categoryBandEyebrow}>
-            {ar(`البند المحدد · ${indexLabel}`)}
+            {ar(
+              debitLines.length > 1
+                ? `${categoryName} · ${debitLines.length} بند · ${indexLabel}`
+                : `البند المحدد · ${indexLabel}`,
+            )}
           </Text>
           <Text style={s.categoryBandName}>{ar(categoryName)}</Text>
           <Text style={s.categoryBandMeta}>
             {ar(
-              `${categoryCode} · مدين: ${categoryName} · دائن: ${fundingLabel} · ${periodLabel}`,
+              `${categoryCode} · مدين: ${
+                debitLines.length > 1
+                  ? `${debitLines.length} بند بأسمائها`
+                  : categoryName
+              } · دائن: ${fundingLabel} · ${periodLabel}`,
             )}
           </Text>
         </View>
@@ -394,7 +412,11 @@ function CategoryTotalPage({
               marginBottom: 2,
             }}
           >
-            {ar(categoryName)}
+            {ar(
+              debitLines.length > 1
+                ? `${debitLines.length} بند`
+                : categoryName,
+            )}
           </Text>
           <PdfReportMoney amount={focusLine.debit} bold color={PDF.success} showZero />
         </View>
@@ -680,6 +702,83 @@ function SingleCategoryTotalsDocument({
   );
 }
 
+/** إيرادات ومصاريف مجمّعة — أوراق نقدي/مصارف لكل نوع */
+function GroupTypeCashBankDocument({
+  model,
+  documentTitle,
+  titleAr,
+}: {
+  model: PeriodJournalEntryModel;
+  documentTitle?: string;
+  titleAr: string;
+}) {
+  const sections = [
+    ...buildCashBankSeparatedSections(model, PERIOD_JOURNAL_TYPE_EXPENSE),
+    ...buildCashBankSeparatedSections(model, PERIOD_JOURNAL_TYPE_REVENUE),
+  ];
+
+  if (sections.length === 0) {
+    return (
+      <Document
+        title={documentTitle ?? `${BRAND.name} — ${titleAr}`}
+        author={BRAND.fullName}
+      >
+        <ReportPageFrame title={titleAr} subtitle={model.periodLabel} titleEn="JOURNAL">
+          <View style={{ padding: 24, alignItems: 'center' }}>
+            <Text style={pdfReportTable.tdMuted}>
+              {ar('لا حركة إيرادات أو مصاريف في هذه الفترة')}
+            </Text>
+          </View>
+          <PdfReportCaption />
+        </ReportPageFrame>
+      </Document>
+    );
+  }
+
+  return (
+    <Document
+      title={documentTitle ?? `${BRAND.name} — ${titleAr}`}
+      author={BRAND.fullName}
+    >
+      <ReportPageFrame title={titleAr} subtitle={model.periodLabel} titleEn="JOURNAL">
+        <ComprehensiveSummaryPage model={model} />
+      </ReportPageFrame>
+      {sections.map((section, index) => {
+        const kindLabel =
+          section.sectionKind === 'CASH'
+            ? `${section.title} · دائن النقدي`
+            : section.sectionKind === 'BANK'
+              ? `${section.title} · دائن ${section.fundingLabel}`
+              : section.title;
+        return (
+          <ReportPageFrame
+            key={section.sectionKey}
+            title={titleAr}
+            subtitle={`${section.title}${
+              section.fundingLabel && section.fundingLabel !== '—'
+                ? ` · ${section.fundingLabel}`
+                : ''
+            }`}
+            titleEn="JOURNAL"
+          >
+            <CategoryTotalPage
+              focusLine={section.focusLine}
+              contraLines={section.contraLines}
+              totalDebit={section.totalDebit}
+              totalCredit={section.totalCredit}
+              balanced={section.balanced}
+              periodLabel={model.periodLabel}
+              indexLabel={`${kindLabel} · ${index + 1}/${sections.length}`}
+              section={section}
+            />
+            <PdfReportCaption />
+          </ReportPageFrame>
+        );
+      })}
+    </Document>
+  );
+}
+
 export function PeriodJournalEntryPDF({
   model,
   documentTitle,
@@ -698,9 +797,10 @@ export function PeriodJournalEntryPDF({
         ? `كشف — ${typeGroup.name_ar}`
         : 'تقرير شامل — قيد الفترة المحاسبي';
 
-  if (!singleCategory && model.lines.length > 0) {
+  /** جميع المصاريف / جميع الإيرادات / بند واحد — أوراق نقدي + كل مصرف */
+  if (singleCategory) {
     return (
-      <ComprehensivePeriodJournalDocument
+      <SingleCategoryTotalsDocument
         model={model}
         documentTitle={documentTitle}
         titleAr={titleAr}
@@ -708,9 +808,20 @@ export function PeriodJournalEntryPDF({
     );
   }
 
-  if (singleCategory) {
+  /** إيرادات معاً ومصاريف معاً — كل نوع بأوراق نقدي/مصارف */
+  if (typeGroup?.mode === 'group' && model.lines.length > 0) {
     return (
-      <SingleCategoryTotalsDocument
+      <GroupTypeCashBankDocument
+        model={model}
+        documentTitle={documentTitle}
+        titleAr={titleAr}
+      />
+    );
+  }
+
+  if (!singleCategory && model.lines.length > 0) {
+    return (
+      <ComprehensivePeriodJournalDocument
         model={model}
         documentTitle={documentTitle}
         titleAr={titleAr}

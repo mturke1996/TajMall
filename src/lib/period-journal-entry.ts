@@ -168,18 +168,24 @@ export type PeriodJournalLine = {
 
 /**
  * قسم تقرير عند اختيار بند: النقدي مجمّعاً، وكل مصرف في صفحة مستقلة.
- * العرض المهني: البند المحدد = مدين (باسمه الواضح)، والنقدي/المصرف = دائن.
+ * العرض المهني: البند/البنود = مدين (باسم واضح)، والنقدي/المصرف = دائن.
  */
 export type PeriodCashBankSection = {
   sectionKey: string;
   sectionKind: 'CASH' | 'BANK' | 'CARD' | 'OTHER' | 'NONE';
-  /** اسم البند المحدد — يظهر كمدين بوضوح */
+  /** عنوان القسم (اسم البند أو «جميع المصاريف») */
   title: string;
   /** مصدر التمويل للطرف الدائن: النقدي / اسم المصرف */
   fundingLabel: string;
   /** وصف قصير للعرض */
   subtitle: string;
+  /** صف تركيز مجمّع للمجاميع والعنوان */
   focusLine: PeriodJournalLine;
+  /**
+   * بنود المدين التفصيلية (عند تجميع عدة مصاريف/إيرادات).
+   * إن وُجدت تُعرض كل منها باسمها الواضح في الجدول.
+   */
+  focusDetailLines?: PeriodJournalLine[];
   contraLines: PeriodJournalLine[];
   totalDebit: number;
   totalCredit: number;
@@ -542,14 +548,266 @@ function sectionTotals(
 }
 
 /**
+ * لجميع المصاريف أو جميع الإيرادات:
+ * كل بند يظهر باسمه الواضح كمدين، والنقدي ورقة، وكل مصرف ورقة مستقلة.
+ */
+export function buildTypeAggregateCashBankSections(
+  model: PeriodJournalEntryModel,
+  accountType: PeriodJournalAccountTypeFilter,
+): PeriodCashBankSection[] {
+  const meta = periodJournalTypeFilterMeta(accountType);
+  const focusRows = sortPeriodLines(
+    model.lines.filter((l) => l.category_type === accountType),
+  );
+  if (focusRows.length === 0) return [];
+
+  const makeSubtitle = (funding: string) =>
+    `مدين: ${meta.name_ar} · دائن: ${funding}`;
+
+  type Bucket = {
+    key: string;
+    kind: PeriodCashBankSection['sectionKind'];
+    fundingLabel: string;
+    journalIds: Set<string>;
+    cashbox_id: string | null;
+    cashbox_name: string | null;
+    cashbox_kind: CashboxKind | null;
+  };
+
+  const cashBucket: Bucket = {
+    key: `${meta.id}::kind:CASH`,
+    kind: 'CASH',
+    fundingLabel: 'النقدي',
+    journalIds: new Set(),
+    cashbox_id: null,
+    cashbox_name: 'النقدي',
+    cashbox_kind: 'CASH',
+  };
+  const bankBuckets = new Map<string, Bucket>();
+  const otherBuckets = new Map<string, Bucket>();
+  const noneBucket: Bucket = {
+    key: `${meta.id}::kind:NONE`,
+    kind: 'NONE',
+    fundingLabel: '—',
+    journalIds: new Set(),
+    cashbox_id: null,
+    cashbox_name: null,
+    cashbox_kind: null,
+  };
+
+  const allMovements = focusRows.flatMap((r) => r.movements);
+  for (const m of allMovements) {
+    const boxMeta = journalCashboxMetaFromModel(model, m.journal_id);
+    const kind =
+      boxMeta?.cashbox_kind ??
+      resolveCashboxKind({
+        code: boxMeta?.cashbox_code,
+        name: boxMeta?.cashbox_name,
+      });
+
+    if (kind === 'CASH') {
+      cashBucket.journalIds.add(m.journal_id);
+      continue;
+    }
+    if (kind === 'BANK') {
+      const bankKey =
+        boxMeta?.cashbox_id ||
+        boxMeta?.cashbox_code ||
+        boxMeta?.cashbox_name ||
+        `bank-${m.journal_id}`;
+      let bucket = bankBuckets.get(bankKey);
+      if (!bucket) {
+        bucket = {
+          key: `${meta.id}::cb:${bankKey}`,
+          kind: 'BANK',
+          fundingLabel: boxMeta?.cashbox_name?.trim() || 'حساب مصرفي',
+          journalIds: new Set(),
+          cashbox_id: boxMeta?.cashbox_id ?? null,
+          cashbox_name: boxMeta?.cashbox_name ?? null,
+          cashbox_kind: 'BANK',
+        };
+        bankBuckets.set(bankKey, bucket);
+      }
+      bucket.journalIds.add(m.journal_id);
+      continue;
+    }
+    if (kind === 'CARD' || kind === 'OTHER') {
+      const otherKey =
+        boxMeta?.cashbox_id ||
+        boxMeta?.cashbox_code ||
+        boxMeta?.cashbox_name ||
+        `other-${m.journal_id}`;
+      let bucket = otherBuckets.get(otherKey);
+      if (!bucket) {
+        bucket = {
+          key: `${meta.id}::cb:${otherKey}`,
+          kind: kind === 'CARD' ? 'CARD' : 'OTHER',
+          fundingLabel: boxMeta?.cashbox_name?.trim() || 'خزينة أخرى',
+          journalIds: new Set(),
+          cashbox_id: boxMeta?.cashbox_id ?? null,
+          cashbox_name: boxMeta?.cashbox_name ?? null,
+          cashbox_kind: kind,
+        };
+        otherBuckets.set(otherKey, bucket);
+      }
+      bucket.journalIds.add(m.journal_id);
+      continue;
+    }
+    noneBucket.journalIds.add(m.journal_id);
+  }
+
+  const orderedBuckets: Bucket[] = [];
+  if (cashBucket.journalIds.size > 0) orderedBuckets.push(cashBucket);
+  orderedBuckets.push(
+    ...[...bankBuckets.values()].sort((a, b) =>
+      a.fundingLabel.localeCompare(b.fundingLabel, 'ar'),
+    ),
+  );
+  orderedBuckets.push(
+    ...[...otherBuckets.values()].sort((a, b) =>
+      a.fundingLabel.localeCompare(b.fundingLabel, 'ar'),
+    ),
+  );
+  if (noneBucket.journalIds.size > 0) orderedBuckets.push(noneBucket);
+
+  if (orderedBuckets.length === 0) {
+    const focusLine = mergePeriodJournalLines(focusRows, {
+      id: meta.id,
+      code: meta.code,
+      name_ar: meta.name_ar,
+      type: accountType,
+    });
+    const contraLines = buildContraLinesForJournals(
+      model,
+      { ...focusLine, category_id: '__type_focus__' },
+      new Set(focusLine.movements.map((m) => m.journal_id)),
+    ).filter((l) => l.category_type !== accountType);
+    return [
+      {
+        sectionKey: focusLine.rowKey,
+        sectionKind: 'NONE',
+        title: meta.name_ar,
+        fundingLabel: '—',
+        subtitle: `مجموع ${meta.name_ar} — مدين ودائن`,
+        focusLine: {
+          ...focusLine,
+          cashbox_id: null,
+          cashbox_name: null,
+          cashbox_kind: null,
+        },
+        focusDetailLines: focusRows,
+        contraLines,
+        ...sectionTotals(focusLine, contraLines),
+      },
+    ];
+  }
+
+  const sections: PeriodCashBankSection[] = [];
+
+  for (const bucket of orderedBuckets) {
+    const detailLines = focusRows
+      .map((row) => sliceLineToJournals(row, bucket.journalIds))
+      .filter((row): row is PeriodJournalLine => row != null)
+      .map((row) => ({
+        ...row,
+        cashbox_id: null,
+        cashbox_name: null,
+        cashbox_kind: null,
+      }));
+
+    if (detailLines.length === 0) continue;
+
+    const focusLine = mergePeriodJournalLines(detailLines, {
+      id: meta.id,
+      code: meta.code,
+      name_ar: meta.name_ar,
+      type: accountType,
+    });
+    const focusClean: PeriodJournalLine = {
+      ...focusLine,
+      cashbox_id: null,
+      cashbox_name: null,
+      cashbox_kind: null,
+      rowKey: bucket.key,
+    };
+
+    let contraLines = buildContraLinesForJournals(
+      model,
+      { ...focusClean, category_id: '__type_focus__' },
+      bucket.journalIds,
+    ).filter((l) => l.category_type !== accountType);
+
+    if (bucket.kind === 'CASH') {
+      contraLines = contraLines.filter(
+        (l) => !l.cashbox_kind || l.cashbox_kind === 'CASH' || !l.cashbox_id,
+      );
+      const cashContras = contraLines.filter((l) => l.cashbox_kind === 'CASH');
+      const otherContras = contraLines.filter((l) => l.cashbox_kind !== 'CASH');
+      if (cashContras.length > 1) {
+        contraLines = [
+          {
+            ...mergeCashFocusLines(cashContras),
+            cashbox_name: 'النقدي',
+            cashbox_kind: 'CASH',
+          },
+          ...otherContras,
+        ];
+      } else if (cashContras.length === 1) {
+        contraLines = [
+          {
+            ...cashContras[0],
+            cashbox_name: cashContras[0].cashbox_name || 'النقدي',
+          },
+          ...otherContras,
+        ];
+      }
+    } else if (bucket.kind === 'BANK') {
+      contraLines = contraLines.filter((l) => {
+        if (l.cashbox_id && bucket.cashbox_id) {
+          return l.cashbox_id === bucket.cashbox_id;
+        }
+        if (l.cashbox_kind === 'BANK' && bucket.cashbox_name) {
+          return l.cashbox_name === bucket.cashbox_name;
+        }
+        return !l.cashbox_id || l.cashbox_kind === bucket.cashbox_kind;
+      });
+    }
+
+    sections.push({
+      sectionKey: bucket.key,
+      sectionKind: bucket.kind,
+      title: meta.name_ar,
+      fundingLabel: bucket.fundingLabel,
+      subtitle:
+        bucket.kind === 'NONE'
+          ? `مجموع ${meta.name_ar} — مدين ودائن`
+          : makeSubtitle(bucket.fundingLabel),
+      focusLine: focusClean,
+      focusDetailLines: detailLines,
+      contraLines,
+      ...sectionTotals(focusClean, contraLines),
+    });
+  }
+
+  return sections;
+}
+
+/**
  * عند اختيار بند: يفصل التقرير إلى
  * 1) قسم النقدي — البند مدين + النقدي دائن (مجموع فقط)
  * 2) قسم لكل مصرف — البند مدين + هذا المصرف دائن (ورقة مستقلة)
+ *
+ * يدعم أيضاً type:EXPENSE / type:REVENUE لعرض كل بند باسمه الواضح.
  */
 export function buildCashBankSeparatedSections(
   model: PeriodJournalEntryModel,
   focusCategoryId: string,
 ): PeriodCashBankSection[] {
+  const typeFilter = parsePeriodJournalTypeFilter(focusCategoryId);
+  if (typeFilter) {
+    return buildTypeAggregateCashBankSections(model, typeFilter);
+  }
+
   const focusRows = model.lines.filter((l) => l.category_id === focusCategoryId);
   if (focusRows.length === 0) return [];
 
@@ -1257,19 +1515,13 @@ export function applyPeriodJournalCategoryFilter(
       });
     }
 
-    const focusMerged = mergePeriodJournalLines(focusRows, {
-      id: meta.id,
-      code: meta.code,
-      name_ar: meta.name_ar,
-      type: typeFilter,
-    });
-
+    /** نُبقي كل بند مصروف/إيراد باسمه الواضح + الأطراف المقابلة */
     const withLabels = attachContraLabels([
-      focusMerged,
+      ...sortPeriodLines(focusRows),
       ...sortPeriodLines(relatedOther),
     ]);
 
-    const vouchers = buildPeriodJournalVouchers(withLabels, meta.id);
+    const vouchers = buildPeriodJournalVouchers(withLabels, null);
     const totalDebit = withLabels.reduce((s, l) => s + l.debit, 0);
     const totalCredit = withLabels.reduce((s, l) => s + l.credit, 0);
 
@@ -1293,7 +1545,7 @@ export function applyPeriodJournalCategoryFilter(
       sourceEntryCount: journalIds.size,
       sourceLineCount: withLabels.reduce((s, l) => s + l.movements.length, 0),
       title: `كشف ${meta.name_ar}`,
-      description: `مجموع ${meta.name_ar} فقط — قيد مزدوج بلا تفصيل · ${model.periodLabel}`,
+      description: `كل بنود ${meta.name_ar} بأسمائها — مدين واضح، والنقدي/كل مصرف دائن بورقة · ${model.periodLabel}`,
     };
   }
 

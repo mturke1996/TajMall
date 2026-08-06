@@ -506,21 +506,41 @@ function line(partial) {
   const allExpenses = applyPeriodJournalCategoryFilter(model, 'type:EXPENSE');
   assert.ok(allExpenses.typeGroupFilter?.mode === 'type');
   assert.equal(allExpenses.categoryFilter?.name_ar, 'جميع المصاريف');
-  const focusExp = allExpenses.lines.find(
-    (l) => l.category_id === 'type:EXPENSE',
+  const expenseLines = allExpenses.lines.filter(
+    (l) => l.category_type === 'EXPENSE',
   );
-  assert.ok(focusExp);
-  assert.equal(focusExp.debit, 1000);
+  assert.equal(expenseLines.length, 2, 'كل مصروف يبقى باسمه الواضح');
+  assert.equal(
+    expenseLines.reduce((s, l) => s + l.debit, 0),
+    1000,
+  );
   assert.ok(allExpenses.balanced);
   assert.equal(allExpenses.totalDebit, 1000);
   assert.equal(allExpenses.totalCredit, 1000);
 
-  const allRevenue = applyPeriodJournalCategoryFilter(model, 'type:REVENUE');
-  const focusRev = allRevenue.lines.find(
-    (l) => l.category_id === 'type:REVENUE',
+  const expenseSections = buildCashBankSeparatedSections(
+    allExpenses,
+    'type:EXPENSE',
   );
-  assert.ok(focusRev);
-  assert.equal(focusRev.credit, 2000);
+  assert.ok(expenseSections.length >= 1);
+  for (const section of expenseSections) {
+    assert.equal(section.title, 'جميع المصاريف');
+    assert.ok(
+      section.focusDetailLines && section.focusDetailLines.length >= 1,
+      'كل بند مصروف يظهر باسمه في الجدول',
+    );
+    assert.ok(section.balanced, `section ${section.fundingLabel} must balance`);
+  }
+
+  const allRevenue = applyPeriodJournalCategoryFilter(model, 'type:REVENUE');
+  const revenueLines = allRevenue.lines.filter(
+    (l) => l.category_type === 'REVENUE',
+  );
+  assert.ok(revenueLines.length >= 1);
+  assert.equal(
+    revenueLines.reduce((s, l) => s + l.credit, 0),
+    2000,
+  );
   assert.ok(allRevenue.balanced);
 }
 
