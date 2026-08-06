@@ -548,8 +548,8 @@ function sectionTotals(
 }
 
 /**
- * لجميع المصاريف أو جميع الإيرادات:
- * كل بند يظهر باسمه الواضح كمدين، والنقدي ورقة، وكل مصرف ورقة مستقلة.
+ * لجميع المصاريف أو جميع الإيرادات — مجموع فقط بدون تفصيل البنود:
+ * صف مدين واحد (جميع المصاريف/الإيرادات)، والنقدي ورقة، وكل مصرف ورقة مستقلة.
  */
 export function buildTypeAggregateCashBankSections(
   model: PeriodJournalEntryModel,
@@ -562,7 +562,7 @@ export function buildTypeAggregateCashBankSections(
   if (focusRows.length === 0) return [];
 
   const makeSubtitle = (funding: string) =>
-    `مدين: ${meta.name_ar} · دائن: ${funding}`;
+    `مدين: ${meta.name_ar} (مجموع فقط) · دائن: ${funding}`;
 
   type Bucket = {
     key: string;
@@ -688,14 +688,13 @@ export function buildTypeAggregateCashBankSections(
         sectionKind: 'NONE',
         title: meta.name_ar,
         fundingLabel: '—',
-        subtitle: `مجموع ${meta.name_ar} — مدين ودائن`,
+        subtitle: `مجموع ${meta.name_ar} فقط — مدين ودائن`,
         focusLine: {
           ...focusLine,
           cashbox_id: null,
           cashbox_name: null,
           cashbox_kind: null,
         },
-        focusDetailLines: focusRows,
         contraLines,
         ...sectionTotals(focusLine, contraLines),
       },
@@ -707,16 +706,11 @@ export function buildTypeAggregateCashBankSections(
   for (const bucket of orderedBuckets) {
     const detailLines = focusRows
       .map((row) => sliceLineToJournals(row, bucket.journalIds))
-      .filter((row): row is PeriodJournalLine => row != null)
-      .map((row) => ({
-        ...row,
-        cashbox_id: null,
-        cashbox_name: null,
-        cashbox_kind: null,
-      }));
+      .filter((row): row is PeriodJournalLine => row != null);
 
     if (detailLines.length === 0) continue;
 
+    /** مجموع فقط — صف مدين واحد بلا تفصيل البنود */
     const focusLine = mergePeriodJournalLines(detailLines, {
       id: meta.id,
       code: meta.code,
@@ -780,10 +774,9 @@ export function buildTypeAggregateCashBankSections(
       fundingLabel: bucket.fundingLabel,
       subtitle:
         bucket.kind === 'NONE'
-          ? `مجموع ${meta.name_ar} — مدين ودائن`
+          ? `مجموع ${meta.name_ar} فقط — مدين ودائن`
           : makeSubtitle(bucket.fundingLabel),
       focusLine: focusClean,
-      focusDetailLines: detailLines,
       contraLines,
       ...sectionTotals(focusClean, contraLines),
     });
@@ -797,7 +790,7 @@ export function buildTypeAggregateCashBankSections(
  * 1) قسم النقدي — البند مدين + النقدي دائن (مجموع فقط)
  * 2) قسم لكل مصرف — البند مدين + هذا المصرف دائن (ورقة مستقلة)
  *
- * يدعم أيضاً type:EXPENSE / type:REVENUE لعرض كل بند باسمه الواضح.
+ * يدعم أيضاً type:EXPENSE / type:REVENUE كمجموع فقط بلا تفصيل البنود.
  */
 export function buildCashBankSeparatedSections(
   model: PeriodJournalEntryModel,
@@ -1515,13 +1508,20 @@ export function applyPeriodJournalCategoryFilter(
       });
     }
 
-    /** نُبقي كل بند مصروف/إيراد باسمه الواضح + الأطراف المقابلة */
+    /** مجموع فقط — صف واحد لجميع المصاريف/الإيرادات بلا تفصيل البنود */
+    const focusMerged = mergePeriodJournalLines(focusRows, {
+      id: meta.id,
+      code: meta.code,
+      name_ar: meta.name_ar,
+      type: typeFilter,
+    });
+
     const withLabels = attachContraLabels([
-      ...sortPeriodLines(focusRows),
+      focusMerged,
       ...sortPeriodLines(relatedOther),
     ]);
 
-    const vouchers = buildPeriodJournalVouchers(withLabels, null);
+    const vouchers = buildPeriodJournalVouchers(withLabels, meta.id);
     const totalDebit = withLabels.reduce((s, l) => s + l.debit, 0);
     const totalCredit = withLabels.reduce((s, l) => s + l.credit, 0);
 
@@ -1545,7 +1545,7 @@ export function applyPeriodJournalCategoryFilter(
       sourceEntryCount: journalIds.size,
       sourceLineCount: withLabels.reduce((s, l) => s + l.movements.length, 0),
       title: `كشف ${meta.name_ar}`,
-      description: `كل بنود ${meta.name_ar} بأسمائها — مدين واضح، والنقدي/كل مصرف دائن بورقة · ${model.periodLabel}`,
+      description: `مجموع ${meta.name_ar} فقط بلا تفصيل — مدين واضح، والنقدي/كل مصرف دائن بورقة · ${model.periodLabel}`,
     };
   }
 

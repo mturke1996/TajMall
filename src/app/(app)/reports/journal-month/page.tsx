@@ -349,9 +349,9 @@ function JournalMonthContent() {
         title="قيد الفترة المحاسبي"
         description={
           isGroupedTypeView
-            ? `إيرادات ومصاريف — كل بند مدين واضح، والنقدي/كل مصرف دائن بورقة · ${periodLabel}`
+            ? `إيرادات ومصاريف مجمّعة — مجموع فقط، والنقدي/كل مصرف دائن بورقة · ${periodLabel}`
             : isTypeAggregateView && displayModel?.typeGroupFilter
-              ? `${displayModel.typeGroupFilter.name_ar} — كل بند باسمه مدين، والنقدي/كل مصرف دائن بورقة · ${periodLabel}`
+              ? `${displayModel.typeGroupFilter.name_ar} — مجموع فقط بلا تفصيل، والنقدي/كل مصرف دائن بورقة · ${periodLabel}`
               : isSingleCategoryView && displayModel?.categoryFilter
                 ? `كشف بند ${displayModel.categoryFilter.name_ar} — النقدي بجدول مدين/دائن، وكل مصرف بورقة · ${periodLabel}`
                 : `اختر طريقة التجميع أعلاه — أو اعرض كل بند على حدة · ${periodLabel}`
@@ -756,11 +756,10 @@ function JournalMonthContent() {
                       <CardHeader className="border-b pb-3 space-y-0">
                         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
                           <span>
-                            {sectionIndex + 1}/{sections.length} ·{' '}
-                            {section.title}
-                            {detailLines.length > 1
-                              ? ` · ${detailLines.length} بند`
-                              : ''}
+                            {sectionIndex + 1}/{sections.length} · البند:{' '}
+                            <span className="text-sage-800">
+                              {section.title}
+                            </span>
                           </span>
                           {kindBadge ? (
                             <Badge
@@ -776,7 +775,7 @@ function JournalMonthContent() {
                           ) : null}
                         </CardTitle>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          مدين بأسماء البنود · دائن «
+                          مجموع فقط · مدين «{section.title}» · دائن «
                           {section.fundingLabel && section.fundingLabel !== '—'
                             ? section.fundingLabel
                             : 'الخزينة'}

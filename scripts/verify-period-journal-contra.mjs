@@ -506,13 +506,16 @@ function line(partial) {
   const allExpenses = applyPeriodJournalCategoryFilter(model, 'type:EXPENSE');
   assert.ok(allExpenses.typeGroupFilter?.mode === 'type');
   assert.equal(allExpenses.categoryFilter?.name_ar, 'جميع المصاريف');
-  const expenseLines = allExpenses.lines.filter(
-    (l) => l.category_type === 'EXPENSE',
+  const focusExp = allExpenses.lines.find(
+    (l) => l.category_id === 'type:EXPENSE',
   );
-  assert.equal(expenseLines.length, 2, 'كل مصروف يبقى باسمه الواضح');
+  assert.ok(focusExp, 'صف مجموع واحد لجميع المصاريف');
+  assert.equal(focusExp.category_name, 'جميع المصاريف');
+  assert.equal(focusExp.debit, 1000);
   assert.equal(
-    expenseLines.reduce((s, l) => s + l.debit, 0),
-    1000,
+    allExpenses.lines.filter((l) => l.category_type === 'EXPENSE').length,
+    1,
+    'مجموع فقط بلا تفصيل البنود',
   );
   assert.ok(allExpenses.balanced);
   assert.equal(allExpenses.totalDebit, 1000);
@@ -525,22 +528,20 @@ function line(partial) {
   assert.ok(expenseSections.length >= 1);
   for (const section of expenseSections) {
     assert.equal(section.title, 'جميع المصاريف');
+    assert.equal(section.focusLine.category_name, 'جميع المصاريف');
     assert.ok(
-      section.focusDetailLines && section.focusDetailLines.length >= 1,
-      'كل بند مصروف يظهر باسمه في الجدول',
+      !section.focusDetailLines || section.focusDetailLines.length === 0,
+      'بدون تفاصيل البنود — مجموع فقط',
     );
     assert.ok(section.balanced, `section ${section.fundingLabel} must balance`);
   }
 
   const allRevenue = applyPeriodJournalCategoryFilter(model, 'type:REVENUE');
-  const revenueLines = allRevenue.lines.filter(
-    (l) => l.category_type === 'REVENUE',
+  const focusRev = allRevenue.lines.find(
+    (l) => l.category_id === 'type:REVENUE',
   );
-  assert.ok(revenueLines.length >= 1);
-  assert.equal(
-    revenueLines.reduce((s, l) => s + l.credit, 0),
-    2000,
-  );
+  assert.ok(focusRev);
+  assert.equal(focusRev.credit, 2000);
   assert.ok(allRevenue.balanced);
 }
 
