@@ -3,7 +3,14 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FileSpreadsheet, LayoutGrid, BookOpen } from 'lucide-react';
+import {
+  FileSpreadsheet,
+  LayoutGrid,
+  BookOpen,
+  Layers,
+  TrendingUp,
+  TrendingDown,
+} from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { AccountingFilterCard } from '@/components/accounting/accounting-filter-card';
 import { ReportPeriodFilter } from '@/components/accounting/report-period-filter';
@@ -54,10 +62,52 @@ import {
   type ReportPeriod,
 } from '@/lib/report-period';
 import { useCategories } from '@/lib/db/queries';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, cn } from '@/lib/utils';
 
 type StatusFilter = JournalStatus | 'ALL';
 const ALL_CATEGORIES = 'all';
+
+type ViewMode =
+  | typeof ALL_CATEGORIES
+  | typeof PERIOD_JOURNAL_GROUP_BY_TYPE
+  | typeof PERIOD_JOURNAL_TYPE_REVENUE
+  | typeof PERIOD_JOURNAL_TYPE_EXPENSE;
+
+const VIEW_MODE_OPTIONS: Array<{
+  value: ViewMode;
+  label: string;
+  shortLabel: string;
+  icon: typeof Layers;
+}> = [
+  {
+    value: ALL_CATEGORIES,
+    label: 'كل بند على حدة',
+    shortLabel: 'كل البنود',
+    icon: LayoutGrid,
+  },
+  {
+    value: PERIOD_JOURNAL_GROUP_BY_TYPE,
+    label: 'إيرادات معاً ومصاريف معاً',
+    shortLabel: 'إيراد+مصروف',
+    icon: Layers,
+  },
+  {
+    value: PERIOD_JOURNAL_TYPE_REVENUE,
+    label: 'جميع الإيرادات معاً',
+    shortLabel: 'الإيرادات',
+    icon: TrendingUp,
+  },
+  {
+    value: PERIOD_JOURNAL_TYPE_EXPENSE,
+    label: 'جميع المصاريف معاً',
+    shortLabel: 'المصاريف',
+    icon: TrendingDown,
+  },
+];
+
+function isViewMode(value: string): value is ViewMode {
+  return VIEW_MODE_OPTIONS.some((o) => o.value === value);
+}
 
 function isSpecialCategoryFilter(value: string): boolean {
   return (
@@ -299,7 +349,7 @@ function JournalMonthContent() {
               ? `مجموع ${displayModel.typeGroupFilter.name_ar} فقط (مدين + دائن) · ${periodLabel}`
               : isSingleCategoryView && displayModel?.categoryFilter
                 ? `كشف بند ${displayModel.categoryFilter.name_ar} — النقدي بجدول مدين/دائن، وكل مصرف بورقة · ${periodLabel}`
-                : `تقرير شامل — مجاميع ثم مجموع كل بند (مدين + خزينة) · ${periodLabel}`
+                : `اختر طريقة التجميع أعلاه — أو اعرض كل بند على حدة · ${periodLabel}`
         }
         actions={
           <>
@@ -345,26 +395,78 @@ function JournalMonthContent() {
         <AccountingFilterCard>
           <div className="space-y-4">
             <ReportPeriodFilter value={period} onChange={setPeriod} />
+
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  طريقة تجميع البنود
+                </p>
+                {isAggregateView ? (
+                  <Badge
+                    variant="success"
+                    className="font-normal normal-case tracking-normal"
+                  >
+                    وضع التجميع مفعّل
+                  </Badge>
+                ) : null}
+              </div>
+              <Tabs
+                value={
+                  isViewMode(categoryFilterId) ? categoryFilterId : ALL_CATEGORIES
+                }
+                onValueChange={onCategoryChange}
+                className="w-full"
+              >
+                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-4">
+                  {VIEW_MODE_OPTIONS.map((opt) => {
+                    const Icon = opt.icon;
+                    return (
+                      <TabsTrigger
+                        key={opt.value}
+                        value={opt.value}
+                        className={cn(
+                          'flex min-h-11 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center sm:min-h-10 sm:flex-row sm:gap-1.5',
+                          'data-[state=active]:bg-sage-600 data-[state=active]:text-white data-[state=active]:border-sage-700',
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                        <span className="text-[11px] leading-tight sm:text-[12.5px]">
+                          <span className="sm:hidden">{opt.shortLabel}</span>
+                          <span className="hidden sm:inline">{opt.label}</span>
+                        </span>
+                      </TabsTrigger>
+                    );
+                  })}
+                </TabsList>
+              </Tabs>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                {isGroupedTypeView
+                  ? 'يجمع كل بنود الإيراد في صف واحد وكل بنود المصروف في صف واحد مع أطراف الخزينة.'
+                  : isTypeAggregateView
+                    ? 'يعرض مجموع النوع المختار فقط كقيد مزدوج (البند المجمّع + الطرف المقابل).'
+                    : 'اعرض كل بند بإجماله، أو اختر بنداً واحداً من القائمة أدناه.'}
+              </p>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">
-                  البند المحاسبي
+                  بند محاسبي واحد (اختياري)
                 </p>
-                <Select value={categoryFilterId} onValueChange={onCategoryChange}>
+                <Select
+                  value={
+                    isSpecialCategoryFilter(categoryFilterId)
+                      ? ALL_CATEGORIES
+                      : categoryFilterId
+                  }
+                  onValueChange={onCategoryChange}
+                  disabled={isAggregateView}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="جميع البنود" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_CATEGORIES}>جميع البنود</SelectItem>
-                    <SelectItem value={PERIOD_JOURNAL_GROUP_BY_TYPE}>
-                      إيرادات معاً ومصاريف معاً
-                    </SelectItem>
-                    <SelectItem value={PERIOD_JOURNAL_TYPE_REVENUE}>
-                      جميع الإيرادات معاً
-                    </SelectItem>
-                    <SelectItem value={PERIOD_JOURNAL_TYPE_EXPENSE}>
-                      جميع المصاريف معاً
-                    </SelectItem>
                     {categories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.code} — {cat.name_ar}
@@ -373,13 +475,11 @@ function JournalMonthContent() {
                   </SelectContent>
                 </Select>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  {isGroupedTypeView
-                    ? 'تجميع: صف واحد لكل الإيرادات وصف واحد لكل المصاريف مع أطراف الخزينة.'
-                    : isTypeAggregateView
-                      ? 'نوع واحد مجمّع: قيد مزدوج بالمجموع فقط (البند المجمّع + الطرف المقابل) — بلا تفصيل قيود.'
-                      : isSingleCategoryView
-                        ? 'بند واحد: يُفصل النقدي (مجموع مدين/دائن) عن المصارف — كل مصرف في جدول وورقة مستقلة.'
-                        : 'جميع البنود: مجاميع ثم مجموع كل بند على حدة (مدين البند + دائن الخزينة) — بدون تفصيل القيود.'}
+                  {isAggregateView
+                    ? 'معطّل أثناء وضع التجميع — اختر «كل البنود» أعلاه أولاً.'
+                    : isSingleCategoryView
+                      ? 'بند واحد: يُفصل النقدي عن المصارف — كل مصرف في جدول وورقة مستقلة.'
+                      : 'اتركه على جميع البنود، أو اختر بنداً لكشف تفصيلي.'}
                 </p>
               </div>
               <div className="space-y-2">
