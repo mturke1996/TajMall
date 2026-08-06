@@ -3,7 +3,14 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FileSpreadsheet, LayoutGrid, BookOpen } from 'lucide-react';
+import {
+  FileSpreadsheet,
+  LayoutGrid,
+  BookOpen,
+  Layers,
+  TrendingUp,
+  TrendingDown,
+} from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { AccountingFilterCard } from '@/components/accounting/accounting-filter-card';
 import { ReportPeriodFilter } from '@/components/accounting/report-period-filter';
@@ -38,6 +46,11 @@ import {
   buildCashBankSeparatedSections,
   buildContraLinesForFocus,
   periodLineCashboxKindsLabel,
+  isPeriodJournalGroupByType,
+  parsePeriodJournalTypeFilter,
+  PERIOD_JOURNAL_GROUP_BY_TYPE,
+  PERIOD_JOURNAL_TYPE_REVENUE,
+  PERIOD_JOURNAL_TYPE_EXPENSE,
   type PeriodJournalEntryModel,
 } from '@/lib/period-journal-entry';
 import {
@@ -49,10 +62,58 @@ import {
   type ReportPeriod,
 } from '@/lib/report-period';
 import { useCategories } from '@/lib/db/queries';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, cn } from '@/lib/utils';
 
 type StatusFilter = JournalStatus | 'ALL';
 const ALL_CATEGORIES = 'all';
+
+type ViewMode =
+  | typeof ALL_CATEGORIES
+  | typeof PERIOD_JOURNAL_GROUP_BY_TYPE
+  | typeof PERIOD_JOURNAL_TYPE_REVENUE
+  | typeof PERIOD_JOURNAL_TYPE_EXPENSE;
+
+const VIEW_MODE_OPTIONS: Array<{
+  value: ViewMode;
+  label: string;
+  shortLabel: string;
+  icon: typeof Layers;
+}> = [
+  {
+    value: ALL_CATEGORIES,
+    label: 'كل بند على حدة',
+    shortLabel: 'كل البنود',
+    icon: LayoutGrid,
+  },
+  {
+    value: PERIOD_JOURNAL_GROUP_BY_TYPE,
+    label: 'إيرادات معاً ومصاريف معاً',
+    shortLabel: 'إيراد+مصروف',
+    icon: Layers,
+  },
+  {
+    value: PERIOD_JOURNAL_TYPE_REVENUE,
+    label: 'جميع الإيرادات معاً',
+    shortLabel: 'الإيرادات',
+    icon: TrendingUp,
+  },
+  {
+    value: PERIOD_JOURNAL_TYPE_EXPENSE,
+    label: 'جميع المصاريف معاً',
+    shortLabel: 'المصاريف',
+    icon: TrendingDown,
+  },
+];
+
+function isViewMode(value: string): value is ViewMode {
+  return VIEW_MODE_OPTIONS.some((o) => o.value === value);
+}
+
+function isSpecialCategoryFilter(value: string): boolean {
+  return (
+    isPeriodJournalGroupByType(value) || parsePeriodJournalTypeFilter(value) != null
+  );
+}
 
 function JournalMonthContent() {
   const router = useRouter();
@@ -125,6 +186,11 @@ function JournalMonthContent() {
     });
   };
 
+  const isGroupedTypeView = isPeriodJournalGroupByType(categoryFilterId);
+  const accountTypeFilter = parsePeriodJournalTypeFilter(categoryFilterId);
+  const isTypeAggregateView = accountTypeFilter != null;
+  const isAggregateView = isGroupedTypeView || isTypeAggregateView;
+
   const { startDate, endDate } = reportPeriodDateRange(period);
   const periodLabel = formatReportPeriodLabelAr(period);
 
@@ -181,7 +247,7 @@ function JournalMonthContent() {
 
   const selectedCategory = useMemo(
     () =>
-      categoryFilterId === ALL_CATEGORIES
+      categoryFilterId === ALL_CATEGORIES || isSpecialCategoryFilter(categoryFilterId)
         ? null
         : categories.find((c) => c.id === categoryFilterId) ?? null,
     [categories, categoryFilterId],
@@ -209,7 +275,9 @@ function JournalMonthContent() {
     return applyPeriodJournalCategoryFilter(model, ALL_CATEGORIES, null);
   }, [model]);
 
-  const isSingleCategoryView = categoryFilterId !== ALL_CATEGORIES;
+  const isSingleCategoryView =
+    categoryFilterId !== ALL_CATEGORIES && !isAggregateView;
+  const isFilteredView = categoryFilterId !== ALL_CATEGORIES;
   const isLoading = entriesLoading || aggLoading || categoriesLoading;
   const isError = entriesError || !!aggError;
   const errorMessage =
@@ -275,9 +343,13 @@ function JournalMonthContent() {
         eyebrow="مركز التقارير"
         title="قيد الفترة المحاسبي"
         description={
-          isSingleCategoryView && displayModel?.categoryFilter
-            ? `كشف بند ${displayModel.categoryFilter.name_ar} — النقدي بجدول مدين/دائن، وكل مصرف بورقة · ${periodLabel}`
-            : `تقرير شامل — مجاميع ثم مجموع كل بند (مدين + خزينة) · ${periodLabel}`
+          isGroupedTypeView
+            ? `إيرادات معاً ومصاريف معاً · ${periodLabel}`
+            : isTypeAggregateView && displayModel?.typeGroupFilter
+              ? `مجموع ${displayModel.typeGroupFilter.name_ar} فقط (مدين + دائن) · ${periodLabel}`
+              : isSingleCategoryView && displayModel?.categoryFilter
+                ? `كشف بند ${displayModel.categoryFilter.name_ar} — النقدي بجدول مدين/دائن، وكل مصرف بورقة · ${periodLabel}`
+                : `اختر طريقة التجميع أعلاه — أو اعرض كل بند على حدة · ${periodLabel}`
         }
         actions={
           <>
@@ -302,14 +374,16 @@ function JournalMonthContent() {
               openLabel="تقرير شامل PDF"
               render={renderComprehensivePdf}
             />
-            {isSingleCategoryView ? (
+            {isFilteredView ? (
               <TajMallPdfToolbar
                 fileName={exportNames.fileName}
                 shareTitle={exportNames.shareTitle}
                 shareText={exportNames.shareText}
                 cacheKey={`pje-cat:${startDate}:${endDate}:${statusFilter}:${categoryFilterId}:${displayModel?.lines.length ?? 0}:${displayModel?.totalDebit ?? 0}`}
                 disabled={categoryPdfDisabled}
-                openLabel="كشف البند PDF"
+                openLabel={
+                  isAggregateView ? 'التجميع PDF' : 'كشف البند PDF'
+                }
                 render={renderCategoryPdf}
               />
             ) : null}
@@ -321,12 +395,73 @@ function JournalMonthContent() {
         <AccountingFilterCard>
           <div className="space-y-4">
             <ReportPeriodFilter value={period} onChange={setPeriod} />
+
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  طريقة تجميع البنود
+                </p>
+                {isAggregateView ? (
+                  <Badge
+                    variant="success"
+                    className="font-normal normal-case tracking-normal"
+                  >
+                    وضع التجميع مفعّل
+                  </Badge>
+                ) : null}
+              </div>
+              <Tabs
+                value={
+                  isViewMode(categoryFilterId) ? categoryFilterId : ALL_CATEGORIES
+                }
+                onValueChange={onCategoryChange}
+                className="w-full"
+              >
+                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-4">
+                  {VIEW_MODE_OPTIONS.map((opt) => {
+                    const Icon = opt.icon;
+                    return (
+                      <TabsTrigger
+                        key={opt.value}
+                        value={opt.value}
+                        className={cn(
+                          'flex min-h-11 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center sm:min-h-10 sm:flex-row sm:gap-1.5',
+                          'data-[state=active]:bg-sage-600 data-[state=active]:text-white data-[state=active]:border-sage-700',
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                        <span className="text-[11px] leading-tight sm:text-[12.5px]">
+                          <span className="sm:hidden">{opt.shortLabel}</span>
+                          <span className="hidden sm:inline">{opt.label}</span>
+                        </span>
+                      </TabsTrigger>
+                    );
+                  })}
+                </TabsList>
+              </Tabs>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                {isGroupedTypeView
+                  ? 'يجمع كل بنود الإيراد في صف واحد وكل بنود المصروف في صف واحد مع أطراف الخزينة.'
+                  : isTypeAggregateView
+                    ? 'يعرض مجموع النوع المختار فقط كقيد مزدوج (البند المجمّع + الطرف المقابل).'
+                    : 'اعرض كل بند بإجماله، أو اختر بنداً واحداً من القائمة أدناه.'}
+              </p>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">
-                  البند المحاسبي
+                  بند محاسبي واحد (اختياري)
                 </p>
-                <Select value={categoryFilterId} onValueChange={onCategoryChange}>
+                <Select
+                  value={
+                    isSpecialCategoryFilter(categoryFilterId)
+                      ? ALL_CATEGORIES
+                      : categoryFilterId
+                  }
+                  onValueChange={onCategoryChange}
+                  disabled={isAggregateView}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="جميع البنود" />
                   </SelectTrigger>
@@ -340,9 +475,11 @@ function JournalMonthContent() {
                   </SelectContent>
                 </Select>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  {isSingleCategoryView
-                    ? 'بند واحد: يُفصل النقدي (مجموع مدين/دائن) عن المصارف — كل مصرف في جدول وورقة مستقلة.'
-                    : 'جميع البنود: مجاميع ثم مجموع كل بند على حدة (مدين البند + دائن الخزينة) — بدون تفصيل القيود.'}
+                  {isAggregateView
+                    ? 'معطّل أثناء وضع التجميع — اختر «كل البنود» أعلاه أولاً.'
+                    : isSingleCategoryView
+                      ? 'بند واحد: يُفصل النقدي عن المصارف — كل مصرف في جدول وورقة مستقلة.'
+                      : 'اتركه على جميع البنود، أو اختر بنداً لكشف تفصيلي.'}
                 </p>
               </div>
               <div className="space-y-2">
@@ -379,17 +516,19 @@ function JournalMonthContent() {
           <AccountingEmpty
             icon={BookOpen}
             title={
-              displayModel?.categoryFilter
-                ? 'لا حركة على هذا البند'
+              displayModel?.categoryFilter || displayModel?.typeGroupFilter
+                ? 'لا حركة على هذا التجميع'
                 : 'لا توجد حركة لبناء القيد'
             }
             description={
               displayModel?.categoryFilter
                 ? `البند «${displayModel.categoryFilter.name_ar}» لم يتحرك في ${periodLabel}.`
-                : 'اختر شهراً فيه قيود مرحّلة، أو غيّر فلتر المصدر.'
+                : displayModel?.typeGroupFilter
+                  ? `«${displayModel.typeGroupFilter.name_ar}» بلا حركة في ${periodLabel}.`
+                  : 'اختر شهراً فيه قيود مرحّلة، أو غيّر فلتر المصدر.'
             }
           >
-            {displayModel?.categoryFilter ? (
+            {displayModel?.categoryFilter || displayModel?.typeGroupFilter ? (
               <Button
                 size="sm"
                 variant="outline"
@@ -414,7 +553,11 @@ function JournalMonthContent() {
             <AccountingSummaryGrid
               stats={[
                 {
-                  label: displayModel.categoryFilter ? 'صفوف المجموع' : 'بنود تحرّكت',
+                  label: displayModel.typeGroupFilter
+                    ? 'صفوف مجمّعة'
+                    : displayModel.categoryFilter
+                      ? 'صفوف المجموع'
+                      : 'بنود تحرّكت',
                   value: displayModel.categoryFilter
                     ? displayModel.lines.filter(
                         (l) =>
@@ -449,9 +592,11 @@ function JournalMonthContent() {
                     {displayModel.title}
                   </CardTitle>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {displayModel.categoryFilter
-                      ? `النقدي منفصل · كل مصرف بورقة · ${displayModel.categoryFilter.code} · بلا تفصيل قيود`
-                      : `مجاميع ${displayModel.lines.length} بند · ثم مجموع كل بند`}
+                    {displayModel.typeGroupFilter?.mode === 'group'
+                      ? `إيرادات معاً · مصاريف معاً · ${displayModel.lines.length} صف`
+                      : displayModel.categoryFilter
+                        ? `النقدي منفصل · كل مصرف بورقة · ${displayModel.categoryFilter.code} · بلا تفصيل قيود`
+                        : `مجاميع ${displayModel.lines.length} بند · ثم مجموع كل بند`}
                   </p>
                 </div>
                 <Badge
@@ -488,7 +633,10 @@ function JournalMonthContent() {
                               {line.cashbox_name
                                 ? line.cashbox_name
                                 : line.category_name}
-                              {displayModel.categoryFilter?.id === line.category_id
+                              {displayModel.categoryFilter?.id === line.category_id ||
+                              (displayModel.typeGroupFilter?.mode === 'group' &&
+                                (line.category_type === 'REVENUE' ||
+                                  line.category_type === 'EXPENSE'))
                                 ? ' ★'
                                 : ''}
                             </p>
@@ -542,10 +690,12 @@ function JournalMonthContent() {
             {(() => {
               const contraSource = displayModel.categoryFilter
                 ? displayModel
-                : model;
+                : displayModel.typeGroupFilter
+                  ? displayModel
+                  : model;
               if (!contraSource) return null;
 
-              if (displayModel.categoryFilter) {
+if (displayModel.categoryFilter) {
                 const sections = buildCashBankSeparatedSections(
                   displayModel,
                   displayModel.categoryFilter.id,
@@ -697,7 +847,15 @@ function JournalMonthContent() {
                 });
               }
 
-              const focusLines = displayModel.lines;
+              const focusLines =
+                displayModel.typeGroupFilter?.mode === 'group'
+                  ? displayModel.lines.filter(
+                      (l) =>
+                        l.category_type === 'REVENUE' ||
+                        l.category_type === 'EXPENSE',
+                    )
+                  : displayModel.lines;
+
 
               return focusLines.map((line, lineIndex) => {
                 const focusLine = line;

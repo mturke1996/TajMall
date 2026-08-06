@@ -406,4 +406,122 @@ function line(partial) {
   assert.equal(sections[1].focusLine.debit, 400);
 }
 
+// --- Case 7: group revenues together and expenses together ---
+{
+  const jRev = journal('j-rev', 701, '2026-07-10', 'إيراد إيجار');
+  const jExp1 = journal('j-exp1', 702, '2026-07-11', 'ماء');
+  const jExp2 = journal('j-exp2', 703, '2026-07-12', 'كهرباء');
+  const raw = [
+    line({
+      journal_id: 'j-rev',
+      category_id: 'cash-main',
+      debit: 2000,
+      credit: 0,
+      category_code: '1100',
+      category_name: 'الخزينة الرئيسية',
+      category_type: 'ASSET',
+      cashbox_id: 'cb1',
+      cashbox_name_ar: 'الخزينة الرئيسية',
+    }),
+    line({
+      journal_id: 'j-rev',
+      category_id: 'rev-rent',
+      debit: 0,
+      credit: 2000,
+      category_code: '4100',
+      category_name: 'إيراد إيجار',
+      category_type: 'REVENUE',
+    }),
+    line({
+      journal_id: 'j-exp1',
+      category_id: 'exp-water',
+      debit: 300,
+      credit: 0,
+      category_code: '5200',
+      category_name: 'مصروف ماء',
+      category_type: 'EXPENSE',
+    }),
+    line({
+      journal_id: 'j-exp1',
+      category_id: 'cash-main',
+      debit: 0,
+      credit: 300,
+      category_code: '1100',
+      category_name: 'الخزينة الرئيسية',
+      category_type: 'ASSET',
+      cashbox_id: 'cb1',
+      cashbox_name_ar: 'الخزينة الرئيسية',
+    }),
+    line({
+      journal_id: 'j-exp2',
+      category_id: 'exp-power',
+      debit: 700,
+      credit: 0,
+      category_code: '5210',
+      category_name: 'مصروف كهرباء',
+      category_type: 'EXPENSE',
+    }),
+    line({
+      journal_id: 'j-exp2',
+      category_id: 'cash-main',
+      debit: 0,
+      credit: 700,
+      category_code: '1100',
+      category_name: 'الخزينة الرئيسية',
+      category_type: 'ASSET',
+      cashbox_id: 'cb1',
+      cashbox_name_ar: 'الخزينة الرئيسية',
+    }),
+  ];
+
+  const model = buildPeriodJournalEntryModel({
+    period: { mode: 'month', year: 2026, month: 7 },
+    entries: [jRev, jExp1, jExp2],
+    lines: raw,
+    statusFilter: 'POSTED',
+  });
+
+  const grouped = applyPeriodJournalCategoryFilter(model, 'group:type');
+  assert.ok(grouped.typeGroupFilter?.mode === 'group');
+  assert.ok(grouped.balanced);
+  assert.equal(grouped.totalDebit, grouped.totalCredit);
+
+  const revAgg = grouped.lines.find((l) => l.category_type === 'REVENUE');
+  const expAgg = grouped.lines.find((l) => l.category_type === 'EXPENSE');
+  assert.ok(revAgg, 'must have aggregated revenue row');
+  assert.ok(expAgg, 'must have aggregated expense row');
+  assert.equal(revAgg.category_name, 'جميع الإيرادات');
+  assert.equal(expAgg.category_name, 'جميع المصاريف');
+  assert.equal(revAgg.credit, 2000);
+  assert.equal(expAgg.debit, 1000, 'water 300 + power 700');
+  assert.equal(
+    grouped.lines.filter((l) => l.category_type === 'REVENUE').length,
+    1,
+  );
+  assert.equal(
+    grouped.lines.filter((l) => l.category_type === 'EXPENSE').length,
+    1,
+  );
+
+  const allExpenses = applyPeriodJournalCategoryFilter(model, 'type:EXPENSE');
+  assert.ok(allExpenses.typeGroupFilter?.mode === 'type');
+  assert.equal(allExpenses.categoryFilter?.name_ar, 'جميع المصاريف');
+  const focusExp = allExpenses.lines.find(
+    (l) => l.category_id === 'type:EXPENSE',
+  );
+  assert.ok(focusExp);
+  assert.equal(focusExp.debit, 1000);
+  assert.ok(allExpenses.balanced);
+  assert.equal(allExpenses.totalDebit, 1000);
+  assert.equal(allExpenses.totalCredit, 1000);
+
+  const allRevenue = applyPeriodJournalCategoryFilter(model, 'type:REVENUE');
+  const focusRev = allRevenue.lines.find(
+    (l) => l.category_id === 'type:REVENUE',
+  );
+  assert.ok(focusRev);
+  assert.equal(focusRev.credit, 2000);
+  assert.ok(allRevenue.balanced);
+}
+
 console.log('OK — professional double-entry period journal checks passed');

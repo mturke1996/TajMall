@@ -53,7 +53,8 @@ const REPORT_CARDS: ReportCard[] = [
   {
     href: '/reports/journal-month',
     titleAr: 'قيد الفترة المحاسبي',
-    description: 'قيد واحد للشهر/السنة: كل بند بإجمالي حركته — PDF احترافي',
+    description:
+      'قيد ملخّص للفترة — مع تجميع الإيرادات معاً والمصاريف معاً',
     icon: FileSpreadsheet,
     featured: true,
   },

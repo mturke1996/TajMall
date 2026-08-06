@@ -434,14 +434,21 @@ function CategoryTotalPage({
 
 /** صفحة 1 — مجاميع كل البنود */
 function ComprehensiveSummaryPage({ model }: { model: PeriodJournalEntryModel }) {
+  const grouped = model.typeGroupFilter?.mode === 'group';
   return (
     <>
       <Text style={pdfReportTable.sectionTitle}>
-        {ar('قيد الفترة — مجاميع جميع البنود')}
+        {ar(
+          grouped
+            ? 'قيد الفترة — إيرادات معاً ومصاريف معاً'
+            : 'قيد الفترة — مجاميع جميع البنود',
+        )}
       </Text>
       <Text style={s.note}>
         {ar(
-          `${model.periodLabel} · ${model.lines.length} بند · ${model.sourceEntryCount} قيد · كل بند في صفحة تالية · ${model.balanced ? 'متوازن' : 'مراجعة'}`,
+          grouped
+            ? `${model.periodLabel} · ${model.lines.length} صف مجمّع · ${model.sourceEntryCount} قيد · ${model.balanced ? 'متوازن' : 'مراجعة'}`
+            : `${model.periodLabel} · ${model.lines.length} بند · ${model.sourceEntryCount} قيد · كل بند في صفحة تالية · ${model.balanced ? 'متوازن' : 'مراجعة'}`,
         )}
       </Text>
 
@@ -489,7 +496,14 @@ function ComprehensivePeriodJournalDocument({
   documentTitle?: string;
   titleAr: string;
 }) {
-  const sorted = sortLines(model.lines);
+  const grouped = model.typeGroupFilter?.mode === 'group';
+  const sorted = sortLines(
+    grouped
+      ? model.lines.filter(
+          (l) => l.category_type === 'REVENUE' || l.category_type === 'EXPENSE',
+        )
+      : model.lines,
+  );
 
   return (
     <Document
@@ -621,10 +635,15 @@ export function PeriodJournalEntryPDF({
   documentTitle?: string;
 }) {
   const singleCategory = model.categoryFilter;
+  const typeGroup = model.typeGroupFilter;
 
   const titleAr = singleCategory
     ? `كشف بند — ${singleCategory.name_ar}`
-    : 'تقرير شامل — قيد الفترة المحاسبي';
+    : typeGroup?.mode === 'group'
+      ? 'قيد الفترة — إيرادات ومصاريف مجمّعة'
+      : typeGroup
+        ? `كشف — ${typeGroup.name_ar}`
+        : 'تقرير شامل — قيد الفترة المحاسبي';
 
   if (!singleCategory && model.lines.length > 0) {
     return (

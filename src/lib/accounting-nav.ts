@@ -53,7 +53,7 @@ export const ACCOUNTING_NAV_ITEMS: AccountingNavItem[] = [
   {
     href: '/reports/journal-month',
     labelAr: 'قيد الفترة',
-    description: 'قيد ملخّص: إجمالي كل بند',
+    description: 'تجميع البنود: إيرادات معاً ومصاريف معاً',
     icon: FileSpreadsheet,
     permission: 'journal.view',
     step: 3,
