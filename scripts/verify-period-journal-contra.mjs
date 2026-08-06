@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import {
   aggregatePeriodJournalLines,
   applyPeriodJournalCategoryFilter,
+  buildCashBankSeparatedSections,
   buildPeriodJournalEntryModel,
   buildPeriodJournalVouchers,
 } from '../src/lib/period-journal-entry.ts';
@@ -23,7 +24,10 @@ function journal(id, number, date, description) {
 function line(partial) {
   return {
     description: null,
+    cashbox_id: null,
     cashbox_name_ar: null,
+    cashbox_code: null,
+    cashbox_kind: null,
     contact_name: null,
     sort_order: 1,
     ...partial,
@@ -212,6 +216,186 @@ function line(partial) {
   const vouchers = buildPeriodJournalVouchers(lines, 'exp');
   assert.equal(vouchers[0].lines[0].category_id, 'exp');
   assert.equal(vouchers[0].lines[0].is_focus, true);
+}
+
+// --- Case 5: عند اختيار بند — فصل النقدي عن كل مصرف ---
+{
+  const jCash = journal('jc', 501, '2026-07-05', 'صرف نقدي');
+  const jBank1 = journal('jb1', 502, '2026-07-06', 'صرف مصرف الجمهورية');
+  const jBank2 = journal('jb2', 503, '2026-07-07', 'صرف مصرف الواحة');
+
+  const raw = [
+    line({
+      journal_id: 'jc',
+      category_id: 'exp-clean',
+      debit: 100,
+      credit: 0,
+      category_code: '5100',
+      category_name: 'مصروف نظافة',
+      category_type: 'EXPENSE',
+    }),
+    line({
+      journal_id: 'jc',
+      category_id: 'ast-csh',
+      debit: 0,
+      credit: 100,
+      category_code: 'AST-CSH',
+      category_name: 'الأصول - الخزائن والبنوك',
+      category_type: 'ASSET',
+      cashbox_id: 'cb-cash',
+      cashbox_name_ar: 'الخزينة النقدية',
+      cashbox_code: 'CASH',
+      cashbox_kind: 'CASH',
+    }),
+    line({
+      journal_id: 'jb1',
+      category_id: 'exp-clean',
+      debit: 250,
+      credit: 0,
+      category_code: '5100',
+      category_name: 'مصروف نظافة',
+      category_type: 'EXPENSE',
+    }),
+    line({
+      journal_id: 'jb1',
+      category_id: 'ast-csh',
+      debit: 0,
+      credit: 250,
+      category_code: 'AST-CSH',
+      category_name: 'الأصول - الخزائن والبنوك',
+      category_type: 'ASSET',
+      cashbox_id: 'cb-jum',
+      cashbox_name_ar: 'مصرف الجمهورية',
+      cashbox_code: 'BNK-JUM',
+      cashbox_kind: 'BANK',
+    }),
+    line({
+      journal_id: 'jb2',
+      category_id: 'exp-clean',
+      debit: 75,
+      credit: 0,
+      category_code: '5100',
+      category_name: 'مصروف نظافة',
+      category_type: 'EXPENSE',
+    }),
+    line({
+      journal_id: 'jb2',
+      category_id: 'ast-csh',
+      debit: 0,
+      credit: 75,
+      category_code: 'AST-CSH',
+      category_name: 'الأصول - الخزائن والبنوك',
+      category_type: 'ASSET',
+      cashbox_id: 'cb-wha',
+      cashbox_name_ar: 'مصرف الواحة',
+      cashbox_code: 'BNK-WHA',
+      cashbox_kind: 'BANK',
+    }),
+  ];
+
+  const model = buildPeriodJournalEntryModel({
+    period: { mode: 'month', year: 2026, month: 7 },
+    entries: [jCash, jBank1, jBank2],
+    lines: raw,
+    statusFilter: 'POSTED',
+  });
+
+  const focused = applyPeriodJournalCategoryFilter(model, 'exp-clean');
+  const sections = buildCashBankSeparatedSections(focused, 'exp-clean');
+
+  assert.equal(sections.length, 3, 'نقدي + مصرفان');
+  assert.equal(sections[0].sectionKind, 'CASH');
+  assert.equal(sections[0].title, 'النقدي');
+  assert.equal(sections[0].focusLine.debit, 100);
+  assert.ok(sections[0].balanced);
+  assert.equal(sections[0].totalDebit, sections[0].totalCredit);
+
+  assert.equal(sections[1].sectionKind, 'BANK');
+  assert.equal(sections[2].sectionKind, 'BANK');
+  const bankTitles = sections
+    .filter((s) => s.sectionKind === 'BANK')
+    .map((s) => s.title)
+    .sort((a, b) => a.localeCompare(b, 'ar'));
+  assert.deepEqual(bankTitles, ['مصرف الجمهورية', 'مصرف الواحة']);
+
+  const jum = sections.find((s) => s.title === 'مصرف الجمهورية');
+  assert.equal(jum.focusLine.debit, 250);
+  assert.ok(jum.balanced);
+
+  const wha = sections.find((s) => s.title === 'مصرف الواحة');
+  assert.equal(wha.focusLine.debit, 75);
+  assert.ok(wha.balanced);
+}
+
+// --- Case 6: بند الخزائن نفسه — دمج النقدي وفصل المصارف ---
+{
+  const j1 = journal('j6a', 601, '2026-07-08', 'حركة نقد');
+  const j2 = journal('j6b', 602, '2026-07-09', 'حركة مصرف');
+
+  const raw = [
+    line({
+      journal_id: 'j6a',
+      category_id: 'ast-csh',
+      debit: 200,
+      credit: 0,
+      category_code: 'AST-CSH',
+      category_name: 'الأصول - الخزائن والبنوك',
+      category_type: 'ASSET',
+      cashbox_id: 'cb-cash',
+      cashbox_name_ar: 'الخزينة النقدية',
+      cashbox_code: 'CASH',
+      cashbox_kind: 'CASH',
+    }),
+    line({
+      journal_id: 'j6a',
+      category_id: 'rev',
+      debit: 0,
+      credit: 200,
+      category_code: '4100',
+      category_name: 'إيراد',
+      category_type: 'REVENUE',
+    }),
+    line({
+      journal_id: 'j6b',
+      category_id: 'ast-csh',
+      debit: 400,
+      credit: 0,
+      category_code: 'AST-CSH',
+      category_name: 'الأصول - الخزائن والبنوك',
+      category_type: 'ASSET',
+      cashbox_id: 'cb-jum',
+      cashbox_name_ar: 'مصرف الجمهورية',
+      cashbox_code: 'BNK-JUM',
+      cashbox_kind: 'BANK',
+    }),
+    line({
+      journal_id: 'j6b',
+      category_id: 'rev',
+      debit: 0,
+      credit: 400,
+      category_code: '4100',
+      category_name: 'إيراد',
+      category_type: 'REVENUE',
+    }),
+  ];
+
+  const model = buildPeriodJournalEntryModel({
+    period: { mode: 'month', year: 2026, month: 7 },
+    entries: [j1, j2],
+    lines: raw,
+    statusFilter: 'POSTED',
+  });
+
+  const focused = applyPeriodJournalCategoryFilter(model, 'ast-csh');
+  const sections = buildCashBankSeparatedSections(focused, 'ast-csh');
+
+  assert.equal(sections.length, 2);
+  assert.equal(sections[0].sectionKind, 'CASH');
+  assert.equal(sections[0].focusLine.debit, 200);
+  assert.equal(sections[0].title, 'النقدي');
+  assert.equal(sections[1].sectionKind, 'BANK');
+  assert.equal(sections[1].title, 'مصرف الجمهورية');
+  assert.equal(sections[1].focusLine.debit, 400);
 }
 
 console.log('OK — professional double-entry period journal checks passed');

@@ -9,10 +9,12 @@ import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTab
 import { accountTypeLabelAr } from '@/lib/accounting-labels';
 import { BRAND } from '@/lib/brand';
 import type {
+  PeriodCashBankSection,
   PeriodJournalEntryModel,
   PeriodJournalLine,
 } from '@/lib/period-journal-entry';
 import {
+  buildCashBankSeparatedSections,
   buildContraLinesForFocus,
   periodLineCashboxKindsLabel,
 } from '@/lib/period-journal-entry';
@@ -20,8 +22,9 @@ import {
 /**
  * قيد الفترة المحاسبي — PDF
  *
- * شامل وبند واحد: مجاميع فقط — قيد مزدوج (مدين البند + دائن الخزينة)
- * بدون تفصيل الحركات أو قيود المصدر.
+ * عند اختيار بند: يُفصل النقدي (جدول مدين/دائن بالمجموع) عن المصارف
+ * (كل مصرف في ورقة مستقلة بجدول محاسبي مدين/دائن).
+ * الوضع الشامل: مجاميع ثم مجموع كل بند.
  */
 
 const W = {
@@ -59,6 +62,12 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 3,
     marginBottom: 10,
+  },
+  categoryBandCash: {
+    backgroundColor: '#1e3a2f',
+  },
+  categoryBandBank: {
+    backgroundColor: '#1a365d',
   },
   categoryBandTitle: {
     flex: 1,
@@ -151,8 +160,33 @@ function sortLines(lines: PeriodJournalLine[]): PeriodJournalLine[] {
       'ar',
     );
     if (codeCmp !== 0) return codeCmp;
+    const kindRank = (k: string | null | undefined) =>
+      k === 'CASH' ? 0 : k === 'BANK' ? 1 : k ? 2 : 3;
+    const kr = kindRank(a.cashbox_kind) - kindRank(b.cashbox_kind);
+    if (kr !== 0) return kr;
     return (a.cashbox_name || '').localeCompare(b.cashbox_name || '', 'ar');
   });
+}
+
+function sectionBandStyle(kind: PeriodCashBankSection['sectionKind']) {
+  if (kind === 'CASH') return [s.categoryBand, s.categoryBandCash];
+  if (kind === 'BANK') return [s.categoryBand, s.categoryBandBank];
+  return [s.categoryBand];
+}
+
+function sectionRoleLabel(
+  section: PeriodCashBankSection,
+  isFocus: boolean,
+  credit: number,
+): string {
+  if (isFocus) {
+    if (section.sectionKind === 'CASH') return 'مدين البند · النقدي';
+    if (section.sectionKind === 'BANK') return 'مدين البند · المصرف';
+    return 'مدين البند';
+  }
+  if (section.sectionKind === 'CASH') return credit > 0 ? 'دائن النقدي' : 'طرف مقابل';
+  if (section.sectionKind === 'BANK') return credit > 0 ? 'دائن المصرف' : 'طرف مقابل';
+  return credit > 0 ? 'دائن الخزينة' : 'طرف مقابل';
 }
 
 /** صفحة 1 — مجاميع البنود فقط */
@@ -228,7 +262,7 @@ function UnifiedSummaryTable({ lines }: { lines: PeriodJournalLine[] }) {
   );
 }
 
-/** صفحة بند — مجموع مدين + دائن الخزينة (جدول محاسبي واحد) */
+/** صفحة قسم — مجموع مدين + دائن (نقدي أو مصرف) */
 function CategoryTotalPage({
   focusLine,
   contraLines,
@@ -236,8 +270,8 @@ function CategoryTotalPage({
   totalCredit,
   balanced,
   indexLabel,
-  movementCount,
   periodLabel,
+  section,
 }: {
   focusLine: PeriodJournalLine;
   contraLines: PeriodJournalLine[];
@@ -245,16 +279,30 @@ function CategoryTotalPage({
   totalCredit: number;
   balanced: boolean;
   indexLabel: string;
-  movementCount: number;
   periodLabel: string;
+  section?: PeriodCashBankSection;
 }) {
+  const sectionKind = section?.sectionKind;
   const cashboxCredit = contraLines.reduce((sum, l) => sum + l.credit, 0);
+  const creditLabel =
+    sectionKind === 'CASH'
+      ? 'دائن النقدي'
+      : sectionKind === 'BANK'
+        ? 'دائن المصرف'
+        : 'دائن الخزينة';
+  const displayName =
+    section?.title ||
+    focusLine.cashbox_name ||
+    focusLine.category_name;
+
   const rows = [
     {
       key: focusLine.rowKey,
       code: focusLine.category_code || '—',
       name: focusLine.cashbox_name || focusLine.category_name,
-      desc: 'مدين البند',
+      desc: section
+        ? sectionRoleLabel(section, true, focusLine.credit)
+        : 'مدين البند',
       hint: focusLine.cashbox_name
         ? focusLine.category_name
         : 'مجموع الفترة',
@@ -266,7 +314,11 @@ function CategoryTotalPage({
       key: line.rowKey,
       code: line.category_code || '—',
       name: line.cashbox_name || line.category_name,
-      desc: line.credit > 0 ? 'دائن الخزينة' : 'طرف مقابل',
+      desc: section
+        ? sectionRoleLabel(section, false, line.credit)
+        : line.credit > 0
+          ? 'دائن الخزينة'
+          : 'طرف مقابل',
       hint: line.cashbox_name
         ? line.category_name
         : accountTypeLabelAr(line.category_type),
@@ -278,7 +330,7 @@ function CategoryTotalPage({
 
   return (
     <View>
-      <View style={s.categoryBand}>
+      <View style={sectionBandStyle(sectionKind ?? 'NONE')}>
         <View style={balanced ? s.badgeOk : s.badgeWarn}>
           <Text style={balanced ? s.badgeTextOk : s.badgeTextWarn}>
             {ar(balanced ? 'متوازن' : 'مراجعة')}
@@ -286,15 +338,14 @@ function CategoryTotalPage({
         </View>
         <View style={s.categoryBandTitle}>
           <Text style={s.categoryBandEyebrow}>{ar(indexLabel)}</Text>
-          <Text style={s.categoryBandName}>
-            {ar(focusLine.cashbox_name || focusLine.category_name)}
-          </Text>
+          <Text style={s.categoryBandName}>{ar(displayName)}</Text>
           <Text style={s.categoryBandMeta}>
             {ar(
               `${focusLine.category_code || '—'} · ${
-                focusLine.cashbox_name
+                section?.subtitle ||
+                (focusLine.cashbox_name
                   ? focusLine.category_name
-                  : accountTypeLabelAr(focusLine.category_type)
+                  : accountTypeLabelAr(focusLine.category_type))
               } · ${periodLabel}`,
             )}
           </Text>
@@ -307,7 +358,7 @@ function CategoryTotalPage({
           <PdfReportMoney amount={focusLine.debit} bold color={PDF.success} showZero />
         </View>
         <View style={pdfReportTable.docInfoCell}>
-          <Text style={pdfReportTable.docInfoLabel}>{ar('دائن الخزينة')}</Text>
+          <Text style={pdfReportTable.docInfoLabel}>{ar(creditLabel)}</Text>
           <PdfReportMoney amount={cashboxCredit} bold color={PDF.danger} showZero />
         </View>
         <View style={pdfReportTable.docInfoCell}>
@@ -446,9 +497,9 @@ function ComprehensivePeriodJournalDocument({
         const focusLine = line;
         const contraLines = buildContraLinesForFocus(model, focusLine);
         const totalDebit =
-          focusLine.debit + contraLines.reduce((s, l) => s + l.debit, 0);
+          focusLine.debit + contraLines.reduce((sum, l) => sum + l.debit, 0);
         const totalCredit =
-          focusLine.credit + contraLines.reduce((s, l) => s + l.credit, 0);
+          focusLine.credit + contraLines.reduce((sum, l) => sum + l.credit, 0);
         const balanced = Math.abs(totalDebit - totalCredit) <= 0.005;
 
         return (
@@ -466,7 +517,6 @@ function ComprehensivePeriodJournalDocument({
               totalDebit={totalDebit}
               totalCredit={totalCredit}
               balanced={balanced}
-              movementCount={focusLine.movements.length}
               periodLabel={model.periodLabel}
               indexLabel={`بند ${index + 1} من ${sorted.length}`}
             />
@@ -477,7 +527,7 @@ function ComprehensivePeriodJournalDocument({
   );
 }
 
-/** بند واحد — صفحة/صفحات بالمجموع فقط (بدون تفصيل القيود) */
+/** بند واحد — النقدي ورقة، وكل مصرف ورقة مستقلة */
 function SingleCategoryTotalsDocument({
   model,
   documentTitle,
@@ -488,11 +538,9 @@ function SingleCategoryTotalsDocument({
   titleAr: string;
 }) {
   const focusId = model.categoryFilter!.id;
-  const focusLines = sortLines(
-    model.lines.filter((l) => l.category_id === focusId),
-  );
+  const sections = buildCashBankSeparatedSections(model, focusId);
 
-  if (focusLines.length === 0) {
+  if (sections.length === 0) {
     return (
       <Document
         title={documentTitle ?? `${BRAND.name} — ${titleAr}`}
@@ -512,41 +560,38 @@ function SingleCategoryTotalsDocument({
     );
   }
 
+  const cashCount = sections.filter((sec) => sec.sectionKind === 'CASH').length;
+  const bankCount = sections.filter((sec) => sec.sectionKind === 'BANK').length;
+
   return (
     <Document
       title={documentTitle ?? `${BRAND.name} — ${titleAr}`}
       author={BRAND.fullName}
     >
-      {focusLines.map((focusLine, index) => {
-        const contraLines = buildContraLinesForFocus(model, focusLine);
-        const totalDebit =
-          focusLine.debit + contraLines.reduce((s, l) => s + l.debit, 0);
-        const totalCredit =
-          focusLine.credit + contraLines.reduce((s, l) => s + l.credit, 0);
-        const balanced = Math.abs(totalDebit - totalCredit) <= 0.005;
+      {sections.map((section, index) => {
+        const kindLabel =
+          section.sectionKind === 'CASH'
+            ? 'النقدي — مجموع مدين ودائن'
+            : section.sectionKind === 'BANK'
+              ? `مصرف ${index + 1 - cashCount} من ${bankCount || 1}`
+              : `قسم ${index + 1} من ${sections.length}`;
 
         return (
           <ReportPageFrame
-            key={focusLine.rowKey}
+            key={section.sectionKey}
             title={titleAr}
-            subtitle={`${focusLine.category_code || '—'} — ${
-              focusLine.cashbox_name || focusLine.category_name
-            }`}
+            subtitle={`${model.categoryFilter?.code || '—'} — ${section.title}`}
             titleEn="JOURNAL"
           >
             <CategoryTotalPage
-              focusLine={focusLine}
-              contraLines={contraLines}
-              totalDebit={totalDebit}
-              totalCredit={totalCredit}
-              balanced={balanced}
-              movementCount={focusLine.movements.length}
+              focusLine={section.focusLine}
+              contraLines={section.contraLines}
+              totalDebit={section.totalDebit}
+              totalCredit={section.totalCredit}
+              balanced={section.balanced}
               periodLabel={model.periodLabel}
-              indexLabel={
-                focusLines.length > 1
-                  ? `بند ${index + 1} من ${focusLines.length}`
-                  : 'مجموع البند للفترة'
-              }
+              indexLabel={kindLabel}
+              section={section}
             />
             <PdfReportCaption />
           </ReportPageFrame>
