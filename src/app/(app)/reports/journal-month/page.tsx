@@ -587,12 +587,19 @@ function JournalMonthContent() {
                               className="font-normal normal-case tracking-normal"
                             >
                               {kindBadge}
+                              {section.fundingLabel &&
+                              section.fundingLabel !== '—'
+                                ? ` · ${section.fundingLabel}`
+                                : ''}
                             </Badge>
                           ) : null}
                         </CardTitle>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {section.subtitle} · مدين{' '}
-                          {formatMoney(focusLine.debit, '')} · {creditRole}{' '}
+                          مدين: {section.title}
+                          {section.fundingLabel && section.fundingLabel !== '—'
+                            ? ` · دائن: ${section.fundingLabel}`
+                            : ''}{' '}
+                          · مدين {formatMoney(focusLine.debit, '')} · {creditRole}{' '}
                           {formatMoney(cashboxCredit, '')}
                           {section.balanced ? ' · متوازن' : ' · مراجعة'}
                         </p>
@@ -625,9 +632,7 @@ function JournalMonthContent() {
                                   {focusLine.category_code || '—'}
                                 </td>
                                 <td className="px-4 py-2.5 font-semibold">
-                                  {focusLine.cashbox_name ||
-                                    focusLine.category_name}{' '}
-                                  ★
+                                  {focusLine.category_name} ★
                                 </td>
                                 <td className="px-4 py-2.5 text-xs text-muted-foreground">
                                   مدين البند
@@ -648,7 +653,11 @@ function JournalMonthContent() {
                                     {cl.category_code || '—'}
                                   </td>
                                   <td className="px-4 py-2.5 font-semibold">
-                                    {cl.cashbox_name || cl.category_name}
+                                    {section.sectionKind === 'CASH'
+                                      ? cl.cashbox_name ||
+                                        section.fundingLabel ||
+                                        'النقدي'
+                                      : cl.cashbox_name || cl.category_name}
                                   </td>
                                   <td className="px-4 py-2.5 text-xs text-muted-foreground">
                                     {cl.credit > 0 ? creditRole : 'طرف مقابل'}

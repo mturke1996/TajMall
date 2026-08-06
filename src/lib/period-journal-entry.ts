@@ -144,13 +144,15 @@ export type PeriodJournalLine = {
 
 /**
  * قسم تقرير عند اختيار بند: النقدي مجمّعاً، وكل مصرف في صفحة مستقلة.
- * يناسب القاعدة المحاسبية: مدين البند + دائن الخزينة/المصرف بالمجاميع فقط.
+ * العرض المهني: البند المحدد = مدين (باسمه الواضح)، والنقدي/المصرف = دائن.
  */
 export type PeriodCashBankSection = {
   sectionKey: string;
   sectionKind: 'CASH' | 'BANK' | 'CARD' | 'OTHER' | 'NONE';
-  /** عنوان القسم: النقدي / اسم المصرف */
+  /** اسم البند المحدد — يظهر كمدين بوضوح */
   title: string;
+  /** مصدر التمويل للطرف الدائن: النقدي / اسم المصرف */
+  fundingLabel: string;
   /** وصف قصير للعرض */
   subtitle: string;
   focusLine: PeriodJournalLine;
@@ -465,8 +467,8 @@ function sectionTotals(
 
 /**
  * عند اختيار بند: يفصل التقرير إلى
- * 1) قسم النقدي — جدول مدين/دائن بالمجموع فقط
- * 2) قسم لكل مصرف — جدول محاسبي مدين/دائن في صفحة مستقلة
+ * 1) قسم النقدي — البند مدين + النقدي دائن (مجموع فقط)
+ * 2) قسم لكل مصرف — البند مدين + هذا المصرف دائن (ورقة مستقلة)
  */
 export function buildCashBankSeparatedSections(
   model: PeriodJournalEntryModel,
@@ -475,8 +477,25 @@ export function buildCashBankSeparatedSections(
   const focusRows = model.lines.filter((l) => l.category_id === focusCategoryId);
   if (focusRows.length === 0) return [];
 
+  const categoryName = focusRows[0]?.category_name || 'البند';
+  const categoryCode = focusRows[0]?.category_code || '';
   const focusIsCashboxSplit = focusRows.some((l) => l.cashbox_id);
   const sections: PeriodCashBankSection[] = [];
+
+  const makeSubtitle = (funding: string) =>
+    `مدين: ${categoryName} · دائن: ${funding}`;
+
+  /** صف تركيز باسم البند فقط — لا نضع اسم الخزينة فوق اسم البند */
+  const asCategoryFocus = (
+    line: PeriodJournalLine,
+    rowKey: string,
+  ): PeriodJournalLine => ({
+    ...line,
+    cashbox_id: null,
+    cashbox_name: null,
+    cashbox_kind: null,
+    rowKey,
+  });
 
   if (focusIsCashboxSplit) {
     const cashRows = focusRows.filter((l) => l.cashbox_kind === 'CASH');
@@ -498,7 +517,8 @@ export function buildCashBankSeparatedSections(
     const plainRows = focusRows.filter((l) => !l.cashbox_id);
 
     if (cashRows.length > 0) {
-      const focusLine = mergeCashFocusLines(cashRows);
+      const merged = mergeCashFocusLines(cashRows);
+      const focusLine = asCategoryFocus(merged, merged.rowKey);
       const journalIds = new Set(focusLine.movements.map((m) => m.journal_id));
       const contraLines = buildContraLinesForJournals(
         model,
@@ -508,8 +528,9 @@ export function buildCashBankSeparatedSections(
       sections.push({
         sectionKey: focusLine.rowKey,
         sectionKind: 'CASH',
-        title: 'النقدي',
-        subtitle: 'مجموع الحركة النقدية — مدين ودائن فقط',
+        title: categoryName,
+        fundingLabel: 'النقدي',
+        subtitle: makeSubtitle('النقدي'),
         focusLine,
         contraLines,
         ...sectionTotals(focusLine, contraLines),
@@ -517,29 +538,35 @@ export function buildCashBankSeparatedSections(
     }
 
     for (const bank of bankRows) {
+      const funding = bank.cashbox_name?.trim() || 'حساب مصرفي';
+      const focusLine = asCategoryFocus(bank, bank.rowKey);
       const contraLines = buildContraLinesForFocus(model, bank);
       sections.push({
         sectionKey: bank.rowKey,
         sectionKind: 'BANK',
-        title: bank.cashbox_name?.trim() || 'حساب مصرفي',
-        subtitle: 'كشف المصرف — جدول محاسبي مدين ودائن',
-        focusLine: bank,
+        title: categoryName,
+        fundingLabel: funding,
+        subtitle: makeSubtitle(funding),
+        focusLine,
         contraLines,
-        ...sectionTotals(bank, contraLines),
+        ...sectionTotals(focusLine, contraLines),
       });
     }
 
     for (const row of otherRows) {
-      const contraLines = buildContraLinesForFocus(model, row);
       const kind = row.cashbox_kind ?? 'OTHER';
+      const funding = row.cashbox_name?.trim() || 'خزينة أخرى';
+      const focusLine = asCategoryFocus(row, row.rowKey);
+      const contraLines = buildContraLinesForFocus(model, row);
       sections.push({
         sectionKey: row.rowKey,
         sectionKind: kind === 'CARD' ? 'CARD' : 'OTHER',
-        title: row.cashbox_name?.trim() || 'خزينة أخرى',
-        subtitle: 'مجموع الحركة — مدين ودائن',
-        focusLine: row,
+        title: categoryName,
+        fundingLabel: funding,
+        subtitle: makeSubtitle(funding),
+        focusLine,
         contraLines,
-        ...sectionTotals(row, contraLines),
+        ...sectionTotals(focusLine, contraLines),
       });
     }
 
@@ -548,9 +575,10 @@ export function buildCashBankSeparatedSections(
       sections.push({
         sectionKey: row.rowKey,
         sectionKind: 'NONE',
-        title: row.category_name,
-        subtitle: 'مجموع البند — مدين ودائن',
-        focusLine: row,
+        title: categoryName,
+        fundingLabel: '—',
+        subtitle: `مجموع بند ${categoryName} — مدين ودائن`,
+        focusLine: asCategoryFocus(row, row.rowKey),
         contraLines,
         ...sectionTotals(row, contraLines),
       });
@@ -559,15 +587,14 @@ export function buildCashBankSeparatedSections(
     return sections;
   }
 
-  /** بند عادي: قسّم حركاته حسب خزينة/مصرف القيد المصدر */
+  /** بند عادي (مصروف/إيراد…): قسّم حسب مصدر الدفع — البند مدين، النقدي/المصرف دائن */
   const template = focusRows[0];
   const allMovements = focusRows.flatMap((r) => r.movements);
 
   type Bucket = {
     key: string;
     kind: PeriodCashBankSection['sectionKind'];
-    title: string;
-    subtitle: string;
+    fundingLabel: string;
     journalIds: Set<string>;
     cashbox_id: string | null;
     cashbox_name: string | null;
@@ -577,8 +604,7 @@ export function buildCashBankSeparatedSections(
   const cashBucket: Bucket = {
     key: `${focusCategoryId}::kind:CASH`,
     kind: 'CASH',
-    title: 'النقدي',
-    subtitle: 'مجموع الحركة النقدية — مدين ودائن فقط',
+    fundingLabel: 'النقدي',
     journalIds: new Set(),
     cashbox_id: null,
     cashbox_name: 'النقدي',
@@ -589,8 +615,7 @@ export function buildCashBankSeparatedSections(
   const noneBucket: Bucket = {
     key: `${focusCategoryId}::kind:NONE`,
     kind: 'NONE',
-    title: template.category_name,
-    subtitle: 'مجموع البند بلا خزينة — مدين ودائن',
+    fundingLabel: '—',
     journalIds: new Set(),
     cashbox_id: null,
     cashbox_name: null,
@@ -622,8 +647,7 @@ export function buildCashBankSeparatedSections(
         bucket = {
           key: `${focusCategoryId}::cb:${bankKey}`,
           kind: 'BANK',
-          title: meta?.cashbox_name?.trim() || 'حساب مصرفي',
-          subtitle: 'كشف المصرف — جدول محاسبي مدين ودائن',
+          fundingLabel: meta?.cashbox_name?.trim() || 'حساب مصرفي',
           journalIds: new Set(),
           cashbox_id: meta?.cashbox_id ?? null,
           cashbox_name: meta?.cashbox_name ?? null,
@@ -646,8 +670,7 @@ export function buildCashBankSeparatedSections(
         bucket = {
           key: `${focusCategoryId}::cb:${otherKey}`,
           kind: kind === 'CARD' ? 'CARD' : 'OTHER',
-          title: meta?.cashbox_name?.trim() || 'خزينة أخرى',
-          subtitle: 'مجموع الحركة — مدين ودائن',
+          fundingLabel: meta?.cashbox_name?.trim() || 'خزينة أخرى',
           journalIds: new Set(),
           cashbox_id: meta?.cashbox_id ?? null,
           cashbox_name: meta?.cashbox_name ?? null,
@@ -666,26 +689,32 @@ export function buildCashBankSeparatedSections(
   if (cashBucket.journalIds.size > 0) orderedBuckets.push(cashBucket);
   orderedBuckets.push(
     ...[...bankBuckets.values()].sort((a, b) =>
-      a.title.localeCompare(b.title, 'ar'),
+      a.fundingLabel.localeCompare(b.fundingLabel, 'ar'),
     ),
   );
   orderedBuckets.push(
     ...[...otherBuckets.values()].sort((a, b) =>
-      a.title.localeCompare(b.title, 'ar'),
+      a.fundingLabel.localeCompare(b.fundingLabel, 'ar'),
     ),
   );
   if (noneBucket.journalIds.size > 0) orderedBuckets.push(noneBucket);
 
-  /** إن لم يُستدَل أي خزينة — صفحة واحدة كالسابق */
   if (orderedBuckets.length === 0) {
-    const focusLine = focusRows.length === 1 ? focusRows[0] : mergeCashFocusLines(focusRows);
-    const contraLines = buildContraLinesForFocus(model, focusLine);
+    const focusLine =
+      focusRows.length === 1
+        ? asCategoryFocus(focusRows[0], focusRows[0].rowKey)
+        : asCategoryFocus(
+            mergeCashFocusLines(focusRows),
+            `${focusCategoryId}::all`,
+          );
+    const contraLines = buildContraLinesForFocus(model, focusRows[0]);
     return [
       {
         sectionKey: focusLine.rowKey,
         sectionKind: 'NONE',
-        title: focusLine.cashbox_name || focusLine.category_name,
-        subtitle: 'مجموع البند — مدين ودائن',
+        title: categoryName,
+        fundingLabel: '—',
+        subtitle: `مجموع بند ${categoryName} — مدين ودائن`,
         focusLine,
         contraLines,
         ...sectionTotals(focusLine, contraLines),
@@ -705,9 +734,11 @@ export function buildCashBankSeparatedSections(
     const credit = movements.reduce((s, m) => s + m.credit, 0);
     const focusLine: PeriodJournalLine = {
       ...template,
-      cashbox_id: bucket.cashbox_id,
-      cashbox_name: bucket.cashbox_name,
-      cashbox_kind: bucket.cashbox_kind,
+      category_name: categoryName,
+      category_code: categoryCode,
+      cashbox_id: null,
+      cashbox_name: null,
+      cashbox_kind: null,
       rowKey: bucket.key,
       debit,
       credit,
@@ -719,11 +750,9 @@ export function buildCashBankSeparatedSections(
       focusLine,
       bucket.journalIds,
     ).filter((l) => {
-      /** في قسم النقدي: أظهر أطراف النقدي المجمّعة فقط دون مصارف */
       if (bucket.kind === 'CASH') {
         return !l.cashbox_kind || l.cashbox_kind === 'CASH' || !l.cashbox_id;
       }
-      /** في قسم المصرف: الطرف المقابل هو هذا المصرف أو البنود غير الخزنية */
       if (bucket.kind === 'BANK') {
         if (l.cashbox_id && bucket.cashbox_id) {
           return l.cashbox_id === bucket.cashbox_id;
@@ -736,21 +765,40 @@ export function buildCashBankSeparatedSections(
       return true;
     });
 
-    /** إن وُجدت عدة صفوف نقدية كأطراف، ادمجها للعرض */
     let displayContra = contraLines;
     if (bucket.kind === 'CASH') {
       const cashContras = contraLines.filter((l) => l.cashbox_kind === 'CASH');
       const otherContras = contraLines.filter((l) => l.cashbox_kind !== 'CASH');
       if (cashContras.length > 1) {
-        displayContra = [mergeCashFocusLines(cashContras), ...otherContras];
+        const mergedCash = mergeCashFocusLines(cashContras);
+        displayContra = [
+          {
+            ...mergedCash,
+            cashbox_name: 'النقدي',
+            cashbox_kind: 'CASH',
+          },
+          ...otherContras,
+        ];
+      } else if (cashContras.length === 1) {
+        displayContra = [
+          {
+            ...cashContras[0],
+            cashbox_name: cashContras[0].cashbox_name || 'النقدي',
+          },
+          ...otherContras,
+        ];
       }
     }
 
     sections.push({
       sectionKey: bucket.key,
       sectionKind: bucket.kind,
-      title: bucket.title,
-      subtitle: bucket.subtitle,
+      title: categoryName,
+      fundingLabel: bucket.fundingLabel,
+      subtitle:
+        bucket.kind === 'NONE'
+          ? `مجموع بند ${categoryName} — مدين ودائن`
+          : makeSubtitle(bucket.fundingLabel),
       focusLine,
       contraLines: displayContra,
       ...sectionTotals(focusLine, displayContra),

@@ -305,24 +305,29 @@ function line(partial) {
 
   assert.equal(sections.length, 3, 'نقدي + مصرفان');
   assert.equal(sections[0].sectionKind, 'CASH');
-  assert.equal(sections[0].title, 'النقدي');
+  assert.equal(sections[0].title, 'مصروف نظافة', 'اسم البند المحدد كعنوان');
+  assert.equal(sections[0].fundingLabel, 'النقدي');
+  assert.equal(sections[0].focusLine.category_name, 'مصروف نظافة');
+  assert.equal(sections[0].focusLine.cashbox_name, null, 'لا يُخفى اسم البند باسم الخزينة');
   assert.equal(sections[0].focusLine.debit, 100);
   assert.ok(sections[0].balanced);
   assert.equal(sections[0].totalDebit, sections[0].totalCredit);
 
   assert.equal(sections[1].sectionKind, 'BANK');
   assert.equal(sections[2].sectionKind, 'BANK');
-  const bankTitles = sections
+  assert.ok(sections.every((s) => s.title === 'مصروف نظافة'));
+  const bankLabels = sections
     .filter((s) => s.sectionKind === 'BANK')
-    .map((s) => s.title)
+    .map((s) => s.fundingLabel)
     .sort((a, b) => a.localeCompare(b, 'ar'));
-  assert.deepEqual(bankTitles, ['مصرف الجمهورية', 'مصرف الواحة']);
+  assert.deepEqual(bankLabels, ['مصرف الجمهورية', 'مصرف الواحة']);
 
-  const jum = sections.find((s) => s.title === 'مصرف الجمهورية');
+  const jum = sections.find((s) => s.fundingLabel === 'مصرف الجمهورية');
   assert.equal(jum.focusLine.debit, 250);
+  assert.equal(jum.focusLine.category_name, 'مصروف نظافة');
   assert.ok(jum.balanced);
 
-  const wha = sections.find((s) => s.title === 'مصرف الواحة');
+  const wha = sections.find((s) => s.fundingLabel === 'مصرف الواحة');
   assert.equal(wha.focusLine.debit, 75);
   assert.ok(wha.balanced);
 }
@@ -391,10 +396,13 @@ function line(partial) {
 
   assert.equal(sections.length, 2);
   assert.equal(sections[0].sectionKind, 'CASH');
+  assert.equal(sections[0].title, 'الأصول - الخزائن والبنوك');
+  assert.equal(sections[0].fundingLabel, 'النقدي');
+  assert.equal(sections[0].focusLine.category_name, 'الأصول - الخزائن والبنوك');
   assert.equal(sections[0].focusLine.debit, 200);
-  assert.equal(sections[0].title, 'النقدي');
   assert.equal(sections[1].sectionKind, 'BANK');
-  assert.equal(sections[1].title, 'مصرف الجمهورية');
+  assert.equal(sections[1].fundingLabel, 'مصرف الجمهورية');
+  assert.equal(sections[1].title, 'الأصول - الخزائن والبنوك');
   assert.equal(sections[1].focusLine.debit, 400);
 }
 

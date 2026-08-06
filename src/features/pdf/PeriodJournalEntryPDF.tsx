@@ -179,14 +179,24 @@ function sectionRoleLabel(
   isFocus: boolean,
   credit: number,
 ): string {
-  if (isFocus) {
-    if (section.sectionKind === 'CASH') return 'مدين البند · النقدي';
-    if (section.sectionKind === 'BANK') return 'مدين البند · المصرف';
-    return 'مدين البند';
-  }
+  if (isFocus) return 'مدين البند';
   if (section.sectionKind === 'CASH') return credit > 0 ? 'دائن النقدي' : 'طرف مقابل';
   if (section.sectionKind === 'BANK') return credit > 0 ? 'دائن المصرف' : 'طرف مقابل';
   return credit > 0 ? 'دائن الخزينة' : 'طرف مقابل';
+}
+
+function contraAccountName(line: PeriodJournalLine, section?: PeriodCashBankSection): string {
+  if (section?.sectionKind === 'CASH') {
+    return line.cashbox_name?.trim() || section.fundingLabel || 'النقدي';
+  }
+  if (section?.sectionKind === 'BANK') {
+    return (
+      line.cashbox_name?.trim() ||
+      section.fundingLabel ||
+      line.category_name
+    );
+  }
+  return line.cashbox_name?.trim() || line.category_name;
 }
 
 /** صفحة 1 — مجاميع البنود فقط */
@@ -290,21 +300,18 @@ function CategoryTotalPage({
       : sectionKind === 'BANK'
         ? 'دائن المصرف'
         : 'دائن الخزينة';
-  const displayName =
-    section?.title ||
-    focusLine.cashbox_name ||
-    focusLine.category_name;
+  /** اسم البند المحدد يظهر بوضوح كمدين */
+  const displayName = focusLine.category_name;
+  const fundingLabel = section?.fundingLabel;
 
   const rows = [
     {
       key: focusLine.rowKey,
       code: focusLine.category_code || '—',
-      name: focusLine.cashbox_name || focusLine.category_name,
-      desc: section
-        ? sectionRoleLabel(section, true, focusLine.credit)
-        : 'مدين البند',
-      hint: focusLine.cashbox_name
-        ? focusLine.category_name
+      name: focusLine.category_name,
+      desc: section ? sectionRoleLabel(section, true, focusLine.credit) : 'مدين البند',
+      hint: fundingLabel && fundingLabel !== '—'
+        ? `مقابل دائن: ${fundingLabel}`
         : 'مجموع الفترة',
       debit: focusLine.debit,
       credit: focusLine.credit,
@@ -313,7 +320,7 @@ function CategoryTotalPage({
     ...contraLines.map((line) => ({
       key: line.rowKey,
       code: line.category_code || '—',
-      name: line.cashbox_name || line.category_name,
+      name: contraAccountName(line, section),
       desc: section
         ? sectionRoleLabel(section, false, line.credit)
         : line.credit > 0
@@ -342,10 +349,10 @@ function CategoryTotalPage({
           <Text style={s.categoryBandMeta}>
             {ar(
               `${focusLine.category_code || '—'} · ${
-                section?.subtitle ||
-                (focusLine.cashbox_name
-                  ? focusLine.category_name
-                  : accountTypeLabelAr(focusLine.category_type))
+                fundingLabel && fundingLabel !== '—'
+                  ? `مدين البند · دائن ${fundingLabel}`
+                  : section?.subtitle ||
+                    accountTypeLabelAr(focusLine.category_type)
               } · ${periodLabel}`,
             )}
           </Text>
@@ -560,9 +567,6 @@ function SingleCategoryTotalsDocument({
     );
   }
 
-  const cashCount = sections.filter((sec) => sec.sectionKind === 'CASH').length;
-  const bankCount = sections.filter((sec) => sec.sectionKind === 'BANK').length;
-
   return (
     <Document
       title={documentTitle ?? `${BRAND.name} — ${titleAr}`}
@@ -571,16 +575,20 @@ function SingleCategoryTotalsDocument({
       {sections.map((section, index) => {
         const kindLabel =
           section.sectionKind === 'CASH'
-            ? 'النقدي — مجموع مدين ودائن'
+            ? `بند ${section.title} · دائن النقدي`
             : section.sectionKind === 'BANK'
-              ? `مصرف ${index + 1 - cashCount} من ${bankCount || 1}`
-              : `قسم ${index + 1} من ${sections.length}`;
+              ? `بند ${section.title} · دائن ${section.fundingLabel}`
+              : `بند ${section.title}`;
 
         return (
           <ReportPageFrame
             key={section.sectionKey}
             title={titleAr}
-            subtitle={`${model.categoryFilter?.code || '—'} — ${section.title}`}
+            subtitle={`${model.categoryFilter?.code || '—'} — ${section.title}${
+              section.fundingLabel && section.fundingLabel !== '—'
+                ? ` · ${section.fundingLabel}`
+                : ''
+            }`}
             titleEn="JOURNAL"
           >
             <CategoryTotalPage
@@ -590,7 +598,11 @@ function SingleCategoryTotalsDocument({
               totalCredit={section.totalCredit}
               balanced={section.balanced}
               periodLabel={model.periodLabel}
-              indexLabel={kindLabel}
+              indexLabel={
+                sections.length > 1
+                  ? `${kindLabel} · ${index + 1}/${sections.length}`
+                  : kindLabel
+              }
               section={section}
             />
             <PdfReportCaption />
