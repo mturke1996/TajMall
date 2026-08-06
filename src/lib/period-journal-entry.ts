@@ -1106,6 +1106,7 @@ export function mergePeriodJournalLines(
     category_type: meta.type,
     cashbox_id: null,
     cashbox_name: null,
+    cashbox_kind: null,
     rowKey: meta.id,
     debit,
     credit,
