@@ -728,28 +728,30 @@ if (displayModel.categoryFilter) {
                       <CardHeader className="border-b pb-3 space-y-0">
                         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
                           <span>
-                            {sectionIndex + 1}/{sections.length} ·{' '}
-                            {focusLine.category_code || '—'} — {section.title}
+                            {sectionIndex + 1}/{sections.length} · البند:{' '}
+                            <span className="text-sage-800">
+                              {section.title}
+                            </span>
                           </span>
                           {kindBadge ? (
                             <Badge
                               variant="outline"
                               className="font-normal normal-case tracking-normal"
                             >
-                              {kindBadge}
+                              دائن:{' '}
                               {section.fundingLabel &&
                               section.fundingLabel !== '—'
-                                ? ` · ${section.fundingLabel}`
-                                : ''}
+                                ? section.fundingLabel
+                                : kindBadge}
                             </Badge>
                           ) : null}
                         </CardTitle>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          مدين: {section.title}
+                          جدول محاسبي · مدين «{section.title}» · دائن «
                           {section.fundingLabel && section.fundingLabel !== '—'
-                            ? ` · دائن: ${section.fundingLabel}`
-                            : ''}{' '}
-                          · مدين {formatMoney(focusLine.debit, '')} · {creditRole}{' '}
+                            ? section.fundingLabel
+                            : 'الخزينة'}
+                          » · {formatMoney(focusLine.debit, '')} /{' '}
                           {formatMoney(cashboxCredit, '')}
                           {section.balanced ? ' · متوازن' : ' · مراجعة'}
                         </p>
@@ -781,11 +783,16 @@ if (displayModel.categoryFilter) {
                                 <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
                                   {focusLine.category_code || '—'}
                                 </td>
-                                <td className="px-4 py-2.5 font-semibold">
-                                  {focusLine.category_name} ★
+                                <td className="px-4 py-2.5">
+                                  <p className="text-[11px] font-medium text-emerald-800">
+                                    مدين — البند المحدد
+                                  </p>
+                                  <p className="text-base font-bold text-sage-900">
+                                    {focusLine.category_name}
+                                  </p>
                                 </td>
-                                <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                                  مدين البند
+                                <td className="px-4 py-2.5 text-xs font-semibold text-emerald-800">
+                                  مدين
                                 </td>
                                 <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
                                   {formatMoney(focusLine.debit, '')}
@@ -802,15 +809,22 @@ if (displayModel.categoryFilter) {
                                   <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
                                     {cl.category_code || '—'}
                                   </td>
-                                  <td className="px-4 py-2.5 font-semibold">
-                                    {section.sectionKind === 'CASH'
-                                      ? cl.cashbox_name ||
-                                        section.fundingLabel ||
-                                        'النقدي'
-                                      : cl.cashbox_name || cl.category_name}
+                                  <td className="px-4 py-2.5">
+                                    <p className="text-[11px] font-medium text-red-700">
+                                      {creditRole}
+                                    </p>
+                                    <p className="font-semibold">
+                                      {section.sectionKind === 'CASH'
+                                        ? cl.cashbox_name ||
+                                          section.fundingLabel ||
+                                          'النقدي'
+                                        : cl.cashbox_name ||
+                                          section.fundingLabel ||
+                                          cl.category_name}
+                                    </p>
                                   </td>
-                                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                                    {cl.credit > 0 ? creditRole : 'طرف مقابل'}
+                                  <td className="px-4 py-2.5 text-xs font-semibold text-red-700">
+                                    {cl.credit > 0 ? 'دائن' : 'طرف مقابل'}
                                   </td>
                                   <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
                                     {formatMoney(cl.debit, '')}

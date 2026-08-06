@@ -45,7 +45,6 @@ const TYPE_ORDER: Record<string, number> = {
 };
 
 const s = StyleSheet.create({
-  accountFocus: { fontWeight: 'bold', color: PDF.primary },
   note: {
     fontSize: 8,
     color: PDF.muted,
@@ -118,8 +117,8 @@ const s = StyleSheet.create({
   },
   colCredit: { width: '15%' },
   colDebit: { width: '15%' },
-  colDesc: { width: '32%', paddingHorizontal: 6 },
-  colAccount: { width: '38%' },
+  colDesc: { width: '28%', paddingHorizontal: 6 },
+  colAccount: { width: '42%' },
   rowFocus: {
     backgroundColor: PDF.logoGreenSoft,
   },
@@ -129,6 +128,28 @@ const s = StyleSheet.create({
     color: PDF.text,
     textAlign: 'right',
     lineHeight: 1.35,
+  },
+  /** اسم البند المحدد — بارز جداً في جدول المدين */
+  accountNameFocus: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: PDF.primary,
+    textAlign: 'right',
+    lineHeight: 1.4,
+  },
+  accountRoleTag: {
+    fontSize: 7.5,
+    fontWeight: 'bold',
+    color: PDF.success,
+    textAlign: 'right',
+    marginBottom: 2,
+  },
+  accountRoleTagCredit: {
+    fontSize: 7.5,
+    fontWeight: 'bold',
+    color: PDF.danger,
+    textAlign: 'right',
+    marginBottom: 2,
   },
   accountCode: {
     fontSize: 7.5,
@@ -141,6 +162,13 @@ const s = StyleSheet.create({
     fontWeight: 'bold',
     color: PDF.primary,
     textAlign: 'right',
+  },
+  descFocus: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: PDF.primary,
+    textAlign: 'right',
+    lineHeight: 1.35,
   },
   descSub: {
     fontSize: 7.5,
@@ -172,17 +200,6 @@ function sectionBandStyle(kind: PeriodCashBankSection['sectionKind']) {
   if (kind === 'CASH') return [s.categoryBand, s.categoryBandCash];
   if (kind === 'BANK') return [s.categoryBand, s.categoryBandBank];
   return [s.categoryBand];
-}
-
-function sectionRoleLabel(
-  section: PeriodCashBankSection,
-  isFocus: boolean,
-  credit: number,
-): string {
-  if (isFocus) return 'مدين البند';
-  if (section.sectionKind === 'CASH') return credit > 0 ? 'دائن النقدي' : 'طرف مقابل';
-  if (section.sectionKind === 'BANK') return credit > 0 ? 'دائن المصرف' : 'طرف مقابل';
-  return credit > 0 ? 'دائن الخزينة' : 'طرف مقابل';
 }
 
 function contraAccountName(line: PeriodJournalLine, section?: PeriodCashBankSection): string {
@@ -272,7 +289,7 @@ function UnifiedSummaryTable({ lines }: { lines: PeriodJournalLine[] }) {
   );
 }
 
-/** صفحة قسم — مجموع مدين + دائن (نقدي أو مصرف) */
+/** صفحة قسم — جدول محاسبي: البند مدين (باسمه الواضح) + النقدي/المصرف دائن */
 function CategoryTotalPage({
   focusLine,
   contraLines,
@@ -294,45 +311,54 @@ function CategoryTotalPage({
 }) {
   const sectionKind = section?.sectionKind;
   const cashboxCredit = contraLines.reduce((sum, l) => sum + l.credit, 0);
+  const categoryName = focusLine.category_name;
+  const categoryCode = focusLine.category_code || '—';
+  const fundingLabel =
+    section?.fundingLabel && section.fundingLabel !== '—'
+      ? section.fundingLabel
+      : sectionKind === 'CASH'
+        ? 'النقدي'
+        : 'الخزينة';
   const creditLabel =
     sectionKind === 'CASH'
       ? 'دائن النقدي'
       : sectionKind === 'BANK'
-        ? 'دائن المصرف'
+        ? `دائن ${fundingLabel}`
         : 'دائن الخزينة';
-  /** اسم البند المحدد يظهر بوضوح كمدين */
-  const displayName = focusLine.category_name;
-  const fundingLabel = section?.fundingLabel;
 
   const rows = [
     {
       key: focusLine.rowKey,
-      code: focusLine.category_code || '—',
-      name: focusLine.category_name,
-      desc: section ? sectionRoleLabel(section, true, focusLine.credit) : 'مدين البند',
-      hint: fundingLabel && fundingLabel !== '—'
-        ? `مقابل دائن: ${fundingLabel}`
-        : 'مجموع الفترة',
+      code: categoryCode,
+      name: categoryName,
+      roleTag: 'مدين — البند المحدد',
+      desc: categoryName,
+      hint: `مدين · ${categoryCode}`,
       debit: focusLine.debit,
       credit: focusLine.credit,
       focus: true,
     },
-    ...contraLines.map((line) => ({
-      key: line.rowKey,
-      code: line.category_code || '—',
-      name: contraAccountName(line, section),
-      desc: section
-        ? sectionRoleLabel(section, false, line.credit)
-        : line.credit > 0
-          ? 'دائن الخزينة'
-          : 'طرف مقابل',
-      hint: line.cashbox_name
-        ? line.category_name
-        : accountTypeLabelAr(line.category_type),
-      debit: line.debit,
-      credit: line.credit,
-      focus: false,
-    })),
+    ...contraLines.map((line) => {
+      const creditName = contraAccountName(line, section);
+      return {
+        key: line.rowKey,
+        code: line.category_code || '—',
+        name: creditName,
+        roleTag: creditLabel,
+        desc: creditName,
+        hint:
+          sectionKind === 'CASH'
+            ? 'دائن · النقدية'
+            : sectionKind === 'BANK'
+              ? `دائن · ${fundingLabel}`
+              : line.cashbox_name
+                ? line.category_name
+                : accountTypeLabelAr(line.category_type),
+        debit: line.debit,
+        credit: line.credit,
+        focus: false,
+      };
+    }),
   ];
 
   return (
@@ -344,16 +370,13 @@ function CategoryTotalPage({
           </Text>
         </View>
         <View style={s.categoryBandTitle}>
-          <Text style={s.categoryBandEyebrow}>{ar(indexLabel)}</Text>
-          <Text style={s.categoryBandName}>{ar(displayName)}</Text>
+          <Text style={s.categoryBandEyebrow}>
+            {ar(`البند المحدد · ${indexLabel}`)}
+          </Text>
+          <Text style={s.categoryBandName}>{ar(categoryName)}</Text>
           <Text style={s.categoryBandMeta}>
             {ar(
-              `${focusLine.category_code || '—'} · ${
-                fundingLabel && fundingLabel !== '—'
-                  ? `مدين البند · دائن ${fundingLabel}`
-                  : section?.subtitle ||
-                    accountTypeLabelAr(focusLine.category_type)
-              } · ${periodLabel}`,
+              `${categoryCode} · مدين: ${categoryName} · دائن: ${fundingLabel} · ${periodLabel}`,
             )}
           </Text>
         </View>
@@ -362,10 +385,32 @@ function CategoryTotalPage({
       <View style={pdfReportTable.docInfoStrip}>
         <View style={pdfReportTable.docInfoCell}>
           <Text style={pdfReportTable.docInfoLabel}>{ar('مدين البند')}</Text>
+          <Text
+            style={{
+              fontSize: 8,
+              fontWeight: 'bold',
+              color: PDF.primary,
+              textAlign: 'right',
+              marginBottom: 2,
+            }}
+          >
+            {ar(categoryName)}
+          </Text>
           <PdfReportMoney amount={focusLine.debit} bold color={PDF.success} showZero />
         </View>
         <View style={pdfReportTable.docInfoCell}>
           <Text style={pdfReportTable.docInfoLabel}>{ar(creditLabel)}</Text>
+          <Text
+            style={{
+              fontSize: 8,
+              fontWeight: 'bold',
+              color: PDF.text,
+              textAlign: 'right',
+              marginBottom: 2,
+            }}
+          >
+            {ar(fundingLabel)}
+          </Text>
           <PdfReportMoney amount={cashboxCredit} bold color={PDF.danger} showZero />
         </View>
         <View style={pdfReportTable.docInfoCell}>
@@ -388,6 +433,7 @@ function CategoryTotalPage({
             style={[
               pdfReportTable.tableRow,
               row.focus ? s.rowFocus : i % 2 === 1 ? pdfReportTable.rowAlt : {},
+              { paddingVertical: row.focus ? 10 : 6 },
             ]}
             wrap={false}
           >
@@ -398,11 +444,18 @@ function CategoryTotalPage({
               <PdfReportMoney amount={row.debit} color={PDF.success} />
             </View>
             <View style={s.colDesc}>
-              <Text style={s.descMain}>{ar(row.desc)}</Text>
+              <Text style={row.focus ? s.descFocus : s.descMain}>
+                {ar(row.desc)}
+              </Text>
               <Text style={s.descSub}>{ar(row.hint)}</Text>
             </View>
             <View style={s.colAccount}>
-              <Text style={[s.accountName, row.focus ? s.accountFocus : {}]}>
+              <Text
+                style={row.focus ? s.accountRoleTag : s.accountRoleTagCredit}
+              >
+                {ar(row.roleTag)}
+              </Text>
+              <Text style={row.focus ? s.accountNameFocus : s.accountName}>
                 {ar(row.name)}
               </Text>
               <Text style={s.accountCode}>{ar(row.code)}</Text>
@@ -421,7 +474,7 @@ function CategoryTotalPage({
             <Text style={pdfReportTable.totalsRowLabel}>
               {ar(
                 balanced
-                  ? 'مجموع القيد — المدين = الدائن'
+                  ? `مجموع القيد — مدين «${categoryName}» = دائن «${fundingLabel}»`
                   : 'مجموع القيد — فرق يحتاج مراجعة',
               )}
             </Text>
