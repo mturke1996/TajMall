@@ -27,20 +27,38 @@ export function formatPeriodJournalExportNames(
   period: ReportPeriod,
   model?: Pick<
     PeriodJournalEntryModel,
-    'lines' | 'sourceEntryCount' | 'periodLabel' | 'balanced' | 'categoryFilter'
+    | 'lines'
+    | 'sourceEntryCount'
+    | 'periodLabel'
+    | 'balanced'
+    | 'categoryFilter'
+    | 'typeGroupFilter'
   > | null,
 ): PeriodJournalExportNames {
   const periodLabel = model?.periodLabel ?? formatReportPeriodLabelAr(period);
+  const typeGroup = model?.typeGroupFilter;
   const categorySlug = model?.categoryFilter?.code;
+  const groupSlug =
+    typeGroup?.mode === 'group'
+      ? 'rev-exp-grouped'
+      : typeGroup?.accountType === 'REVENUE'
+        ? 'all-revenue'
+        : typeGroup?.accountType === 'EXPENSE'
+          ? 'all-expense'
+          : null;
   const fileName = buildPdfFileName(
     'period-journal',
     formatReportPeriodSlugEn(period),
-    categorySlug ?? (model?.categoryFilter ? undefined : 'comprehensive'),
+    categorySlug ??
+      groupSlug ??
+      (model?.categoryFilter || typeGroup ? undefined : 'comprehensive'),
   );
 
   const categoryNote = model?.categoryFilter
     ? ` · بند ${model.categoryFilter.name_ar}`
-    : ' · شامل كل البنود';
+    : typeGroup
+      ? ` · ${typeGroup.name_ar}`
+      : ' · شامل كل البنود';
   const shareTitle = `قيد محاسبي — ${periodLabel}${categoryNote} · ${BRAND.name}`;
   const lineCount = model?.lines.length ?? 0;
   const entryCount = model?.sourceEntryCount ?? 0;
@@ -48,9 +66,13 @@ export function formatPeriodJournalExportNames(
     model?.balanced === false ? ' (يتطلب مراجعة — غير متوازن)' : '';
   const scopeLine = model?.categoryFilter
     ? `كشف بند ${model.categoryFilter.name_ar} (${model.categoryFilter.code}): قيود مزدوجة كاملة مع الطرف المقابل (الخزينة وغيرها).`
-    : lineCount > 0
-      ? `تقرير شامل: ${lineCount} بنداً — مجاميع ثم مجموع كل بند (مدين البند + دائن الخزينة) بدون تفصيل القيود، مبني على ${entryCount} قيد مصدر.`
-      : 'لا توجد حركة محاسبية في هذه الفترة.';
+    : typeGroup?.mode === 'group'
+      ? `تجميع بنود الفترة: جميع الإيرادات معاً وجميع المصاريف معاً مع أطراف الخزينة، مبني على ${entryCount} قيد مصدر.`
+      : typeGroup?.accountType
+        ? `مجموع ${typeGroup.name_ar} فقط — قيد مزدوج (مدين/دائن البند + الطرف المقابل) بلا تفصيل · ${periodLabel}.`
+        : lineCount > 0
+          ? `تقرير شامل: ${lineCount} بنداً — مجاميع ثم مجموع كل بند (مدين البند + دائن الخزينة) بدون تفصيل القيود، مبني على ${entryCount} قيد مصدر.`
+          : 'لا توجد حركة محاسبية في هذه الفترة.';
 
   const shareText = [
     `قيد محاسبي للفترة: ${periodLabel}${balanceNote}.`,
@@ -60,7 +82,9 @@ export function formatPeriodJournalExportNames(
 
   const documentTitle = model?.categoryFilter
     ? `${BRAND.name} — كشف بند — ${model.categoryFilter.name_ar} — ${periodLabel}`
-    : `${BRAND.name} — قيد الفترة الشامل — ${periodLabel}`;
+    : typeGroup
+      ? `${BRAND.name} — ${typeGroup.name_ar} — ${periodLabel}`
+      : `${BRAND.name} — قيد الفترة الشامل — ${periodLabel}`;
 
   return { fileName, shareTitle, shareText, documentTitle };
 }
@@ -147,6 +171,48 @@ export function periodLineRowKey(
   return cashboxId ? `${categoryId}::cb:${cashboxId}` : categoryId;
 }
 
+/** فلتر خاص: طيّ كل بنود الإيراد معاً وكل بنود المصروف معاً */
+export const PERIOD_JOURNAL_GROUP_BY_TYPE = 'group:type';
+/** فلتر خاص: جميع الإيرادات كبند واحد مع الطرف المقابل */
+export const PERIOD_JOURNAL_TYPE_REVENUE = 'type:REVENUE';
+/** فلتر خاص: جميع المصاريف كبند واحد مع الطرف المقابل */
+export const PERIOD_JOURNAL_TYPE_EXPENSE = 'type:EXPENSE';
+
+export type PeriodJournalAccountTypeFilter = 'REVENUE' | 'EXPENSE';
+
+export function isPeriodJournalGroupByType(
+  filter: string | null | undefined,
+): boolean {
+  return filter === PERIOD_JOURNAL_GROUP_BY_TYPE;
+}
+
+export function parsePeriodJournalTypeFilter(
+  filter: string | null | undefined,
+): PeriodJournalAccountTypeFilter | null {
+  if (filter === PERIOD_JOURNAL_TYPE_REVENUE) return 'REVENUE';
+  if (filter === PERIOD_JOURNAL_TYPE_EXPENSE) return 'EXPENSE';
+  return null;
+}
+
+export function periodJournalTypeFilterMeta(
+  type: PeriodJournalAccountTypeFilter,
+): { id: string; code: string; name_ar: string; type: PeriodJournalAccountTypeFilter } {
+  if (type === 'REVENUE') {
+    return {
+      id: PERIOD_JOURNAL_TYPE_REVENUE,
+      code: 'REV*',
+      name_ar: 'جميع الإيرادات',
+      type: 'REVENUE',
+    };
+  }
+  return {
+    id: PERIOD_JOURNAL_TYPE_EXPENSE,
+    code: 'EXP*',
+    name_ar: 'جميع المصاريف',
+    type: 'EXPENSE',
+  };
+}
+
 export type PeriodJournalEntryModel = {
   periodLabel: string;
   startDate: string;
@@ -158,6 +224,16 @@ export type PeriodJournalEntryModel = {
   categoryFilter?: {
     id: string;
     code: string;
+    name_ar: string;
+  } | null;
+  /**
+   * عند تجميع حسب نوع الحساب (إيراد/مصروف):
+   * - group = إيرادات معاً ومصاريف معاً في نفس القيد
+   * - type = نوع واحد فقط كبند تركيز
+   */
+  typeGroupFilter?: {
+    mode: 'group' | 'type';
+    accountType?: PeriodJournalAccountTypeFilter | null;
     name_ar: string;
   } | null;
   sourceEntryCount: number;
@@ -527,12 +603,95 @@ export function buildPeriodJournalVouchers(
 }
 
 /**
- * تصفية القيد لبند محاسبي واحد — أو إرجاع الكل.
+ * يدمج عدة صفوف بنود في صف مجمّع واحد (للإيرادات معاً أو المصاريف معاً).
+ */
+export function mergePeriodJournalLines(
+  lines: PeriodJournalLine[],
+  meta: {
+    id: string;
+    code: string;
+    name_ar: string;
+    type: string;
+  },
+): PeriodJournalLine {
+  const debit = lines.reduce((s, l) => s + l.debit, 0);
+  const credit = lines.reduce((s, l) => s + l.credit, 0);
+  const movements = lines
+    .flatMap((l) => l.movements)
+    .slice()
+    .sort((a, b) => {
+      const d = a.entry_date.localeCompare(b.entry_date);
+      if (d !== 0) return d;
+      return a.journal_number - b.journal_number;
+    });
+
+  return {
+    category_id: meta.id,
+    category_code: meta.code,
+    category_name: meta.name_ar,
+    category_type: meta.type,
+    cashbox_id: null,
+    cashbox_name: null,
+    rowKey: meta.id,
+    debit,
+    credit,
+    net: debit - credit,
+    movements,
+  };
+}
+
+/**
+ * طيّ بنود الإيراد معاً وبنود المصروف معاً — مع الإبقاء على الأصول/الخصوم/حقوق الملكية
+ * (مثل الخزائن) كما هي حتى يبقى القيد متوازناً.
+ */
+export function collapsePeriodJournalLinesByAccountType(
+  lines: PeriodJournalLine[],
+): PeriodJournalLine[] {
+  const revenues = lines.filter((l) => l.category_type === 'REVENUE');
+  const expenses = lines.filter((l) => l.category_type === 'EXPENSE');
+  const others = lines.filter(
+    (l) => l.category_type !== 'REVENUE' && l.category_type !== 'EXPENSE',
+  );
+
+  const result = [...others];
+  if (revenues.length > 0) {
+    const meta = periodJournalTypeFilterMeta('REVENUE');
+    result.push(
+      mergePeriodJournalLines(revenues, {
+        id: 'agg:REVENUE',
+        code: meta.code,
+        name_ar: meta.name_ar,
+        type: 'REVENUE',
+      }),
+    );
+  }
+  if (expenses.length > 0) {
+    const meta = periodJournalTypeFilterMeta('EXPENSE');
+    result.push(
+      mergePeriodJournalLines(expenses, {
+        id: 'agg:EXPENSE',
+        code: meta.code,
+        name_ar: meta.name_ar,
+        type: 'EXPENSE',
+      }),
+    );
+  }
+  return sortPeriodLines(result);
+}
+
+/**
+ * تصفية القيد لبند محاسبي واحد — أو تجميع حسب النوع — أو إرجاع الكل.
  *
  * عند اختيار بند:
  * - نُظهر كل أطراف القيود التي لمسها البند (مصروف + خزينة + …)
  * - المبالغ تبقى حقيقية على كل بند (لا نسخ دائن الخزينة داخل بند المصروف)
  * - vouchers = كل قيد يومية كامل حتى يظهر مدين = دائن بوضوح
+ *
+ * عند group:type:
+ * - جميع الإيرادات صف واحد + جميع المصاريف صف واحد + بقية الحسابات كما هي
+ *
+ * عند type:REVENUE / type:EXPENSE:
+ * - صف تركيز واحد لكل النوع مع أطرافه المقابلة من نفس القيود
  */
 export function applyPeriodJournalCategoryFilter(
   model: PeriodJournalEntryModel,
@@ -544,10 +703,122 @@ export function applyPeriodJournalCategoryFilter(
     return {
       ...model,
       categoryFilter: null,
+      typeGroupFilter: null,
       title: `قيد الفترة الشامل — ${model.periodLabel}`,
       description: `كل البنود خلال ${model.periodLabel} — مجاميع ثم مجموع كل بند`,
       lines,
       vouchers: [],
+    };
+  }
+
+  if (isPeriodJournalGroupByType(categoryId)) {
+    const collapsed = collapsePeriodJournalLinesByAccountType(model.lines);
+    const lines = attachContraLabels(collapsed);
+    const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
+    const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
+    return {
+      ...model,
+      categoryFilter: null,
+      typeGroupFilter: {
+        mode: 'group',
+        accountType: null,
+        name_ar: 'إيرادات ومصاريف مجمّعة',
+      },
+      title: `قيد الفترة — إيرادات ومصاريف مجمّعة — ${model.periodLabel}`,
+      description: `جميع بنود الإيراد معاً وجميع بنود المصروف معاً خلال ${model.periodLabel}`,
+      lines,
+      vouchers: [],
+      totalDebit,
+      totalCredit,
+      balanced: almostEqual(totalDebit, totalCredit),
+    };
+  }
+
+  const typeFilter = parsePeriodJournalTypeFilter(categoryId);
+  if (typeFilter) {
+    const meta = periodJournalTypeFilterMeta(typeFilter);
+    const focusRows = model.lines.filter((l) => l.category_type === typeFilter);
+
+    if (focusRows.length === 0) {
+      return {
+        ...model,
+        categoryFilter: {
+          id: meta.id,
+          code: meta.code,
+          name_ar: meta.name_ar,
+        },
+        typeGroupFilter: {
+          mode: 'type',
+          accountType: typeFilter,
+          name_ar: meta.name_ar,
+        },
+        lines: [],
+        vouchers: [],
+        totalDebit: 0,
+        totalCredit: 0,
+        balanced: true,
+        title: `كشف ${meta.name_ar}`,
+        description: `لا حركة على ${meta.name_ar} خلال ${model.periodLabel}`,
+      };
+    }
+
+    const journalIds = new Set(
+      focusRows.flatMap((row) => row.movements.map((m) => m.journal_id)),
+    );
+
+    const relatedOther: PeriodJournalLine[] = [];
+    for (const line of model.lines) {
+      if (line.category_type === typeFilter) continue;
+      const movements = line.movements.filter((m) => journalIds.has(m.journal_id));
+      if (movements.length === 0) continue;
+      const debit = movements.reduce((s, m) => s + m.debit, 0);
+      const credit = movements.reduce((s, m) => s + m.credit, 0);
+      relatedOther.push({
+        ...line,
+        debit,
+        credit,
+        net: debit - credit,
+        movements,
+      });
+    }
+
+    const focusMerged = mergePeriodJournalLines(focusRows, {
+      id: meta.id,
+      code: meta.code,
+      name_ar: meta.name_ar,
+      type: typeFilter,
+    });
+
+    const withLabels = attachContraLabels([
+      focusMerged,
+      ...sortPeriodLines(relatedOther),
+    ]);
+
+    const vouchers = buildPeriodJournalVouchers(withLabels, meta.id);
+    const totalDebit = withLabels.reduce((s, l) => s + l.debit, 0);
+    const totalCredit = withLabels.reduce((s, l) => s + l.credit, 0);
+
+    return {
+      ...model,
+      categoryFilter: {
+        id: meta.id,
+        code: meta.code,
+        name_ar: meta.name_ar,
+      },
+      typeGroupFilter: {
+        mode: 'type',
+        accountType: typeFilter,
+        name_ar: meta.name_ar,
+      },
+      lines: withLabels,
+      vouchers,
+      totalDebit,
+      totalCredit,
+      balanced: almostEqual(totalDebit, totalCredit),
+      sourceEntryCount: journalIds.size,
+      sourceLineCount: withLabels.reduce((s, l) => s + l.movements.length, 0),
+      title: `كشف ${meta.name_ar}`,
+      description: `مجموع ${meta.name_ar} فقط — قيد مزدوج بلا تفصيل · ${model.periodLabel}`,
     };
   }
 
@@ -574,6 +845,7 @@ export function applyPeriodJournalCategoryFilter(
     return {
       ...model,
       categoryFilter,
+      typeGroupFilter: null,
       lines: [],
       vouchers: [],
       totalDebit: 0,
@@ -622,6 +894,7 @@ export function applyPeriodJournalCategoryFilter(
   return {
     ...model,
     categoryFilter,
+    typeGroupFilter: null,
     lines: focusFirst,
     vouchers,
     totalDebit,
