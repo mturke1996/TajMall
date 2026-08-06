@@ -38,6 +38,11 @@ import {
   buildCashBankSeparatedSections,
   buildContraLinesForFocus,
   periodLineCashboxKindsLabel,
+  isPeriodJournalGroupByType,
+  parsePeriodJournalTypeFilter,
+  PERIOD_JOURNAL_GROUP_BY_TYPE,
+  PERIOD_JOURNAL_TYPE_REVENUE,
+  PERIOD_JOURNAL_TYPE_EXPENSE,
   type PeriodJournalEntryModel,
 } from '@/lib/period-journal-entry';
 import {
@@ -53,6 +58,12 @@ import { formatMoney } from '@/lib/utils';
 
 type StatusFilter = JournalStatus | 'ALL';
 const ALL_CATEGORIES = 'all';
+
+function isSpecialCategoryFilter(value: string): boolean {
+  return (
+    isPeriodJournalGroupByType(value) || parsePeriodJournalTypeFilter(value) != null
+  );
+}
 
 function JournalMonthContent() {
   const router = useRouter();
@@ -125,6 +136,11 @@ function JournalMonthContent() {
     });
   };
 
+  const isGroupedTypeView = isPeriodJournalGroupByType(categoryFilterId);
+  const accountTypeFilter = parsePeriodJournalTypeFilter(categoryFilterId);
+  const isTypeAggregateView = accountTypeFilter != null;
+  const isAggregateView = isGroupedTypeView || isTypeAggregateView;
+
   const { startDate, endDate } = reportPeriodDateRange(period);
   const periodLabel = formatReportPeriodLabelAr(period);
 
@@ -181,7 +197,7 @@ function JournalMonthContent() {
 
   const selectedCategory = useMemo(
     () =>
-      categoryFilterId === ALL_CATEGORIES
+      categoryFilterId === ALL_CATEGORIES || isSpecialCategoryFilter(categoryFilterId)
         ? null
         : categories.find((c) => c.id === categoryFilterId) ?? null,
     [categories, categoryFilterId],
@@ -209,7 +225,9 @@ function JournalMonthContent() {
     return applyPeriodJournalCategoryFilter(model, ALL_CATEGORIES, null);
   }, [model]);
 
-  const isSingleCategoryView = categoryFilterId !== ALL_CATEGORIES;
+  const isSingleCategoryView =
+    categoryFilterId !== ALL_CATEGORIES && !isAggregateView;
+  const isFilteredView = categoryFilterId !== ALL_CATEGORIES;
   const isLoading = entriesLoading || aggLoading || categoriesLoading;
   const isError = entriesError || !!aggError;
   const errorMessage =
@@ -275,9 +293,13 @@ function JournalMonthContent() {
         eyebrow="مركز التقارير"
         title="قيد الفترة المحاسبي"
         description={
-          isSingleCategoryView && displayModel?.categoryFilter
-            ? `كشف بند ${displayModel.categoryFilter.name_ar} — النقدي بجدول مدين/دائن، وكل مصرف بورقة · ${periodLabel}`
-            : `تقرير شامل — مجاميع ثم مجموع كل بند (مدين + خزينة) · ${periodLabel}`
+          isGroupedTypeView
+            ? `إيرادات معاً ومصاريف معاً · ${periodLabel}`
+            : isTypeAggregateView && displayModel?.typeGroupFilter
+              ? `مجموع ${displayModel.typeGroupFilter.name_ar} فقط (مدين + دائن) · ${periodLabel}`
+              : isSingleCategoryView && displayModel?.categoryFilter
+                ? `كشف بند ${displayModel.categoryFilter.name_ar} — النقدي بجدول مدين/دائن، وكل مصرف بورقة · ${periodLabel}`
+                : `تقرير شامل — مجاميع ثم مجموع كل بند (مدين + خزينة) · ${periodLabel}`
         }
         actions={
           <>
@@ -302,14 +324,16 @@ function JournalMonthContent() {
               openLabel="تقرير شامل PDF"
               render={renderComprehensivePdf}
             />
-            {isSingleCategoryView ? (
+            {isFilteredView ? (
               <TajMallPdfToolbar
                 fileName={exportNames.fileName}
                 shareTitle={exportNames.shareTitle}
                 shareText={exportNames.shareText}
                 cacheKey={`pje-cat:${startDate}:${endDate}:${statusFilter}:${categoryFilterId}:${displayModel?.lines.length ?? 0}:${displayModel?.totalDebit ?? 0}`}
                 disabled={categoryPdfDisabled}
-                openLabel="كشف البند PDF"
+                openLabel={
+                  isAggregateView ? 'التجميع PDF' : 'كشف البند PDF'
+                }
                 render={renderCategoryPdf}
               />
             ) : null}
@@ -332,6 +356,15 @@ function JournalMonthContent() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_CATEGORIES}>جميع البنود</SelectItem>
+                    <SelectItem value={PERIOD_JOURNAL_GROUP_BY_TYPE}>
+                      إيرادات معاً ومصاريف معاً
+                    </SelectItem>
+                    <SelectItem value={PERIOD_JOURNAL_TYPE_REVENUE}>
+                      جميع الإيرادات معاً
+                    </SelectItem>
+                    <SelectItem value={PERIOD_JOURNAL_TYPE_EXPENSE}>
+                      جميع المصاريف معاً
+                    </SelectItem>
                     {categories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.code} — {cat.name_ar}
@@ -340,9 +373,13 @@ function JournalMonthContent() {
                   </SelectContent>
                 </Select>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  {isSingleCategoryView
-                    ? 'بند واحد: يُفصل النقدي (مجموع مدين/دائن) عن المصارف — كل مصرف في جدول وورقة مستقلة.'
-                    : 'جميع البنود: مجاميع ثم مجموع كل بند على حدة (مدين البند + دائن الخزينة) — بدون تفصيل القيود.'}
+                  {isGroupedTypeView
+                    ? 'تجميع: صف واحد لكل الإيرادات وصف واحد لكل المصاريف مع أطراف الخزينة.'
+                    : isTypeAggregateView
+                      ? 'نوع واحد مجمّع: قيد مزدوج بالمجموع فقط (البند المجمّع + الطرف المقابل) — بلا تفصيل قيود.'
+                      : isSingleCategoryView
+                        ? 'بند واحد: يُفصل النقدي (مجموع مدين/دائن) عن المصارف — كل مصرف في جدول وورقة مستقلة.'
+                        : 'جميع البنود: مجاميع ثم مجموع كل بند على حدة (مدين البند + دائن الخزينة) — بدون تفصيل القيود.'}
                 </p>
               </div>
               <div className="space-y-2">
@@ -379,17 +416,19 @@ function JournalMonthContent() {
           <AccountingEmpty
             icon={BookOpen}
             title={
-              displayModel?.categoryFilter
-                ? 'لا حركة على هذا البند'
+              displayModel?.categoryFilter || displayModel?.typeGroupFilter
+                ? 'لا حركة على هذا التجميع'
                 : 'لا توجد حركة لبناء القيد'
             }
             description={
               displayModel?.categoryFilter
                 ? `البند «${displayModel.categoryFilter.name_ar}» لم يتحرك في ${periodLabel}.`
-                : 'اختر شهراً فيه قيود مرحّلة، أو غيّر فلتر المصدر.'
+                : displayModel?.typeGroupFilter
+                  ? `«${displayModel.typeGroupFilter.name_ar}» بلا حركة في ${periodLabel}.`
+                  : 'اختر شهراً فيه قيود مرحّلة، أو غيّر فلتر المصدر.'
             }
           >
-            {displayModel?.categoryFilter ? (
+            {displayModel?.categoryFilter || displayModel?.typeGroupFilter ? (
               <Button
                 size="sm"
                 variant="outline"
@@ -414,7 +453,11 @@ function JournalMonthContent() {
             <AccountingSummaryGrid
               stats={[
                 {
-                  label: displayModel.categoryFilter ? 'صفوف المجموع' : 'بنود تحرّكت',
+                  label: displayModel.typeGroupFilter
+                    ? 'صفوف مجمّعة'
+                    : displayModel.categoryFilter
+                      ? 'صفوف المجموع'
+                      : 'بنود تحرّكت',
                   value: displayModel.categoryFilter
                     ? displayModel.lines.filter(
                         (l) =>
@@ -449,9 +492,11 @@ function JournalMonthContent() {
                     {displayModel.title}
                   </CardTitle>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {displayModel.categoryFilter
-                      ? `النقدي منفصل · كل مصرف بورقة · ${displayModel.categoryFilter.code} · بلا تفصيل قيود`
-                      : `مجاميع ${displayModel.lines.length} بند · ثم مجموع كل بند`}
+                    {displayModel.typeGroupFilter?.mode === 'group'
+                      ? `إيرادات معاً · مصاريف معاً · ${displayModel.lines.length} صف`
+                      : displayModel.categoryFilter
+                        ? `النقدي منفصل · كل مصرف بورقة · ${displayModel.categoryFilter.code} · بلا تفصيل قيود`
+                        : `مجاميع ${displayModel.lines.length} بند · ثم مجموع كل بند`}
                   </p>
                 </div>
                 <Badge
@@ -488,7 +533,10 @@ function JournalMonthContent() {
                               {line.cashbox_name
                                 ? line.cashbox_name
                                 : line.category_name}
-                              {displayModel.categoryFilter?.id === line.category_id
+                              {displayModel.categoryFilter?.id === line.category_id ||
+                              (displayModel.typeGroupFilter?.mode === 'group' &&
+                                (line.category_type === 'REVENUE' ||
+                                  line.category_type === 'EXPENSE'))
                                 ? ' ★'
                                 : ''}
                             </p>
@@ -542,10 +590,12 @@ function JournalMonthContent() {
             {(() => {
               const contraSource = displayModel.categoryFilter
                 ? displayModel
-                : model;
+                : displayModel.typeGroupFilter
+                  ? displayModel
+                  : model;
               if (!contraSource) return null;
 
-              if (displayModel.categoryFilter) {
+if (displayModel.categoryFilter) {
                 const sections = buildCashBankSeparatedSections(
                   displayModel,
                   displayModel.categoryFilter.id,
@@ -688,7 +738,15 @@ function JournalMonthContent() {
                 });
               }
 
-              const focusLines = displayModel.lines;
+              const focusLines =
+                displayModel.typeGroupFilter?.mode === 'group'
+                  ? displayModel.lines.filter(
+                      (l) =>
+                        l.category_type === 'REVENUE' ||
+                        l.category_type === 'EXPENSE',
+                    )
+                  : displayModel.lines;
+
 
               return focusLines.map((line, lineIndex) => {
                 const focusLine = line;
