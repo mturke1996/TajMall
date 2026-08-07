@@ -311,7 +311,7 @@ export function useCreateLeaseContract() {
   return useMutation({
     mutationFn: async (input: Omit<LeaseContractRow, 'id' | 'created_at' | 'updated_at'>) => {
       const supabase = createSupabaseBrowserClient();
-      
+
       // 1. Insert contract
       const { data: contract, error: err } = await supabase
         .from('lease_contracts')
@@ -320,20 +320,68 @@ export function useCreateLeaseContract() {
         .single();
       if (err) throw err;
 
+      let contactSynced = false;
+      let prevContact: {
+        monthly_rent: number | null;
+        shop_number: string | null;
+        floor: string | null;
+      } | null = null;
+
+      const rollbackLease = async () => {
+        if (contactSynced && prevContact) {
+          await supabase
+            .from('contacts')
+            .update({
+              monthly_rent: prevContact.monthly_rent,
+              shop_number: prevContact.shop_number,
+              floor: prevContact.floor,
+            })
+            .eq('id', input.tenant_id);
+        }
+        await supabase
+          .from('mall_units')
+          .update({ status: 'AVAILABLE' })
+          .eq('id', input.unit_id);
+        await supabase.from('lease_contracts').delete().eq('id', contract.id);
+      };
+
       // 2. Mark unit as occupied
-      const { data: unit } = await supabase
+      const { data: unit, error: unitSelErr } = await supabase
         .from('mall_units')
         .select('unit_number, floor')
         .eq('id', input.unit_id)
         .single();
+      if (unitSelErr) {
+        await supabase.from('lease_contracts').delete().eq('id', contract.id);
+        throw unitSelErr;
+      }
 
-      await supabase
+      const { error: unitErr } = await supabase
         .from('mall_units')
         .update({ status: 'OCCUPIED' })
         .eq('id', input.unit_id);
+      if (unitErr) {
+        await supabase.from('lease_contracts').delete().eq('id', contract.id);
+        throw unitErr;
+      }
 
       // 2b. مزامنة بيانات الإيجار والمحل على ملف المستأجر
-      await supabase
+      const { data: contactBefore, error: contactSelErr } = await supabase
+        .from('contacts')
+        .select('monthly_rent, shop_number, floor')
+        .eq('id', input.tenant_id)
+        .maybeSingle();
+      if (contactSelErr) {
+        await rollbackLease();
+        throw contactSelErr;
+      }
+      prevContact = {
+        monthly_rent: contactBefore?.monthly_rent ?? null,
+        shop_number: contactBefore?.shop_number ?? null,
+        floor: contactBefore?.floor ?? null,
+      };
+
+      const { error: contactErr } = await supabase
         .from('contacts')
         .update({
           monthly_rent: input.monthly_rent,
@@ -341,42 +389,64 @@ export function useCreateLeaseContract() {
           floor: unit?.floor ?? null,
         })
         .eq('id', input.tenant_id);
+      if (contactErr) {
+        await rollbackLease();
+        throw contactErr;
+      }
+      contactSynced = true;
 
       // 3. For security deposits: if deposit_amount > 0, generate a deposit transaction
       // and let the DB triggers post it to journal_entries.
       if (Number(input.deposit_amount) > 0) {
         const depositCategoryCode = 'LIA-DEP';
-        const { data: cat } = await supabase
+        const { data: cat, error: catErr } = await supabase
           .from('categories')
           .select('id')
           .eq('code', depositCategoryCode)
-          .single();
+          .maybeSingle();
+        if (catErr) {
+          await rollbackLease();
+          throw catErr;
+        }
 
-        const { data: cashbox } = await supabase
+        const { data: cashbox, error: cashErr } = await supabase
           .from('cashboxes')
           .select('id')
           .eq('active', true)
           .order('created_at')
           .limit(1)
-          .single();
+          .maybeSingle();
+        if (cashErr) {
+          await rollbackLease();
+          throw cashErr;
+        }
 
-        if (cat && cashbox) {
-          const { data: auth } = await supabase.auth.getUser();
-          await supabase.from('transactions').insert({
-            kind: 'REVENUE',
-            status: 'POSTED',
-            method: 'CASH',
-            amount: Number(input.deposit_amount),
-            currency: 'LYD',
-            tx_date: input.start_date,
-            description: `تأمين مستحق العقد رقم ${contract.id.slice(0,8)} للمستأجر`,
-            category_id: cat.id,
-            cashbox_id: cashbox.id,
-            contact_id: input.tenant_id,
-            contact_type: 'PAYER',
-            created_by: auth?.user?.id ?? null,
-            posted_at: new Date().toISOString()
-          });
+        if (!cat || !cashbox) {
+          await rollbackLease();
+          throw new Error(
+            'لا يمكن تسجيل تأمين العقد: بند LIA-DEP أو خزينة نشطة غير متوفرة',
+          );
+        }
+
+        const { data: auth } = await supabase.auth.getUser();
+        const { error: depErr } = await supabase.from('transactions').insert({
+          kind: 'REVENUE',
+          status: 'POSTED',
+          method: 'CASH',
+          amount: Number(input.deposit_amount),
+          currency: 'LYD',
+          tx_date: input.start_date,
+          description: `تأمين مستحق العقد رقم ${contract.id.slice(0, 8)} للمستأجر`,
+          category_id: cat.id,
+          cashbox_id: cashbox.id,
+          contact_id: input.tenant_id,
+          contact_type: 'PAYER',
+          created_by: auth?.user?.id ?? null,
+          posted_at: new Date().toISOString(),
+        });
+        if (depErr) {
+          await rollbackLease();
+          throw depErr;
         }
       }
 
@@ -403,17 +473,18 @@ export function useTerminateLeaseContract() {
   return useMutation({
     mutationFn: async (vars: { id: string; unitId: string }) => {
       const supabase = createSupabaseBrowserClient();
-      
+
       const { error } = await supabase
         .from('lease_contracts')
         .update({ status: 'TERMINATED', end_date: new Date().toISOString().slice(0,10) })
         .eq('id', vars.id);
       if (error) throw error;
 
-      await supabase
+      const { error: unitErr } = await supabase
         .from('mall_units')
         .update({ status: 'AVAILABLE' })
         .eq('id', vars.unitId);
+      if (unitErr) throw unitErr;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: mqk.leaseContracts });
@@ -531,41 +602,46 @@ export function useGenerateMonthlyCharges() {
 
       let generatedCount = 0;
       const targetDate = `${targetMonth}-01`;
-      
-      for (const contract of contracts) {
-        // Check if charge already exists for this contract and month
-        const { data: existing } = await supabase
-          .from('tenant_charges')
-          .select('id')
-          .eq('contract_id', contract.id)
-          .eq('type', 'RENT')
-          .eq('due_date', targetDate);
 
-        if (existing && existing.length > 0) continue;
+      for (const contract of contracts ?? []) {
+        // Check existing rent/service charges for this contract and month
+        const { data: existing, error: existErr } = await supabase
+          .from('tenant_charges')
+          .select('id, type')
+          .eq('contract_id', contract.id)
+          .eq('due_date', targetDate)
+          .in('type', ['RENT', 'SERVICE']);
+        if (existErr) throw existErr;
+
+        const hasRent = (existing ?? []).some((row) => row.type === 'RENT');
+        const hasService = (existing ?? []).some((row) => row.type === 'SERVICE');
 
         // Create Rent Charge
-        if (Number(contract.monthly_rent) > 0) {
-          await supabase.from('tenant_charges').insert({
+        if (!hasRent && Number(contract.monthly_rent) > 0) {
+          const { error: rentErr } = await supabase.from('tenant_charges').insert({
             contract_id: contract.id,
             amount: Number(contract.monthly_rent),
             due_date: targetDate,
             type: 'RENT',
             description: `إيجار شهر ${targetMonth}`,
-            status: 'UNPAID'
+            status: 'UNPAID',
           });
+          if (rentErr) throw rentErr;
           generatedCount++;
         }
 
         // Create Service Charge if any
-        if (Number(contract.services_amount) > 0) {
-          await supabase.from('tenant_charges').insert({
+        if (!hasService && Number(contract.services_amount) > 0) {
+          const { error: svcErr } = await supabase.from('tenant_charges').insert({
             contract_id: contract.id,
             amount: Number(contract.services_amount),
             due_date: targetDate,
             type: 'SERVICE',
             description: `رسوم خدمات وصيانة شهر ${targetMonth}`,
-            status: 'UNPAID'
+            status: 'UNPAID',
           });
+          if (svcErr) throw svcErr;
+          generatedCount++;
         }
       }
 
