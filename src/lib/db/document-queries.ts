@@ -224,7 +224,11 @@ export function useCreateReceiptVoucher() {
       const { error: lineErr } = await supabase.from('receipt_voucher_lines').insert(
         lineRows.map((l) => ({ ...l, receipt_id: row.id })),
       );
-      if (lineErr) throw lineErr;
+      if (lineErr) {
+        // نفس نمط إذونات الصرف: لا تترك رأساً يتيماً يمنع إعادة الحفظ (UNIQUE)
+        await supabase.from('receipt_vouchers').delete().eq('id', row.id);
+        throw lineErr;
+      }
 
       const { data: full, error: fetchErr } = await supabase
         .from('receipt_vouchers')

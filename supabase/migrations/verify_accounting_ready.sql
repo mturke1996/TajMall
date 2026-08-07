@@ -59,7 +59,11 @@ BEGIN
     'fiscal_periods',
     'app_notifications',
     'disbursement_vouchers',
-    'audit_log'
+    'audit_log',
+    'correspondence_letters',
+    'receipt_vouchers',
+    'receipt_voucher_lines',
+    'budgets'
   ]
   LOOP
     IF NOT EXISTS (
