@@ -13,6 +13,7 @@ BEGIN
   FOREACH fn IN ARRAY ARRAY[
     'get_journal_entries_filtered',
     'get_general_ledger_lines',
+    'get_journal_lines_for_period',
     'get_trial_balance',
     'get_profit_loss',
     'get_cash_flow',
