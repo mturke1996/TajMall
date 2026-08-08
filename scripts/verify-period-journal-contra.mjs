@@ -616,4 +616,63 @@ function line(partial) {
   );
 }
 
+// --- Case 9: بند الإيجار يجب أن يجمع كل قيود الاستحقاق لا عينة صغيرة ---
+{
+  const journals = [];
+  const raw = [];
+  let expected = 0;
+  for (let i = 1; i <= 40; i++) {
+    const id = `j-rent-${i}`;
+    const amount = 1000 + i;
+    expected += amount;
+    journals.push(journal(id, 900 + i, '2026-07-01', `إيجار وحدة ${i}`));
+    raw.push(
+      line({
+        journal_id: id,
+        category_id: 'ast-rec',
+        debit: amount,
+        credit: 0,
+        category_code: 'AST-REC',
+        category_name: 'ذمم المستأجرين',
+        category_type: 'ASSET',
+      }),
+      line({
+        journal_id: id,
+        category_id: 'rev-rnt',
+        debit: 0,
+        credit: amount,
+        category_code: 'REV-RNT',
+        category_name: 'إيجارات المحلات والوحدات',
+        category_type: 'REVENUE',
+      }),
+    );
+  }
+
+  const model = buildPeriodJournalEntryModel({
+    period: { mode: 'month', year: 2026, month: 7 },
+    entries: journals,
+    lines: raw,
+    statusFilter: 'POSTED',
+  });
+
+  const focused = applyPeriodJournalCategoryFilter(model, 'rev-rnt');
+  const rent = focused.lines.find((l) => l.category_id === 'rev-rnt');
+  assert.ok(rent);
+  assert.equal(rent.credit, expected, 'يجب جمع كل مطالبات الإيجار لا جزء منها');
+  assert.equal(focused.sourceEntryCount, 40);
+
+  const sections = buildCashBankSeparatedSections(focused, 'rev-rnt');
+  const display = describePeriodJournalSectionDisplay(
+    sections[0].focusLine,
+    sections[0].contraLines,
+    {
+      fundingLabel: sections[0].fundingLabel,
+      sectionKind: sections[0].sectionKind,
+      focusTitle: sections[0].title,
+    },
+  );
+  assert.equal(display.focusAmount, expected);
+  assert.ok(expected > 6000, 'sanity: المجموع أكبر من عينة 6000');
+}
+
 console.log('OK — professional double-entry period journal checks passed');

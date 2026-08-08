@@ -35,10 +35,7 @@ import {
 import { AccountingBackfillBanner } from '@/components/accounting/accounting-backfill-banner';
 import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
-import {
-  useJournalEntriesForPeriod,
-  type JournalStatus,
-} from '@/lib/db/journal-queries';
+import { type JournalStatus } from '@/lib/db/journal-queries';
 import {
   fetchPeriodJournalEntry,
   applyPeriodJournalCategoryFilter,
@@ -195,40 +192,53 @@ function JournalMonthContent() {
   const { startDate, endDate } = reportPeriodDateRange(period);
   const periodLabel = formatReportPeriodLabelAr(period);
 
-  const {
-    data: sourceEntries = [],
-    isLoading: entriesLoading,
-    isError: entriesError,
-    error: entriesErr,
-  } = useJournalEntriesForPeriod({
-    startDate,
-    endDate,
-    status: statusFilter,
-  });
+  const selectedCategory = useMemo(
+    () =>
+      categoryFilterId === ALL_CATEGORIES || isSpecialCategoryFilter(categoryFilterId)
+        ? null
+        : categories.find((c) => c.id === categoryFilterId) ?? null,
+    [categories, categoryFilterId],
+  );
+
+  const isSingleCategoryView =
+    categoryFilterId !== ALL_CATEGORIES && !isAggregateView;
+  /** بند واحد: جلب كامل لقيود البند (تجنّب قطع 2000 على رؤوس القيود) */
+  const focusCategoryId = isSingleCategoryView ? categoryFilterId : null;
 
   const [model, setModel] = useState<PeriodJournalEntryModel | null>(null);
+  const [comprehensiveModelRaw, setComprehensiveModelRaw] =
+    useState<PeriodJournalEntryModel | null>(null);
   const [aggLoading, setAggLoading] = useState(false);
   const [aggError, setAggError] = useState<string | null>(null);
-
-  const sourceEntryKey = useMemo(
-    () => sourceEntries.map((e) => e.id).join(','),
-    [sourceEntries],
-  );
 
   useEffect(() => {
     let cancelled = false;
 
     async function run() {
-      if (entriesLoading) return;
       setAggLoading(true);
       setAggError(null);
       try {
-        const next = await fetchPeriodJournalEntry({
-          period,
-          entries: sourceEntries,
-          statusFilter,
-        });
-        if (!cancelled) setModel(next);
+        if (focusCategoryId) {
+          const focused = await fetchPeriodJournalEntry({
+            period,
+            statusFilter,
+            categoryId: focusCategoryId,
+          });
+          if (cancelled) return;
+          setModel(focused);
+          /** حمّل الشامل في الخلفية لزر PDF الشامل دون حجب عرض البند */
+          void fetchPeriodJournalEntry({ period, statusFilter }).then((full) => {
+            if (!cancelled) setComprehensiveModelRaw(full);
+          });
+        } else {
+          const full = await fetchPeriodJournalEntry({
+            period,
+            statusFilter,
+          });
+          if (cancelled) return;
+          setModel(full);
+          setComprehensiveModelRaw(full);
+        }
       } catch (e) {
         if (!cancelled) {
           setAggError(e instanceof Error ? e.message : 'تعذّر تجميع القيد');
@@ -243,16 +253,15 @@ function JournalMonthContent() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sourceEntries عبر sourceEntryKey
-  }, [entriesLoading, sourceEntryKey, period.year, period.month, period.mode, statusFilter]);
-
-  const selectedCategory = useMemo(
-    () =>
-      categoryFilterId === ALL_CATEGORIES || isSpecialCategoryFilter(categoryFilterId)
-        ? null
-        : categories.find((c) => c.id === categoryFilterId) ?? null,
-    [categories, categoryFilterId],
-  );
+  }, [
+    focusCategoryId,
+    period.year,
+    period.month,
+    period.mode,
+    statusFilter,
+    startDate,
+    endDate,
+  ]);
 
   const displayModel = useMemo(() => {
     if (!model) return null;
@@ -272,17 +281,15 @@ function JournalMonthContent() {
 
   /** دائماً النموذج الشامل — لزر تقرير شامل PDF */
   const comprehensiveModel = useMemo(() => {
-    if (!model) return null;
-    return applyPeriodJournalCategoryFilter(model, ALL_CATEGORIES, null);
-  }, [model]);
+    const base = comprehensiveModelRaw ?? (!focusCategoryId ? model : null);
+    if (!base) return null;
+    return applyPeriodJournalCategoryFilter(base, ALL_CATEGORIES, null);
+  }, [comprehensiveModelRaw, model, focusCategoryId]);
 
-  const isSingleCategoryView =
-    categoryFilterId !== ALL_CATEGORIES && !isAggregateView;
   const isFilteredView = categoryFilterId !== ALL_CATEGORIES;
-  const isLoading = entriesLoading || aggLoading || categoriesLoading;
-  const isError = entriesError || !!aggError;
-  const errorMessage =
-    (entriesErr instanceof Error ? entriesErr.message : undefined) || aggError;
+  const isLoading = aggLoading || categoriesLoading;
+  const isError = !!aggError;
+  const errorMessage = aggError;
 
   const exportNames = useMemo(
     () => formatPeriodJournalExportNames(period, displayModel),
@@ -484,7 +491,7 @@ function JournalMonthContent() {
                   {isAggregateView
                     ? 'معطّل أثناء وضع التجميع — اختر «كل البنود» أعلاه أولاً.'
                     : isSingleCategoryView
-                      ? 'بند واحد: يُفصل النقدي عن المصارف — كل مصرف في جدول وورقة مستقلة.'
+                      ? 'بند واحد: يُجلب كاملاً للفترة (بدون قطع)، ويُفصل النقدي عن المصارف. إيجارات المحلات = إيراد مستحق من المطالبات وليس التحصيل النقدي.'
                       : 'اتركه على جميع البنود، أو اختر بنداً لكشف تفصيلي.'}
                 </p>
               </div>
@@ -556,29 +563,36 @@ function JournalMonthContent() {
           </AccountingEmpty>
         ) : (
           <>
+            {displayModel.truncated ? (
+              <AccountingBackfillBanner
+                title="تنبيه: قد يكون المجموع ناقصاً"
+                description="تم بلوغ حد جلب القيود لهذه الفترة. عند اختيار بند واحد (مثل إيجارات المحلات) يُعاد الجلب كاملاً لهذا البند — تأكد أن البند محدد من القائمة."
+              />
+            ) : null}
             <AccountingSummaryGrid
               stats={[
                 {
                   label: displayModel.typeGroupFilter
                     ? 'صفوف مجمّعة'
                     : displayModel.categoryFilter
-                      ? 'صفوف المجموع'
+                      ? 'قيود البند'
                       : 'بنود تحرّكت',
                   value: displayModel.categoryFilter
-                    ? displayModel.lines.filter(
-                        (l) =>
-                          l.category_id === displayModel.categoryFilter!.id,
-                      ).length
+                    ? displayModel.sourceEntryCount
                     : displayModel.lines.length,
                   currency: '',
                 },
                 {
-                  label: 'إجمالي المدين',
+                  label: displayModel.categoryFilter
+                    ? 'مدين (البند + الطرف)'
+                    : 'إجمالي المدين',
                   value: displayModel.totalDebit,
                   tone: 'positive',
                 },
                 {
-                  label: 'إجمالي الدائن',
+                  label: displayModel.categoryFilter
+                    ? 'دائن (البند + الطرف)'
+                    : 'إجمالي الدائن',
                   value: displayModel.totalCredit,
                   tone: 'negative',
                 },

@@ -211,7 +211,7 @@ export function useJournalEntriesForPeriod(filters: {
 }) {
   const status =
     filters.status && filters.status !== 'ALL' ? filters.status : null;
-  const limit = filters.limit ?? 2000;
+  const limit = filters.limit ?? 20000;
   const enabled = filters.enabled !== false && !!filters.startDate && !!filters.endDate;
 
   return useQuery<JournalEntryRow[]>({
@@ -219,38 +219,70 @@ export function useJournalEntriesForPeriod(filters: {
     enabled,
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
+      const pageSize = Math.min(limit, 5000);
+      const all: JournalEntryRow[] = [];
 
-      const { data, error } = await supabase.rpc('get_journal_entries_for_period', {
-        p_start_date: filters.startDate,
-        p_end_date: filters.endDate,
-        p_status: status ?? 'ALL',
-        p_limit: limit,
-      });
+      for (let offset = 0; offset < limit; offset += pageSize) {
+        const { data, error } = await supabase.rpc('get_journal_entries_for_period', {
+          p_start_date: filters.startDate,
+          p_end_date: filters.endDate,
+          p_status: status ?? 'ALL',
+          p_limit: pageSize,
+          p_offset: offset,
+        });
 
-      if (!error) return (data as JournalEntryRow[]) ?? [];
+        if (!error) {
+          const rows = (data as JournalEntryRow[]) ?? [];
+          all.push(...rows);
+          if (rows.length < pageSize) return all;
+          continue;
+        }
 
-      const msg = error.message ?? '';
-      const rpcMissing =
-        msg.includes('get_journal_entries_for_period') ||
-        msg.includes('schema cache') ||
-        error.code === 'PGRST202';
+        const msg = error.message ?? '';
+        const offsetUnsupported =
+          msg.includes('p_offset') ||
+          msg.includes('Could not find') ||
+          error.code === 'PGRST202';
 
-      if (!rpcMissing) throw error;
+        if (offsetUnsupported && offset === 0) {
+          const legacy = await supabase.rpc('get_journal_entries_for_period', {
+            p_start_date: filters.startDate,
+            p_end_date: filters.endDate,
+            p_status: status ?? 'ALL',
+            p_limit: Math.min(limit, 5000),
+          });
 
-      let q = supabase
-        .from('journal_entries_with_totals')
-        .select('*')
-        .gte('entry_date', filters.startDate)
-        .lte('entry_date', filters.endDate)
-        .order('entry_date', { ascending: true })
-        .order('number', { ascending: true })
-        .limit(limit);
+          if (!legacy.error) {
+            return (legacy.data as JournalEntryRow[]) ?? [];
+          }
 
-      if (status) q = q.eq('status', status);
+          const rpcMissing =
+            (legacy.error.message ?? '').includes('get_journal_entries_for_period') ||
+            (legacy.error.message ?? '').includes('schema cache') ||
+            legacy.error.code === 'PGRST202';
 
-      const { data: rows, error: viewError } = await q;
-      if (viewError) throw viewError;
-      return (rows as JournalEntryRow[]) ?? [];
+          if (!rpcMissing) throw legacy.error;
+
+          let q = supabase
+            .from('journal_entries_with_totals')
+            .select('*')
+            .gte('entry_date', filters.startDate)
+            .lte('entry_date', filters.endDate)
+            .order('entry_date', { ascending: true })
+            .order('number', { ascending: true })
+            .limit(Math.min(limit, 5000));
+
+          if (status) q = q.eq('status', status);
+
+          const { data: rows, error: viewError } = await q;
+          if (viewError) throw viewError;
+          return (rows as JournalEntryRow[]) ?? [];
+        }
+
+        throw error;
+      }
+
+      return all;
     },
   });
 }

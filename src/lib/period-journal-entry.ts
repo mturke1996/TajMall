@@ -374,6 +374,11 @@ export type PeriodJournalEntryModel = {
   } | null;
   sourceEntryCount: number;
   sourceLineCount: number;
+  /**
+   * true إذا وُقف الجلب عند حد أقصى — المجاميع قد تكون ناقصة.
+   * يُفترض false عند جلب بند واحد عبر مسار دفتر الأستاذ / دالة البنود.
+   */
+  truncated?: boolean;
   lines: PeriodJournalLine[];
   totalDebit: number;
   totalCredit: number;
@@ -1272,6 +1277,7 @@ export function buildPeriodJournalEntryModel(input: {
   entries: JournalEntryRow[];
   lines: RawLine[];
   statusFilter?: JournalStatus | 'ALL';
+  truncated?: boolean;
 }): PeriodJournalEntryModel {
   const { startDate, endDate } = reportPeriodDateRange(input.period);
   const periodLabel = formatReportPeriodLabelAr(input.period);
@@ -1291,6 +1297,7 @@ export function buildPeriodJournalEntryModel(input: {
     categoryFilter: null,
     sourceEntryCount: input.entries.length,
     sourceLineCount: input.lines.filter((l) => journalsById.has(l.journal_id)).length,
+    truncated: Boolean(input.truncated),
     lines: aggregated,
     totalDebit,
     totalCredit,
@@ -1770,29 +1777,113 @@ export function applyPeriodJournalCategoryFilter(
   };
 }
 
-/** جلب بنود كل القيود ثم تجميعها كقيد فترة واحد مع التفاصيل */
-export async function fetchPeriodJournalEntry(input: {
-  period: ReportPeriod;
-  entries: JournalEntryRow[];
-  statusFilter?: JournalStatus | 'ALL';
-}): Promise<PeriodJournalEntryModel> {
-  if (input.entries.length === 0) {
-    return buildPeriodJournalEntryModel({
-      period: input.period,
-      entries: [],
-      lines: [],
-      statusFilter: input.statusFilter,
-    });
+type PeriodRpcLineRow = {
+  journal_id: string;
+  journal_number: number;
+  entry_date: string;
+  journal_reference: string | null;
+  journal_description: string | null;
+  journal_status: string;
+  category_id: string;
+  category_code: string | null;
+  category_name: string | null;
+  category_type: string | null;
+  debit: number | string;
+  credit: number | string;
+  description: string | null;
+  sort_order: number | null;
+  cashbox_id: string | null;
+  cashbox_name_ar: string | null;
+  cashbox_code: string | null;
+  cashbox_kind: string | null;
+  contact_name: string | null;
+};
+
+function stubJournalEntryFromRpc(row: PeriodRpcLineRow): JournalEntryRow {
+  return {
+    id: row.journal_id,
+    number: Number(row.journal_number) || 0,
+    reference: row.journal_reference,
+    status: (row.journal_status as JournalStatus) || 'POSTED',
+    entry_date: row.entry_date,
+    description: row.journal_description,
+    notes: null,
+    posted_at: null,
+    reversed_at: null,
+    created_at: row.entry_date,
+    updated_at: row.entry_date,
+    total_debit: '0',
+    total_credit: '0',
+    line_count: 0,
+  };
+}
+
+async function enrichRawLinesCashboxKinds(allLines: RawLine[]): Promise<RawLine[]> {
+  const supabase = createSupabaseBrowserClient();
+  const cashboxIds = [
+    ...new Set(
+      allLines
+        .map((l) => l.cashbox_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    ),
+  ];
+
+  if (cashboxIds.length === 0) return allLines;
+
+  const kindById = new Map<string, CashboxKind>();
+  const boxChunk = 100;
+  for (let i = 0; i < cashboxIds.length; i += boxChunk) {
+    const slice = cashboxIds.slice(i, i + boxChunk);
+    const { data: boxes, error: boxesError } = await supabase
+      .from('cashboxes')
+      .select('id, kind, name_ar, code')
+      .in('id', slice);
+
+    if (boxesError || !boxes?.length) {
+      if (boxesError) {
+        console.warn('[period-journal] cashbox kind lookup failed', boxesError);
+      }
+      break;
+    }
+    for (const b of boxes) {
+      if (b.id && b.kind) {
+        kindById.set(b.id as string, b.kind as CashboxKind);
+      }
+      if (b.id && b.name_ar) {
+        for (const line of allLines) {
+          if (line.cashbox_id === b.id) {
+            if (!line.cashbox_name_ar) line.cashbox_name_ar = b.name_ar as string;
+            if (!line.cashbox_code && b.code) {
+              line.cashbox_code = b.code as string;
+            }
+          }
+        }
+      }
+    }
   }
 
+  for (const line of allLines) {
+    if (!line.cashbox_id) continue;
+    line.cashbox_kind =
+      kindById.get(line.cashbox_id) ??
+      resolveCashboxKind({
+        kind: line.cashbox_kind,
+        code: line.cashbox_code,
+        name: line.cashbox_name_ar,
+      });
+  }
+
+  return allLines;
+}
+
+async function fetchRawLinesForJournalIds(ids: string[]): Promise<RawLine[]> {
+  if (ids.length === 0) return [];
   const supabase = createSupabaseBrowserClient();
-  const ids = input.entries.map((e) => e.id);
   const allLines: RawLine[] = [];
   const chunkSize = 80;
 
   for (let i = 0; i < ids.length; i += chunkSize) {
     const chunk = ids.slice(i, i + chunkSize);
-    // الاسم والرمز والنوع (إن وُجدت هجرة 067) من الـ view؛ وإلا يُستنتج لاحقاً
     let { data, error } = await supabase
       .from('journal_lines_with_categories')
       .select(
@@ -1832,63 +1923,322 @@ export async function fetchPeriodJournalEntry(input: {
     );
   }
 
-  const cashboxIds = [
+  return enrichRawLinesCashboxKinds(allLines);
+}
+
+/**
+ * مسار بند واحد (مثل REV-RNT): يجلب كل قيود الفترة التي لمست البند
+ * عبر get_journal_lines_for_period أو دفتر الأستاذ — بلا حد 2000 على رؤوس القيود.
+ */
+async function fetchPeriodJournalByCategory(input: {
+  period: ReportPeriod;
+  categoryId: string;
+  statusFilter?: JournalStatus | 'ALL';
+}): Promise<PeriodJournalEntryModel | null> {
+  const supabase = createSupabaseBrowserClient();
+  const { startDate, endDate } = reportPeriodDateRange(input.period);
+  const status = input.statusFilter ?? 'POSTED';
+
+  const { data, error } = await supabase.rpc('get_journal_lines_for_period', {
+    p_start_date: startDate,
+    p_end_date: endDate,
+    p_status: status,
+    p_category_id: input.categoryId,
+    p_limit: 100000,
+  });
+
+  if (!error && Array.isArray(data)) {
+    const rows = data as PeriodRpcLineRow[];
+    if (rows.length === 0) {
+      return buildPeriodJournalEntryModel({
+        period: input.period,
+        entries: [],
+        lines: [],
+        statusFilter: status,
+        truncated: false,
+      });
+    }
+
+    const entriesById = new Map<string, JournalEntryRow>();
+    const lines: RawLine[] = [];
+    for (const row of rows) {
+      if (!entriesById.has(row.journal_id)) {
+        entriesById.set(row.journal_id, stubJournalEntryFromRpc(row));
+      }
+      lines.push({
+        journal_id: row.journal_id,
+        category_id: row.category_id,
+        debit: Number(row.debit) || 0,
+        credit: Number(row.credit) || 0,
+        description: row.description,
+        category_code: row.category_code,
+        category_name: row.category_name,
+        category_type: row.category_type,
+        cashbox_id: row.cashbox_id,
+        cashbox_name_ar: row.cashbox_name_ar,
+        cashbox_code: row.cashbox_code,
+        cashbox_kind: resolveCashboxKind({
+          kind: row.cashbox_kind as CashboxKind | null,
+          code: row.cashbox_code,
+          name: row.cashbox_name_ar,
+        }),
+        contact_name: row.contact_name,
+        sort_order: Number(row.sort_order) || 0,
+      });
+    }
+
+    return buildPeriodJournalEntryModel({
+      period: input.period,
+      entries: [...entriesById.values()],
+      lines: await enrichRawLinesCashboxKinds(lines),
+      statusFilter: status,
+      truncated: rows.length >= 100000,
+    });
+  }
+
+  const msg = error?.message ?? '';
+  const rpcMissing =
+    msg.includes('get_journal_lines_for_period') ||
+    msg.includes('schema cache') ||
+    error?.code === 'PGRST202';
+  if (error && !rpcMissing) throw error;
+
+  /** Fallback: دفتر الأستاذ للبند ثم توسيع القيود بالكامل */
+  if (status !== 'POSTED' && status !== 'ALL') {
+    return null;
+  }
+
+  const { data: glData, error: glError } = await supabase.rpc(
+    'get_general_ledger_lines',
+    {
+      p_category_id: input.categoryId,
+      p_start_date: startDate,
+      p_end_date: endDate,
+    },
+  );
+
+  if (glError) {
+    const glMsg = glError.message ?? '';
+    const glMissing =
+      glMsg.includes('get_general_ledger_lines') ||
+      glMsg.includes('schema cache') ||
+      glError.code === 'PGRST202';
+    if (!glMissing) throw glError;
+    return null;
+  }
+
+  const glLines =
+    ((glData as { lines?: Array<{ journal_id?: string }> } | null)?.lines ??
+      []) as Array<{ journal_id?: string }>;
+  const journalIds = [
     ...new Set(
-      allLines
-        .map((l) => l.cashbox_id)
+      glLines
+        .map((l) => l.journal_id)
         .filter((id): id is string => typeof id === 'string' && id.length > 0),
     ),
   ];
 
-  if (cashboxIds.length > 0) {
-    const kindById = new Map<string, CashboxKind>();
-    const boxChunk = 100;
-    for (let i = 0; i < cashboxIds.length; i += boxChunk) {
-      const slice = cashboxIds.slice(i, i + boxChunk);
-      const { data: boxes, error: boxesError } = await supabase
-        .from('cashboxes')
-        .select('id, kind, name_ar, code')
-        .in('id', slice);
+  if (journalIds.length === 0) {
+    return buildPeriodJournalEntryModel({
+      period: input.period,
+      entries: [],
+      lines: [],
+      statusFilter: status,
+      truncated: false,
+    });
+  }
 
-      if (boxesError || !boxes?.length) {
-        if (boxesError) {
-          console.warn('[period-journal] cashbox kind lookup failed', boxesError);
-        }
-        break;
+  const entries: JournalEntryRow[] = [];
+  const idChunk = 80;
+  for (let i = 0; i < journalIds.length; i += idChunk) {
+    const chunk = journalIds.slice(i, i + idChunk);
+    const { data: rows, error: jeError } = await supabase
+      .from('journal_entries_with_totals')
+      .select('*')
+      .in('id', chunk);
+    if (jeError) throw jeError;
+    entries.push(...((rows as JournalEntryRow[]) ?? []));
+  }
+
+  const lines = await fetchRawLinesForJournalIds(journalIds);
+  return buildPeriodJournalEntryModel({
+    period: input.period,
+    entries,
+    lines,
+    statusFilter: status,
+    truncated: false,
+  });
+}
+
+async function fetchAllPeriodJournalEntriesPaged(input: {
+  startDate: string;
+  endDate: string;
+  statusFilter?: JournalStatus | 'ALL';
+}): Promise<{ entries: JournalEntryRow[]; truncated: boolean }> {
+  const supabase = createSupabaseBrowserClient();
+  const status = input.statusFilter ?? 'POSTED';
+  const pageSize = 5000;
+  const maxPages = 20;
+  const entries: JournalEntryRow[] = [];
+  let truncated = false;
+
+  for (let page = 0; page < maxPages; page++) {
+    const offset = page * pageSize;
+    const { data, error } = await supabase.rpc('get_journal_entries_for_period', {
+      p_start_date: input.startDate,
+      p_end_date: input.endDate,
+      p_status: status,
+      p_limit: pageSize,
+      p_offset: offset,
+    });
+
+    if (error) {
+      const msg = error.message ?? '';
+      const offsetUnsupported =
+        msg.includes('p_offset') ||
+        msg.includes('Could not find') ||
+        error.code === 'PGRST202';
+
+      if (offsetUnsupported && page === 0) {
+        const legacy = await supabase.rpc('get_journal_entries_for_period', {
+          p_start_date: input.startDate,
+          p_end_date: input.endDate,
+          p_status: status,
+          p_limit: 5000,
+        });
+        if (legacy.error) throw legacy.error;
+        const rows = (legacy.data as JournalEntryRow[]) ?? [];
+        return { entries: rows, truncated: rows.length >= 5000 };
       }
-      for (const b of boxes) {
-        if (b.id && b.kind) {
-          kindById.set(b.id as string, b.kind as CashboxKind);
-        }
-        if (b.id && b.name_ar) {
-          for (const line of allLines) {
-            if (line.cashbox_id === b.id) {
-              if (!line.cashbox_name_ar) line.cashbox_name_ar = b.name_ar as string;
-              if (!line.cashbox_code && b.code) {
-                line.cashbox_code = b.code as string;
-              }
-            }
-          }
-        }
-      }
+      if (offsetUnsupported) break;
+      throw error;
     }
 
-    for (const line of allLines) {
-      if (!line.cashbox_id) continue;
-      line.cashbox_kind =
-        kindById.get(line.cashbox_id) ??
-        resolveCashboxKind({
-          kind: line.cashbox_kind,
-          code: line.cashbox_code,
-          name: line.cashbox_name_ar,
+    const rows = (data as JournalEntryRow[]) ?? [];
+    entries.push(...rows);
+    if (rows.length < pageSize) {
+      truncated = false;
+      break;
+    }
+    if (page === maxPages - 1) truncated = true;
+  }
+
+  return { entries, truncated };
+}
+
+/**
+ * جلب بنود الفترة وتجميعها كقيد واحد.
+ * عند تمرير categoryId (بند مثل إيجارات المحلات) يُجلب كل قيود البند
+ * دون الاعتماد على أول 2000 قيد في الشهر.
+ */
+export async function fetchPeriodJournalEntry(input: {
+  period: ReportPeriod;
+  entries?: JournalEntryRow[];
+  statusFilter?: JournalStatus | 'ALL';
+  /** بند تركيز — مسار كامل بلا قطع 2000 */
+  categoryId?: string | null;
+}): Promise<PeriodJournalEntryModel> {
+  const status = input.statusFilter ?? 'POSTED';
+  const { startDate, endDate } = reportPeriodDateRange(input.period);
+
+  if (input.categoryId) {
+    const byCategory = await fetchPeriodJournalByCategory({
+      period: input.period,
+      categoryId: input.categoryId,
+      statusFilter: status,
+    });
+    if (byCategory) return byCategory;
+  }
+
+  /** مسار شامل: دالة البنود للفترة إن وُجدت */
+  if (!input.categoryId) {
+    const supabase = createSupabaseBrowserClient();
+    const { data, error } = await supabase.rpc('get_journal_lines_for_period', {
+      p_start_date: startDate,
+      p_end_date: endDate,
+      p_status: status,
+      p_category_id: null,
+      p_limit: 100000,
+    });
+
+    if (!error && Array.isArray(data)) {
+      const rows = data as PeriodRpcLineRow[];
+      if (rows.length === 0) {
+        return buildPeriodJournalEntryModel({
+          period: input.period,
+          entries: [],
+          lines: [],
+          statusFilter: status,
+          truncated: false,
         });
+      }
+      const entriesById = new Map<string, JournalEntryRow>();
+      const lines: RawLine[] = [];
+      for (const row of rows) {
+        if (!entriesById.has(row.journal_id)) {
+          entriesById.set(row.journal_id, stubJournalEntryFromRpc(row));
+        }
+        lines.push({
+          journal_id: row.journal_id,
+          category_id: row.category_id,
+          debit: Number(row.debit) || 0,
+          credit: Number(row.credit) || 0,
+          description: row.description,
+          category_code: row.category_code,
+          category_name: row.category_name,
+          category_type: row.category_type,
+          cashbox_id: row.cashbox_id,
+          cashbox_name_ar: row.cashbox_name_ar,
+          cashbox_code: row.cashbox_code,
+          cashbox_kind: resolveCashboxKind({
+            kind: row.cashbox_kind as CashboxKind | null,
+            code: row.cashbox_code,
+            name: row.cashbox_name_ar,
+          }),
+          contact_name: row.contact_name,
+          sort_order: Number(row.sort_order) || 0,
+        });
+      }
+      return buildPeriodJournalEntryModel({
+        period: input.period,
+        entries: [...entriesById.values()],
+        lines: await enrichRawLinesCashboxKinds(lines),
+        statusFilter: status,
+        truncated: rows.length >= 100000,
+      });
     }
   }
 
+  let entries = input.entries;
+  let truncated = false;
+  if (!entries) {
+    const paged = await fetchAllPeriodJournalEntriesPaged({
+      startDate,
+      endDate,
+      statusFilter: status,
+    });
+    entries = paged.entries;
+    truncated = paged.truncated;
+  } else if (entries.length >= 2000) {
+    truncated = true;
+  }
+
+  if (entries.length === 0) {
+    return buildPeriodJournalEntryModel({
+      period: input.period,
+      entries: [],
+      lines: [],
+      statusFilter: status,
+      truncated: false,
+    });
+  }
+
+  const lines = await fetchRawLinesForJournalIds(entries.map((e) => e.id));
   return buildPeriodJournalEntryModel({
     period: input.period,
-    entries: input.entries,
-    lines: allLines,
-    statusFilter: input.statusFilter,
+    entries,
+    lines,
+    statusFilter: status,
+    truncated,
   });
 }
