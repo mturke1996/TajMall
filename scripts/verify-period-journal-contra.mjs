@@ -8,6 +8,7 @@ import {
   buildCashBankSeparatedSections,
   buildPeriodJournalEntryModel,
   buildPeriodJournalVouchers,
+  describePeriodJournalSectionDisplay,
 } from '../src/lib/period-journal-entry.ts';
 
 function journal(id, number, date, description) {
@@ -543,6 +544,76 @@ function line(partial) {
   assert.ok(focusRev);
   assert.equal(focusRev.credit, 2000);
   assert.ok(allRevenue.balanced);
+}
+
+// --- Case 8: إيجارات المحلات (REV-RNT) — استحقاق: مدين ذمم / دائن إيراد ---
+// كان العرض يفترض شكل المصروف فيظهر 0/0 بدل مبلغ الإيجار.
+{
+  const jCharge = journal('j-rent-accrual', 801, '2026-07-15', 'إيجار شهر 2026-07');
+  const raw = [
+    line({
+      journal_id: 'j-rent-accrual',
+      category_id: 'ast-rec',
+      debit: 3500,
+      credit: 0,
+      category_code: 'AST-REC',
+      category_name: 'ذمم المستأجرين',
+      category_type: 'ASSET',
+      contact_name: 'مستأجر تجريبي',
+    }),
+    line({
+      journal_id: 'j-rent-accrual',
+      category_id: 'rev-rnt',
+      debit: 0,
+      credit: 3500,
+      category_code: 'REV-RNT',
+      category_name: 'إيجارات المحلات والوحدات',
+      category_type: 'REVENUE',
+    }),
+  ];
+
+  const model = buildPeriodJournalEntryModel({
+    period: { mode: 'month', year: 2026, month: 7 },
+    entries: [jCharge],
+    lines: raw,
+    statusFilter: 'POSTED',
+  });
+
+  const focused = applyPeriodJournalCategoryFilter(model, 'rev-rnt');
+  assert.ok(focused.balanced);
+  const rent = focused.lines.find((l) => l.category_id === 'rev-rnt');
+  assert.ok(rent);
+  assert.equal(rent.credit, 3500);
+  assert.equal(rent.debit, 0);
+
+  const sections = buildCashBankSeparatedSections(focused, 'rev-rnt');
+  assert.equal(sections.length, 1);
+  assert.equal(sections[0].focusLine.credit, 3500);
+  assert.equal(sections[0].focusLine.debit, 0);
+  assert.ok(sections[0].balanced);
+  assert.match(sections[0].subtitle, /دائن: إيجارات المحلات والوحدات/);
+  assert.match(sections[0].subtitle, /مدين:/);
+
+  const display = describePeriodJournalSectionDisplay(
+    sections[0].focusLine,
+    sections[0].contraLines,
+    {
+      fundingLabel: sections[0].fundingLabel,
+      sectionKind: sections[0].sectionKind,
+      focusTitle: sections[0].title,
+    },
+  );
+  assert.equal(display.focusIsCredit, true);
+  assert.equal(display.focusAmount, 3500, 'يجب إظهار مبلغ الإيجار لا صفر');
+  assert.equal(display.contraAmount, 3500);
+  assert.equal(display.focusSideLabel, 'دائن');
+  assert.equal(display.contraSideLabel, 'مدين');
+  assert.equal(display.contraLabel, 'ذمم المستأجرين');
+  assert.notEqual(
+    display.focusAmount,
+    0,
+    'regression: إيراد الإيجار لا يُعرض كمدين=0',
+  );
 }
 
 console.log('OK — professional double-entry period journal checks passed');
