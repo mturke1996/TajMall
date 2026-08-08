@@ -168,21 +168,22 @@ export type PeriodJournalLine = {
 
 /**
  * قسم تقرير عند اختيار بند: النقدي مجمّعاً، وكل مصرف في صفحة مستقلة.
- * العرض المهني: البند/البنود = مدين (باسم واضح)، والنقدي/المصرف = دائن.
+ * المصروف/الأصل: البند مدين والطرف المقابل دائن.
+ * الإيراد/الالتزام/حقوق الملكية: البند دائن والطرف المقابل مدين.
  */
 export type PeriodCashBankSection = {
   sectionKey: string;
   sectionKind: 'CASH' | 'BANK' | 'CARD' | 'OTHER' | 'NONE';
   /** عنوان القسم (اسم البند أو «جميع المصاريف») */
   title: string;
-  /** مصدر التمويل للطرف الدائن: النقدي / اسم المصرف */
+  /** مصدر التمويل / الطرف المقابل: النقدي / اسم المصرف / الذمم… */
   fundingLabel: string;
   /** وصف قصير للعرض */
   subtitle: string;
   /** صف تركيز مجمّع للمجاميع والعنوان */
   focusLine: PeriodJournalLine;
   /**
-   * بنود المدين التفصيلية (عند تجميع عدة مصاريف/إيرادات).
+   * بنود التركيز التفصيلية (عند تجميع عدة مصاريف/إيرادات).
    * إن وُجدت تُعرض كل منها باسمها الواضح في الجدول.
    */
   focusDetailLines?: PeriodJournalLine[];
@@ -191,6 +192,113 @@ export type PeriodCashBankSection = {
   totalCredit: number;
   balanced: boolean;
 };
+
+/** حساب دائن بطبيعته (إيراد / التزام / حقوق ملكية) */
+export function isCreditNormalAccountType(
+  type: string | null | undefined,
+): boolean {
+  return type === 'REVENUE' || type === 'LIABILITY' || type === 'EQUITY';
+}
+
+/**
+ * هل صف التركيز يُعرض على الجانب الدائن؟
+ * يعتمد نوع الحساب أولاً، ثم أكبر جانب عند غياب النوع.
+ */
+export function periodJournalFocusIsCredit(
+  focusLine: Pick<PeriodJournalLine, 'category_type' | 'debit' | 'credit'>,
+): boolean {
+  if (isCreditNormalAccountType(focusLine.category_type)) return true;
+  if (
+    focusLine.category_type === 'EXPENSE' ||
+    focusLine.category_type === 'ASSET'
+  ) {
+    return false;
+  }
+  return focusLine.credit > focusLine.debit;
+}
+
+/** اسم الطرف المقابل للعرض (نقدي / مصرف / ذمم / …) */
+export function resolvePeriodJournalContraLabel(
+  contraLines: PeriodJournalLine[],
+  options?: {
+    fundingLabel?: string | null;
+    sectionKind?: PeriodCashBankSection['sectionKind'];
+  },
+): string {
+  const funding = options?.fundingLabel?.trim();
+  if (funding && funding !== '—') return funding;
+  if (options?.sectionKind === 'CASH') return 'النقدي';
+  if (options?.sectionKind === 'BANK') return 'المصرف';
+  if (contraLines.length === 0) return 'الطرف المقابل';
+  const names = [
+    ...new Set(
+      contraLines
+        .map((l) => l.cashbox_name?.trim() || l.category_name)
+        .filter((n): n is string => Boolean(n && n !== '—')),
+    ),
+  ];
+  if (names.length === 0) return 'الطرف المقابل';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} + ${names[1]}`;
+  return `${names[0]} + ${names.length - 1} أخرى`;
+}
+
+export type PeriodJournalSectionDisplay = {
+  focusIsCredit: boolean;
+  focusAmount: number;
+  contraAmount: number;
+  focusSideLabel: 'مدين' | 'دائن';
+  contraSideLabel: 'مدين' | 'دائن';
+  /** مثال: «دائن — البند» */
+  focusRoleLabel: string;
+  /** مثال: «مدين» للطرف المقابل */
+  contraRolePrefix: string;
+  contraLabel: string;
+  /** مثال: «دائن البند» */
+  headerFocusLabel: string;
+  /** مثال: «مدين ذمم المستأجرين» */
+  headerContraLabel: string;
+  /** سطر الملخص بلا مبالغ */
+  summaryLine: string;
+};
+
+/**
+ * وصف عرض قسم قيد الفترة — يصحّح قطبية الإيراد (دائن)
+ * مقابل المصروف (مدين) حتى لا يظهر الرقم 0/0 على بنود مثل REV-RNT.
+ */
+export function describePeriodJournalSectionDisplay(
+  focusLine: PeriodJournalLine,
+  contraLines: PeriodJournalLine[],
+  options?: {
+    fundingLabel?: string | null;
+    sectionKind?: PeriodCashBankSection['sectionKind'];
+    focusTitle?: string;
+  },
+): PeriodJournalSectionDisplay {
+  const focusIsCredit = periodJournalFocusIsCredit(focusLine);
+  const focusAmount = focusIsCredit ? focusLine.credit : focusLine.debit;
+  const contraAmount = focusIsCredit
+    ? contraLines.reduce((s, l) => s + l.debit, 0)
+    : contraLines.reduce((s, l) => s + l.credit, 0);
+  const focusSideLabel: 'مدين' | 'دائن' = focusIsCredit ? 'دائن' : 'مدين';
+  const contraSideLabel: 'مدين' | 'دائن' = focusIsCredit ? 'مدين' : 'دائن';
+  const title = options?.focusTitle || focusLine.category_name;
+  const contraLabel = resolvePeriodJournalContraLabel(contraLines, options);
+
+  return {
+    focusIsCredit,
+    focusAmount,
+    contraAmount,
+    focusSideLabel,
+    contraSideLabel,
+    focusRoleLabel: `${focusSideLabel} — البند`,
+    contraRolePrefix: contraSideLabel,
+    contraLabel,
+    headerFocusLabel: `${focusSideLabel} البند`,
+    headerContraLabel: `${contraSideLabel} ${contraLabel}`,
+    summaryLine: `مجموع فقط · ${focusSideLabel} «${title}» · ${contraSideLabel} «${contraLabel}»`,
+  };
+}
 
 export function periodLineRowKey(
   categoryId: string,
@@ -561,8 +669,11 @@ export function buildTypeAggregateCashBankSections(
   );
   if (focusRows.length === 0) return [];
 
+  const focusIsCredit = accountType === 'REVENUE';
   const makeSubtitle = (funding: string) =>
-    `مدين: ${meta.name_ar} (مجموع فقط) · دائن: ${funding}`;
+    focusIsCredit
+      ? `دائن: ${meta.name_ar} (مجموع فقط) · مدين: ${funding}`
+      : `مدين: ${meta.name_ar} (مجموع فقط) · دائن: ${funding}`;
 
   type Bucket = {
     key: string;
@@ -682,13 +793,16 @@ export function buildTypeAggregateCashBankSections(
       { ...focusLine, category_id: '__type_focus__' },
       new Set(focusLine.movements.map((m) => m.journal_id)),
     ).filter((l) => l.category_type !== accountType);
+    const contraLabel = resolvePeriodJournalContraLabel(contraLines, {
+      sectionKind: 'NONE',
+    });
     return [
       {
         sectionKey: focusLine.rowKey,
         sectionKind: 'NONE',
         title: meta.name_ar,
-        fundingLabel: '—',
-        subtitle: `مجموع ${meta.name_ar} فقط — مدين ودائن`,
+        fundingLabel: contraLabel,
+        subtitle: makeSubtitle(contraLabel),
         focusLine: {
           ...focusLine,
           cashbox_id: null,
@@ -767,15 +881,19 @@ export function buildTypeAggregateCashBankSections(
       });
     }
 
+    const contraLabel =
+      bucket.kind === 'NONE'
+        ? resolvePeriodJournalContraLabel(contraLines, {
+            sectionKind: 'NONE',
+          })
+        : bucket.fundingLabel;
+
     sections.push({
       sectionKey: bucket.key,
       sectionKind: bucket.kind,
       title: meta.name_ar,
-      fundingLabel: bucket.fundingLabel,
-      subtitle:
-        bucket.kind === 'NONE'
-          ? `مجموع ${meta.name_ar} فقط — مدين ودائن`
-          : makeSubtitle(bucket.fundingLabel),
+      fundingLabel: contraLabel,
+      subtitle: makeSubtitle(contraLabel),
       focusLine: focusClean,
       contraLines,
       ...sectionTotals(focusClean, contraLines),
@@ -806,11 +924,15 @@ export function buildCashBankSeparatedSections(
 
   const categoryName = focusRows[0]?.category_name || 'البند';
   const categoryCode = focusRows[0]?.category_code || '';
+  const focusType = focusRows[0]?.category_type ?? null;
+  const focusIsCredit = isCreditNormalAccountType(focusType);
   const focusIsCashboxSplit = focusRows.some((l) => l.cashbox_id);
   const sections: PeriodCashBankSection[] = [];
 
   const makeSubtitle = (funding: string) =>
-    `مدين: ${categoryName} · دائن: ${funding}`;
+    focusIsCredit
+      ? `دائن: ${categoryName} · مدين: ${funding}`
+      : `مدين: ${categoryName} · دائن: ${funding}`;
 
   /** صف تركيز باسم البند فقط — لا نضع اسم الخزينة فوق اسم البند */
   const asCategoryFocus = (
@@ -899,12 +1021,15 @@ export function buildCashBankSeparatedSections(
 
     for (const row of plainRows) {
       const contraLines = buildContraLinesForFocus(model, row);
+      const contraLabel = resolvePeriodJournalContraLabel(contraLines, {
+        sectionKind: 'NONE',
+      });
       sections.push({
         sectionKey: row.rowKey,
         sectionKind: 'NONE',
         title: categoryName,
-        fundingLabel: '—',
-        subtitle: `مجموع بند ${categoryName} — مدين ودائن`,
+        fundingLabel: contraLabel,
+        subtitle: makeSubtitle(contraLabel),
         focusLine: asCategoryFocus(row, row.rowKey),
         contraLines,
         ...sectionTotals(row, contraLines),
@@ -914,7 +1039,7 @@ export function buildCashBankSeparatedSections(
     return sections;
   }
 
-  /** بند عادي (مصروف/إيراد…): قسّم حسب مصدر الدفع — البند مدين، النقدي/المصرف دائن */
+  /** بند عادي (مصروف/إيراد…): قسّم حسب مصدر الدفع مع قطبية النوع (مدين/دائن) */
   const template = focusRows[0];
   const allMovements = focusRows.flatMap((r) => r.movements);
 
@@ -1035,13 +1160,16 @@ export function buildCashBankSeparatedSections(
             `${focusCategoryId}::all`,
           );
     const contraLines = buildContraLinesForFocus(model, focusRows[0]);
+    const contraLabel = resolvePeriodJournalContraLabel(contraLines, {
+      sectionKind: 'NONE',
+    });
     return [
       {
         sectionKey: focusLine.rowKey,
         sectionKind: 'NONE',
         title: categoryName,
-        fundingLabel: '—',
-        subtitle: `مجموع بند ${categoryName} — مدين ودائن`,
+        fundingLabel: contraLabel,
+        subtitle: makeSubtitle(contraLabel),
         focusLine,
         contraLines,
         ...sectionTotals(focusLine, contraLines),
@@ -1117,15 +1245,19 @@ export function buildCashBankSeparatedSections(
       }
     }
 
+    const contraLabel =
+      bucket.kind === 'NONE'
+        ? resolvePeriodJournalContraLabel(displayContra, {
+            sectionKind: 'NONE',
+          })
+        : bucket.fundingLabel;
+
     sections.push({
       sectionKey: bucket.key,
       sectionKind: bucket.kind,
       title: categoryName,
-      fundingLabel: bucket.fundingLabel,
-      subtitle:
-        bucket.kind === 'NONE'
-          ? `مجموع بند ${categoryName} — مدين ودائن`
-          : makeSubtitle(bucket.fundingLabel),
+      fundingLabel: contraLabel,
+      subtitle: makeSubtitle(contraLabel),
       focusLine,
       contraLines: displayContra,
       ...sectionTotals(focusLine, displayContra),

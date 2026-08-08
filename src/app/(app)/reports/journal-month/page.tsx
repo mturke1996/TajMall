@@ -45,6 +45,7 @@ import {
   formatPeriodJournalExportNames,
   buildCashBankSeparatedSections,
   buildContraLinesForFocus,
+  describePeriodJournalSectionDisplay,
   periodLineCashboxKindsLabel,
   isPeriodJournalGroupByType,
   parsePeriodJournalTypeFilter,
@@ -732,9 +733,14 @@ function JournalMonthContent() {
                       ? section.focusDetailLines
                       : [focusLine];
                   const contraLines = section.contraLines;
-                  const cashboxCredit = contraLines.reduce(
-                    (s, l) => s + l.credit,
-                    0,
+                  const display = describePeriodJournalSectionDisplay(
+                    focusLine,
+                    contraLines,
+                    {
+                      fundingLabel: section.fundingLabel,
+                      sectionKind: section.sectionKind,
+                      focusTitle: section.title,
+                    },
                   );
                   const kindBadge =
                     section.sectionKind === 'CASH'
@@ -744,12 +750,18 @@ function JournalMonthContent() {
                         : section.sectionKind === 'CARD'
                           ? 'بطاقة'
                           : null;
-                  const creditRole =
+                  const contraRole =
                     section.sectionKind === 'CASH'
-                      ? 'دائن النقدي'
+                      ? `${display.contraSideLabel} النقدي`
                       : section.sectionKind === 'BANK'
-                        ? 'دائن المصرف'
-                        : 'دائن الخزينة';
+                        ? `${display.contraSideLabel} المصرف`
+                        : `${display.contraSideLabel} ${display.contraLabel}`;
+                  const focusRoleClass = display.focusIsCredit
+                    ? 'text-red-700'
+                    : 'text-emerald-800';
+                  const contraRoleClass = display.focusIsCredit
+                    ? 'text-emerald-800'
+                    : 'text-red-700';
 
                   return (
                     <Card key={section.sectionKey} className="border-border/80">
@@ -761,26 +773,22 @@ function JournalMonthContent() {
                               {section.title}
                             </span>
                           </span>
-                          {kindBadge ? (
+                          {kindBadge || display.contraLabel !== 'الطرف المقابل' ? (
                             <Badge
                               variant="outline"
                               className="font-normal normal-case tracking-normal"
                             >
-                              دائن:{' '}
-                              {section.fundingLabel &&
-                              section.fundingLabel !== '—'
-                                ? section.fundingLabel
+                              {display.contraSideLabel}:{' '}
+                              {display.contraLabel !== 'الطرف المقابل'
+                                ? display.contraLabel
                                 : kindBadge}
                             </Badge>
                           ) : null}
                         </CardTitle>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          مجموع فقط · مدين «{section.title}» · دائن «
-                          {section.fundingLabel && section.fundingLabel !== '—'
-                            ? section.fundingLabel
-                            : 'الخزينة'}
-                          » · {formatMoney(focusLine.debit, '')} /{' '}
-                          {formatMoney(cashboxCredit, '')}
+                          {display.summaryLine} ·{' '}
+                          {formatMoney(display.focusAmount, '')} /{' '}
+                          {formatMoney(display.contraAmount, '')}
                           {section.balanced ? ' · متوازن' : ' · مراجعة'}
                         </p>
                       </CardHeader>
@@ -816,15 +824,25 @@ function JournalMonthContent() {
                                     {dl.category_code || '—'}
                                   </td>
                                   <td className="px-4 py-2.5">
-                                    <p className="text-[11px] font-medium text-emerald-800">
-                                      مدين — البند
+                                    <p
+                                      className={cn(
+                                        'text-[11px] font-medium',
+                                        focusRoleClass,
+                                      )}
+                                    >
+                                      {display.focusRoleLabel}
                                     </p>
                                     <p className="text-base font-bold text-sage-900">
                                       {dl.category_name}
                                     </p>
                                   </td>
-                                  <td className="px-4 py-2.5 text-xs font-semibold text-emerald-800">
-                                    مدين
+                                  <td
+                                    className={cn(
+                                      'px-4 py-2.5 text-xs font-semibold',
+                                      focusRoleClass,
+                                    )}
+                                  >
+                                    {display.focusSideLabel}
                                   </td>
                                   <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
                                     {formatMoney(dl.debit, '')}
@@ -843,8 +861,13 @@ function JournalMonthContent() {
                                     {cl.category_code || '—'}
                                   </td>
                                   <td className="px-4 py-2.5">
-                                    <p className="text-[11px] font-medium text-red-700">
-                                      {creditRole}
+                                    <p
+                                      className={cn(
+                                        'text-[11px] font-medium',
+                                        contraRoleClass,
+                                      )}
+                                    >
+                                      {contraRole}
                                     </p>
                                     <p className="font-semibold">
                                       {section.sectionKind === 'CASH'
@@ -856,8 +879,17 @@ function JournalMonthContent() {
                                           cl.category_name}
                                     </p>
                                   </td>
-                                  <td className="px-4 py-2.5 text-xs font-semibold text-red-700">
-                                    {cl.credit > 0 ? 'دائن' : 'طرف مقابل'}
+                                  <td
+                                    className={cn(
+                                      'px-4 py-2.5 text-xs font-semibold',
+                                      contraRoleClass,
+                                    )}
+                                  >
+                                    {cl.debit > 0 && cl.credit <= 0
+                                      ? 'مدين'
+                                      : cl.credit > 0 && cl.debit <= 0
+                                        ? 'دائن'
+                                        : 'طرف مقابل'}
                                   </td>
                                   <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
                                     {formatMoney(cl.debit, '')}
@@ -909,9 +941,13 @@ function JournalMonthContent() {
                   contraSource,
                   focusLine,
                 );
-                const cashboxCredit = contraLines.reduce(
-                  (s, l) => s + l.credit,
-                  0,
+                const display = describePeriodJournalSectionDisplay(
+                  focusLine,
+                  contraLines,
+                  {
+                    focusTitle:
+                      focusLine.cashbox_name || focusLine.category_name,
+                  },
                 );
                 const totalDebit =
                   focusLine.debit +
@@ -932,9 +968,9 @@ function JournalMonthContent() {
                       </CardTitle>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {line.cashbox_name ? `${line.category_name} · ` : ''}
-                        مجموع البند فقط · مدين{' '}
-                        {formatMoney(focusLine.debit, '')} · دائن خزينة{' '}
-                        {formatMoney(cashboxCredit, '')}
+                        {display.summaryLine} ·{' '}
+                        {formatMoney(display.focusAmount, '')} /{' '}
+                        {formatMoney(display.contraAmount, '')}
                         {balanced ? ' · متوازن' : ' · مراجعة'}
                       </p>
                     </CardHeader>
@@ -967,11 +1003,10 @@ function JournalMonthContent() {
                               </td>
                               <td className="px-4 py-2.5 font-semibold">
                                 {focusLine.cashbox_name ||
-                                  focusLine.category_name}{' '}
-                                ★
+                                  focusLine.category_name}
                               </td>
                               <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                                مدين البند
+                                {display.headerFocusLabel}
                               </td>
                               <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
                                 {formatMoney(focusLine.debit, '')}
@@ -992,9 +1027,11 @@ function JournalMonthContent() {
                                   {cl.cashbox_name || cl.category_name}
                                 </td>
                                 <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                                  {cl.credit > 0
-                                    ? 'دائن الخزينة'
-                                    : 'طرف مقابل'}
+                                  {cl.debit > 0 && cl.credit <= 0
+                                    ? `مدين ${cl.cashbox_name || cl.category_name}`
+                                    : cl.credit > 0 && cl.debit <= 0
+                                      ? `دائن ${cl.cashbox_name || cl.category_name}`
+                                      : 'طرف مقابل'}
                                 </td>
                                 <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
                                   {formatMoney(cl.debit, '')}
