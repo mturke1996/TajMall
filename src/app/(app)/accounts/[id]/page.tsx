@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -61,13 +61,6 @@ export default function CategoryDetailPage() {
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('journal');
-
-  /** للإيرادات: ابدأ بالمعاملات النقدية لتطابق صفحة الإيرادات */
-  useEffect(() => {
-    if (!category) return;
-    const rev = category.type === 'REVENUE' || category.kind === 'REVENUE';
-    setViewMode(rev ? 'cash' : 'journal');
-  }, [category?.id]);
 
   const selectedMonthKey = monthKey(year, selectedMonth);
   const startDate = `${selectedMonthKey}-01`;
@@ -358,21 +351,6 @@ export default function CategoryDetailPage() {
           </button>
         </div>
 
-        {isRevenue ? (
-          <div className="rounded-xl border border-sage-600/25 bg-sage-50/50 px-3 py-2.5 text-[12.5px] leading-relaxed text-ink-mute">
-            <span className="font-semibold text-ink">تحصيل نقدي ({monthName}): </span>
-            {formatMoney(cashTotal, 'LYD')}
-            <span className="mx-2 text-border">|</span>
-            <span className="font-semibold text-ink">اعتراف محاسبي (دائن القيود): </span>
-            {formatMoney(periodCredit, 'LYD')}
-            {category.code === 'REV-RNT' ? (
-              <span className="mt-1 block">
-                التحصيل قد يشمل متأخرات أشهر أخرى؛ الاعتراف = إيجار مستحق لهذا الشهر فقط.
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-
         {viewMode === 'journal' ? (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <SummaryCard
@@ -381,14 +359,14 @@ export default function CategoryDetailPage() {
               tone="positive"
             />
             <SummaryCard
-              label="دائن الفترة (مستحق)"
+              label="دائن الفترة"
               value={formatMoney(periodCredit, 'LYD')}
               tone="negative"
             />
             <SummaryCard
-              label="تحصيل نقدي لنفس الشهر"
-              value={formatMoney(cashTotal, 'LYD')}
-              tone="positive"
+              label="رصيد افتتاحي"
+              value={formatMoney(openingBalance, 'LYD')}
+              tone="default"
             />
             <SummaryCard
               label="رصيد ختامي"
@@ -399,14 +377,14 @@ export default function CategoryDetailPage() {
         ) : (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <SummaryCard
-              label={`تحصيل ${monthName}`}
+              label={`${typeLabel} ${monthName}`}
               value={formatMoney(cashTotal, 'LYD')}
               tone={tone === 'neutral' ? 'default' : tone}
             />
             <SummaryCard
-              label="مستحق (قيود)"
-              value={formatMoney(periodCredit, 'LYD')}
-              tone="negative"
+              label="عدد المعاملات"
+              value={String(filteredTxs.length)}
+              tone="default"
             />
             <SummaryCard
               label="معاملات مرحّلة"

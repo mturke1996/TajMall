@@ -388,6 +388,11 @@ export type PeriodJournalEntryModel = {
    * في الوضع الشامل تبقى فارغة — التفصيل حسب البند.
    */
   vouchers: PeriodJournalVoucher[];
+  /**
+   * لبند إيراد: قيود الاستحقاق (CHARGE) تُعرض أقسام ذمم بعد أقسام التحصيل النقدي،
+   * دون خلط مجاميع التحصيل في جدول الملخص.
+   */
+  revenueAccrualCompanion?: PeriodJournalEntryModel | null;
 };
 
 type RawLine = {
@@ -600,7 +605,28 @@ export function buildContraLinesForJournals(
     if (!sliced) continue;
     related.push(sliced);
   }
-  return sortPeriodLines(related);
+  return preferPolarityContraLines(focusLine, sortPeriodLines(related));
+}
+
+/**
+ * للإيراد (دائن): الطرف المقابل هو الجانب المدين فقط (نقدي/ذمم)،
+ * حتى لا يظهر دائن الذمم من قيد التحصيل كطرف مقابل مضلّل.
+ */
+function preferPolarityContraLines(
+  focusLine: Pick<PeriodJournalLine, 'category_type' | 'debit' | 'credit'>,
+  contraLines: PeriodJournalLine[],
+): PeriodJournalLine[] {
+  if (contraLines.length <= 1) return contraLines;
+  const focusIsCredit = periodJournalFocusIsCredit(focusLine);
+  const preferred = contraLines.filter((l) =>
+    focusIsCredit ? l.debit > EPS : l.credit > EPS,
+  );
+  if (preferred.length === 0) return contraLines;
+
+  /** إن وُجدت خزينة/مصرف مدينة مع ذمم، فضّل الخزينة — هذا مسار التحصيل */
+  const cashFunding = preferred.filter((l) => Boolean(l.cashbox_id || l.cashbox_kind));
+  if (focusIsCredit && cashFunding.length > 0) return cashFunding;
+  return preferred;
 }
 
 function resolveMovementCashboxKind(
@@ -712,8 +738,8 @@ export function buildTypeAggregateCashBankSections(
   };
 
   const allMovements = focusRows.flatMap((r) => r.movements);
-  for (const m of allMovements) {
-    const boxMeta = journalCashboxMetaFromModel(model, m.journal_id);
+  const assignJournalToFundingBucket = (journalId: string) => {
+    const boxMeta = journalCashboxMetaFromModel(model, journalId);
     const kind =
       boxMeta?.cashbox_kind ??
       resolveCashboxKind({
@@ -722,15 +748,15 @@ export function buildTypeAggregateCashBankSections(
       });
 
     if (kind === 'CASH') {
-      cashBucket.journalIds.add(m.journal_id);
-      continue;
+      cashBucket.journalIds.add(journalId);
+      return;
     }
     if (kind === 'BANK') {
       const bankKey =
         boxMeta?.cashbox_id ||
         boxMeta?.cashbox_code ||
         boxMeta?.cashbox_name ||
-        `bank-${m.journal_id}`;
+        `bank-${journalId}`;
       let bucket = bankBuckets.get(bankKey);
       if (!bucket) {
         bucket = {
@@ -744,15 +770,15 @@ export function buildTypeAggregateCashBankSections(
         };
         bankBuckets.set(bankKey, bucket);
       }
-      bucket.journalIds.add(m.journal_id);
-      continue;
+      bucket.journalIds.add(journalId);
+      return;
     }
     if (kind === 'CARD' || kind === 'OTHER') {
       const otherKey =
         boxMeta?.cashbox_id ||
         boxMeta?.cashbox_code ||
         boxMeta?.cashbox_name ||
-        `other-${m.journal_id}`;
+        `other-${journalId}`;
       let bucket = otherBuckets.get(otherKey);
       if (!bucket) {
         bucket = {
@@ -766,10 +792,38 @@ export function buildTypeAggregateCashBankSections(
         };
         otherBuckets.set(otherKey, bucket);
       }
-      bucket.journalIds.add(m.journal_id);
-      continue;
+      bucket.journalIds.add(journalId);
+      return;
     }
-    noneBucket.journalIds.add(m.journal_id);
+    noneBucket.journalIds.add(journalId);
+  };
+
+  for (const m of allMovements) {
+    assignJournalToFundingBucket(m.journal_id);
+  }
+
+  /**
+   * تحصيل إيراد نقدي = مدين خزينة + دائن ذمم بدون سطر إيراد.
+   * يُدرج في أقسام النقدي/المصرف حتى يظهر الطرف الذي يتوقعه المستخدم.
+   */
+  const revenueCollectionFocusExtras: PeriodJournalLine[] = [];
+  if (accountType === 'REVENUE') {
+    const revenueJournalIds = new Set(allMovements.map((m) => m.journal_id));
+    const collectionIds = findCashReceivableCollectionJournalIds(
+      model,
+      revenueJournalIds,
+    );
+    for (const journalId of collectionIds) {
+      assignJournalToFundingBucket(journalId);
+    }
+    if (collectionIds.size > 0) {
+      const synthetic = buildSyntheticRevenueFocusFromCollections(
+        model,
+        collectionIds,
+        meta,
+      );
+      if (synthetic) revenueCollectionFocusExtras.push(synthetic);
+    }
   }
 
   const orderedBuckets: Bucket[] = [];
@@ -786,8 +840,13 @@ export function buildTypeAggregateCashBankSections(
   );
   if (noneBucket.journalIds.size > 0) orderedBuckets.push(noneBucket);
 
+  const focusRowsWithCollections = [
+    ...focusRows,
+    ...revenueCollectionFocusExtras,
+  ];
+
   if (orderedBuckets.length === 0) {
-    const focusLine = mergePeriodJournalLines(focusRows, {
+    const focusLine = mergePeriodJournalLines(focusRowsWithCollections, {
       id: meta.id,
       code: meta.code,
       name_ar: meta.name_ar,
@@ -823,7 +882,7 @@ export function buildTypeAggregateCashBankSections(
   const sections: PeriodCashBankSection[] = [];
 
   for (const bucket of orderedBuckets) {
-    const detailLines = focusRows
+    const detailLines = focusRowsWithCollections
       .map((row) => sliceLineToJournals(row, bucket.journalIds))
       .filter((row): row is PeriodJournalLine => row != null);
 
@@ -924,6 +983,22 @@ export function buildCashBankSeparatedSections(
     return buildTypeAggregateCashBankSections(model, typeFilter);
   }
 
+  const sections = buildCashBankSeparatedSectionsCore(model, focusCategoryId);
+  const companion = model.revenueAccrualCompanion;
+  if (!companion?.lines.length) return sections;
+
+  const accrualSections = buildCashBankSeparatedSectionsCore(
+    companion,
+    focusCategoryId,
+  ).filter((s) => s.sectionKind === 'NONE');
+  if (accrualSections.length === 0) return sections;
+  return [...sections, ...accrualSections];
+}
+
+function buildCashBankSeparatedSectionsCore(
+  model: PeriodJournalEntryModel,
+  focusCategoryId: string,
+): PeriodCashBankSection[] {
   const focusRows = model.lines.filter((l) => l.category_id === focusCategoryId);
   if (focusRows.length === 0) return [];
 
@@ -1278,6 +1353,7 @@ export function buildPeriodJournalEntryModel(input: {
   lines: RawLine[];
   statusFilter?: JournalStatus | 'ALL';
   truncated?: boolean;
+  revenueAccrualCompanion?: PeriodJournalEntryModel | null;
 }): PeriodJournalEntryModel {
   const { startDate, endDate } = reportPeriodDateRange(input.period);
   const periodLabel = formatReportPeriodLabelAr(input.period);
@@ -1303,6 +1379,7 @@ export function buildPeriodJournalEntryModel(input: {
     totalCredit,
     balanced: almostEqual(totalDebit, totalCredit),
     vouchers: [],
+    revenueAccrualCompanion: input.revenueAccrualCompanion ?? null,
   };
 }
 
@@ -1757,6 +1834,14 @@ export function applyPeriodJournalCategoryFilter(
   const totalDebit = focusFirst.reduce((s, l) => s + l.debit, 0);
   const totalCredit = focusFirst.reduce((s, l) => s + l.credit, 0);
 
+  const companion = model.revenueAccrualCompanion
+    ? applyPeriodJournalCategoryFilter(
+        { ...model.revenueAccrualCompanion, revenueAccrualCompanion: null },
+        categoryId,
+        categoryMeta,
+      )
+    : null;
+
   return {
     ...model,
     categoryFilter,
@@ -1774,6 +1859,8 @@ export function applyPeriodJournalCategoryFilter(
     description: categoryFilter
       ? `مجموع بند «${categoryFilter.name_ar}» — النقدي منفصل عن المصارف (كل مصرف بورقة) · ${model.periodLabel}`
       : model.description,
+    revenueAccrualCompanion:
+      companion && companion.lines.length > 0 ? companion : null,
   };
 }
 
@@ -2049,18 +2136,321 @@ async function fetchAllPeriodJournalLinesPaged(input: {
   return { rows, rpcAvailable };
 }
 
+async function fetchCategoryMetaById(
+  categoryId: string,
+): Promise<{
+  id: string;
+  code: string;
+  name_ar: string;
+  type: string | null;
+  kind: string | null;
+} | null> {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from('categories')
+    .select('id, code, name_ar, type, kind')
+    .eq('id', categoryId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    id: data.id as string,
+    code: (data.code as string) || '',
+    name_ar: (data.name_ar as string) || '',
+    type: (data.type as string) || null,
+    kind: (data.kind as string) || null,
+  };
+}
+
+/** قيود تحصيل معاملات الإيراد لهذا البند في الفترة (مدين خزينة / دائن ذمم). */
+async function fetchRevenueCollectionJournalIds(input: {
+  categoryId: string;
+  startDate: string;
+  endDate: string;
+  statusFilter: JournalStatus | 'ALL';
+}): Promise<string[]> {
+  const supabase = createSupabaseBrowserClient();
+  const pageSize = 1000;
+  const txIds: string[] = [];
+  let from = 0;
+
+  for (;;) {
+    let q = supabase
+      .from('transactions')
+      .select('id')
+      .eq('category_id', input.categoryId)
+      .eq('kind', 'REVENUE')
+      .gte('tx_date', input.startDate)
+      .lte('tx_date', input.endDate)
+      .order('id', { ascending: true })
+      .range(from, from + pageSize - 1);
+    /** حالات القيود لا تطابق كلها حالات المعاملات — التحصيل المرحّل هو المسار الافتراضي */
+    if (input.statusFilter === 'POSTED' || input.statusFilter === 'ALL') {
+      if (input.statusFilter === 'POSTED') q = q.eq('status', 'POSTED');
+    } else {
+      return [];
+    }
+    const { data, error } = await q;
+    if (error) throw error;
+    const chunk = (data ?? []) as Array<{ id: string }>;
+    txIds.push(...chunk.map((r) => r.id));
+    if (chunk.length < pageSize) break;
+    from += pageSize;
+  }
+
+  if (txIds.length === 0) return [];
+
+  const journalIds = new Set<string>();
+  const idChunk = 80;
+  for (let i = 0; i < txIds.length; i += idChunk) {
+    const slice = txIds.slice(i, i + idChunk);
+    let q = supabase
+      .from('journal_entries')
+      .select('id')
+      .eq('source_type', 'TRANSACTION')
+      .in('source_id', slice);
+    if (input.statusFilter !== 'ALL') {
+      q = q.eq('status', input.statusFilter);
+    }
+    const { data, error } = await q;
+    if (error) throw error;
+    for (const row of data ?? []) {
+      if (row.id) journalIds.add(row.id as string);
+    }
+  }
+  return [...journalIds];
+}
+
+async function fetchJournalEntriesByIds(
+  journalIds: string[],
+): Promise<JournalEntryRow[]> {
+  if (journalIds.length === 0) return [];
+  const supabase = createSupabaseBrowserClient();
+  const entries: JournalEntryRow[] = [];
+  const idChunk = 80;
+  for (let i = 0; i < journalIds.length; i += idChunk) {
+    const chunk = journalIds.slice(i, i + idChunk);
+    const { data: jeRows, error: jeError } = await supabase
+      .from('journal_entries_with_totals')
+      .select('*')
+      .in('id', chunk);
+    if (jeError) throw jeError;
+    entries.push(...((jeRows as JournalEntryRow[]) ?? []));
+  }
+  return entries;
+}
+
+/**
+ * يعيد كتابة قيد التحصيل (مدين نقدي / دائن ذمم) كعرض: مدين نقدي / دائن بند الإيراد،
+ * ليظهر الطرف النقدي في كشف البند دون تغيير القيود المخزّنة.
+ */
+function rewriteCollectionLinesAsCashRevenue(
+  lines: RawLine[],
+  collectionJournalIds: Set<string>,
+  category: { id: string; code: string; name_ar: string; type: string | null },
+): RawLine[] {
+  if (collectionJournalIds.size === 0) return lines;
+  const byJournal = new Map<string, RawLine[]>();
+  for (const line of lines) {
+    const list = byJournal.get(line.journal_id) ?? [];
+    list.push(line);
+    byJournal.set(line.journal_id, list);
+  }
+
+  const out: RawLine[] = [];
+  for (const [journalId, jLines] of byJournal) {
+    if (!collectionJournalIds.has(journalId)) {
+      out.push(...jLines);
+      continue;
+    }
+    if (
+      jLines.some(
+        (l) =>
+          l.category_id === category.id && (Number(l.credit) || 0) > EPS,
+      )
+    ) {
+      out.push(...jLines);
+      continue;
+    }
+    const cashDebits = jLines.filter(
+      (l) => l.cashbox_id && (Number(l.debit) || 0) > EPS,
+    );
+    const cashTotal = cashDebits.reduce(
+      (s, l) => s + (Number(l.debit) || 0),
+      0,
+    );
+    if (cashTotal <= EPS) {
+      out.push(...jLines);
+      continue;
+    }
+    out.push(...cashDebits);
+    out.push({
+      journal_id: journalId,
+      category_id: category.id,
+      debit: 0,
+      credit: cashTotal,
+      description: null,
+      category_code: category.code,
+      category_name: category.name_ar,
+      category_type: category.type ?? 'REVENUE',
+      cashbox_id: null,
+      cashbox_name_ar: null,
+      cashbox_code: null,
+      cashbox_kind: null,
+      contact_name: null,
+      sort_order: 900,
+    });
+  }
+  return out;
+}
+
+function findCashReceivableCollectionJournalIds(
+  model: PeriodJournalEntryModel,
+  excludeJournalIds: Set<string>,
+): Set<string> {
+  const hasCashDebit = new Set<string>();
+  const hasReceivableCredit = new Set<string>();
+  for (const line of model.lines) {
+    const isReceivable =
+      line.category_code === 'AST-REC' ||
+      (line.category_type === 'ASSET' &&
+        !line.cashbox_id &&
+        /ذمم|receiv/i.test(line.category_name || ''));
+    for (const m of line.movements) {
+      if (excludeJournalIds.has(m.journal_id)) continue;
+      if (line.cashbox_id && m.debit > EPS) hasCashDebit.add(m.journal_id);
+      if (isReceivable && m.credit > EPS) hasReceivableCredit.add(m.journal_id);
+    }
+  }
+  const out = new Set<string>();
+  for (const id of hasCashDebit) {
+    if (hasReceivableCredit.has(id)) out.add(id);
+  }
+  return out;
+}
+
+function buildSyntheticRevenueFocusFromCollections(
+  model: PeriodJournalEntryModel,
+  collectionIds: Set<string>,
+  meta: { id: string; code: string; name_ar: string; type: string },
+): PeriodJournalLine | null {
+  const movements: PeriodJournalMovement[] = [];
+  for (const line of model.lines) {
+    if (!line.cashbox_id) continue;
+    for (const m of line.movements) {
+      if (!collectionIds.has(m.journal_id) || m.debit <= EPS) continue;
+      movements.push({
+        journal_id: m.journal_id,
+        journal_number: m.journal_number,
+        entry_date: m.entry_date,
+        journal_reference: m.journal_reference,
+        journal_description: m.journal_description,
+        line_description: m.line_description,
+        cashbox_name: null,
+        cashbox_code: null,
+        cashbox_kind: null,
+        contact_name: m.contact_name,
+        debit: 0,
+        credit: m.debit,
+        contra_label: null,
+      });
+    }
+  }
+  if (movements.length === 0) return null;
+  movements.sort((a, b) => {
+    const d = a.entry_date.localeCompare(b.entry_date);
+    if (d !== 0) return d;
+    return a.journal_number - b.journal_number;
+  });
+  const credit = movements.reduce((s, m) => s + m.credit, 0);
+  return {
+    category_id: meta.id,
+    category_code: meta.code,
+    category_name: meta.name_ar,
+    category_type: meta.type,
+    cashbox_id: null,
+    cashbox_name: null,
+    cashbox_kind: null,
+    rowKey: `${meta.id}::cash-collections`,
+    debit: 0,
+    credit,
+    net: -credit,
+    movements,
+  };
+}
+
 /**
  * مسار بند واحد (مثل REV-RNT): يجلب كل قيود الفترة التي لمست البند
  * عبر get_journal_lines_for_period أو دفتر الأستاذ — بلا سقف إجمالي.
+ * لبند إيراد: يعرض تحصيل الخزينة/المصرف أولاً، والاستحقاق (ذمم) رفيقاً منفصلاً.
  */
 async function fetchPeriodJournalByCategory(input: {
   period: ReportPeriod;
   categoryId: string;
   statusFilter?: JournalStatus | 'ALL';
 }): Promise<PeriodJournalEntryModel> {
-  const supabase = createSupabaseBrowserClient();
   const { startDate, endDate } = reportPeriodDateRange(input.period);
   const status = input.statusFilter ?? 'POSTED';
+  const categoryMeta = await fetchCategoryMetaById(input.categoryId);
+  const isRevenueCategory =
+    categoryMeta?.type === 'REVENUE' || categoryMeta?.kind === 'REVENUE';
+
+  const accrualModel = await fetchPeriodJournalByCategoryAccrualPath({
+    period: input.period,
+    categoryId: input.categoryId,
+    statusFilter: status,
+  });
+
+  if (!isRevenueCategory || !categoryMeta) {
+    return accrualModel;
+  }
+
+  const collectionIds = await fetchRevenueCollectionJournalIds({
+    categoryId: input.categoryId,
+    startDate,
+    endDate,
+    statusFilter: status,
+  });
+
+  if (collectionIds.length === 0) {
+    return accrualModel;
+  }
+
+  const collectionIdSet = new Set(collectionIds);
+  const collEntries = await fetchJournalEntriesByIds(collectionIds);
+  const collLinesRaw = await fetchRawLinesForJournalIds(collectionIds);
+  const rewritten = rewriteCollectionLinesAsCashRevenue(
+    collLinesRaw,
+    collectionIdSet,
+    {
+      id: categoryMeta.id,
+      code: categoryMeta.code,
+      name_ar: categoryMeta.name_ar,
+      type: categoryMeta.type,
+    },
+  );
+
+  const cashModel = buildPeriodJournalEntryModel({
+    period: input.period,
+    entries: collEntries,
+    lines: rewritten,
+    statusFilter: status,
+    truncated: false,
+    revenueAccrualCompanion:
+      accrualModel.lines.length > 0 ? accrualModel : null,
+  });
+
+  return cashModel;
+}
+
+async function fetchPeriodJournalByCategoryAccrualPath(input: {
+  period: ReportPeriod;
+  categoryId: string;
+  statusFilter: JournalStatus | 'ALL';
+}): Promise<PeriodJournalEntryModel> {
+  const supabase = createSupabaseBrowserClient();
+  const { startDate, endDate } = reportPeriodDateRange(input.period);
+  const status = input.statusFilter;
 
   const { rows, rpcAvailable } = await fetchAllPeriodJournalLinesPaged({
     startDate,
@@ -2129,18 +2519,7 @@ async function fetchPeriodJournalByCategory(input: {
     });
   }
 
-  const entries: JournalEntryRow[] = [];
-  const idChunk = 80;
-  for (let i = 0; i < journalIds.length; i += idChunk) {
-    const chunk = journalIds.slice(i, i + idChunk);
-    const { data: jeRows, error: jeError } = await supabase
-      .from('journal_entries_with_totals')
-      .select('*')
-      .in('id', chunk);
-    if (jeError) throw jeError;
-    entries.push(...((jeRows as JournalEntryRow[]) ?? []));
-  }
-
+  const entries = await fetchJournalEntriesByIds(journalIds);
   const lines = await fetchRawLinesForJournalIds(journalIds);
   return buildPeriodJournalEntryModel({
     period: input.period,
