@@ -89,7 +89,7 @@ CREATE OR REPLACE FUNCTION public.get_journal_lines_for_period(
 )
 RETURNS TABLE (
   journal_id uuid,
-  journal_number integer,
+  journal_number bigint,
   entry_date date,
   journal_reference text,
   journal_description text,

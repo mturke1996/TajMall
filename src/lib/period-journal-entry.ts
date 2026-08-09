@@ -1997,11 +1997,14 @@ async function fetchPeriodJournalByCategory(input: {
   }
 
   const msg = error?.message ?? '';
-  const rpcMissing =
+  const rpcUnusable =
     msg.includes('get_journal_lines_for_period') ||
     msg.includes('schema cache') ||
-    error?.code === 'PGRST202';
-  if (error && !rpcMissing) throw error;
+    msg.includes('structure of query') ||
+    msg.includes('does not match') ||
+    error?.code === 'PGRST202' ||
+    error?.code === '42804';
+  if (error && !rpcUnusable) throw error;
 
   /** Fallback: دفتر الأستاذ للبند ثم توسيع القيود بالكامل */
   if (status !== 'POSTED' && status !== 'ALL') {
