@@ -349,9 +349,11 @@ function JournalMonthContent() {
       '@/features/pdf/PeriodJournalEntryPDF'
     );
     if (!displayModel) throw new Error('لا توجد بيانات للقيد');
-    /** في وضع التجميع نحتاج البنود التفصيلية لفصل النقدي/المصارف */
+    /** لفصل الخزائن/المصارف نحتاج كل أسطر القيود وليس صفوف البند فقط */
     const pdfModel =
-      displayModel.typeGroupFilter?.mode === 'group' && model
+      model &&
+      (displayModel.typeGroupFilter?.mode === 'group' ||
+        displayModel.categoryFilter)
         ? { ...displayModel, lines: model.lines }
         : displayModel;
     return (
@@ -739,7 +741,7 @@ function JournalMonthContent() {
 
               const sections = displayModel.categoryFilter
                 ? buildCashBankSeparatedSections(
-                    displayModel,
+                    model ?? displayModel,
                     displayModel.categoryFilter.id,
                   )
                 : displayModel.typeGroupFilter?.mode === 'group'
@@ -774,19 +776,13 @@ function JournalMonthContent() {
                     },
                   );
                   const kindBadge =
-                    section.sectionKind === 'CASH'
-                      ? 'نقدي'
-                      : section.sectionKind === 'BANK'
-                        ? 'مصرف'
-                        : section.sectionKind === 'CARD'
-                          ? 'بطاقة'
-                          : null;
+                    section.sectionKind === 'NONE'
+                      ? null
+                      : section.fundingLabel;
                   const contraRole =
-                    section.sectionKind === 'CASH'
-                      ? `${display.contraSideLabel} النقدي`
-                      : section.sectionKind === 'BANK'
-                        ? `${display.contraSideLabel} المصرف`
-                        : `${display.contraSideLabel} ${display.contraLabel}`;
+                    section.sectionKind === 'NONE'
+                      ? `${display.contraSideLabel} ${display.contraLabel}`
+                      : `${display.contraSideLabel} ${section.fundingLabel}`;
                   const focusRoleClass = display.focusIsCredit
                     ? 'text-red-700'
                     : 'text-emerald-800';
@@ -901,10 +897,8 @@ function JournalMonthContent() {
                                       {contraRole}
                                     </p>
                                     <p className="font-semibold">
-                                      {section.sectionKind === 'CASH'
-                                        ? cl.cashbox_name ||
-                                          section.fundingLabel ||
-                                          'النقدي'
+                                      {section.sectionKind === 'NONE'
+                                        ? cl.category_name
                                         : cl.cashbox_name ||
                                           section.fundingLabel ||
                                           cl.category_name}

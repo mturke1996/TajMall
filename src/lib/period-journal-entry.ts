@@ -167,7 +167,7 @@ export type PeriodJournalLine = {
 };
 
 /**
- * قسم تقرير عند اختيار بند: النقدي مجمّعاً، وكل مصرف في صفحة مستقلة.
+ * قسم تقرير عند اختيار بند: كل خزينة/مصرف في صفحة مستقلة (مجموع فقط).
  * المصروف/الأصل: البند مدين والطرف المقابل دائن.
  * الإيراد/الالتزام/حقوق الملكية: البند دائن والطرف المقابل مدين.
  */
@@ -227,8 +227,8 @@ export function resolvePeriodJournalContraLabel(
 ): string {
   const funding = options?.fundingLabel?.trim();
   if (funding && funding !== '—') return funding;
-  if (options?.sectionKind === 'CASH') return 'النقدي';
-  if (options?.sectionKind === 'BANK') return 'المصرف';
+  if (options?.sectionKind === 'CASH') return 'خزينة نقدية';
+  if (options?.sectionKind === 'BANK') return 'حساب مصرفي';
   if (contraLines.length === 0) return 'الطرف المقابل';
   const names = [
     ...new Set(
@@ -388,11 +388,6 @@ export type PeriodJournalEntryModel = {
    * في الوضع الشامل تبقى فارغة — التفصيل حسب البند.
    */
   vouchers: PeriodJournalVoucher[];
-  /**
-   * لبند إيراد: قيود الاستحقاق (CHARGE) تُعرض أقسام ذمم بعد أقسام التحصيل النقدي،
-   * دون خلط مجاميع التحصيل في جدول الملخص.
-   */
-  revenueAccrualCompanion?: PeriodJournalEntryModel | null;
 };
 
 type RawLine = {
@@ -554,7 +549,7 @@ function sliceLineToJournals(
   };
 }
 
-/** يدمج صفوف النقدي في صف واحد بالمجاميع فقط */
+/** يدمج صفوف متعددة لنفس البند عند غياب تقسيم خزينة (fallback فقط) */
 function mergeCashFocusLines(rows: PeriodJournalLine[]): PeriodJournalLine {
   const base = rows[0];
   const movements = rows
@@ -577,6 +572,122 @@ function mergeCashFocusLines(rows: PeriodJournalLine[]): PeriodJournalLine {
     net: debit - credit,
     movements,
   };
+}
+
+type FundingBucket = {
+  key: string;
+  kind: PeriodCashBankSection['sectionKind'];
+  fundingLabel: string;
+  journalIds: Set<string>;
+  cashbox_id: string | null;
+  cashbox_name: string | null;
+  cashbox_kind: CashboxKind | null;
+};
+
+function defaultFundingBucketLabel(kind: CashboxKind | null): string {
+  if (kind === 'BANK') return 'حساب مصرفي';
+  if (kind === 'CARD') return 'بطاقة / POS';
+  if (kind === 'OTHER') return 'خزينة أخرى';
+  return 'خزينة نقدية';
+}
+
+function fundingBucketKey(
+  meta: ReturnType<typeof journalCashboxMetaFromModel>,
+  journalId: string,
+): string {
+  return (
+    meta?.cashbox_id ||
+    meta?.cashbox_code ||
+    meta?.cashbox_name ||
+    `journal-${journalId}`
+  );
+}
+
+function createNoneFundingBucket(keyPrefix: string): FundingBucket {
+  return {
+    key: `${keyPrefix}::kind:NONE`,
+    kind: 'NONE',
+    fundingLabel: '—',
+    journalIds: new Set(),
+    cashbox_id: null,
+    cashbox_name: null,
+    cashbox_kind: null,
+  };
+}
+
+function assignJournalToFundingBucketMaps(
+  model: PeriodJournalEntryModel,
+  journalId: string,
+  keyPrefix: string,
+  cashboxBuckets: Map<string, FundingBucket>,
+  noneBucket: FundingBucket,
+): void {
+  const meta = journalCashboxMetaFromModel(model, journalId);
+  const kind =
+    meta?.cashbox_kind ??
+    resolveCashboxKind({
+      code: meta?.cashbox_code,
+      name: meta?.cashbox_name,
+    });
+
+  if (kind === 'CASH' || kind === 'BANK' || kind === 'CARD' || kind === 'OTHER') {
+    const boxKey = fundingBucketKey(meta, journalId);
+    let bucket = cashboxBuckets.get(boxKey);
+    if (!bucket) {
+      const sectionKind: PeriodCashBankSection['sectionKind'] =
+        kind === 'CASH'
+          ? 'CASH'
+          : kind === 'BANK'
+            ? 'BANK'
+            : kind === 'CARD'
+              ? 'CARD'
+              : 'OTHER';
+      bucket = {
+        key: `${keyPrefix}::cb:${boxKey}`,
+        kind: sectionKind,
+        fundingLabel: meta?.cashbox_name?.trim() || defaultFundingBucketLabel(kind),
+        journalIds: new Set(),
+        cashbox_id: meta?.cashbox_id ?? null,
+        cashbox_name: meta?.cashbox_name ?? null,
+        cashbox_kind: kind,
+      };
+      cashboxBuckets.set(boxKey, bucket);
+    }
+    bucket.journalIds.add(journalId);
+    return;
+  }
+
+  noneBucket.journalIds.add(journalId);
+}
+
+function sortFundingBuckets(
+  cashboxBuckets: Map<string, FundingBucket>,
+  noneBucket: FundingBucket,
+): FundingBucket[] {
+  const ordered = [...cashboxBuckets.values()].sort((a, b) =>
+    a.fundingLabel.localeCompare(b.fundingLabel, 'ar'),
+  );
+  if (noneBucket.journalIds.size > 0) ordered.push(noneBucket);
+  return ordered;
+}
+
+function filterContraLinesForFundingBucket(
+  contraLines: PeriodJournalLine[],
+  bucket: FundingBucket,
+): PeriodJournalLine[] {
+  if (bucket.kind === 'NONE') return contraLines;
+  return contraLines.filter((l) => {
+    if (l.cashbox_id && bucket.cashbox_id) {
+      return l.cashbox_id === bucket.cashbox_id;
+    }
+    if (l.cashbox_name && bucket.cashbox_name) {
+      return l.cashbox_name === bucket.cashbox_name;
+    }
+    if (l.cashbox_kind && bucket.cashbox_kind) {
+      return l.cashbox_kind === bucket.cashbox_kind;
+    }
+    return !l.cashbox_id;
+  });
 }
 
 /**
@@ -655,20 +766,29 @@ function journalCashboxMetaFromModel(
   cashbox_code: string | null;
   cashbox_kind: CashboxKind | null;
 } | null {
+  let fallback: {
+    cashbox_id: string | null;
+    cashbox_name: string | null;
+    cashbox_code: string | null;
+    cashbox_kind: CashboxKind | null;
+  } | null = null;
+
   for (const line of model.lines) {
     for (const m of line.movements) {
       if (m.journal_id !== journalId) continue;
       if (!m.cashbox_name && !line.cashbox_id && !m.cashbox_code) continue;
       const kind = resolveMovementCashboxKind(m) ?? line.cashbox_kind;
-      return {
+      const meta = {
         cashbox_id: line.cashbox_id,
         cashbox_name: m.cashbox_name ?? line.cashbox_name,
         cashbox_code: m.cashbox_code,
         cashbox_kind: kind,
       };
+      if (line.cashbox_id && m.debit > EPS) return meta;
+      if (!fallback) fallback = meta;
     }
   }
-  return null;
+  return fallback;
 }
 
 function sectionTotals(
@@ -706,96 +826,20 @@ export function buildTypeAggregateCashBankSections(
       ? `دائن: ${meta.name_ar} (مجموع فقط) · مدين: ${funding}`
       : `مدين: ${meta.name_ar} (مجموع فقط) · دائن: ${funding}`;
 
-  type Bucket = {
-    key: string;
-    kind: PeriodCashBankSection['sectionKind'];
-    fundingLabel: string;
-    journalIds: Set<string>;
-    cashbox_id: string | null;
-    cashbox_name: string | null;
-    cashbox_kind: CashboxKind | null;
-  };
+  type Bucket = FundingBucket;
 
-  const cashBucket: Bucket = {
-    key: `${meta.id}::kind:CASH`,
-    kind: 'CASH',
-    fundingLabel: 'النقدي',
-    journalIds: new Set(),
-    cashbox_id: null,
-    cashbox_name: 'النقدي',
-    cashbox_kind: 'CASH',
-  };
-  const bankBuckets = new Map<string, Bucket>();
-  const otherBuckets = new Map<string, Bucket>();
-  const noneBucket: Bucket = {
-    key: `${meta.id}::kind:NONE`,
-    kind: 'NONE',
-    fundingLabel: '—',
-    journalIds: new Set(),
-    cashbox_id: null,
-    cashbox_name: null,
-    cashbox_kind: null,
-  };
+  const cashboxBuckets = new Map<string, Bucket>();
+  const noneBucket = createNoneFundingBucket(meta.id);
 
   const allMovements = focusRows.flatMap((r) => r.movements);
   const assignJournalToFundingBucket = (journalId: string) => {
-    const boxMeta = journalCashboxMetaFromModel(model, journalId);
-    const kind =
-      boxMeta?.cashbox_kind ??
-      resolveCashboxKind({
-        code: boxMeta?.cashbox_code,
-        name: boxMeta?.cashbox_name,
-      });
-
-    if (kind === 'CASH') {
-      cashBucket.journalIds.add(journalId);
-      return;
-    }
-    if (kind === 'BANK') {
-      const bankKey =
-        boxMeta?.cashbox_id ||
-        boxMeta?.cashbox_code ||
-        boxMeta?.cashbox_name ||
-        `bank-${journalId}`;
-      let bucket = bankBuckets.get(bankKey);
-      if (!bucket) {
-        bucket = {
-          key: `${meta.id}::cb:${bankKey}`,
-          kind: 'BANK',
-          fundingLabel: boxMeta?.cashbox_name?.trim() || 'حساب مصرفي',
-          journalIds: new Set(),
-          cashbox_id: boxMeta?.cashbox_id ?? null,
-          cashbox_name: boxMeta?.cashbox_name ?? null,
-          cashbox_kind: 'BANK',
-        };
-        bankBuckets.set(bankKey, bucket);
-      }
-      bucket.journalIds.add(journalId);
-      return;
-    }
-    if (kind === 'CARD' || kind === 'OTHER') {
-      const otherKey =
-        boxMeta?.cashbox_id ||
-        boxMeta?.cashbox_code ||
-        boxMeta?.cashbox_name ||
-        `other-${journalId}`;
-      let bucket = otherBuckets.get(otherKey);
-      if (!bucket) {
-        bucket = {
-          key: `${meta.id}::cb:${otherKey}`,
-          kind: kind === 'CARD' ? 'CARD' : 'OTHER',
-          fundingLabel: boxMeta?.cashbox_name?.trim() || 'خزينة أخرى',
-          journalIds: new Set(),
-          cashbox_id: boxMeta?.cashbox_id ?? null,
-          cashbox_name: boxMeta?.cashbox_name ?? null,
-          cashbox_kind: kind,
-        };
-        otherBuckets.set(otherKey, bucket);
-      }
-      bucket.journalIds.add(journalId);
-      return;
-    }
-    noneBucket.journalIds.add(journalId);
+    assignJournalToFundingBucketMaps(
+      model,
+      journalId,
+      meta.id,
+      cashboxBuckets,
+      noneBucket,
+    );
   };
 
   for (const m of allMovements) {
@@ -826,19 +870,7 @@ export function buildTypeAggregateCashBankSections(
     }
   }
 
-  const orderedBuckets: Bucket[] = [];
-  if (cashBucket.journalIds.size > 0) orderedBuckets.push(cashBucket);
-  orderedBuckets.push(
-    ...[...bankBuckets.values()].sort((a, b) =>
-      a.fundingLabel.localeCompare(b.fundingLabel, 'ar'),
-    ),
-  );
-  orderedBuckets.push(
-    ...[...otherBuckets.values()].sort((a, b) =>
-      a.fundingLabel.localeCompare(b.fundingLabel, 'ar'),
-    ),
-  );
-  if (noneBucket.journalIds.size > 0) orderedBuckets.push(noneBucket);
+  const orderedBuckets = sortFundingBuckets(cashboxBuckets, noneBucket);
 
   const focusRowsWithCollections = [
     ...focusRows,
@@ -909,41 +941,7 @@ export function buildTypeAggregateCashBankSections(
       bucket.journalIds,
     ).filter((l) => l.category_type !== accountType);
 
-    if (bucket.kind === 'CASH') {
-      contraLines = contraLines.filter(
-        (l) => !l.cashbox_kind || l.cashbox_kind === 'CASH' || !l.cashbox_id,
-      );
-      const cashContras = contraLines.filter((l) => l.cashbox_kind === 'CASH');
-      const otherContras = contraLines.filter((l) => l.cashbox_kind !== 'CASH');
-      if (cashContras.length > 1) {
-        contraLines = [
-          {
-            ...mergeCashFocusLines(cashContras),
-            cashbox_name: 'النقدي',
-            cashbox_kind: 'CASH',
-          },
-          ...otherContras,
-        ];
-      } else if (cashContras.length === 1) {
-        contraLines = [
-          {
-            ...cashContras[0],
-            cashbox_name: cashContras[0].cashbox_name || 'النقدي',
-          },
-          ...otherContras,
-        ];
-      }
-    } else if (bucket.kind === 'BANK') {
-      contraLines = contraLines.filter((l) => {
-        if (l.cashbox_id && bucket.cashbox_id) {
-          return l.cashbox_id === bucket.cashbox_id;
-        }
-        if (l.cashbox_kind === 'BANK' && bucket.cashbox_name) {
-          return l.cashbox_name === bucket.cashbox_name;
-        }
-        return !l.cashbox_id || l.cashbox_kind === bucket.cashbox_kind;
-      });
-    }
+    contraLines = filterContraLinesForFundingBucket(contraLines, bucket);
 
     const contraLabel =
       bucket.kind === 'NONE'
@@ -983,16 +981,7 @@ export function buildCashBankSeparatedSections(
     return buildTypeAggregateCashBankSections(model, typeFilter);
   }
 
-  const sections = buildCashBankSeparatedSectionsCore(model, focusCategoryId);
-  const companion = model.revenueAccrualCompanion;
-  if (!companion?.lines.length) return sections;
-
-  const accrualSections = buildCashBankSeparatedSectionsCore(
-    companion,
-    focusCategoryId,
-  ).filter((s) => s.sectionKind === 'NONE');
-  if (accrualSections.length === 0) return sections;
-  return [...sections, ...accrualSections];
+  return buildCashBankSeparatedSectionsCore(model, focusCategoryId);
 }
 
 function buildCashBankSeparatedSectionsCore(
@@ -1027,69 +1016,41 @@ function buildCashBankSeparatedSectionsCore(
   });
 
   if (focusIsCashboxSplit) {
-    const cashRows = focusRows.filter((l) => l.cashbox_kind === 'CASH');
-    const bankRows = focusRows
-      .filter((l) => l.cashbox_kind === 'BANK')
-      .sort((a, b) =>
-        (a.cashbox_name || '').localeCompare(b.cashbox_name || '', 'ar'),
-      );
-    const otherRows = focusRows
-      .filter(
-        (l) =>
-          l.cashbox_id &&
-          l.cashbox_kind !== 'CASH' &&
-          l.cashbox_kind !== 'BANK',
-      )
+    const cashboxSplitRows = focusRows
+      .filter((l) => l.cashbox_id)
       .sort((a, b) =>
         (a.cashbox_name || '').localeCompare(b.cashbox_name || '', 'ar'),
       );
     const plainRows = focusRows.filter((l) => !l.cashbox_id);
 
-    if (cashRows.length > 0) {
-      const merged = mergeCashFocusLines(cashRows);
-      const focusLine = asCategoryFocus(merged, merged.rowKey);
-      const journalIds = new Set(focusLine.movements.map((m) => m.journal_id));
-      const contraLines = buildContraLinesForJournals(
-        model,
-        focusLine,
-        journalIds,
+    for (const row of cashboxSplitRows) {
+      const kind = row.cashbox_kind ?? 'OTHER';
+      const sectionKind: PeriodCashBankSection['sectionKind'] =
+        kind === 'CASH'
+          ? 'CASH'
+          : kind === 'BANK'
+            ? 'BANK'
+            : kind === 'CARD'
+              ? 'CARD'
+              : 'OTHER';
+      const funding =
+        row.cashbox_name?.trim() || defaultFundingBucketLabel(kind);
+      const focusLine = asCategoryFocus(row, row.rowKey);
+      const contraLines = filterContraLinesForFundingBucket(
+        buildContraLinesForFocus(model, row),
+        {
+          key: row.rowKey,
+          kind: sectionKind,
+          fundingLabel: funding,
+          journalIds: new Set(focusLine.movements.map((m) => m.journal_id)),
+          cashbox_id: row.cashbox_id,
+          cashbox_name: row.cashbox_name,
+          cashbox_kind: row.cashbox_kind,
+        },
       );
       sections.push({
-        sectionKey: focusLine.rowKey,
-        sectionKind: 'CASH',
-        title: categoryName,
-        fundingLabel: 'النقدي',
-        subtitle: makeSubtitle('النقدي'),
-        focusLine,
-        contraLines,
-        ...sectionTotals(focusLine, contraLines),
-      });
-    }
-
-    for (const bank of bankRows) {
-      const funding = bank.cashbox_name?.trim() || 'حساب مصرفي';
-      const focusLine = asCategoryFocus(bank, bank.rowKey);
-      const contraLines = buildContraLinesForFocus(model, bank);
-      sections.push({
-        sectionKey: bank.rowKey,
-        sectionKind: 'BANK',
-        title: categoryName,
-        fundingLabel: funding,
-        subtitle: makeSubtitle(funding),
-        focusLine,
-        contraLines,
-        ...sectionTotals(focusLine, contraLines),
-      });
-    }
-
-    for (const row of otherRows) {
-      const kind = row.cashbox_kind ?? 'OTHER';
-      const funding = row.cashbox_name?.trim() || 'خزينة أخرى';
-      const focusLine = asCategoryFocus(row, row.rowKey);
-      const contraLines = buildContraLinesForFocus(model, row);
-      sections.push({
         sectionKey: row.rowKey,
-        sectionKind: kind === 'CARD' ? 'CARD' : 'OTHER',
+        sectionKind,
         title: categoryName,
         fundingLabel: funding,
         subtitle: makeSubtitle(funding),
@@ -1119,117 +1080,50 @@ function buildCashBankSeparatedSectionsCore(
     return sections;
   }
 
-  /** بند عادي (مصروف/إيراد…): قسّم حسب مصدر الدفع مع قطبية النوع (مدين/دائن) */
+  /** بند عادي (مصروف/إيراد…): قسّم حسب مصدر الدفع — كل خزينة/مصرف بورقة */
   const template = focusRows[0];
   const allMovements = focusRows.flatMap((r) => r.movements);
 
-  type Bucket = {
-    key: string;
-    kind: PeriodCashBankSection['sectionKind'];
-    fundingLabel: string;
-    journalIds: Set<string>;
-    cashbox_id: string | null;
-    cashbox_name: string | null;
-    cashbox_kind: CashboxKind | null;
-  };
+  type Bucket = FundingBucket;
 
-  const cashBucket: Bucket = {
-    key: `${focusCategoryId}::kind:CASH`,
-    kind: 'CASH',
-    fundingLabel: 'النقدي',
-    journalIds: new Set(),
-    cashbox_id: null,
-    cashbox_name: 'النقدي',
-    cashbox_kind: 'CASH',
-  };
-  const bankBuckets = new Map<string, Bucket>();
-  const otherBuckets = new Map<string, Bucket>();
-  const noneBucket: Bucket = {
-    key: `${focusCategoryId}::kind:NONE`,
-    kind: 'NONE',
-    fundingLabel: '—',
-    journalIds: new Set(),
-    cashbox_id: null,
-    cashbox_name: null,
-    cashbox_kind: null,
+  const cashboxBuckets = new Map<string, Bucket>();
+  const noneBucket = createNoneFundingBucket(focusCategoryId);
+
+  const assignJournalToFundingBucket = (journalId: string) => {
+    assignJournalToFundingBucketMaps(
+      model,
+      journalId,
+      focusCategoryId,
+      cashboxBuckets,
+      noneBucket,
+    );
   };
 
   for (const m of allMovements) {
-    const meta = journalCashboxMetaFromModel(model, m.journal_id);
-    const kind =
-      meta?.cashbox_kind ??
-      resolveCashboxKind({
-        code: meta?.cashbox_code,
-        name: meta?.cashbox_name,
-      });
-
-    if (kind === 'CASH') {
-      cashBucket.journalIds.add(m.journal_id);
-      continue;
-    }
-
-    if (kind === 'BANK') {
-      const bankKey =
-        meta?.cashbox_id ||
-        meta?.cashbox_code ||
-        meta?.cashbox_name ||
-        `bank-${m.journal_id}`;
-      let bucket = bankBuckets.get(bankKey);
-      if (!bucket) {
-        bucket = {
-          key: `${focusCategoryId}::cb:${bankKey}`,
-          kind: 'BANK',
-          fundingLabel: meta?.cashbox_name?.trim() || 'حساب مصرفي',
-          journalIds: new Set(),
-          cashbox_id: meta?.cashbox_id ?? null,
-          cashbox_name: meta?.cashbox_name ?? null,
-          cashbox_kind: 'BANK',
-        };
-        bankBuckets.set(bankKey, bucket);
-      }
-      bucket.journalIds.add(m.journal_id);
-      continue;
-    }
-
-    if (kind === 'CARD' || kind === 'OTHER') {
-      const otherKey =
-        meta?.cashbox_id ||
-        meta?.cashbox_code ||
-        meta?.cashbox_name ||
-        `other-${m.journal_id}`;
-      let bucket = otherBuckets.get(otherKey);
-      if (!bucket) {
-        bucket = {
-          key: `${focusCategoryId}::cb:${otherKey}`,
-          kind: kind === 'CARD' ? 'CARD' : 'OTHER',
-          fundingLabel: meta?.cashbox_name?.trim() || 'خزينة أخرى',
-          journalIds: new Set(),
-          cashbox_id: meta?.cashbox_id ?? null,
-          cashbox_name: meta?.cashbox_name ?? null,
-          cashbox_kind: kind,
-        };
-        otherBuckets.set(otherKey, bucket);
-      }
-      bucket.journalIds.add(m.journal_id);
-      continue;
-    }
-
-    noneBucket.journalIds.add(m.journal_id);
+    assignJournalToFundingBucket(m.journal_id);
   }
 
-  const orderedBuckets: Bucket[] = [];
-  if (cashBucket.journalIds.size > 0) orderedBuckets.push(cashBucket);
-  orderedBuckets.push(
-    ...[...bankBuckets.values()].sort((a, b) =>
-      a.fundingLabel.localeCompare(b.fundingLabel, 'ar'),
-    ),
-  );
-  orderedBuckets.push(
-    ...[...otherBuckets.values()].sort((a, b) =>
-      a.fundingLabel.localeCompare(b.fundingLabel, 'ar'),
-    ),
-  );
-  if (noneBucket.journalIds.size > 0) orderedBuckets.push(noneBucket);
+  const revenueCollectionExtras =
+    focusIsCredit
+      ? augmentRevenueCollectionCashBuckets(
+          model,
+          new Set(allMovements.map((m) => m.journal_id)),
+          assignJournalToFundingBucket,
+          {
+            id: focusCategoryId,
+            code: categoryCode,
+            name_ar: categoryName,
+            type: focusType ?? 'REVENUE',
+          },
+        )
+      : [];
+
+  const allMovementsIncludingCollections = [
+    ...allMovements,
+    ...revenueCollectionExtras.flatMap((r) => r.movements),
+  ];
+
+  const orderedBuckets = sortFundingBuckets(cashboxBuckets, noneBucket);
 
   if (orderedBuckets.length === 0) {
     const focusLine =
@@ -1258,7 +1152,7 @@ function buildCashBankSeparatedSectionsCore(
   }
 
   for (const bucket of orderedBuckets) {
-    const movements = allMovements
+    const movements = allMovementsIncludingCollections
       .filter((m) => bucket.journalIds.has(m.journal_id))
       .sort((a, b) => {
         const d = a.entry_date.localeCompare(b.entry_date);
@@ -1280,54 +1174,14 @@ function buildCashBankSeparatedSectionsCore(
       net: debit - credit,
       movements,
     };
-    const contraLines = buildContraLinesForJournals(
-      model,
-      focusLine,
-      bucket.journalIds,
-    ).filter((l) => {
-      if (bucket.kind === 'CASH') {
-        return !l.cashbox_kind || l.cashbox_kind === 'CASH' || !l.cashbox_id;
-      }
-      if (bucket.kind === 'BANK') {
-        if (l.cashbox_id && bucket.cashbox_id) {
-          return l.cashbox_id === bucket.cashbox_id;
-        }
-        if (l.cashbox_kind === 'BANK' && bucket.cashbox_name) {
-          return l.cashbox_name === bucket.cashbox_name;
-        }
-        return !l.cashbox_id || l.cashbox_kind === bucket.cashbox_kind;
-      }
-      return true;
-    });
-
-    let displayContra = contraLines;
-    if (bucket.kind === 'CASH') {
-      const cashContras = contraLines.filter((l) => l.cashbox_kind === 'CASH');
-      const otherContras = contraLines.filter((l) => l.cashbox_kind !== 'CASH');
-      if (cashContras.length > 1) {
-        const mergedCash = mergeCashFocusLines(cashContras);
-        displayContra = [
-          {
-            ...mergedCash,
-            cashbox_name: 'النقدي',
-            cashbox_kind: 'CASH',
-          },
-          ...otherContras,
-        ];
-      } else if (cashContras.length === 1) {
-        displayContra = [
-          {
-            ...cashContras[0],
-            cashbox_name: cashContras[0].cashbox_name || 'النقدي',
-          },
-          ...otherContras,
-        ];
-      }
-    }
+    const contraLines = filterContraLinesForFundingBucket(
+      buildContraLinesForJournals(model, focusLine, bucket.journalIds),
+      bucket,
+    );
 
     const contraLabel =
       bucket.kind === 'NONE'
-        ? resolvePeriodJournalContraLabel(displayContra, {
+        ? resolvePeriodJournalContraLabel(contraLines, {
             sectionKind: 'NONE',
           })
         : bucket.fundingLabel;
@@ -1339,8 +1193,8 @@ function buildCashBankSeparatedSectionsCore(
       fundingLabel: contraLabel,
       subtitle: makeSubtitle(contraLabel),
       focusLine,
-      contraLines: displayContra,
-      ...sectionTotals(focusLine, displayContra),
+      contraLines,
+      ...sectionTotals(focusLine, contraLines),
     });
   }
 
@@ -1353,7 +1207,6 @@ export function buildPeriodJournalEntryModel(input: {
   lines: RawLine[];
   statusFilter?: JournalStatus | 'ALL';
   truncated?: boolean;
-  revenueAccrualCompanion?: PeriodJournalEntryModel | null;
 }): PeriodJournalEntryModel {
   const { startDate, endDate } = reportPeriodDateRange(input.period);
   const periodLabel = formatReportPeriodLabelAr(input.period);
@@ -1379,7 +1232,6 @@ export function buildPeriodJournalEntryModel(input: {
     totalCredit,
     balanced: almostEqual(totalDebit, totalCredit),
     vouchers: [],
-    revenueAccrualCompanion: input.revenueAccrualCompanion ?? null,
   };
 }
 
@@ -1708,6 +1560,12 @@ export function applyPeriodJournalCategoryFilter(
       focusRows.flatMap((row) => row.movements.map((m) => m.journal_id)),
     );
 
+    if (typeFilter === 'REVENUE') {
+      for (const id of findCashReceivableCollectionJournalIds(model, journalIds)) {
+        journalIds.add(id);
+      }
+    }
+
     const relatedOther: PeriodJournalLine[] = [];
     for (const line of model.lines) {
       if (line.category_type === typeFilter) continue;
@@ -1807,6 +1665,13 @@ export function applyPeriodJournalCategoryFilter(
     focusRows.flatMap((row) => row.movements.map((m) => m.journal_id)),
   );
 
+  /** تحصيل إيجار: القيد المخزّن مدين خزينة/مصرف + دائن ذمم — يُضمّ للعرض */
+  if (isCreditNormalAccountType(existing.category_type)) {
+    for (const id of findCashReceivableCollectionJournalIds(model, journalIds)) {
+      journalIds.add(id);
+    }
+  }
+
   const relatedLines: PeriodJournalLine[] = [];
   for (const line of model.lines) {
     const movements = line.movements.filter((m) => journalIds.has(m.journal_id));
@@ -1834,14 +1699,6 @@ export function applyPeriodJournalCategoryFilter(
   const totalDebit = focusFirst.reduce((s, l) => s + l.debit, 0);
   const totalCredit = focusFirst.reduce((s, l) => s + l.credit, 0);
 
-  const companion = model.revenueAccrualCompanion
-    ? applyPeriodJournalCategoryFilter(
-        { ...model.revenueAccrualCompanion, revenueAccrualCompanion: null },
-        categoryId,
-        categoryMeta,
-      )
-    : null;
-
   return {
     ...model,
     categoryFilter,
@@ -1859,8 +1716,6 @@ export function applyPeriodJournalCategoryFilter(
     description: categoryFilter
       ? `مجموع بند «${categoryFilter.name_ar}» — النقدي منفصل عن المصارف (كل مصرف بورقة) · ${model.periodLabel}`
       : model.description,
-    revenueAccrualCompanion:
-      companion && companion.lines.length > 0 ? companion : null,
   };
 }
 
@@ -2304,6 +2159,47 @@ function rewriteCollectionLinesAsCashRevenue(
   return out;
 }
 
+function journalIdsFromPeriodModel(model: PeriodJournalEntryModel): string[] {
+  const ids = new Set<string>();
+  for (const line of model.lines) {
+    for (const m of line.movements) ids.add(m.journal_id);
+  }
+  return [...ids];
+}
+
+type RevenueCollectionFocusMeta = {
+  id: string;
+  code: string;
+  name_ar: string;
+  type: string;
+};
+
+/**
+ * تحصيل إيجار (مدين خزينة / دائن ذمم) لا يحمل سطر بند الإيراد في القيد المخزّن —
+ * يُضاف لأقسام النقدي/المصرف مثل المصروف.
+ */
+function augmentRevenueCollectionCashBuckets(
+  model: PeriodJournalEntryModel,
+  excludeJournalIds: Set<string>,
+  assignJournalToFundingBucket: (journalId: string) => void,
+  focusMeta: RevenueCollectionFocusMeta,
+): PeriodJournalLine[] {
+  const collectionIds = findCashReceivableCollectionJournalIds(
+    model,
+    excludeJournalIds,
+  );
+  for (const journalId of collectionIds) {
+    assignJournalToFundingBucket(journalId);
+  }
+  if (collectionIds.size === 0) return [];
+  const synthetic = buildSyntheticRevenueFocusFromCollections(
+    model,
+    collectionIds,
+    focusMeta,
+  );
+  return synthetic ? [synthetic] : [];
+}
+
 function findCashReceivableCollectionJournalIds(
   model: PeriodJournalEntryModel,
   excludeJournalIds: Set<string>,
@@ -2380,9 +2276,8 @@ function buildSyntheticRevenueFocusFromCollections(
 }
 
 /**
- * مسار بند واحد (مثل REV-RNT): يجلب كل قيود الفترة التي لمست البند
- * عبر get_journal_lines_for_period أو دفتر الأستاذ — بلا سقف إجمالي.
- * لبند إيراد: يعرض تحصيل الخزينة/المصرف أولاً، والاستحقاق (ذمم) رفيقاً منفصلاً.
+ * مسار بند واحد (مثل REV-RNT): يجلب قيود الاستحقاق + تحصيلات الخزينة/المصرف
+ * في نموذج واحد — مجاميع الشهر مثل المصروف، كل خزينة بورقة.
  */
 async function fetchPeriodJournalByCategory(input: {
   period: ReportPeriod;
@@ -2416,31 +2311,56 @@ async function fetchPeriodJournalByCategory(input: {
     return accrualModel;
   }
 
+  const accrualJournalIds = journalIdsFromPeriodModel(accrualModel);
+  const hasAccrualFocus = accrualModel.lines.some(
+    (l) =>
+      l.category_id === input.categoryId &&
+      (l.debit > EPS || l.credit > EPS),
+  );
+
+  const accrualLinesRaw =
+    accrualJournalIds.length > 0
+      ? await fetchRawLinesForJournalIds(accrualJournalIds)
+      : [];
+  const accrualEntries =
+    accrualJournalIds.length > 0
+      ? await fetchJournalEntriesByIds(accrualJournalIds)
+      : [];
+
   const collectionIdSet = new Set(collectionIds);
   const collEntries = await fetchJournalEntriesByIds(collectionIds);
   const collLinesRaw = await fetchRawLinesForJournalIds(collectionIds);
-  const rewritten = rewriteCollectionLinesAsCashRevenue(
-    collLinesRaw,
-    collectionIdSet,
-    {
-      id: categoryMeta.id,
-      code: categoryMeta.code,
-      name_ar: categoryMeta.name_ar,
-      type: categoryMeta.type,
-    },
-  );
+  /** عند وجود استحقاق: لا نكرّر دائن الإيراد على قيود التحصيل */
+  const collLines = hasAccrualFocus
+    ? collLinesRaw
+    : rewriteCollectionLinesAsCashRevenue(
+        collLinesRaw,
+        collectionIdSet,
+        {
+          id: categoryMeta.id,
+          code: categoryMeta.code,
+          name_ar: categoryMeta.name_ar,
+          type: categoryMeta.type,
+        },
+      );
 
-  const cashModel = buildPeriodJournalEntryModel({
+  const entryById = new Map<string, JournalEntryRow>();
+  for (const e of [...accrualEntries, ...collEntries]) {
+    entryById.set(e.id, e);
+  }
+
+  const mergedLines = await enrichRawLinesCashboxKinds([
+    ...accrualLinesRaw,
+    ...collLines,
+  ]);
+
+  return buildPeriodJournalEntryModel({
     period: input.period,
-    entries: collEntries,
-    lines: rewritten,
+    entries: [...entryById.values()],
+    lines: mergedLines,
     statusFilter: status,
-    truncated: false,
-    revenueAccrualCompanion:
-      accrualModel.lines.length > 0 ? accrualModel : null,
+    truncated: accrualModel.truncated,
   });
-
-  return cashModel;
 }
 
 async function fetchPeriodJournalByCategoryAccrualPath(input: {

@@ -207,10 +207,7 @@ function sectionBandStyle(kind: PeriodCashBankSection['sectionKind']) {
 }
 
 function contraAccountName(line: PeriodJournalLine, section?: PeriodCashBankSection): string {
-  if (section?.sectionKind === 'CASH') {
-    return line.cashbox_name?.trim() || section.fundingLabel || 'النقدي';
-  }
-  if (section?.sectionKind === 'BANK') {
+  if (section?.sectionKind && section.sectionKind !== 'NONE') {
     return (
       line.cashbox_name?.trim() ||
       section.fundingLabel ||
@@ -323,11 +320,9 @@ function CategoryTotalPage({
   });
   const fundingLabel = display.contraLabel;
   const contraRoleLabel =
-    sectionKind === 'CASH'
-      ? `${display.contraSideLabel} النقدي`
-      : sectionKind === 'BANK'
-        ? `${display.contraSideLabel} ${fundingLabel}`
-        : `${display.contraSideLabel} ${fundingLabel}`;
+    sectionKind && sectionKind !== 'NONE'
+      ? `${display.contraSideLabel} ${section?.fundingLabel || fundingLabel}`
+      : `${display.contraSideLabel} ${fundingLabel}`;
 
   const focusLines =
     section?.focusDetailLines && section.focusDetailLines.length > 0
@@ -358,13 +353,11 @@ function CategoryTotalPage({
         roleTag: contraRoleLabel,
         desc: contraName,
         hint:
-          sectionKind === 'CASH'
-            ? `${display.contraSideLabel} · النقدية`
-            : sectionKind === 'BANK'
-              ? `${display.contraSideLabel} · ${fundingLabel}`
-              : line.cashbox_name
-                ? line.category_name
-                : accountTypeLabelAr(line.category_type),
+          sectionKind && sectionKind !== 'NONE'
+            ? `${display.contraSideLabel} · ${section?.fundingLabel || fundingLabel}`
+            : line.cashbox_name
+              ? line.category_name
+              : accountTypeLabelAr(line.category_type),
         debit: line.debit,
         credit: line.credit,
         focus: false,
@@ -685,11 +678,9 @@ function SingleCategoryTotalsDocument({
           },
         );
         const kindLabel =
-          section.sectionKind === 'CASH'
-            ? `بند ${section.title} · ${polarity.contraSideLabel} النقدي`
-            : section.sectionKind === 'BANK'
-              ? `بند ${section.title} · ${polarity.contraSideLabel} ${section.fundingLabel}`
-              : `بند ${section.title}`;
+          section.sectionKind !== 'NONE'
+            ? `بند ${section.title} · ${polarity.contraSideLabel} ${section.fundingLabel}`
+            : `بند ${section.title}`;
 
         return (
           <ReportPageFrame
@@ -776,11 +767,9 @@ function GroupTypeCashBankDocument({
           },
         );
         const kindLabel =
-          section.sectionKind === 'CASH'
-            ? `${section.title} · ${polarity.contraSideLabel} النقدي`
-            : section.sectionKind === 'BANK'
-              ? `${section.title} · ${polarity.contraSideLabel} ${section.fundingLabel}`
-              : section.title;
+          section.sectionKind !== 'NONE'
+            ? `${section.title} · ${polarity.contraSideLabel} ${section.fundingLabel}`
+            : section.title;
         return (
           <ReportPageFrame
             key={section.sectionKey}

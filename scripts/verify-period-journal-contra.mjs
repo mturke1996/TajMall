@@ -307,7 +307,7 @@ function line(partial) {
   assert.equal(sections.length, 3, 'نقدي + مصرفان');
   assert.equal(sections[0].sectionKind, 'CASH');
   assert.equal(sections[0].title, 'مصروف نظافة', 'اسم البند المحدد كعنوان');
-  assert.equal(sections[0].fundingLabel, 'النقدي');
+  assert.equal(sections[0].fundingLabel, 'الخزينة النقدية');
   assert.equal(sections[0].focusLine.category_name, 'مصروف نظافة');
   assert.equal(sections[0].focusLine.cashbox_name, null, 'لا يُخفى اسم البند باسم الخزينة');
   assert.equal(sections[0].focusLine.debit, 100);
@@ -398,7 +398,7 @@ function line(partial) {
   assert.equal(sections.length, 2);
   assert.equal(sections[0].sectionKind, 'CASH');
   assert.equal(sections[0].title, 'الأصول - الخزائن والبنوك');
-  assert.equal(sections[0].fundingLabel, 'النقدي');
+  assert.equal(sections[0].fundingLabel, 'الخزينة النقدية');
   assert.equal(sections[0].focusLine.category_name, 'الأصول - الخزائن والبنوك');
   assert.equal(sections[0].focusLine.debit, 200);
   assert.equal(sections[1].sectionKind, 'BANK');
@@ -673,6 +673,104 @@ function line(partial) {
   );
   assert.equal(display.focusAmount, expected);
   assert.ok(expected > 6000, 'sanity: المجموع أكبر من عينة 6000');
+}
+
+// --- Case 10: تحصيل إيجار — خزينة/مصرف منفصل (القيد: مدين نقد + دائن ذمم) ---
+{
+  const jAccrual = journal('j-accrual', 900, '2026-07-01', 'استحقاق');
+  const jCash = journal('j-collect-cash', 901, '2026-07-05', 'تحصيل نقدي');
+  const jBank = journal('j-collect-bank', 902, '2026-07-06', 'تحصيل مصرف');
+  const raw = [
+    line({
+      journal_id: 'j-accrual',
+      category_id: 'ast-rec',
+      debit: 5000,
+      credit: 0,
+      category_code: 'AST-REC',
+      category_name: 'ذمم المستأجرين',
+      category_type: 'ASSET',
+    }),
+    line({
+      journal_id: 'j-accrual',
+      category_id: 'rev-rnt',
+      debit: 0,
+      credit: 5000,
+      category_code: 'REV-RNT',
+      category_name: 'إيجارات المحلات والوحدات',
+      category_type: 'REVENUE',
+    }),
+    line({
+      journal_id: 'j-collect-cash',
+      category_id: 'ast-csh',
+      debit: 2000,
+      credit: 0,
+      category_code: 'AST-CSH',
+      category_name: 'النقدية',
+      category_type: 'ASSET',
+      cashbox_id: 'cb-cash',
+      cashbox_name_ar: 'الخزينة النقدية',
+      cashbox_code: 'CASH',
+      cashbox_kind: 'CASH',
+    }),
+    line({
+      journal_id: 'j-collect-cash',
+      category_id: 'ast-rec',
+      debit: 0,
+      credit: 2000,
+      category_code: 'AST-REC',
+      category_name: 'ذمم المستأجرين',
+      category_type: 'ASSET',
+    }),
+    line({
+      journal_id: 'j-collect-bank',
+      category_id: 'ast-csh',
+      debit: 3000,
+      credit: 0,
+      category_code: 'AST-CSH',
+      category_name: 'النقدية',
+      category_type: 'ASSET',
+      cashbox_id: 'cb-bank',
+      cashbox_name_ar: 'مصرف شمال افريقيا',
+      cashbox_code: 'BNK-NAB',
+      cashbox_kind: 'BANK',
+    }),
+    line({
+      journal_id: 'j-collect-bank',
+      category_id: 'ast-rec',
+      debit: 0,
+      credit: 3000,
+      category_code: 'AST-REC',
+      category_name: 'ذمم المستأجرين',
+      category_type: 'ASSET',
+    }),
+  ];
+
+  const model = buildPeriodJournalEntryModel({
+    period: { mode: 'month', year: 2026, month: 7 },
+    entries: [jAccrual, jCash, jBank],
+    lines: raw,
+    statusFilter: 'POSTED',
+  });
+
+  const focused = applyPeriodJournalCategoryFilter(model, 'rev-rnt');
+  assert.ok(
+    focused.lines.some((l) => l.cashbox_id === 'cb-cash'),
+    'must keep cashbox lines from rent collections',
+  );
+
+  const sections = buildCashBankSeparatedSections(focused, 'rev-rnt');
+  const cashSection = sections.find((s) => s.fundingLabel === 'الخزينة النقدية');
+  const bankSection = sections.find(
+    (s) => s.fundingLabel === 'مصرف شمال افريقيا',
+  );
+  assert.ok(cashSection, 'cash collection section');
+  assert.ok(bankSection, 'bank collection section');
+  assert.equal(cashSection.sectionKind, 'CASH');
+  assert.equal(bankSection.sectionKind, 'BANK');
+  assert.equal(cashSection.focusLine.credit, 2000);
+  assert.equal(bankSection.focusLine.credit, 3000);
+  assert.ok(cashSection.balanced);
+  assert.ok(bankSection.balanced);
 }
 
 console.log('OK — professional double-entry period journal checks passed');
