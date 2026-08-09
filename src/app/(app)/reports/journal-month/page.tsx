@@ -60,6 +60,10 @@ import {
   type ReportPeriod,
 } from '@/lib/report-period';
 import { useCategories } from '@/lib/db/queries';
+import {
+  fetchPeriodRevenueCompare,
+  type PeriodRevenueCompare,
+} from '@/lib/db/period-revenue-compare';
 import { formatMoney, cn } from '@/lib/utils';
 
 type StatusFilter = JournalStatus | 'ALL';
@@ -223,6 +227,8 @@ function JournalMonthContent() {
     useState<PeriodJournalEntryModel | null>(null);
   const [aggLoading, setAggLoading] = useState(false);
   const [aggError, setAggError] = useState<string | null>(null);
+  const [revenueCompare, setRevenueCompare] =
+    useState<PeriodRevenueCompare | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -276,6 +282,24 @@ function JournalMonthContent() {
     startDate,
     endDate,
   ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (statusFilter !== 'POSTED' && statusFilter !== 'ALL') {
+      setRevenueCompare(null);
+      return;
+    }
+    void fetchPeriodRevenueCompare(startDate, endDate)
+      .then((cmp) => {
+        if (!cancelled) setRevenueCompare(cmp);
+      })
+      .catch(() => {
+        if (!cancelled) setRevenueCompare(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [startDate, endDate, statusFilter]);
 
   const displayModel = useMemo(() => {
     if (!model) return null;
@@ -586,6 +610,29 @@ function JournalMonthContent() {
                 description="تم بلوغ حد جلب القيود لهذه الفترة. عند اختيار بند واحد (مثل إيجارات المحلات) يُعاد الجلب كاملاً لهذا البند — تأكد أن البند محدد من القائمة."
               />
             ) : null}
+            {revenueCompare ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-50/70 px-4 py-3 text-sm text-ink">
+                <p className="font-semibold text-amber-950">
+                  تحصيل نقدي ≠ إيراد مستحق (هذا ليس خطأ في المجموع)
+                </p>
+                <p className="mt-1.5 leading-relaxed text-ink-mute">
+                  تحصيل الإيجار في {periodLabel}:{' '}
+                  <strong className="text-ink">
+                    {formatMoney(revenueCompare.cashRent, 'LYD')}
+                  </strong>
+                  {' · '}
+                  إيراد إيجار مستحق (دائن REV-RNT في القيود):{' '}
+                  <strong className="text-ink">
+                    {formatMoney(revenueCompare.accruedRent, 'LYD')}
+                  </strong>
+                  . صفحة الإيرادات = ما دخل الخزينة؛ قيد الفترة = إيجار مستحق للشهر
+                  (قد يكون أقل إن حُصّلت متأخرات أشهر أخرى).
+                </p>
+                <Button size="sm" variant="outline" className="mt-2" asChild>
+                  <Link href="/revenues">فتح صفحة التحصيل (الإيرادات)</Link>
+                </Button>
+              </div>
+            ) : null}
             <AccountingSummaryGrid
               stats={[
                 {
@@ -599,20 +646,36 @@ function JournalMonthContent() {
                     : displayModel.lines.length,
                   currency: '',
                 },
-                {
-                  label: displayModel.categoryFilter
-                    ? 'مدين (البند + الطرف)'
-                    : 'إجمالي المدين',
-                  value: displayModel.totalDebit,
-                  tone: 'positive',
-                },
-                {
-                  label: displayModel.categoryFilter
-                    ? 'دائن (البند + الطرف)'
-                    : 'إجمالي الدائن',
-                  value: displayModel.totalCredit,
-                  tone: 'negative',
-                },
+                ...(revenueCompare &&
+                displayModel.categoryFilter?.code === 'REV-RNT'
+                  ? [
+                      {
+                        label: 'إيراد مستحق (REV-RNT)',
+                        value: revenueCompare.accruedRent,
+                        tone: 'negative' as const,
+                      },
+                      {
+                        label: 'تحصيل نقدي لنفس الفترة',
+                        value: revenueCompare.cashRent,
+                        tone: 'positive' as const,
+                      },
+                    ]
+                  : [
+                      {
+                        label: displayModel.categoryFilter
+                          ? 'مدين (البند + الطرف)'
+                          : 'إجمالي المدين',
+                        value: displayModel.totalDebit,
+                        tone: 'positive' as const,
+                      },
+                      {
+                        label: displayModel.categoryFilter
+                          ? 'دائن (البند + الطرف)'
+                          : 'إجمالي الدائن',
+                        value: displayModel.totalCredit,
+                        tone: 'negative' as const,
+                      },
+                    ]),
                 {
                   label: 'فرق التوازن',
                   value: Math.abs(displayModel.totalDebit - displayModel.totalCredit),

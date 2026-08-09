@@ -745,21 +745,35 @@ export function useRecordRentPayment() {
 const TX_SELECT =
   "*, category:categories(id,code,name_ar,kind,color), cashbox:cashboxes(id,code,name_ar,kind,bank_name), creator:profiles(id,full_name_ar,full_name), contact:contacts(id,name,kind,shop_number)";
 
-export function useTransactions(kind?: "REVENUE" | "EXPENSE", limit = 500) {
+export function useTransactions(kind?: "REVENUE" | "EXPENSE", limit?: number) {
   return useQuery<TransactionWithRelations[]>({
     queryKey: qk.transactions(kind),
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
-      let q = supabase
-        .from("transactions")
-        .select(TX_SELECT)
-        .order("created_at", { ascending: false })
-        .order("number", { ascending: false })
-        .limit(limit);
-      if (kind) q = q.eq("kind", kind);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data as unknown as TransactionWithRelations[]) ?? [];
+      const pageSize = 1000;
+      const all: TransactionWithRelations[] = [];
+      let from = 0;
+
+      for (;;) {
+        let q = supabase
+          .from("transactions")
+          .select(TX_SELECT)
+          .order("created_at", { ascending: false })
+          .order("number", { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (kind) q = q.eq("kind", kind);
+        const { data, error } = await q;
+        if (error) throw error;
+        const page = (data as unknown as TransactionWithRelations[]) ?? [];
+        all.push(...page);
+        if (limit != null && all.length >= limit) {
+          return all.slice(0, limit);
+        }
+        if (page.length < pageSize) break;
+        from += pageSize;
+      }
+
+      return all;
     },
   });
 }
@@ -779,17 +793,26 @@ export function useCategoryTransactionsForMonth(
       const nextMonth = m === 12 ? 1 : m + 1;
       const nextYear = m === 12 ? y + 1 : y;
       const end = `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`;
-      const { data, error } = await supabase
-        .from("transactions")
-        .select(TX_SELECT)
-        .eq("category_id", categoryId as string)
-        .gte("tx_date", start)
-        .lt("tx_date", end)
-        .order("tx_date", { ascending: false })
-        .order("number", { ascending: false })
-        .limit(1000);
-      if (error) throw error;
-      return (data as unknown as TransactionWithRelations[]) ?? [];
+      const pageSize = 1000;
+      const all: TransactionWithRelations[] = [];
+      let from = 0;
+      for (;;) {
+        const { data, error } = await supabase
+          .from("transactions")
+          .select(TX_SELECT)
+          .eq("category_id", categoryId as string)
+          .gte("tx_date", start)
+          .lt("tx_date", end)
+          .order("tx_date", { ascending: false })
+          .order("number", { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        const page = (data as unknown as TransactionWithRelations[]) ?? [];
+        all.push(...page);
+        if (page.length < pageSize) break;
+        from += pageSize;
+      }
+      return all;
     },
   });
 }
