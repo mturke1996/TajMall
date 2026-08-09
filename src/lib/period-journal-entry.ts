@@ -217,7 +217,20 @@ export function periodJournalFocusIsCredit(
   return focusLine.credit > focusLine.debit;
 }
 
-/** اسم الطرف المقابل للعرض (نقدي / مصرف / ذمم / …) */
+/** هل هذا حساب ذمم مدينة (لا نعرضه للمستخدم في كشف الإيراد) */
+export function isReceivableAccountLine(
+  line: Pick<PeriodJournalLine, 'category_code' | 'category_name' | 'category_type'>,
+): boolean {
+  if (line.category_code === 'AST-REC') return true;
+  if (line.category_type !== 'ASSET') return false;
+  return /ذمم|receiv/i.test(line.category_name || '');
+}
+
+function isReceivableDisplayName(name: string): boolean {
+  return /ذمم|receiv/i.test(name);
+}
+
+/** اسم الطرف المقابل للعرض (نقدي / مصرف — بدون ذمم المستأجرين) */
 export function resolvePeriodJournalContraLabel(
   contraLines: PeriodJournalLine[],
   options?: {
@@ -234,10 +247,18 @@ export function resolvePeriodJournalContraLabel(
     ...new Set(
       contraLines
         .map((l) => l.cashbox_name?.trim() || l.category_name)
-        .filter((n): n is string => Boolean(n && n !== '—')),
+        .filter(
+          (n): n is string =>
+            Boolean(n && n !== '—' && !isReceivableDisplayName(n)),
+        ),
     ),
   ];
-  if (names.length === 0) return 'الطرف المقابل';
+  if (names.length === 0) {
+    if (contraLines.some((l) => isReceivableAccountLine(l))) {
+      return 'إيراد مستحق';
+    }
+    return 'الطرف المقابل';
+  }
   if (names.length === 1) return names[0];
   if (names.length === 2) return `${names[0]} + ${names[1]}`;
   return `${names[0]} + ${names.length - 1} أخرى`;
@@ -549,6 +570,25 @@ function sliceLineToJournals(
   };
 }
 
+function sliceLineExcludingJournals(
+  line: PeriodJournalLine,
+  excludeJournalIds: Set<string>,
+): PeriodJournalLine | null {
+  const movements = line.movements.filter(
+    (m) => !excludeJournalIds.has(m.journal_id),
+  );
+  if (movements.length === 0) return null;
+  const debit = movements.reduce((s, m) => s + m.debit, 0);
+  const credit = movements.reduce((s, m) => s + m.credit, 0);
+  return {
+    ...line,
+    debit,
+    credit,
+    net: debit - credit,
+    movements,
+  };
+}
+
 /** يدمج صفوف متعددة لنفس البند عند غياب تقسيم خزينة (fallback فقط) */
 function mergeCashFocusLines(rows: PeriodJournalLine[]): PeriodJournalLine {
   const base = rows[0];
@@ -727,14 +767,18 @@ function preferPolarityContraLines(
   focusLine: Pick<PeriodJournalLine, 'category_type' | 'debit' | 'credit'>,
   contraLines: PeriodJournalLine[],
 ): PeriodJournalLine[] {
-  if (contraLines.length <= 1) return contraLines;
+  const withoutReceivables = contraLines.filter(
+    (l) => !isReceivableAccountLine(l),
+  );
+  const pool = withoutReceivables.length > 0 ? withoutReceivables : contraLines;
+  if (pool.length <= 1) return pool;
   const focusIsCredit = periodJournalFocusIsCredit(focusLine);
-  const preferred = contraLines.filter((l) =>
+  const preferred = pool.filter((l) =>
     focusIsCredit ? l.debit > EPS : l.credit > EPS,
   );
-  if (preferred.length === 0) return contraLines;
+  if (preferred.length === 0) return pool;
 
-  /** إن وُجدت خزينة/مصرف مدينة مع ذمم، فضّل الخزينة — هذا مسار التحصيل */
+  /** إن وُجدت خزينة/مصرف مدينة، فضّلها — هذا مسار التحصيل النقدي */
   const cashFunding = preferred.filter((l) => Boolean(l.cashbox_id || l.cashbox_kind));
   if (focusIsCredit && cashFunding.length > 0) return cashFunding;
   return preferred;
@@ -842,7 +886,14 @@ export function buildTypeAggregateCashBankSections(
     );
   };
 
+  const collectionIds = findCashReceivableCollectionJournalIds(model, new Set());
+  const skipAccrualJournalIds =
+    accountType === 'REVENUE'
+      ? findRevenueAccrualJournalIdsToSkip(model, collectionIds)
+      : new Set<string>();
+
   for (const m of allMovements) {
+    if (skipAccrualJournalIds.has(m.journal_id)) continue;
     assignJournalToFundingBucket(m.journal_id);
   }
 
@@ -852,28 +903,42 @@ export function buildTypeAggregateCashBankSections(
    */
   const revenueCollectionFocusExtras: PeriodJournalLine[] = [];
   if (accountType === 'REVENUE') {
-    const revenueJournalIds = new Set(allMovements.map((m) => m.journal_id));
-    const collectionIds = findCashReceivableCollectionJournalIds(
+    const revenueJournalIds = new Set(
+      allMovements
+        .map((m) => m.journal_id)
+        .filter((id) => !skipAccrualJournalIds.has(id)),
+    );
+    const collectionOnlyIds = findCashReceivableCollectionJournalIds(
       model,
       revenueJournalIds,
     );
-    for (const journalId of collectionIds) {
+    for (const journalId of collectionOnlyIds) {
       assignJournalToFundingBucket(journalId);
     }
-    if (collectionIds.size > 0) {
+    if (collectionOnlyIds.size > 0) {
       const synthetic = buildSyntheticRevenueFocusFromCollections(
         model,
-        collectionIds,
+        collectionOnlyIds,
         meta,
       );
       if (synthetic) revenueCollectionFocusExtras.push(synthetic);
     }
   }
 
-  const orderedBuckets = sortFundingBuckets(cashboxBuckets, noneBucket);
+  const orderedBuckets = filterRevenueFundingBuckets(
+    sortFundingBuckets(cashboxBuckets, noneBucket),
+    collectionIds,
+  );
+
+  const focusRowsWithoutAccrual =
+    accountType === 'REVENUE' && skipAccrualJournalIds.size > 0
+      ? focusRows
+          .map((row) => sliceLineExcludingJournals(row, skipAccrualJournalIds))
+          .filter((row): row is PeriodJournalLine => row != null)
+      : focusRows;
 
   const focusRowsWithCollections = [
-    ...focusRows,
+    ...focusRowsWithoutAccrual,
     ...revenueCollectionFocusExtras,
   ];
 
@@ -1099,7 +1164,17 @@ function buildCashBankSeparatedSectionsCore(
     );
   };
 
+  const collectionIds = findCashReceivableCollectionJournalIds(model, new Set());
+  const skipAccrualJournalIds = focusIsCredit
+    ? findRevenueAccrualJournalIdsToSkip(
+        model,
+        collectionIds,
+        focusCategoryId,
+      )
+    : new Set<string>();
+
   for (const m of allMovements) {
+    if (skipAccrualJournalIds.has(m.journal_id)) continue;
     assignJournalToFundingBucket(m.journal_id);
   }
 
@@ -1118,12 +1193,19 @@ function buildCashBankSeparatedSectionsCore(
         )
       : [];
 
+  const activeMovements = allMovements.filter(
+    (m) => !skipAccrualJournalIds.has(m.journal_id),
+  );
+
   const allMovementsIncludingCollections = [
-    ...allMovements,
+    ...activeMovements,
     ...revenueCollectionExtras.flatMap((r) => r.movements),
   ];
 
-  const orderedBuckets = sortFundingBuckets(cashboxBuckets, noneBucket);
+  const orderedBuckets = filterRevenueFundingBuckets(
+    sortFundingBuckets(cashboxBuckets, noneBucket),
+    collectionIds,
+  );
 
   if (orderedBuckets.length === 0) {
     const focusLine =
@@ -1593,11 +1675,20 @@ export function applyPeriodJournalCategoryFilter(
     const withLabels = attachContraLabels([
       focusMerged,
       ...sortPeriodLines(relatedOther),
-    ]);
+    ]).filter((l) => !isReceivableAccountLine(l));
 
     const vouchers = buildPeriodJournalVouchers(withLabels, meta.id);
-    const totalDebit = withLabels.reduce((s, l) => s + l.debit, 0);
-    const totalCredit = withLabels.reduce((s, l) => s + l.credit, 0);
+    const focusAmount = withLabels
+      .filter((l) => l.category_id === meta.id)
+      .reduce((s, l) => s + Math.max(l.debit, l.credit), 0);
+    const totalDebit =
+      typeFilter === 'REVENUE'
+        ? focusAmount
+        : withLabels.reduce((s, l) => s + l.debit, 0);
+    const totalCredit =
+      typeFilter === 'REVENUE'
+        ? focusAmount
+        : withLabels.reduce((s, l) => s + l.credit, 0);
 
     return {
       ...model,
@@ -1689,15 +1780,22 @@ export function applyPeriodJournalCategoryFilter(
 
   const withLabels = attachContraLabels(relatedLines);
 
-  /** صفوف البند المختار (كل خزينة على حدة) أولاً، ثم بقية الأطراف */
+  /** صفوف البند المختار (كل خزينة على حدة) أولاً، ثم بقية الأطراف — بدون ذمم */
   const focusFirst = [
     ...withLabels.filter((l) => l.category_id === categoryId),
     ...sortPeriodLines(withLabels.filter((l) => l.category_id !== categoryId)),
-  ];
+  ].filter((l) => !isReceivableAccountLine(l));
 
   const vouchers = buildPeriodJournalVouchers(focusFirst, categoryId);
-  const totalDebit = focusFirst.reduce((s, l) => s + l.debit, 0);
-  const totalCredit = focusFirst.reduce((s, l) => s + l.credit, 0);
+  const focusAmount = focusFirst
+    .filter((l) => l.category_id === categoryId)
+    .reduce((s, l) => s + Math.max(l.debit, l.credit), 0);
+  const totalDebit = isCreditNormalAccountType(existing.category_type)
+    ? focusAmount
+    : focusFirst.reduce((s, l) => s + l.debit, 0);
+  const totalCredit = isCreditNormalAccountType(existing.category_type)
+    ? focusAmount
+    : focusFirst.reduce((s, l) => s + l.credit, 0);
 
   return {
     ...model,
@@ -1714,7 +1812,7 @@ export function applyPeriodJournalCategoryFilter(
       ? `كشف بند — ${categoryFilter.name_ar}`
       : model.title,
     description: categoryFilter
-      ? `مجموع بند «${categoryFilter.name_ar}» — النقدي منفصل عن المصارف (كل مصرف بورقة) · ${model.periodLabel}`
+      ? `إيراد محصّل حسب الخزينة/المصرف — «${categoryFilter.name_ar}» · ${model.periodLabel}`
       : model.description,
   };
 }
@@ -2200,6 +2298,52 @@ function augmentRevenueCollectionCashBuckets(
   return synthetic ? [synthetic] : [];
 }
 
+function journalHasReceivableDebit(
+  model: PeriodJournalEntryModel,
+  journalId: string,
+): boolean {
+  for (const line of model.lines) {
+    if (!isReceivableAccountLine(line)) continue;
+    for (const m of line.movements) {
+      if (m.journal_id === journalId && m.debit > EPS) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * عند وجود تحصيل نقدي لإيجار: استبعد قيود الاستحقاق (دائن إيراد + مدين ذمم)
+ * حتى لا يُجمع الاستحقاق + التحصيل في نفس التقرير.
+ */
+function findRevenueAccrualJournalIdsToSkip(
+  model: PeriodJournalEntryModel,
+  collectionIds: Set<string>,
+  focusCategoryId?: string | null,
+): Set<string> {
+  const skip = new Set<string>();
+  if (collectionIds.size === 0) return skip;
+  for (const line of model.lines) {
+    if (line.category_type !== 'REVENUE') continue;
+    if (focusCategoryId && line.category_id !== focusCategoryId) continue;
+    for (const m of line.movements) {
+      if (m.credit <= EPS) continue;
+      if (collectionIds.has(m.journal_id)) continue;
+      if (journalHasReceivableDebit(model, m.journal_id)) {
+        skip.add(m.journal_id);
+      }
+    }
+  }
+  return skip;
+}
+
+function filterRevenueFundingBuckets(
+  buckets: FundingBucket[],
+  collectionIds: Set<string>,
+): FundingBucket[] {
+  if (collectionIds.size === 0) return buckets;
+  return buckets.filter((b) => b.kind !== 'NONE');
+}
+
 function findCashReceivableCollectionJournalIds(
   model: PeriodJournalEntryModel,
   excludeJournalIds: Set<string>,
@@ -2318,6 +2462,32 @@ async function fetchPeriodJournalByCategory(input: {
       (l.debit > EPS || l.credit > EPS),
   );
 
+  const collectionIdSet = new Set(collectionIds);
+  const collEntries = await fetchJournalEntriesByIds(collectionIds);
+  const collLinesRaw = await fetchRawLinesForJournalIds(collectionIds);
+  const collLinesRewritten = rewriteCollectionLinesAsCashRevenue(
+    collLinesRaw,
+    collectionIdSet,
+    {
+      id: categoryMeta.id,
+      code: categoryMeta.code,
+      name_ar: categoryMeta.name_ar,
+      type: categoryMeta.type,
+    },
+  );
+
+  /** عند وجود استحقاق + تحصيل: اعرض التحصيل النقدي فقط — لا تُجمع قيمتين */
+  if (hasAccrualFocus) {
+    const mergedLines = await enrichRawLinesCashboxKinds(collLinesRewritten);
+    return buildPeriodJournalEntryModel({
+      period: input.period,
+      entries: collEntries,
+      lines: mergedLines,
+      statusFilter: status,
+      truncated: accrualModel.truncated,
+    });
+  }
+
   const accrualLinesRaw =
     accrualJournalIds.length > 0
       ? await fetchRawLinesForJournalIds(accrualJournalIds)
@@ -2327,22 +2497,7 @@ async function fetchPeriodJournalByCategory(input: {
       ? await fetchJournalEntriesByIds(accrualJournalIds)
       : [];
 
-  const collectionIdSet = new Set(collectionIds);
-  const collEntries = await fetchJournalEntriesByIds(collectionIds);
-  const collLinesRaw = await fetchRawLinesForJournalIds(collectionIds);
-  /** عند وجود استحقاق: لا نكرّر دائن الإيراد على قيود التحصيل */
-  const collLines = hasAccrualFocus
-    ? collLinesRaw
-    : rewriteCollectionLinesAsCashRevenue(
-        collLinesRaw,
-        collectionIdSet,
-        {
-          id: categoryMeta.id,
-          code: categoryMeta.code,
-          name_ar: categoryMeta.name_ar,
-          type: categoryMeta.type,
-        },
-      );
+  const collLines = collLinesRewritten;
 
   const entryById = new Map<string, JournalEntryRow>();
   for (const e of [...accrualEntries, ...collEntries]) {

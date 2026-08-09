@@ -586,7 +586,7 @@ function line(partial) {
   assert.equal(rent.credit, 3500);
   assert.equal(rent.debit, 0);
 
-  const sections = buildCashBankSeparatedSections(focused, 'rev-rnt');
+  const sections = buildCashBankSeparatedSections(model, 'rev-rnt');
   assert.equal(sections.length, 1);
   assert.equal(sections[0].focusLine.credit, 3500);
   assert.equal(sections[0].focusLine.debit, 0);
@@ -608,7 +608,7 @@ function line(partial) {
   assert.equal(display.contraAmount, 3500);
   assert.equal(display.focusSideLabel, 'دائن');
   assert.equal(display.contraSideLabel, 'مدين');
-  assert.equal(display.contraLabel, 'ذمم المستأجرين');
+  assert.equal(display.contraLabel, 'إيراد مستحق');
   assert.notEqual(
     display.focusAmount,
     0,
@@ -661,7 +661,7 @@ function line(partial) {
   assert.equal(rent.credit, expected, 'يجب جمع كل مطالبات الإيجار لا جزء منها');
   assert.equal(focused.sourceEntryCount, 40);
 
-  const sections = buildCashBankSeparatedSections(focused, 'rev-rnt');
+  const sections = buildCashBankSeparatedSections(model, 'rev-rnt');
   const display = describePeriodJournalSectionDisplay(
     sections[0].focusLine,
     sections[0].contraLines,
@@ -758,7 +758,7 @@ function line(partial) {
     'must keep cashbox lines from rent collections',
   );
 
-  const sections = buildCashBankSeparatedSections(focused, 'rev-rnt');
+  const sections = buildCashBankSeparatedSections(model, 'rev-rnt');
   const cashSection = sections.find((s) => s.fundingLabel === 'الخزينة النقدية');
   const bankSection = sections.find(
     (s) => s.fundingLabel === 'مصرف شمال افريقيا',
@@ -771,6 +771,18 @@ function line(partial) {
   assert.equal(bankSection.focusLine.credit, 3000);
   assert.ok(cashSection.balanced);
   assert.ok(bankSection.balanced);
+
+  const noneSection = sections.find((s) => s.sectionKind === 'NONE');
+  assert.equal(noneSection, undefined, 'must not duplicate accrual in NONE section');
+  const sectionRevenueTotal = sections.reduce(
+    (s, sec) => s + sec.focusLine.credit,
+    0,
+  );
+  assert.equal(
+    sectionRevenueTotal,
+    5000,
+    'treasury sections must sum to collected revenue only',
+  );
 }
 
 console.log('OK — professional double-entry period journal checks passed');
