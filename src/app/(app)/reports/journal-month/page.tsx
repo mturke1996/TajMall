@@ -164,6 +164,19 @@ function JournalMonthContent() {
     return 'POSTED';
   });
 
+  useEffect(() => {
+    if (
+      statusParam === 'ALL' ||
+      statusParam === 'DRAFT' ||
+      statusParam === 'REVERSED' ||
+      statusParam === 'POSTED'
+    ) {
+      setStatusFilter(statusParam);
+    } else if (!statusParam) {
+      setStatusFilter('POSTED');
+    }
+  }, [statusParam]);
+
   const onCategoryChange = (value: string) => {
     setCategoryFilterId(value);
     const params = reportPeriodToSearchParams(period);
@@ -217,6 +230,8 @@ function JournalMonthContent() {
     async function run() {
       setAggLoading(true);
       setAggError(null);
+      setModel(null);
+      setComprehensiveModelRaw(null);
       try {
         if (focusCategoryId) {
           const focused = await fetchPeriodJournalEntry({
@@ -243,6 +258,7 @@ function JournalMonthContent() {
         if (!cancelled) {
           setAggError(e instanceof Error ? e.message : 'تعذّر تجميع القيد');
           setModel(null);
+          setComprehensiveModelRaw(null);
         }
       } finally {
         if (!cancelled) setAggLoading(false);
@@ -255,9 +271,7 @@ function JournalMonthContent() {
     };
   }, [
     focusCategoryId,
-    period.year,
-    period.month,
-    period.mode,
+    period,
     statusFilter,
     startDate,
     endDate,
@@ -279,12 +293,15 @@ function JournalMonthContent() {
     );
   }, [model, categoryFilterId, selectedCategory]);
 
-  /** دائماً النموذج الشامل — لزر تقرير شامل PDF */
+  /** دائماً النموذج الشامل — لزر تقرير شامل PDF (لا تسقط على نموذج البند) */
   const comprehensiveModel = useMemo(() => {
-    const base = comprehensiveModelRaw ?? (!focusCategoryId ? model : null);
-    if (!base) return null;
-    return applyPeriodJournalCategoryFilter(base, ALL_CATEGORIES, null);
-  }, [comprehensiveModelRaw, model, focusCategoryId]);
+    if (!comprehensiveModelRaw) return null;
+    return applyPeriodJournalCategoryFilter(
+      comprehensiveModelRaw,
+      ALL_CATEGORIES,
+      null,
+    );
+  }, [comprehensiveModelRaw]);
 
   const isFilteredView = categoryFilterId !== ALL_CATEGORIES;
   const isLoading = aggLoading || categoriesLoading;

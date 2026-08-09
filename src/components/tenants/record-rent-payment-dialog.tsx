@@ -138,6 +138,12 @@ export function RecordRentPaymentDialog({
         toast.error('أدخل مبلغ الإيراد');
         return;
       }
+      if (totalRemaining > 0 && amount + 0.001 < totalRemaining) {
+        toast.error(
+          `المبلغ أقل من المتبقي للأشهر المحددة (${formatMoney(totalRemaining, 'LYD')}) — اختر «جزئي» أو زِد المبلغ`,
+        );
+        return;
+      }
     }
 
     try {

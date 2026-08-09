@@ -2,10 +2,15 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { PRODUCTION_APP_URL } from '@/lib/app-url';
 
+/** رابط مطلق لبوابة المستأجر (مشاركة/واتساب). */
 export function tenantPortalUrl(token: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? '';
-  return `${base.replace(/\/$/, '')}/portal/${token}`;
+  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  const fromWindow =
+    typeof window !== 'undefined' ? window.location.origin : '';
+  const base = (fromEnv || fromWindow || PRODUCTION_APP_URL).replace(/\/$/, '');
+  return `${base}/portal/${token}`;
 }
 
 /**

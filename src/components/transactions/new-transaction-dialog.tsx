@@ -9,7 +9,7 @@ import { useTxDialog, type TxKind } from '@/stores/transaction-dialog';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCategories, useCashboxes, useCreateTransaction, useContacts, useCreateContact, useTransactionFormDrafts, useSaveTransactionFormDraft, useDeleteTransactionFormDraft } from '@/lib/db/queries';
+import { useCategories, useCashboxes, useCreateTransaction, useContacts, useCreateContact, useTransactionFormDrafts, useSaveTransactionFormDraft, useDeleteTransactionFormDraft, useRecordRentPayment } from '@/lib/db/queries';
 import type { TransactionFormDraftRow, PaymentMethod } from '@/lib/db/types';
 import {
   RentRevenueMonthsBlock,
@@ -26,10 +26,6 @@ import {
   type PartyContactFilter,
 } from '@/lib/party-contacts';
 import { useTenantChargesForTenant } from '@/lib/db/mall-queries';
-import {
-  getJournalIdForTransaction,
-  linkRentMonthsToRevenueJournal,
-} from '@/lib/db/rent-revenue-link';
 import { areConsecutiveMonths, formatMonthsLabelAr } from '@/lib/rent-months';
 import { invalidateRentCalendarQueries } from '@/lib/db/rent-queries';
 import { toast } from 'sonner';
@@ -89,6 +85,7 @@ export function NewTransactionDialog() {
   const { data: cashboxes = [], isLoading: boxLoading } = useCashboxes();
   const { data: contactsAll = [], isLoading: contactsLoading } = useContacts();
   const createTx = useCreateTransaction();
+  const recordRentPayment = useRecordRentPayment();
   const createContact = useCreateContact();
 
   const categories = categoriesAll.filter((c) => c.kind === kind);
@@ -154,14 +151,45 @@ export function NewTransactionDialog() {
 
   const tenantMonthlyRent = Number(selectedContact?.monthly_rent) || 0;
 
+  const rentMonthsRemaining = useMemo(() => {
+    if (!showRentAllocation || rentMonths.length === 0) return 0;
+    return rentMonths.reduce((sum, month) => {
+      const due = `${month}-01`;
+      const charge = tenantCharges.find(
+        (c) => c.type === 'RENT' && String(c.due_date).slice(0, 10) === due,
+      );
+      if (charge) {
+        return (
+          sum +
+          Math.max(0, Number(charge.amount) - Number(charge.total_paid || 0))
+        );
+      }
+      return sum + (tenantMonthlyRent > 0 ? tenantMonthlyRent : 0);
+    }, 0);
+  }, [
+    showRentAllocation,
+    rentMonths,
+    tenantCharges,
+    tenantMonthlyRent,
+  ]);
+
   useEffect(() => {
     if (!showRentAllocation || rentMonths.length === 0) return;
     if (rentLinkMode === 'partial') return;
-    if (tenantMonthlyRent > 0) {
+    if (rentMonthsRemaining > 0) {
+      setAmount(String(rentMonthsRemaining));
+      setDescription(`تحصيل إيجار: ${formatMonthsLabelAr(rentMonths)}`);
+    } else if (tenantMonthlyRent > 0) {
       setAmount(String(rentMonths.length * tenantMonthlyRent));
       setDescription(`تحصيل إيجار: ${formatMonthsLabelAr(rentMonths)}`);
     }
-  }, [rentMonths, showRentAllocation, tenantMonthlyRent, rentLinkMode]);
+  }, [
+    rentMonths,
+    showRentAllocation,
+    tenantMonthlyRent,
+    rentLinkMode,
+    rentMonthsRemaining,
+  ]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -205,39 +233,57 @@ export function NewTransactionDialog() {
           setError('مبلغ الجزء لا يتجاوز مبلغ الإيراد');
           return;
         }
+      } else if (
+        rentMonthsRemaining > 0 &&
+        amountNum + 0.001 < rentMonthsRemaining
+      ) {
+        setError(
+          `مبلغ الإيراد أقل من المتبقي للأشهر المحددة (${rentMonthsRemaining}) — اختر «جزئي» أو زِد المبلغ`,
+        );
+        return;
       }
     }
 
     try {
-      const tx = await createTx.mutateAsync({
-        kind,
-        amount: amountNum,
-        method,
-        category_id: categoryId,
-        cashbox_id: cashboxId,
-        tx_date: date,
-        description: description || undefined,
-        contact_id: contactId || undefined,
-        contact_type: contactId ? (isRevenue ? 'PAYER' : 'BENEFICIARY') : undefined,
-        auto_allocate_charges: false,
-      });
-
+      /** مسار إيجار ذرّي: معاملة + قيد + ربط في RPC واحد */
       if (showRentAllocation && contactId && rentMonths.length > 0) {
-        const journalId = await getJournalIdForTransaction(tx.id);
-        if (!journalId) {
-          throw new Error('لم يُنشأ قيد للمعاملة — تحقق من ترحيل اليومية');
-        }
-        const linkAmount =
+        const payAmount =
           rentLinkMode === 'partial'
             ? parseRentPartialAmount(rentPartialAmount)
             : amountNum;
-        await linkRentMonthsToRevenueJournal({
-          tenantId: contactId,
-          months: rentMonths,
-          journalEntryId: journalId,
-          amount: linkAmount,
+        if (payAmount == null || payAmount <= 0) {
+          setError('أدخل مبلغاً صالحاً');
+          return;
+        }
+        await recordRentPayment.mutateAsync({
+          tenant_id: contactId,
+          amount: payAmount,
+          payment_date: date,
+          cashbox_id: cashboxId,
+          description:
+            description.trim() ||
+            `تحصيل إيجار: ${formatMonthsLabelAr(rentMonths)}`,
+          rent_months: rentMonths,
+          payment_method: method,
         });
         invalidateRentCalendarQueries(qc, contactId, rentMonths);
+      } else {
+        await createTx.mutateAsync({
+          kind,
+          amount: amountNum,
+          method,
+          category_id: categoryId,
+          cashbox_id: cashboxId,
+          tx_date: date,
+          description: description || undefined,
+          contact_id: contactId || undefined,
+          contact_type: contactId
+            ? isRevenue
+              ? 'PAYER'
+              : 'BENEFICIARY'
+            : undefined,
+          auto_allocate_charges: false,
+        });
       }
       if (editingDraftId) {
         try {

@@ -1839,12 +1839,11 @@ async function enrichRawLinesCashboxKinds(allLines: RawLine[]): Promise<RawLine[
       .select('id, kind, name_ar, code')
       .in('id', slice);
 
-    if (boxesError || !boxes?.length) {
-      if (boxesError) {
-        console.warn('[period-journal] cashbox kind lookup failed', boxesError);
-      }
-      break;
+    if (boxesError) {
+      console.warn('[period-journal] cashbox kind lookup failed', boxesError);
+      continue;
     }
+    if (!boxes?.length) continue;
     for (const b of boxes) {
       if (b.id && b.kind) {
         kindById.set(b.id as string, b.kind as CashboxKind);
@@ -1926,29 +1925,151 @@ async function fetchRawLinesForJournalIds(ids: string[]): Promise<RawLine[]> {
   return enrichRawLinesCashboxKinds(allLines);
 }
 
+const PERIOD_LINES_PAGE = 5000;
+
+function mapPeriodRpcRowsToModel(
+  period: ReportPeriod,
+  status: JournalStatus | 'ALL',
+  rows: PeriodRpcLineRow[],
+): Promise<PeriodJournalEntryModel> {
+  const entriesById = new Map<string, JournalEntryRow>();
+  const lines: RawLine[] = [];
+  for (const row of rows) {
+    if (!entriesById.has(row.journal_id)) {
+      entriesById.set(row.journal_id, stubJournalEntryFromRpc(row));
+    }
+    lines.push({
+      journal_id: row.journal_id,
+      category_id: row.category_id,
+      debit: Number(row.debit) || 0,
+      credit: Number(row.credit) || 0,
+      description: row.description,
+      category_code: row.category_code,
+      category_name: row.category_name,
+      category_type: row.category_type,
+      cashbox_id: row.cashbox_id,
+      cashbox_name_ar: row.cashbox_name_ar,
+      cashbox_code: row.cashbox_code,
+      cashbox_kind: resolveCashboxKind({
+        kind: row.cashbox_kind as CashboxKind | null,
+        code: row.cashbox_code,
+        name: row.cashbox_name_ar,
+      }),
+      contact_name: row.contact_name,
+      sort_order: Number(row.sort_order) || 0,
+    });
+  }
+
+  return enrichRawLinesCashboxKinds(lines).then((enriched) =>
+    buildPeriodJournalEntryModel({
+      period,
+      entries: [...entriesById.values()],
+      lines: enriched,
+      statusFilter: status,
+      truncated: false,
+    }),
+  );
+}
+
+/** يجلب كل بنود الفترة عبر ترقيم offset حتى نفاد الصفحات — بلا سقف إجمالي. */
+async function fetchAllPeriodJournalLinesPaged(input: {
+  startDate: string;
+  endDate: string;
+  statusFilter?: JournalStatus | 'ALL';
+  categoryId?: string | null;
+}): Promise<{ rows: PeriodRpcLineRow[]; rpcAvailable: boolean }> {
+  const supabase = createSupabaseBrowserClient();
+  const status = input.statusFilter ?? 'POSTED';
+  const rows: PeriodRpcLineRow[] = [];
+  let offset = 0;
+  let rpcAvailable = true;
+
+  for (;;) {
+    const { data, error } = await supabase.rpc('get_journal_lines_for_period', {
+      p_start_date: input.startDate,
+      p_end_date: input.endDate,
+      p_status: status,
+      p_category_id: input.categoryId ?? null,
+      p_limit: PERIOD_LINES_PAGE,
+      p_offset: offset,
+    });
+
+    if (error) {
+      const msg = error.message ?? '';
+      const offsetUnsupported =
+        msg.includes('p_offset') ||
+        msg.includes('Could not find') ||
+        error.code === 'PGRST202';
+
+      if (offsetUnsupported && offset === 0) {
+        const legacy = await supabase.rpc('get_journal_lines_for_period', {
+          p_start_date: input.startDate,
+          p_end_date: input.endDate,
+          p_status: status,
+          p_category_id: input.categoryId ?? null,
+          p_limit: PERIOD_LINES_PAGE,
+        });
+        if (legacy.error) {
+          const lmsg = legacy.error.message ?? '';
+          const missing =
+            lmsg.includes('get_journal_lines_for_period') ||
+            lmsg.includes('schema cache') ||
+            lmsg.includes('structure of query') ||
+            lmsg.includes('does not match') ||
+            legacy.error.code === 'PGRST202' ||
+            legacy.error.code === '42804';
+          if (missing) {
+            rpcAvailable = false;
+            return { rows: [], rpcAvailable: false };
+          }
+          throw legacy.error;
+        }
+        const legacyRows = (legacy.data as PeriodRpcLineRow[]) ?? [];
+        if (legacyRows.length >= PERIOD_LINES_PAGE) {
+          throw new Error(
+            'تعذّر جلب كل بنود الفترة: حدّث ترحيل get_journal_lines_for_period (offset)',
+          );
+        }
+        return { rows: legacyRows, rpcAvailable: true };
+      }
+      if (offsetUnsupported) {
+        throw new Error(
+          'توقف ترقيم بنود الفترة قبل الاكتمال — أعد تحميل الصفحة أو طبّق هجرة 072',
+        );
+      }
+      throw error;
+    }
+
+    const page = (data as PeriodRpcLineRow[]) ?? [];
+    rows.push(...page);
+    if (page.length < PERIOD_LINES_PAGE) break;
+    offset += PERIOD_LINES_PAGE;
+  }
+
+  return { rows, rpcAvailable };
+}
+
 /**
  * مسار بند واحد (مثل REV-RNT): يجلب كل قيود الفترة التي لمست البند
- * عبر get_journal_lines_for_period أو دفتر الأستاذ — بلا حد 2000 على رؤوس القيود.
+ * عبر get_journal_lines_for_period أو دفتر الأستاذ — بلا سقف إجمالي.
  */
 async function fetchPeriodJournalByCategory(input: {
   period: ReportPeriod;
   categoryId: string;
   statusFilter?: JournalStatus | 'ALL';
-}): Promise<PeriodJournalEntryModel | null> {
+}): Promise<PeriodJournalEntryModel> {
   const supabase = createSupabaseBrowserClient();
   const { startDate, endDate } = reportPeriodDateRange(input.period);
   const status = input.statusFilter ?? 'POSTED';
 
-  const { data, error } = await supabase.rpc('get_journal_lines_for_period', {
-    p_start_date: startDate,
-    p_end_date: endDate,
-    p_status: status,
-    p_category_id: input.categoryId,
-    p_limit: 100000,
+  const { rows, rpcAvailable } = await fetchAllPeriodJournalLinesPaged({
+    startDate,
+    endDate,
+    statusFilter: status,
+    categoryId: input.categoryId,
   });
 
-  if (!error && Array.isArray(data)) {
-    const rows = data as PeriodRpcLineRow[];
+  if (rpcAvailable) {
     if (rows.length === 0) {
       return buildPeriodJournalEntryModel({
         period: input.period,
@@ -1958,57 +2079,14 @@ async function fetchPeriodJournalByCategory(input: {
         truncated: false,
       });
     }
-
-    const entriesById = new Map<string, JournalEntryRow>();
-    const lines: RawLine[] = [];
-    for (const row of rows) {
-      if (!entriesById.has(row.journal_id)) {
-        entriesById.set(row.journal_id, stubJournalEntryFromRpc(row));
-      }
-      lines.push({
-        journal_id: row.journal_id,
-        category_id: row.category_id,
-        debit: Number(row.debit) || 0,
-        credit: Number(row.credit) || 0,
-        description: row.description,
-        category_code: row.category_code,
-        category_name: row.category_name,
-        category_type: row.category_type,
-        cashbox_id: row.cashbox_id,
-        cashbox_name_ar: row.cashbox_name_ar,
-        cashbox_code: row.cashbox_code,
-        cashbox_kind: resolveCashboxKind({
-          kind: row.cashbox_kind as CashboxKind | null,
-          code: row.cashbox_code,
-          name: row.cashbox_name_ar,
-        }),
-        contact_name: row.contact_name,
-        sort_order: Number(row.sort_order) || 0,
-      });
-    }
-
-    return buildPeriodJournalEntryModel({
-      period: input.period,
-      entries: [...entriesById.values()],
-      lines: await enrichRawLinesCashboxKinds(lines),
-      statusFilter: status,
-      truncated: rows.length >= 100000,
-    });
+    return mapPeriodRpcRowsToModel(input.period, status, rows);
   }
-
-  const msg = error?.message ?? '';
-  const rpcUnusable =
-    msg.includes('get_journal_lines_for_period') ||
-    msg.includes('schema cache') ||
-    msg.includes('structure of query') ||
-    msg.includes('does not match') ||
-    error?.code === 'PGRST202' ||
-    error?.code === '42804';
-  if (error && !rpcUnusable) throw error;
 
   /** Fallback: دفتر الأستاذ للبند ثم توسيع القيود بالكامل */
   if (status !== 'POSTED' && status !== 'ALL') {
-    return null;
+    throw new Error(
+      'دالة بنود الفترة غير متاحة لهذه الحالة — طبّق هجرة 072 أو اختر قيوداً مرحّلة',
+    );
   }
 
   const { data: glData, error: glError } = await supabase.rpc(
@@ -2027,7 +2105,7 @@ async function fetchPeriodJournalByCategory(input: {
       glMsg.includes('schema cache') ||
       glError.code === 'PGRST202';
     if (!glMissing) throw glError;
-    return null;
+    throw new Error('تعذّر جلب بنود البند — دوال التقارير غير متاحة');
   }
 
   const glLines =
@@ -2055,12 +2133,12 @@ async function fetchPeriodJournalByCategory(input: {
   const idChunk = 80;
   for (let i = 0; i < journalIds.length; i += idChunk) {
     const chunk = journalIds.slice(i, i + idChunk);
-    const { data: rows, error: jeError } = await supabase
+    const { data: jeRows, error: jeError } = await supabase
       .from('journal_entries_with_totals')
       .select('*')
       .in('id', chunk);
     if (jeError) throw jeError;
-    entries.push(...((rows as JournalEntryRow[]) ?? []));
+    entries.push(...((jeRows as JournalEntryRow[]) ?? []));
   }
 
   const lines = await fetchRawLinesForJournalIds(journalIds);
@@ -2081,12 +2159,10 @@ async function fetchAllPeriodJournalEntriesPaged(input: {
   const supabase = createSupabaseBrowserClient();
   const status = input.statusFilter ?? 'POSTED';
   const pageSize = 5000;
-  const maxPages = 20;
   const entries: JournalEntryRow[] = [];
-  let truncated = false;
+  let offset = 0;
 
-  for (let page = 0; page < maxPages; page++) {
-    const offset = page * pageSize;
+  for (;;) {
     const { data, error } = await supabase.rpc('get_journal_entries_for_period', {
       p_start_date: input.startDate,
       p_end_date: input.endDate,
@@ -2099,117 +2175,90 @@ async function fetchAllPeriodJournalEntriesPaged(input: {
       const msg = error.message ?? '';
       const offsetUnsupported =
         msg.includes('p_offset') ||
-        msg.includes('Could not find') ||
+        (msg.includes('Could not find') && msg.includes('p_offset')) ||
         error.code === 'PGRST202';
 
-      if (offsetUnsupported && page === 0) {
-        const legacy = await supabase.rpc('get_journal_entries_for_period', {
-          p_start_date: input.startDate,
-          p_end_date: input.endDate,
-          p_status: status,
-          p_limit: 5000,
-        });
-        if (legacy.error) throw legacy.error;
-        const rows = (legacy.data as JournalEntryRow[]) ?? [];
-        return { entries: rows, truncated: rows.length >= 5000 };
+      if (offsetUnsupported && offset === 0) {
+        /** ترقيم من الـ view مباشرة بلا سقف إجمالي */
+        const viewRows: JournalEntryRow[] = [];
+        let viewOffset = 0;
+        for (;;) {
+          let q = supabase
+            .from('journal_entries_with_totals')
+            .select('*')
+            .gte('entry_date', input.startDate)
+            .lte('entry_date', input.endDate)
+            .order('entry_date', { ascending: true })
+            .order('number', { ascending: true })
+            .range(viewOffset, viewOffset + pageSize - 1);
+          if (status !== 'ALL') q = q.eq('status', status);
+          const { data: page, error: viewError } = await q;
+          if (viewError) throw viewError;
+          const chunk = (page as JournalEntryRow[]) ?? [];
+          viewRows.push(...chunk);
+          if (chunk.length < pageSize) break;
+          viewOffset += pageSize;
+        }
+        return { entries: viewRows, truncated: false };
       }
-      if (offsetUnsupported) break;
+      if (offsetUnsupported) {
+        throw new Error(
+          'توقف ترقيم رؤوس القيود قبل الاكتمال — أعد المحاولة أو طبّق هجرة 072',
+        );
+      }
       throw error;
     }
 
     const rows = (data as JournalEntryRow[]) ?? [];
     entries.push(...rows);
-    if (rows.length < pageSize) {
-      truncated = false;
-      break;
-    }
-    if (page === maxPages - 1) truncated = true;
+    if (rows.length < pageSize) break;
+    offset += pageSize;
   }
 
-  return { entries, truncated };
+  return { entries, truncated: false };
 }
 
 /**
  * جلب بنود الفترة وتجميعها كقيد واحد.
  * عند تمرير categoryId (بند مثل إيجارات المحلات) يُجلب كل قيود البند
- * دون الاعتماد على أول 2000 قيد في الشهر.
+ * بترقيم كامل بلا سقف إجمالي.
  */
 export async function fetchPeriodJournalEntry(input: {
   period: ReportPeriod;
   entries?: JournalEntryRow[];
   statusFilter?: JournalStatus | 'ALL';
-  /** بند تركيز — مسار كامل بلا قطع 2000 */
+  /** بند تركيز — مسار كامل بلا قطع */
   categoryId?: string | null;
 }): Promise<PeriodJournalEntryModel> {
   const status = input.statusFilter ?? 'POSTED';
   const { startDate, endDate } = reportPeriodDateRange(input.period);
 
   if (input.categoryId) {
-    const byCategory = await fetchPeriodJournalByCategory({
+    return fetchPeriodJournalByCategory({
       period: input.period,
       categoryId: input.categoryId,
       statusFilter: status,
     });
-    if (byCategory) return byCategory;
   }
 
-  /** مسار شامل: دالة البنود للفترة إن وُجدت */
-  if (!input.categoryId) {
-    const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.rpc('get_journal_lines_for_period', {
-      p_start_date: startDate,
-      p_end_date: endDate,
-      p_status: status,
-      p_category_id: null,
-      p_limit: 100000,
-    });
+  const { rows, rpcAvailable } = await fetchAllPeriodJournalLinesPaged({
+    startDate,
+    endDate,
+    statusFilter: status,
+    categoryId: null,
+  });
 
-    if (!error && Array.isArray(data)) {
-      const rows = data as PeriodRpcLineRow[];
-      if (rows.length === 0) {
-        return buildPeriodJournalEntryModel({
-          period: input.period,
-          entries: [],
-          lines: [],
-          statusFilter: status,
-          truncated: false,
-        });
-      }
-      const entriesById = new Map<string, JournalEntryRow>();
-      const lines: RawLine[] = [];
-      for (const row of rows) {
-        if (!entriesById.has(row.journal_id)) {
-          entriesById.set(row.journal_id, stubJournalEntryFromRpc(row));
-        }
-        lines.push({
-          journal_id: row.journal_id,
-          category_id: row.category_id,
-          debit: Number(row.debit) || 0,
-          credit: Number(row.credit) || 0,
-          description: row.description,
-          category_code: row.category_code,
-          category_name: row.category_name,
-          category_type: row.category_type,
-          cashbox_id: row.cashbox_id,
-          cashbox_name_ar: row.cashbox_name_ar,
-          cashbox_code: row.cashbox_code,
-          cashbox_kind: resolveCashboxKind({
-            kind: row.cashbox_kind as CashboxKind | null,
-            code: row.cashbox_code,
-            name: row.cashbox_name_ar,
-          }),
-          contact_name: row.contact_name,
-          sort_order: Number(row.sort_order) || 0,
-        });
-      }
+  if (rpcAvailable) {
+    if (rows.length === 0) {
       return buildPeriodJournalEntryModel({
         period: input.period,
-        entries: [...entriesById.values()],
-        lines: await enrichRawLinesCashboxKinds(lines),
+        entries: [],
+        lines: [],
         statusFilter: status,
-        truncated: rows.length >= 100000,
+        truncated: false,
       });
     }
+    return mapPeriodRpcRowsToModel(input.period, status, rows);
   }
 
   let entries = input.entries;
@@ -2222,8 +2271,6 @@ export async function fetchPeriodJournalEntry(input: {
     });
     entries = paged.entries;
     truncated = paged.truncated;
-  } else if (entries.length >= 2000) {
-    truncated = true;
   }
 
   if (entries.length === 0) {

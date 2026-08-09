@@ -240,7 +240,8 @@ function JournalsPageInner() {
     },
     reverse: {
       title: 'عكس القيد',
-      description: 'سيُنشأ قيد معكوس جديد ويُعلَّم القيد الحالي كمعكوس. هل تريد المتابعة؟',
+      description:
+        'سيُبطَل القيد المرحّل ويُفك ربط الإيجار المرتبط به (إن وُجد). لا يُنشأ قيد معاكس جديد. هل تريد المتابعة؟',
       confirmLabel: 'عكس',
       variant: 'danger' as const,
     },

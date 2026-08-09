@@ -70,37 +70,50 @@ export default async function TenantPortalPage({ params }: { params: { token: st
   const token = params.token?.trim();
   if (!token) return <InvalidLink />;
 
-  const supabase = createSupabaseAdminClient();
+  let supabase;
+  try {
+    supabase = createSupabaseAdminClient();
+  } catch {
+    return <ServiceUnavailable />;
+  }
 
-  const { data: contact } = await supabase
+  const { data: contact, error: contactError } = await supabase
     .from('contacts')
     .select('id, name, shop_number, floor, monthly_rent, phone')
     .eq('portal_token', token)
     .maybeSingle();
 
+  if (contactError) return <ServiceUnavailable />;
   if (!contact) return <InvalidLink />;
 
   const year = currentYear();
   const thisMonth = currentMonthKey(year);
   const defaultRent = Number(contact.monthly_rent) || 0;
 
-  const [{ data: contracts }, { data: bandsRaw }, { data: calendarRaw }] =
-    await Promise.all([
-      supabase
-        .from('lease_contracts')
-        .select('id, start_date, end_date, monthly_rent, status')
-        .eq('tenant_id', contact.id)
-        .order('start_date', { ascending: false }),
-      supabase
-        .from('tenant_rent_price_bands')
-        .select('id, from_month, to_month, amount, notes')
-        .eq('tenant_id', contact.id)
-        .order('from_month', { ascending: true }),
-      supabase.rpc('get_tenant_rent_calendar', {
-        p_tenant_id: contact.id,
-        p_year: year,
-      }),
-    ]);
+  const [
+    { data: contracts, error: contractsError },
+    { data: bandsRaw, error: bandsError },
+    { data: calendarRaw, error: calendarError },
+  ] = await Promise.all([
+    supabase
+      .from('lease_contracts')
+      .select('id, start_date, end_date, monthly_rent, status')
+      .eq('tenant_id', contact.id)
+      .order('start_date', { ascending: false }),
+    supabase
+      .from('tenant_rent_price_bands')
+      .select('id, from_month, to_month, amount, notes')
+      .eq('tenant_id', contact.id)
+      .order('from_month', { ascending: true }),
+    supabase.rpc('get_tenant_rent_calendar', {
+      p_tenant_id: contact.id,
+      p_year: year,
+    }),
+  ]);
+
+  if (contractsError || bandsError || calendarError) {
+    return <ServiceUnavailable />;
+  }
 
   const bands = (bandsRaw ?? []).map((b) => ({
     id: b.id as string,
@@ -117,13 +130,21 @@ export default async function TenantPortalPage({ params }: { params: { token: st
 
   let charges: ChargeRow[] = [];
   if (contractIds.length > 0) {
-    const { data } = await supabase
-      .from('tenant_charges')
-      .select('id, amount, due_date, type, description, status, total_paid')
-      .in('contract_id', contractIds)
-      .order('due_date', { ascending: false })
-      .limit(60);
-    charges = (data ?? []) as ChargeRow[];
+    const pageSize = 1000;
+    let from = 0;
+    for (;;) {
+      const { data, error: chargesError } = await supabase
+        .from('tenant_charges')
+        .select('id, amount, due_date, type, description, status, total_paid')
+        .in('contract_id', contractIds)
+        .order('due_date', { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (chargesError) return <ServiceUnavailable />;
+      const page = (data ?? []) as ChargeRow[];
+      charges.push(...page);
+      if (page.length < pageSize) break;
+      from += pageSize;
+    }
   }
 
   const totalOutstanding = charges.reduce((sum, c) => sum + chargeRemaining(c), 0);
@@ -332,6 +353,19 @@ function InvalidLink() {
         <h1 className="text-lg font-semibold text-[#15171A]">الرابط غير صالح</h1>
         <p className="mt-1 text-[13px] text-[#6b6f68]">
           هذا الرابط منتهي أو غير صحيح. تواصل مع إدارة المول للحصول على رابط جديد.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ServiceUnavailable() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#FBFBFA] px-6" dir="rtl">
+      <div className="text-center">
+        <h1 className="text-lg font-semibold text-[#15171A]">تعذّر تحميل البوابة</h1>
+        <p className="mt-1 text-[13px] text-[#6b6f68]">
+          الخدمة غير متاحة مؤقتاً. حاول لاحقاً أو تواصل مع إدارة المول.
         </p>
       </div>
     </div>

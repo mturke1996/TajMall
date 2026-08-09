@@ -211,7 +211,6 @@ export function useJournalEntriesForPeriod(filters: {
 }) {
   const status =
     filters.status && filters.status !== 'ALL' ? filters.status : null;
-  const limit = filters.limit ?? 20000;
   const enabled = filters.enabled !== false && !!filters.startDate && !!filters.endDate;
 
   return useQuery<JournalEntryRow[]>({
@@ -219,10 +218,15 @@ export function useJournalEntriesForPeriod(filters: {
     enabled,
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
-      const pageSize = Math.min(limit, 5000);
+      const pageSize = 5000;
       const all: JournalEntryRow[] = [];
+      let offset = 0;
 
-      for (let offset = 0; offset < limit; offset += pageSize) {
+      for (;;) {
+        if (filters.limit != null && all.length >= filters.limit) {
+          return all.slice(0, filters.limit);
+        }
+
         const { data, error } = await supabase.rpc('get_journal_entries_for_period', {
           p_start_date: filters.startDate,
           p_end_date: filters.endDate,
@@ -235,54 +239,43 @@ export function useJournalEntriesForPeriod(filters: {
           const rows = (data as JournalEntryRow[]) ?? [];
           all.push(...rows);
           if (rows.length < pageSize) return all;
+          offset += pageSize;
           continue;
         }
 
         const msg = error.message ?? '';
         const offsetUnsupported =
           msg.includes('p_offset') ||
-          msg.includes('Could not find') ||
+          (msg.includes('Could not find') && msg.includes('p_offset')) ||
           error.code === 'PGRST202';
 
         if (offsetUnsupported && offset === 0) {
-          const legacy = await supabase.rpc('get_journal_entries_for_period', {
-            p_start_date: filters.startDate,
-            p_end_date: filters.endDate,
-            p_status: status ?? 'ALL',
-            p_limit: Math.min(limit, 5000),
-          });
-
-          if (!legacy.error) {
-            return (legacy.data as JournalEntryRow[]) ?? [];
+          const viewRows: JournalEntryRow[] = [];
+          let viewOffset = 0;
+          for (;;) {
+            let q = supabase
+              .from('journal_entries_with_totals')
+              .select('*')
+              .gte('entry_date', filters.startDate)
+              .lte('entry_date', filters.endDate)
+              .order('entry_date', { ascending: true })
+              .order('number', { ascending: true })
+              .range(viewOffset, viewOffset + pageSize - 1);
+            if (status) q = q.eq('status', status);
+            const { data: page, error: viewError } = await q;
+            if (viewError) throw viewError;
+            const chunk = (page as JournalEntryRow[]) ?? [];
+            viewRows.push(...chunk);
+            if (chunk.length < pageSize) break;
+            viewOffset += pageSize;
           }
-
-          const rpcMissing =
-            (legacy.error.message ?? '').includes('get_journal_entries_for_period') ||
-            (legacy.error.message ?? '').includes('schema cache') ||
-            legacy.error.code === 'PGRST202';
-
-          if (!rpcMissing) throw legacy.error;
-
-          let q = supabase
-            .from('journal_entries_with_totals')
-            .select('*')
-            .gte('entry_date', filters.startDate)
-            .lte('entry_date', filters.endDate)
-            .order('entry_date', { ascending: true })
-            .order('number', { ascending: true })
-            .limit(Math.min(limit, 5000));
-
-          if (status) q = q.eq('status', status);
-
-          const { data: rows, error: viewError } = await q;
-          if (viewError) throw viewError;
-          return (rows as JournalEntryRow[]) ?? [];
+          return filters.limit != null
+            ? viewRows.slice(0, filters.limit)
+            : viewRows;
         }
 
         throw error;
       }
-
-      return all;
     },
   });
 }
@@ -513,13 +506,17 @@ export function useDeleteJournalEntry() {
     mutationFn: async (id: string) => {
       const supabase = createSupabaseBrowserClient();
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('journal_entries')
         .delete()
         .eq('id', id)
-        .eq('status', 'DRAFT'); // Only allow deleting draft entries
-      
+        .eq('status', 'DRAFT')
+        .select('id');
+
       if (error) throw error;
+      if (!data?.length) {
+        throw new Error('لم يُحذف القيد — ربما لم يعد مسودة أو حُذف مسبقاً');
+      }
     },
     onSuccess: () => {
       invalidateJournalCaches(qc);

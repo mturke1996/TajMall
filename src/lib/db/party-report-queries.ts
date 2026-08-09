@@ -30,6 +30,8 @@ type PartyTxRow = {
   } | null;
 };
 
+const PAGE = 1000;
+
 async function fetchPartyLinkedTransactions(
   kind: 'REVENUE' | 'EXPENSE',
   contactKind: ContactKind,
@@ -37,22 +39,30 @@ async function fetchPartyLinkedTransactions(
 ): Promise<PartyAggRow[]> {
   const supabase = createSupabaseBrowserClient();
   const { startDate, endDate } = reportPeriodDateRange(period);
+  const all: PartyTxRow[] = [];
+  let from = 0;
 
-  const { data, error } = await supabase
-    .from('transactions')
-    .select(
-      'id, amount, contact_id, contact:contacts(id, name, kind, phone), category:categories(id, code, name_ar)',
-    )
-    .eq('kind', kind)
-    .not('contact_id', 'is', null)
-    .gte('tx_date', startDate)
-    .lte('tx_date', endDate)
-    .order('tx_date', { ascending: false })
-    .limit(5000);
+  for (;;) {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select(
+        'id, amount, contact_id, contact:contacts(id, name, kind, phone), category:categories(id, code, name_ar)',
+      )
+      .eq('kind', kind)
+      .not('contact_id', 'is', null)
+      .gte('tx_date', startDate)
+      .lte('tx_date', endDate)
+      .order('tx_date', { ascending: false })
+      .range(from, from + PAGE - 1);
 
-  if (error) throw error;
+    if (error) throw error;
+    const page = (data as unknown as PartyTxRow[]) ?? [];
+    all.push(...page);
+    if (page.length < PAGE) break;
+    from += PAGE;
+  }
 
-  const inputs: PartyTxAggInput[] = ((data as unknown as PartyTxRow[]) ?? [])
+  const inputs: PartyTxAggInput[] = all
     .filter((row) => row.contact?.kind === contactKind && row.contact_id)
     .map((row) => ({
       contactId: row.contact_id as string,
