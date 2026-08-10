@@ -4,7 +4,26 @@
 -- ============================================================
 
 -- ---- 1) record_rent_payment: text → payment_method ----------------
-CREATE OR REPLACE FUNCTION public.record_rent_payment(
+-- إزالة كل التواقيع القديمة (uuid/jsonb) قبل إعادة الإنشاء
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN
+    SELECT pg_get_function_identity_arguments(p.oid) AS args
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'record_rent_payment'
+  LOOP
+    EXECUTE format(
+      'DROP FUNCTION IF EXISTS public.record_rent_payment(%s)',
+      r.args
+    );
+  END LOOP;
+END $$;
+
+CREATE FUNCTION public.record_rent_payment(
   tenant_id uuid,
   amount numeric,
   payment_date date DEFAULT CURRENT_DATE,
