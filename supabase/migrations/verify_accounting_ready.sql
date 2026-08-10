@@ -34,6 +34,7 @@ BEGIN
     'get_tenant_rent_calendar',
     'ensure_tenant_rent_charges',
     'record_rent_payment',
+    'refresh_contacts_api_grants',
     'set_tenant_rent_month_status',
     'ensure_tenant_lease_contract',
     'recalc_tenant_charge_rent_paid',

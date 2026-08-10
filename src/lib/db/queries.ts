@@ -452,10 +452,10 @@ export function useCreateContact() {
       const { data, error } = await supabase
         .from("contacts")
         .insert({ ...input, is_active: input.is_active ?? true })
-        .select("*")
+        .select(CONTACT_LIST_COLUMNS)
         .single();
       if (error) throw error;
-      return data as ContactRow;
+      return { ...(data as ContactRow), portal_token: null };
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
@@ -476,10 +476,10 @@ export function useUpdateContact() {
         .from("contacts")
         .update(patch)
         .eq("id", id)
-        .select()
+        .select(CONTACT_LIST_COLUMNS)
         .single();
       if (error) throw error;
-      return data as ContactRow;
+      return { ...(data as ContactRow), portal_token: null };
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["contacts"] });

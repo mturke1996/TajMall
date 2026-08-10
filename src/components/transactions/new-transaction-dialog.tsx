@@ -30,6 +30,7 @@ import { areConsecutiveMonths, formatMonthsLabelAr } from '@/lib/rent-months';
 import { invalidateRentCalendarQueries } from '@/lib/db/rent-queries';
 import { toast } from 'sonner';
 import { usePermission } from '@/lib/supabase/use-permission';
+import { formatContactSaveError } from '@/lib/contacts/form-utils';
 
 /** يُرجع رسالة خطأ مفيدة من خطأ Supabase/Postgres بدل رسالة عامة. */
 function extractSaveError(err: unknown): string {
@@ -41,8 +42,12 @@ function extractSaveError(err: unknown): string {
     '23503': 'مرجع غير صالح — تحقق من البند/الخزينة/الجهة المختارة.',
     '23505': 'قيمة مكررة تخالف قيد التفرد.',
     '42501': 'لا توجد صلاحية للحفظ (RLS) — تحقق من دور المستخدم.',
+    '42804': 'نوع طريقة الدفع غير متوافق — نفّذ migration 073 في Supabase.',
     'P0001': raw ?? 'خطأ منطقي في قاعدة البيانات.',
   };
+  if (raw?.includes('payment_method') && raw.includes('type text')) {
+    return 'فشل الحفظ: نوع طريقة الدفع — نفّذ migration 073 في Supabase (record_rent_payment).';
+  }
   const hint = code ? hints[code] : undefined;
   if (hint) return `فشل الحفظ: ${hint}`;
   if (raw) return `فشل الحفظ: ${raw}`;
@@ -326,8 +331,8 @@ export function NewTransactionDialog() {
       setShowNewContact(false);
       setNewContactName('');
       toast.success(`تم إضافة ${label}`);
-    } catch {
-      toast.error(`فشل إضافة ${label}`);
+    } catch (err) {
+      toast.error(formatContactSaveError(err));
     }
   }
 

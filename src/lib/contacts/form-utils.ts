@@ -139,7 +139,10 @@ export function formatContactSaveError(error: unknown): string {
   if (error && typeof error === 'object' && 'message' in error) {
     const msg = String((error as { message: string }).message);
     if (msg.includes('permission denied') || msg.includes('42501')) {
-      return 'لا توجد صلاحية للحفظ — تأكد من تسجيل الدخول أو نفّذ migration 014 في Supabase';
+      return 'لا توجد صلاحية للحفظ — تأكد من تسجيل الدخول ودورك (مدير/محاسب) أو نفّذ migration 073 في Supabase';
+    }
+    if (msg.includes('portal_token')) {
+      return 'خطأ صلاحيات جهة الاتصال — نفّذ migration 073 في Supabase';
     }
     if (msg.includes('JWT') || msg.includes('session')) {
       return 'انتهت الجلسة — سجّل الدخول مرة أخرى';
