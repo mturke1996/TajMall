@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { normalizeRole } from '@/lib/permissions';
-import { COLD_BACKUP_TABLES, PAGE_SIZE, type ColdBackupTable } from './tables';
+import {
+  COLD_BACKUP_TABLES,
+  PAGE_SIZE,
+  coldBackupSelect,
+  type ColdBackupTable,
+} from './tables';
 
 export type ColdBackupSnapshot = {
   appVersion: string;
@@ -24,7 +29,7 @@ async function fetchAllRows(
     const to = from + PAGE_SIZE - 1;
     const { data, error } = await supabase
       .from(table)
-      .select('*')
+      .select(coldBackupSelect(table))
       .range(from, to);
 
     if (error) {
@@ -40,7 +45,7 @@ async function fetchAllRows(
       throw new Error(`${table}: ${error.message}`);
     }
 
-    const batch = (data ?? []) as Record<string, unknown>[];
+    const batch = ((data ?? []) as unknown) as Record<string, unknown>[];
     rows.push(...batch);
     if (batch.length < PAGE_SIZE) break;
     from += PAGE_SIZE;
@@ -51,7 +56,8 @@ async function fetchAllRows(
 
 /**
  * Pulls every business table visible to the signed-in owner/admin via RLS.
- * High-fidelity: select('*') for each row, paginated.
+ * High-fidelity snapshot per table, paginated. Most tables use `*`; contacts
+ * uses an explicit column list (portal_token is excluded — regenerate via RPC after restore).
  */
 export async function collectColdBackupSnapshot(
   supabase: SupabaseClient,

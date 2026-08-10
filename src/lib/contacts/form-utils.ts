@@ -138,8 +138,15 @@ export function buildContactPayload(form: ContactFormState): ContactUpsertPayloa
 export function formatContactSaveError(error: unknown): string {
   if (error && typeof error === 'object' && 'message' in error) {
     const msg = String((error as { message: string }).message);
+    if (
+      msg.includes('دور المشاهد') ||
+      msg.includes('row-level security') ||
+      msg.includes('violates row-level security')
+    ) {
+      return 'لا توجد صلاحية للحفظ — دورك «مشاهد» (قراءة فقط). اطلب من المدير ترقية دورك من صفحة المستخدمين.';
+    }
     if (msg.includes('permission denied') || msg.includes('42501')) {
-      return 'لا توجد صلاحية للحفظ — تأكد من تسجيل الدخول ودورك (مدير/محاسب) أو نفّذ migration 073 في Supabase';
+      return 'لا توجد صلاحية للحفظ — تأكد من تسجيل الدخول ودورك (مدير/محاسب/أمين صندوق) أو نفّذ migrations 073–074 في Supabase';
     }
     if (msg.includes('portal_token')) {
       return 'خطأ صلاحيات جهة الاتصال — نفّذ migration 073 في Supabase';

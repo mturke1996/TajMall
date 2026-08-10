@@ -449,13 +449,32 @@ export function useCreateContact() {
         throw new Error("يجب تسجيل الدخول لإضافة جهة تعامل");
       }
 
+      const payload = { ...input, is_active: input.is_active ?? true };
+
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        "create_contact",
+        { p_payload: payload },
+      );
+      if (!rpcError && rpcData && typeof rpcData === "object") {
+        return {
+          ...(rpcData as unknown as ContactRow),
+          portal_token: null,
+        };
+      }
+
+      // fallback للقواعد قبل migration 074
+      const rpcMissing =
+        rpcError?.message?.includes("create_contact") ||
+        rpcError?.code === "PGRST202";
+      if (rpcError && !rpcMissing) throw rpcError;
+
       const { data, error } = await supabase
         .from("contacts")
-        .insert({ ...input, is_active: input.is_active ?? true })
+        .insert(payload)
         .select(CONTACT_LIST_COLUMNS)
         .single();
       if (error) throw error;
-      return { ...(data as ContactRow), portal_token: null };
+      return { ...(data as unknown as ContactRow), portal_token: null };
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
@@ -479,7 +498,7 @@ export function useUpdateContact() {
         .select(CONTACT_LIST_COLUMNS)
         .single();
       if (error) throw error;
-      return { ...(data as ContactRow), portal_token: null };
+      return { ...(data as unknown as ContactRow), portal_token: null };
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
