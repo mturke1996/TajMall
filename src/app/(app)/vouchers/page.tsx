@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, Receipt, Send, Check, X, Loader2 } from 'lucide-react';
+import { Plus, Receipt, Send, Check, X, Loader2, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,7 @@ import {
   useDisbursementVouchers,
   useSubmitVoucherForApproval,
   useDecideVoucherApproval,
+  useDeleteDisbursementVoucher,
 } from '@/lib/db/queries';
 import type { VoucherApprovalStatus } from '@/lib/db/types';
 import { WriteGuard } from '@/components/auth/write-guard';
@@ -58,6 +59,7 @@ export default function VouchersPage() {
   const canApprove = can('voucher.approve');
   const submitForApproval = useSubmitVoucherForApproval();
   const decideApproval = useDecideVoucherApproval();
+  const deleteVoucher = useDeleteDisbursementVoucher();
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
@@ -82,6 +84,21 @@ export default function VouchersPage() {
           toast.error('تعذّر الاعتماد', { description: e instanceof Error ? e.message : undefined }),
       },
     );
+  }
+
+  function handleDelete(row: { id: string; voucher_number: string; status: VoucherApprovalStatus }) {
+    const extra =
+      row.status === 'APPROVED'
+        ? ' الإذن معتمد وسيُعكس قيده من الدفتر والخزينة.'
+        : '';
+    if (!confirm(`حذف إذن الصرف ${row.voucher_number}؟${extra}`)) return;
+    deleteVoucher.mutate(row.id, {
+      onSuccess: () => toast.success(`تم حذف الإذن ${row.voucher_number}`),
+      onError: (e) =>
+        toast.error('تعذّر حذف الإذن', {
+          description: e instanceof Error ? e.message : undefined,
+        }),
+    });
   }
 
   function confirmReject() {
@@ -224,6 +241,22 @@ export default function VouchersPage() {
                       fileName={`إذن-صرف-${row.voucher_number}-${row.voucher_date}`}
                       render={async () => <VoucherPDF voucher={model} />}
                     />
+                    <WriteGuard permission="voucher.create">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 text-rose-700 hover:bg-rose-50"
+                        disabled={deleteVoucher.isPending}
+                        onClick={() => handleDelete(row)}
+                      >
+                        {deleteVoucher.isPending ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                        حذف
+                      </Button>
+                    </WriteGuard>
                   </div>
                 </div>
               );

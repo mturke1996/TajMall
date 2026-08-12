@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { useCashboxBalances } from '@/lib/db/queries';
 import { useRecordCashboxTransfer } from '@/lib/db/cashbox-queries';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, todayISODate } from '@/lib/utils';
 
 function sanitizeAmount(raw: string) {
   const cleaned = raw.replace(/[^\d.]/g, '');
@@ -47,7 +47,7 @@ export function CashboxTransferDialog({
   const [fromId, setFromId] = useState('');
   const [toId, setToId] = useState('');
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => todayISODate());
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -63,7 +63,7 @@ export function CashboxTransferDialog({
   useEffect(() => {
     if (!open) return;
     if (defaultFromId) setFromId(defaultFromId);
-    setDate(new Date().toISOString().slice(0, 10));
+    setDate(todayISODate());
   }, [open, defaultFromId]);
 
   function reset() {
@@ -72,7 +72,7 @@ export function CashboxTransferDialog({
     setAmount('');
     setDescription('');
     setNotes('');
-    setDate(new Date().toISOString().slice(0, 10));
+    setDate(todayISODate());
   }
 
   function handleOpenChange(next: boolean) {

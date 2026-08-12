@@ -63,7 +63,7 @@ export function ContactRentLinks({
       )}
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        {onRecordPayment && Number(contact.monthly_rent) > 0 && (
+        {onRecordPayment && (
           <Button size="sm" className="h-10 flex-1 touch-manipulation" onClick={onRecordPayment}>
             <Banknote className="h-4 w-4 ml-1" />
             تسجيل دفع إيجار

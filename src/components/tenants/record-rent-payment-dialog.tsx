@@ -29,7 +29,7 @@ import { rentChargesByMonth, sumRentMonthsRemaining } from '@/lib/rent-journal-l
 import { areConsecutiveMonths, formatMonthsLabelAr } from '@/lib/rent-months';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import type { PaymentMethod } from '@/lib/db/types';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, preferredCashboxId, todayISODate } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export type RentPaymentTenant = Pick<
@@ -55,9 +55,7 @@ export function RecordRentPaymentDialog({
   const { data: charges = [] } = useTenantChargesForTenant(tenant?.id ?? '');
 
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentDate, setPaymentDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [paymentDate, setPaymentDate] = useState(() => todayISODate());
   const [cashboxId, setCashboxId] = useState('');
   const [description, setDescription] = useState('تحصيل إيجار');
   const [rentMonths, setRentMonths] = useState<string[]>([]);
@@ -65,7 +63,13 @@ export function RecordRentPaymentDialog({
   const [linkMode, setLinkMode] = useState<RentLinkMode>('full');
   const [partialAmount, setPartialAmount] = useState('');
 
-  const rent = Number(tenant?.monthly_rent) || 0;
+  const rentFromCharges = useMemo(() => {
+    const amounts = charges
+      .map((c) => Number(c.amount) || 0)
+      .filter((n) => n > 0);
+    return amounts.length ? Math.max(...amounts) : 0;
+  }, [charges]);
+  const rent = Number(tenant?.monthly_rent) || rentFromCharges || 0;
   const selectedCashbox = cashboxes.find((c) => c.id === cashboxId);
 
   const chargesByMonth = useMemo(
@@ -86,13 +90,14 @@ export function RecordRentPaymentDialog({
       const now = new Date();
       const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       setRentMonths([currentMonth]);
-      setPaymentDate(now.toISOString().slice(0, 10));
+      setPaymentDate(todayISODate());
       setDescription('تحصيل إيجار');
       setLinkMode('full');
       setPartialAmount('');
-      const first = cashboxes[0];
-      setCashboxId(first?.id ?? '');
-      setMethod(first?.kind === 'BANK' ? 'TRANSFER' : 'CASH');
+      const preferred = preferredCashboxId(cashboxes);
+      const box = cashboxes.find((c) => c.id === preferred);
+      setCashboxId(preferred);
+      setMethod(box?.kind === 'BANK' ? 'TRANSFER' : 'CASH');
     }
   }, [open, tenant, cashboxes]);
 
@@ -302,7 +307,6 @@ export function RecordRentPaymentDialog({
             onClick={handleSubmit}
             disabled={
               recordPayment.isPending ||
-              rent === 0 ||
               rentMonths.length === 0
             }
           >

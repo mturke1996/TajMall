@@ -31,6 +31,7 @@ import {
   useContacts,
 } from '@/lib/db/queries';
 import { toast } from 'sonner';
+import { preferredCashboxId, todayISODate } from '@/lib/utils';
 import { usePermission } from '@/lib/supabase/use-permission';
 
 const METHODS: VoucherPdfModel['method'][] = ['نقدي', 'صك', 'حوالة'];
@@ -54,9 +55,7 @@ export default function NewVoucherPage() {
   const [cashboxId, setCashboxId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [number, setNumber] = useState('');
-  const [voucherDate, setVoucherDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [voucherDate, setVoucherDate] = useState(() => todayISODate());
   const [payee, setPayee] = useState('');
   const [contactId, setContactId] = useState('');
   const [bank, setBank] = useState('');
@@ -83,7 +82,7 @@ export default function NewVoucherPage() {
   }, []);
 
   useEffect(() => {
-    if (cashboxes.length && !cashboxId) setCashboxId(cashboxes[0]!.id);
+    if (cashboxes.length && !cashboxId) setCashboxId(preferredCashboxId(cashboxes));
     if (expenseCategories.length && !categoryId) setCategoryId(expenseCategories[0]!.id);
   }, [cashboxes, expenseCategories, cashboxId, categoryId]);
 
@@ -201,7 +200,7 @@ export default function NewVoucherPage() {
   function handleClearDraft() {
     clearVoucherDraft();
     setNumber('');
-    setVoucherDate(new Date().toISOString().slice(0, 10));
+    setVoucherDate(todayISODate());
     setPayee('');
     setContactId('');
     setBank('');

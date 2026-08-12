@@ -8,6 +8,7 @@ import {
   Bell,
   KeyRound,
   ArrowLeft,
+  ClipboardList,
 } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/layout/page-header';
@@ -73,6 +74,12 @@ const GROUPS = [
         title: 'النسخ الاحتياطي',
         desc: 'تصدير قاعدة البيانات واستيرادها.',
         href: '/settings/backup',
+      },
+      {
+        icon: ClipboardList,
+        title: 'جرد الخزائن',
+        desc: 'عدّ فعلي للخزائن وتسوية الدفتر برقم سري.',
+        href: '/settings/cashbox-count',
       },
     ],
   },

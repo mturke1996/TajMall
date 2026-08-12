@@ -23,7 +23,7 @@ import {
   useCreateTransaction,
   type EmployeeSummary,
 } from '@/lib/db/queries';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, preferredCashboxId, todayISODate } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export type SalaryPaymentEmployee = Pick<
@@ -47,9 +47,7 @@ export function RecordSalaryPaymentDialog({
   const { data: cashboxes = [] } = useCashboxes();
   const createTransaction = useCreateTransaction();
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentDate, setPaymentDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [paymentDate, setPaymentDate] = useState(() => todayISODate());
   const [cashboxId, setCashboxId] = useState('');
 
   const salary = Number(employee?.salary) || 0;
@@ -58,8 +56,8 @@ export function RecordSalaryPaymentDialog({
   useEffect(() => {
     if (open && employee) {
       setPaymentAmount(salary > 0 ? String(salary) : '');
-      setPaymentDate(new Date().toISOString().slice(0, 10));
-      setCashboxId(cashboxes[0]?.id ?? '');
+      setPaymentDate(todayISODate());
+      setCashboxId(preferredCashboxId(cashboxes));
     }
   }, [open, employee, salary, cashboxes]);
 
@@ -74,7 +72,7 @@ export function RecordSalaryPaymentDialog({
       toast.error('اختر الخزينة');
       return;
     }
-    const defaultCashbox = cashboxId || cashboxes[0]?.id;
+    const defaultCashbox = cashboxId || preferredCashboxId(cashboxes);
     if (!defaultCashbox) {
       toast.error('لا توجد خزينة متاحة');
       return;

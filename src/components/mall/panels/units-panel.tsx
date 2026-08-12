@@ -130,7 +130,7 @@ export function MallUnitsPanel() {
   return (
     <div className="space-y-4">
       <MallPanelToolbar>
-        <WriteGuard permission="journal.create">
+        <WriteGuard permission="document.create">
           <Button
             onClick={handleOpenCreate}
             className="h-11 gap-2 bg-sage-700 hover:bg-sage-800 text-white touch-manipulation md:h-9"
@@ -184,7 +184,7 @@ export function MallUnitsPanel() {
                     <p className="line-clamp-2">{unit.notes}</p>
                   </div>
                 )}
-                <WriteGuard permission="journal.create">
+                <WriteGuard permission="document.create">
                   <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                     <Button
                       variant="ghost"

@@ -593,69 +593,31 @@ export function useGenerateMonthlyCharges() {
   return useMutation({
     mutationFn: async (targetMonth: string) => {
       const supabase = createSupabaseBrowserClient();
-      // Get all active lease contracts
-      const { data: contracts, error: cErr } = await supabase
-        .from('lease_contracts')
-        .select('*')
-        .eq('status', 'ACTIVE');
-      if (cErr) throw cErr;
-
-      let generatedCount = 0;
-      const targetDate = `${targetMonth}-01`;
-
-      for (const contract of contracts ?? []) {
-        // Check existing rent/service charges for this contract and month
-        const { data: existing, error: existErr } = await supabase
-          .from('tenant_charges')
-          .select('id, type')
-          .eq('contract_id', contract.id)
-          .eq('due_date', targetDate)
-          .in('type', ['RENT', 'SERVICE']);
-        if (existErr) throw existErr;
-
-        const hasRent = (existing ?? []).some((row) => row.type === 'RENT');
-        const hasService = (existing ?? []).some((row) => row.type === 'SERVICE');
-
-        // Create Rent Charge
-        if (!hasRent && Number(contract.monthly_rent) > 0) {
-          const { error: rentErr } = await supabase.from('tenant_charges').insert({
-            contract_id: contract.id,
-            amount: Number(contract.monthly_rent),
-            due_date: targetDate,
-            type: 'RENT',
-            description: `إيجار شهر ${targetMonth}`,
-            status: 'UNPAID',
-          });
-          if (rentErr) throw rentErr;
-          generatedCount++;
-        }
-
-        // Create Service Charge if any
-        if (!hasService && Number(contract.services_amount) > 0) {
-          const { error: svcErr } = await supabase.from('tenant_charges').insert({
-            contract_id: contract.id,
-            amount: Number(contract.services_amount),
-            due_date: targetDate,
-            type: 'SERVICE',
-            description: `رسوم خدمات وصيانة شهر ${targetMonth}`,
-            status: 'UNPAID',
-          });
-          if (svcErr) throw svcErr;
-          generatedCount++;
-        }
-      }
-
-      return generatedCount;
+      const { data, error } = await supabase.rpc('generate_monthly_charges', {
+        p_month: targetMonth,
+      });
+      if (error) throw error;
+      const payload = (data ?? {}) as {
+        created?: number;
+        rent_created?: number;
+        service_created?: number;
+      };
+      return Number(payload.created ?? 0);
     },
     onSuccess: (count) => {
       qc.invalidateQueries({ queryKey: ['tenant_charges'] });
       qc.invalidateQueries({ queryKey: ['mall_rent_charges_year'] });
       qc.invalidateQueries({ queryKey: ['journal_entries'] });
-      toast.success(`تم توليد عدد ${count} مطالبة إيجار وخدمات بنجاح للمستأجرين`);
+      qc.invalidateQueries({ queryKey: ['tenant_rent_calendar'] });
+      toast.success(
+        count > 0
+          ? `تم توليد ${count} مطالبة إيجار وخدمات`
+          : 'لا مطالبات جديدة — الشهر مولَّد مسبقاً أو معفى',
+      );
     },
-    onError: (err: any) => {
-      toast.error(err.message || 'فشل توليد المطالبات الشهرية');
-    }
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'فشل توليد المطالبات الشهرية');
+    },
   });
 }
 

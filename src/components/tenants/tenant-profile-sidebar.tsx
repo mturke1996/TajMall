@@ -128,7 +128,7 @@ export function TenantProfileSidebar({
         </dl>
 
         <div className="px-4 pb-4 flex flex-col gap-2">
-          {onRecordPayment && monthlyRent > 0 && (
+          {onRecordPayment && (
             <Button className="w-full h-10 touch-manipulation" onClick={onRecordPayment}>
               تسجيل دفع إيجار
             </Button>

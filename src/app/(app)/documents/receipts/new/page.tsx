@@ -30,6 +30,7 @@ import {
   formatSuggestedDocNumber,
 } from '@/lib/document-pdf-export';
 import { toast } from 'sonner';
+import { preferredCashboxId, todayISODate } from '@/lib/utils';
 
 const METHODS: ReceiptVoucherPdfModel['method'][] = ['نقدي', 'صك', 'حوالة'];
 
@@ -40,7 +41,7 @@ export default function NewReceiptPage() {
   const { data: revenueCategories = [] } = useCategories('REVENUE');
 
   const [number, setNumber] = useState(() => formatSuggestedDocNumber('RCV', 1));
-  const [receiptDate, setReceiptDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [receiptDate, setReceiptDate] = useState(() => todayISODate());
   const [payer, setPayer] = useState('');
   const [cashboxId, setCashboxId] = useState('');
   const [categoryId, setCategoryId] = useState('');
@@ -51,7 +52,7 @@ export default function NewReceiptPage() {
   const [lines, setLines] = useState([{ description: '', amount: '' }]);
 
   useEffect(() => {
-    if (cashboxes.length && !cashboxId) setCashboxId(cashboxes[0]!.id);
+    if (cashboxes.length && !cashboxId) setCashboxId(preferredCashboxId(cashboxes));
     if (revenueCategories.length && !categoryId) setCategoryId(revenueCategories[0]!.id);
   }, [cashboxes, revenueCategories, cashboxId, categoryId]);
 

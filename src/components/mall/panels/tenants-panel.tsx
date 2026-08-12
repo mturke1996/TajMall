@@ -195,7 +195,7 @@ export function MallTenantsPanel() {
             );
           }}
         />
-        <WriteGuard permission="journal.create">
+        <WriteGuard permission="document.create">
           <Button
             size="sm"
             className="h-11 w-full sm:w-auto touch-manipulation"

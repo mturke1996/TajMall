@@ -42,6 +42,25 @@ export function formatShortDate(d: Date | string | number) {
   return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
 }
 
+/** تاريخ اليوم حسب المنطقة المحلية (ليبيا UTC+2) وليس UTC. */
+export function todayISODate(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** الخزينة النقدية أولاً حتى لا يُرحَّل النقد إلى مصرف بالخطأ. */
+export function preferredCashboxId<T extends { id: string; kind: string; code?: string | null }>(
+  boxes: T[],
+): string {
+  if (!boxes.length) return '';
+  const cash =
+    boxes.find((b) => b.code === 'CASH') ??
+    boxes.find((b) => b.kind === 'CASH');
+  return (cash ?? boxes[0]).id;
+}
+
 export function formatMoney(
   amount: number | string | bigint,
   currency: string = 'LYD',

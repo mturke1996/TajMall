@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { todayISODate } from "@/lib/utils";
 import { mqk } from "@/lib/db/mall-queries";
 import type {
   CategoryRow,
@@ -85,7 +86,11 @@ export function useCategories(kind?: "REVENUE" | "EXPENSE") {
       if (kind) q = q.eq("type", kind);
       const { data, error } = await q;
       if (error) throw error;
-      return (data as CategoryRow[]) ?? [];
+      const rows = (data as CategoryRow[]) ?? [];
+      if (!kind) return rows;
+      return rows.filter(
+        (c) => c.kind !== "ADJUSTMENT" && c.code !== "EXP-TEST",
+      );
     },
   });
 }
@@ -718,7 +723,7 @@ export function useRecordRentPayment() {
         tenant_id: input.tenant_id,
         amount: input.amount,
         payment_date:
-          input.payment_date ?? new Date().toISOString().slice(0, 10),
+          input.payment_date ?? todayISODate(),
         cashbox_id: input.cashbox_id ?? null,
         description: input.description ?? null,
         rent_months:
@@ -1051,6 +1056,10 @@ export function useDeleteTransaction() {
       qc.invalidateQueries({ queryKey: qk.monthlySummary });
       qc.invalidateQueries({ queryKey: qk.topExpenseCategories });
       qc.invalidateQueries({ queryKey: ["audit_log_feed"] });
+      qc.invalidateQueries({ queryKey: ["journal_entries"] });
+      qc.invalidateQueries({ queryKey: ["tenant_charges"] });
+      qc.invalidateQueries({ queryKey: ["tenant_rent_calendar"] });
+      qc.invalidateQueries({ queryKey: ["cash_flow"] });
     },
   });
 }
@@ -1166,6 +1175,15 @@ export function useSubmitVoucherForApproval() {
   });
 }
 
+function invalidateVoucherLedger(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: qk.disbursementVouchers });
+  qc.invalidateQueries({ queryKey: qk.cashboxBalances });
+  qc.invalidateQueries({ queryKey: qk.dashboardStats });
+  qc.invalidateQueries({ queryKey: ["journal_entries"] });
+  qc.invalidateQueries({ queryKey: ["ledger"] });
+  qc.invalidateQueries({ queryKey: ["cash_flow"] });
+}
+
 /** اعتماد أو رفض إذن — يتطلب owner/admin (محروس داخل الدالة نفسها). */
 export function useDecideVoucherApproval() {
   const qc = useQueryClient();
@@ -1180,7 +1198,24 @@ export function useDecideVoucherApproval() {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: qk.disbursementVouchers });
+      invalidateVoucherLedger(qc);
+    },
+  });
+}
+
+/** حذف إذن صرف — يعكس قيده إن كان معتمداً. */
+export function useDeleteDisbursementVoucher() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (voucherId: string) => {
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase.rpc("delete_disbursement_voucher", {
+        p_voucher_id: voucherId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateVoucherLedger(qc);
     },
   });
 }

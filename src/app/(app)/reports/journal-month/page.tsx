@@ -41,6 +41,7 @@ import {
   applyPeriodJournalCategoryFilter,
   formatPeriodJournalExportNames,
   buildCashBankSeparatedSections,
+  completeCashboxJournalSections,
   buildContraLinesForFocus,
   describePeriodJournalSectionDisplay,
   periodLineCashboxKindsLabel,
@@ -59,7 +60,7 @@ import {
   reportsHref,
   type ReportPeriod,
 } from '@/lib/report-period';
-import { useCategories } from '@/lib/db/queries';
+import { useCategories, useCashboxes } from '@/lib/db/queries';
 import { formatMoney, cn } from '@/lib/utils';
 
 type StatusFilter = JournalStatus | 'ALL';
@@ -142,6 +143,7 @@ function JournalMonthContent() {
   );
 
   const { data: categories = [], isLoading: categoriesLoading } = useCategories();
+  const { data: cashboxes = [] } = useCashboxes();
 
   useEffect(() => {
     if (categoryParam && categoryParam !== ALL_CATEGORIES) {
@@ -293,6 +295,31 @@ function JournalMonthContent() {
     );
   }, [model, categoryFilterId, selectedCategory]);
 
+  const cashboxJournalSections = useMemo(() => {
+    if (!displayModel?.categoryFilter || displayModel.typeGroupFilter) return [];
+    const source = model ?? displayModel;
+    const raw = buildCashBankSeparatedSections(
+      source,
+      displayModel.categoryFilter.id,
+    );
+    const focus =
+      displayModel.lines.find(
+        (l) => l.category_id === displayModel.categoryFilter?.id,
+      ) ??
+      raw[0]?.focusLine ??
+      null;
+    return completeCashboxJournalSections(
+      raw,
+      cashboxes.map((b) => ({
+        id: b.id,
+        name_ar: b.name_ar,
+        kind: b.kind,
+        code: b.code,
+      })),
+      focus,
+    );
+  }, [displayModel, model, cashboxes]);
+
   /** دائماً النموذج الشامل — لزر تقرير شامل PDF (لا تسقط على نموذج البند) */
   const comprehensiveModel = useMemo(() => {
     if (!comprehensiveModelRaw) return null;
@@ -380,7 +407,7 @@ function JournalMonthContent() {
             : isTypeAggregateView && displayModel?.typeGroupFilter
               ? `${displayModel.typeGroupFilter.name_ar} — مجموع فقط بلا تفصيل، والنقدي/كل مصرف دائن بورقة · ${periodLabel}`
               : isSingleCategoryView && displayModel?.categoryFilter
-                ? `كشف بند ${displayModel.categoryFilter.name_ar} — النقدي بجدول مدين/دائن، وكل مصرف بورقة · ${periodLabel}`
+                ? `كشف بند ${displayModel.categoryFilter.name_ar} — قيد لكل خزينة ومصرف (مدين/دائن) · ${periodLabel}`
                 : `اختر طريقة التجميع أعلاه — أو اعرض كل بند على حدة · ${periodLabel}`
         }
         actions={
@@ -510,7 +537,7 @@ function JournalMonthContent() {
                   {isAggregateView
                     ? 'معطّل أثناء وضع التجميع — اختر «كل البنود» أعلاه أولاً.'
                     : isSingleCategoryView
-                      ? 'بند واحد: يُجلب كاملاً للفترة (بدون قطع)، ويُفصل النقدي عن المصارف.'
+                      ? 'بند واحد: جدول قيد مستقل لكل خزينة نقدية ولكل مصرف — مدين ودائن.'
                       : 'اتركه على جميع البنود، أو اختر بنداً لكشف تفصيلي.'}
                 </p>
               </div>
@@ -623,6 +650,7 @@ function JournalMonthContent() {
               ]}
             />
 
+            {!(displayModel.categoryFilter && !displayModel.typeGroupFilter) ? (
             <Card className="border-sage-600/30">
               <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 border-b pb-3">
                 <div>
@@ -634,7 +662,7 @@ function JournalMonthContent() {
                     {displayModel.typeGroupFilter?.mode === 'group'
                       ? `إيرادات معاً · مصاريف معاً · ${displayModel.lines.length} صف`
                       : displayModel.categoryFilter
-                        ? `النقدي منفصل · كل مصرف بورقة · ${displayModel.categoryFilter.code} · بلا تفصيل قيود`
+                        ? `قيد مستقل لكل خزينة ومصرف · ${displayModel.categoryFilter.code}`
                         : `مجاميع ${displayModel.lines.length} بند · ثم مجموع كل بند`}
                   </p>
                 </div>
@@ -725,6 +753,7 @@ function JournalMonthContent() {
                 </div>
               </CardContent>
             </Card>
+            ) : null}
 
             {(() => {
               const contraSource = displayModel.categoryFilter
@@ -739,12 +768,10 @@ function JournalMonthContent() {
                   ? model
                   : displayModel;
 
-              const sections = displayModel.categoryFilter
-                ? buildCashBankSeparatedSections(
-                    model ?? displayModel,
-                    displayModel.categoryFilter.id,
-                  )
-                : displayModel.typeGroupFilter?.mode === 'group'
+              const sections =
+                displayModel.categoryFilter && !displayModel.typeGroupFilter
+                  ? cashboxJournalSections
+                  : displayModel.typeGroupFilter?.mode === 'group'
                   ? [
                       ...buildCashBankSeparatedSections(
                         sectionSource,
@@ -758,7 +785,7 @@ function JournalMonthContent() {
                   : null;
 
               if (sections && sections.length > 0) {
-                return sections.map((section, sectionIndex) => {
+                return sections.map((section) => {
                   const focusLine = section.focusLine;
                   const detailLines =
                     section.focusDetailLines &&
@@ -795,10 +822,17 @@ function JournalMonthContent() {
                       <CardHeader className="border-b pb-3 space-y-0">
                         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
                           <span>
-                            {sectionIndex + 1}/{sections.length} · البند:{' '}
-                            <span className="text-sage-800">
-                              {section.title}
-                            </span>
+                            قيد {section.title}
+                            {section.fundingLabel &&
+                            section.fundingLabel !== '—' ? (
+                              <>
+                                {' '}
+                                —{' '}
+                                <span className="text-sage-800">
+                                  {section.fundingLabel}
+                                </span>
+                              </>
+                            ) : null}
                           </span>
                           {kindBadge || display.contraLabel !== 'الطرف المقابل' ? (
                             <Badge

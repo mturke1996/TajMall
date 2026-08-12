@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTxDialog, type TxKind } from '@/stores/transaction-dialog';
 import { PAYMENT_METHODS } from '@/lib/constants';
-import { cn } from '@/lib/utils';
+import { cn, preferredCashboxId, todayISODate } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCategories, useCashboxes, useCreateTransaction, useContacts, useCreateContact, useTransactionFormDrafts, useSaveTransactionFormDraft, useDeleteTransactionFormDraft, useRecordRentPayment } from '@/lib/db/queries';
 import type { TransactionFormDraftRow, PaymentMethod } from '@/lib/db/types';
@@ -69,7 +69,7 @@ export function NewTransactionDialog() {
   const [categoryId, setCategoryId] = useState('');
   const [cashboxId, setCashboxId] = useState('');
   const [method, setMethod] = useState<'CASH' | 'CHEQUE' | 'TRANSFER' | 'CARD'>('CASH');
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => todayISODate());
   const [description, setDescription] = useState('');
   const [contactId, setContactId] = useState('');
   const [contactKind, setContactKind] = useState<PartyContactFilter>('ALL');
@@ -93,7 +93,9 @@ export function NewTransactionDialog() {
   const recordRentPayment = useRecordRentPayment();
   const createContact = useCreateContact();
 
-  const categories = categoriesAll.filter((c) => c.kind === kind);
+  const categories = categoriesAll.filter(
+    (c) => c.kind === kind && c.kind !== 'ADJUSTMENT' && c.code !== 'EXP-TEST',
+  );
   const isRevenue = kind === 'REVENUE';
 
   // Filter contacts by kind
@@ -107,9 +109,9 @@ export function NewTransactionDialog() {
       setKind(defaultKind);
       setAmount('');
       setCategoryId('');
-      setCashboxId(cashboxes[0]?.id ?? '');
+      setCashboxId(preferredCashboxId(cashboxes));
       setMethod('CASH');
-      setDate(new Date().toISOString().slice(0, 10));
+      setDate(todayISODate());
       setDescription('');
       const prefKind =
         prefillContactKind &&
@@ -341,9 +343,9 @@ export function NewTransactionDialog() {
     const p = row.payload;
     setAmount(p.amount ?? '');
     setCategoryId(p.category_id ?? '');
-    setCashboxId(p.cashbox_id ?? cashboxes[0]?.id ?? '');
+    setCashboxId(p.cashbox_id ?? preferredCashboxId(cashboxes));
     setMethod((p.method as PaymentMethod) ?? 'CASH');
-    setDate(p.tx_date ?? new Date().toISOString().slice(0, 10));
+    setDate(p.tx_date ?? todayISODate());
     setDescription(p.description ?? '');
     setContactId(p.contact_id ?? '');
     const ck = p.contact_kind ?? 'ALL';
@@ -551,6 +553,11 @@ export function NewTransactionDialog() {
                   <option key={c.id} value={c.id}>{c.name_ar}</option>
                 ))}
               </select>
+              {!boxLoading && cashboxes.length === 0 && (
+                <p className="mt-1 text-[11px] text-red-600">
+                  لا توجد خزينة نشطة — أضف خزينة من صفحة الخزائن أولاً.
+                </p>
+              )}
             </div>
           </div>
 
@@ -573,7 +580,7 @@ export function NewTransactionDialog() {
               <Input
                 type="date"
                 value={date}
-                max={new Date().toISOString().slice(0, 10)}
+                max={todayISODate()}
                 min="2020-01-01"
                 onChange={(e) => setDate(e.target.value)}
               />
@@ -726,8 +733,8 @@ export function NewTransactionDialog() {
             >
               {saveDraft.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'حفظ مسودة'}
             </Button>
-            <Button type="submit" disabled={createTx.isPending} className="min-w-[96px] flex-1">
-              {createTx.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'ترحيل الآن'}
+            <Button type="submit" disabled={createTx.isPending || recordRentPayment.isPending} className="min-w-[96px] flex-1">
+              {createTx.isPending || recordRentPayment.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'ترحيل الآن'}
             </Button>
           </div>
         </form>

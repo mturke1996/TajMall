@@ -163,7 +163,7 @@ export default function ContactDetailPage() {
   const Icon = KIND_ICON[contact.kind] ?? User;
   const isTenant = contact.kind === 'TENANT';
   const monthlyRent = Number(contact.monthly_rent) || 0;
-  const canRecordRent = isTenant && monthlyRent > 0 && !!rentSummary;
+  const canRecordRent = isTenant && !!rentSummary;
   const contactRecord = contact;
   const pdfFileName = `ملف-${contactRecord.name}-${new Date().toISOString().slice(0, 10)}`;
 

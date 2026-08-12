@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { qk } from '@/lib/db/queries';
+import { todayISODate } from '@/lib/utils';
 
 export type CashTransferRow = {
   id: string;
@@ -128,7 +129,7 @@ export function useRecordCashboxTransfer() {
         p_from_cashbox_id: input.from_cashbox_id,
         p_to_cashbox_id: input.to_cashbox_id,
         p_amount: input.amount,
-        p_transfer_date: input.transfer_date ?? new Date().toISOString().slice(0, 10),
+        p_transfer_date: input.transfer_date ?? todayISODate(),
         p_description: input.description ?? null,
         p_notes: input.notes ?? null,
       });
@@ -181,6 +182,7 @@ export const LEDGER_KIND_LABELS: Record<string, string> = {
   TRANSFER_IN: 'تحويل وارد',
   TRANSFER_OUT: 'تحويل صادر',
   VOUCHER: 'إذن صرف',
+  CASHBOX_COUNT: 'جرد خزائن',
   IN: 'وارد',
   OUT: 'صادر',
   TRANSACTION: 'معاملة',

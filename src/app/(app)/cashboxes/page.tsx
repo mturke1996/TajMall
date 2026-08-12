@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Plus, Wallet, Landmark, Loader2, Pencil, ArrowLeftRight, ChevronLeft, BookOpen } from 'lucide-react';
+import { Plus, Wallet, Landmark, Loader2, Pencil, ArrowLeftRight, ChevronLeft, BookOpen, ClipboardList } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
@@ -67,6 +67,17 @@ export default function CashboxesPage() {
         actions={
           canManage ? (
             <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 touch-manipulation"
+                asChild
+              >
+                <Link href="/settings/cashbox-count">
+                  <ClipboardList className="stroke-[1.6]" />
+                  جرد الخزائن
+                </Link>
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
