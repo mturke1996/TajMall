@@ -1336,7 +1336,7 @@ function withEnsuredCashboxContra(
     category_type: 'ASSET',
     cashbox_id: section.cashbox_id,
     cashbox_name: section.fundingLabel,
-    cashbox_kind: section.sectionKind === 'NONE' ? null : section.sectionKind,
+    cashbox_kind: section.sectionKind,
     rowKey: `${section.sectionKey}::contra`,
     debit: focusIsCredit ? amount : 0,
     credit: focusIsCredit ? 0 : amount,
