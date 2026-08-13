@@ -94,7 +94,7 @@ export function NewTransactionDialog() {
   const createContact = useCreateContact();
 
   const categories = categoriesAll.filter(
-    (c) => c.kind === kind && c.kind !== 'ADJUSTMENT' && c.code !== 'EXP-TEST',
+    (c) => c.kind === kind && c.code !== 'EXP-TEST',
   );
   const isRevenue = kind === 'REVENUE';
 
