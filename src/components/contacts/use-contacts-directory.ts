@@ -10,13 +10,17 @@ import {
 } from '@/lib/db/queries';
 import { toast } from 'sonner';
 import type { ContactKind, ContactRow } from '@/lib/db/types';
-import { defaultContactFormState } from '@/components/contacts/contact-form-dialog';
 import {
+  type ContactFormState,
+  defaultContactFormState,
   buildContactPayload,
   contactToFormState,
   formatContactSaveError,
-  type ContactFormState,
 } from '@/lib/contacts/form-utils';
+import {
+  extractContactBusinessRole,
+  type ContactBusinessRole,
+} from '@/lib/contacts/contact-roles';
 import type { PeopleSegment } from '@/lib/mall/routes';
 import { mallTabHref } from '@/lib/mall/routes';
 import { usePermission } from '@/lib/supabase/use-permission';
@@ -35,15 +39,22 @@ export function useContactsDirectory(options?: {
   const deleteContact = useDeleteContact();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const kindFilter: ContactKind | 'ALL' =
-    segment === 'all' ? 'ALL' : segment;
+  const [roleFilter, setRoleFilter] = useState<ContactBusinessRole | 'ALL'>('ALL');
+
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<ContactFormState>(defaultContactFormState());
 
   const filteredContacts = useMemo(() => {
     return contacts.filter((c) => {
-      if (kindFilter !== 'ALL' && c.kind !== kindFilter) return false;
+      const cRole = extractContactBusinessRole(c);
+
+      // Filter by role if set
+      if (roleFilter !== 'ALL' && cRole !== roleFilter) return false;
+
+      // Filter by legacy segment if applicable
+      if (segment !== 'all' && c.kind !== segment) return false;
+
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
       return (
@@ -51,21 +62,47 @@ export function useContactsDirectory(options?: {
         c.phone?.toLowerCase().includes(q) ||
         c.shop_number?.toLowerCase().includes(q) ||
         c.job_title?.toLowerCase().includes(q) ||
+        c.department?.toLowerCase().includes(q) ||
         c.code?.toLowerCase().includes(q)
       );
     });
-  }, [contacts, kindFilter, searchQuery]);
+  }, [contacts, roleFilter, segment, searchQuery]);
 
-  const stats = useMemo(
-    () => ({
+  const stats = useMemo(() => {
+    let tenants = 0;
+    let landlords = 0;
+    let electricity = 0;
+    let water = 0;
+    let goods = 0;
+    let services = 0;
+    let employees = 0;
+    let customers = 0;
+
+    for (const c of contacts) {
+      const r = extractContactBusinessRole(c);
+      if (r === 'TENANT') tenants++;
+      else if (r === 'LANDLORD') landlords++;
+      else if (r === 'SUPPLIER_ELECTRICITY') electricity++;
+      else if (r === 'SUPPLIER_WATER') water++;
+      else if (r === 'SUPPLIER_GOODS') goods++;
+      else if (r === 'SERVICE_PROVIDER') services++;
+      else if (r === 'EMPLOYEE') employees++;
+      else if (r === 'CUSTOMER') customers++;
+    }
+
+    return {
       total: contacts.length,
-      tenants: contacts.filter((c) => c.kind === 'TENANT').length,
-      employees: contacts.filter((c) => c.kind === 'EMPLOYEE').length,
-      customers: contacts.filter((c) => c.kind === 'CUSTOMER').length,
-      vendors: contacts.filter((c) => c.kind === 'VENDOR').length,
-    }),
-    [contacts],
-  );
+      tenants,
+      landlords,
+      electricity,
+      water,
+      goods,
+      services,
+      employees,
+      customers,
+      vendors: landlords + electricity + water + goods + services,
+    };
+  }, [contacts]);
 
   const segmentCounts = useMemo(
     (): Partial<Record<PeopleSegment, number>> => ({
@@ -78,8 +115,8 @@ export function useContactsDirectory(options?: {
     [stats],
   );
 
-  const resetForm = useCallback((kind: ContactKind = 'CUSTOMER') => {
-    setFormData(defaultContactFormState(kind));
+  const resetForm = useCallback((role: ContactBusinessRole = 'CUSTOMER') => {
+    setFormData(defaultContactFormState(role));
     setEditingId(null);
   }, []);
 
@@ -94,15 +131,19 @@ export function useContactsDirectory(options?: {
   }, [canWrite]);
 
   const openAdd = useCallback(
-    (kind?: ContactKind) => {
+    (roleOrKind?: ContactBusinessRole | ContactKind) => {
       if (!canWrite) {
         toast.error('صلاحية القراءة فقط — لا يمكن إضافة جهات');
         return;
       }
-      const defaultKind =
-        kind ??
-        (segment !== 'all' ? (segment as ContactKind) : 'CUSTOMER');
-      resetForm(defaultKind);
+      let targetRole: ContactBusinessRole = 'CUSTOMER';
+      if (roleOrKind) {
+        if (roleOrKind === 'VENDOR') targetRole = 'SUPPLIER_GOODS';
+        else targetRole = roleOrKind as ContactBusinessRole;
+      } else if (segment !== 'all') {
+        targetRole = segment === 'VENDOR' ? 'SUPPLIER_GOODS' : (segment as ContactBusinessRole);
+      }
+      resetForm(targetRole);
       setIsAddOpen(true);
     },
     [resetForm, segment, canWrite],
@@ -131,13 +172,13 @@ export function useContactsDirectory(options?: {
       const payload = buildContactPayload(formData);
       if (editingId) {
         await updateContact.mutateAsync({ id: editingId, ...payload });
-        toast.success('تم التحديث');
+        toast.success('تم التحديث بنجاح');
         setIsAddOpen(false);
-        resetForm(segment !== 'all' ? (segment as ContactKind) : 'CUSTOMER');
+        resetForm();
         return;
       }
       const created = await createContact.mutateAsync(payload);
-      toast.success('تم الإضافة');
+      toast.success('تمت إضافة الجهة بنجاح');
       setIsAddOpen(false);
       resetForm();
       router.push(`/contacts/${created.id}`);
@@ -152,7 +193,7 @@ export function useContactsDirectory(options?: {
       toast.error('صلاحية القراءة فقط');
       return;
     }
-    if (!confirm('هل تريد حذف هذا السجل؟')) return;
+    if (!confirm('هل تريد حذف هذا السجل نهائياً؟')) return;
     try {
       await deleteContact.mutateAsync(id);
       toast.success('تم الحذف');
@@ -168,7 +209,8 @@ export function useContactsDirectory(options?: {
     isLoading,
     searchQuery,
     setSearchQuery,
-    kindFilter,
+    roleFilter,
+    setRoleFilter,
     stats,
     segmentCounts,
     isAddOpen,
@@ -184,3 +226,4 @@ export function useContactsDirectory(options?: {
     goToRentCollection: () => router.push(mallTabHref('tenants')),
   };
 }
+

@@ -336,6 +336,8 @@ export const PERIOD_JOURNAL_GROUP_BY_TYPE = 'group:type';
 export const PERIOD_JOURNAL_TYPE_REVENUE = 'type:REVENUE';
 /** فلتر خاص: جميع المصاريف كبند واحد مع الطرف المقابل */
 export const PERIOD_JOURNAL_TYPE_EXPENSE = 'type:EXPENSE';
+/** فلتر خاص جديد: كشف الإيرادات والتحصيلات المسجلة فعلياً خلال الفترة بناءً على تاريخ التسجيل/القبض */
+export const PERIOD_JOURNAL_MODE_CASH_COLLECTIONS = 'mode:cash_collections';
 
 export type PeriodJournalAccountTypeFilter = 'REVENUE' | 'EXPENSE';
 
@@ -343,6 +345,12 @@ export function isPeriodJournalGroupByType(
   filter: string | null | undefined,
 ): boolean {
   return filter === PERIOD_JOURNAL_GROUP_BY_TYPE;
+}
+
+export function isPeriodJournalCashCollections(
+  filter: string | null | undefined,
+): boolean {
+  return filter === PERIOD_JOURNAL_MODE_CASH_COLLECTIONS;
 }
 
 export function parsePeriodJournalTypeFilter(
@@ -371,6 +379,299 @@ export function periodJournalTypeFilterMeta(
     type: 'EXPENSE',
   };
 }
+
+/** بند تحصيل إيراد مسجل خلال الفترة */
+export type PeriodCashCollectionItem = {
+  transaction_id: string;
+  number: number;
+  reference: string | null;
+  tx_date: string; // تاريخ التسجيل / التحصيل الفعلي (مثلاً في يوليو)
+  amount: number;
+  method: string;
+  category_id: string | null;
+  category_name: string;
+  category_code: string;
+  cashbox_id: string | null;
+  cashbox_name: string;
+  cashbox_kind: CashboxKind | null;
+  contact_name: string | null;
+  shop_number: string | null;
+  description: string | null;
+  /** شهر الاستحقاق المستهدف (مثل: إيجار شهر مايو 2026) */
+  target_rent_month: string | null;
+  target_rent_month_key: string | null; // e.g. "2026-05"
+  target_month_status: 'PRIOR' | 'CURRENT' | 'FUTURE' | 'GENERAL';
+};
+
+export type PeriodCashCollectionsSummary = {
+  periodLabel: string;
+  startDate: string;
+  endDate: string;
+  totalCollected: number;
+  totalCount: number;
+  priorPeriodAmount: number;
+  priorPeriodCount: number;
+  currentPeriodAmount: number;
+  currentPeriodCount: number;
+  futurePeriodAmount: number;
+  futurePeriodCount: number;
+  generalAmount: number;
+  generalCount: number;
+  byMethod: Array<{ method: string; count: number; total: number; labelAr: string }>;
+  byBank: Array<{ cashboxId: string; name: string; kind: CashboxKind | null; count: number; total: number }>;
+  byCategory: Array<{ categoryId: string; name: string; code: string; count: number; total: number }>;
+  items: PeriodCashCollectionItem[];
+};
+
+const AR_MONTH_PATTERNS: Array<{ name: string; monthNum: number }> = [
+  { name: 'يناير', monthNum: 1 },
+  { name: 'فبراير', monthNum: 2 },
+  { name: 'مارس', monthNum: 3 },
+  { name: 'أبريل', monthNum: 4 },
+  { name: 'ابريل', monthNum: 4 },
+  { name: 'مايو', monthNum: 5 },
+  { name: 'يونيو', monthNum: 6 },
+  { name: 'يوليو', monthNum: 7 },
+  { name: 'أغسطس', monthNum: 8 },
+  { name: 'اغسطس', monthNum: 8 },
+  { name: 'سبتمبر', monthNum: 9 },
+  { name: 'أكتوبر', monthNum: 10 },
+  { name: 'اكتوبر', monthNum: 10 },
+  { name: 'نوفمبر', monthNum: 11 },
+  { name: 'ديسمبر', monthNum: 12 },
+];
+
+/**
+ * تحليل الوصف واستخراج شهر الاستحقاق الأصلي (مثال: معرفة هل إيراد شهر يوليو يخص شهر مايو مثلاً)
+ */
+export function extractTargetRentMonth(
+  description: string | null | undefined,
+  txDate: string,
+): {
+  target_rent_month: string | null;
+  target_rent_month_key: string | null;
+  target_month_status: 'PRIOR' | 'CURRENT' | 'FUTURE' | 'GENERAL';
+} {
+  const txYear = new Date(txDate).getFullYear() || new Date().getFullYear();
+  const txMonth = new Date(txDate).getMonth() + 1;
+  const txMonthKey = `${txYear}-${String(txMonth).padStart(2, '0')}`;
+
+  if (!description) {
+    return {
+      target_rent_month: null,
+      target_rent_month_key: txMonthKey,
+      target_month_status: 'CURRENT',
+    };
+  }
+
+  const desc = description.toLowerCase();
+
+  // 1. Check for explicit YYYY-MM or MM/YYYY (e.g. 2026-05 or 05/2026 or 5/2026)
+  const isoMatch = desc.match(/\b(202\d)-(0[1-9]|1[0-2])\b/);
+  if (isoMatch) {
+    const y = Number(isoMatch[1]);
+    const m = Number(isoMatch[2]);
+    const key = `${y}-${String(m).padStart(2, '0')}`;
+    const mName = AR_MONTH_PATTERNS.find((p) => p.monthNum === m)?.name || `شهر ${m}`;
+    const status = key < txMonthKey ? 'PRIOR' : key === txMonthKey ? 'CURRENT' : 'FUTURE';
+    return {
+      target_rent_month: `${mName} ${y}`,
+      target_rent_month_key: key,
+      target_month_status: status,
+    };
+  }
+
+  const slashMatch = desc.match(/\b(0?[1-9]|1[0-2])\/(202\d)\b/);
+  if (slashMatch) {
+    const m = Number(slashMatch[1]);
+    const y = Number(slashMatch[2]);
+    const key = `${y}-${String(m).padStart(2, '0')}`;
+    const mName = AR_MONTH_PATTERNS.find((p) => p.monthNum === m)?.name || `شهر ${m}`;
+    const status = key < txMonthKey ? 'PRIOR' : key === txMonthKey ? 'CURRENT' : 'FUTURE';
+    return {
+      target_rent_month: `${mName} ${y}`,
+      target_rent_month_key: key,
+      target_month_status: status,
+    };
+  }
+
+  // 2. Check for Arabic month name (e.g. "شهر مايو", "إيجار مايو", "عن شهر مايو 2026")
+  for (const { name, monthNum } of AR_MONTH_PATTERNS) {
+    if (desc.includes(name)) {
+      // Check if there is an explicit year nearby (e.g. 2025, 2026, 2027)
+      const yearMatch = desc.match(/\b(202\d)\b/);
+      const targetYear = yearMatch ? Number(yearMatch[1]) : txYear;
+      const key = `${targetYear}-${String(monthNum).padStart(2, '0')}`;
+      const status = key < txMonthKey ? 'PRIOR' : key === txMonthKey ? 'CURRENT' : 'FUTURE';
+      return {
+        target_rent_month: `${name} ${targetYear}`,
+        target_rent_month_key: key,
+        target_month_status: status,
+      };
+    }
+  }
+
+  // 3. Check for "شهر X" or "شهر 0X"
+  const monthNumMatch = desc.match(/شهر\s*([0-9]|1[0-2])\b/);
+  if (monthNumMatch) {
+    const m = Number(monthNumMatch[1]);
+    if (m >= 1 && m <= 12) {
+      const key = `${txYear}-${String(m).padStart(2, '0')}`;
+      const mName = AR_MONTH_PATTERNS.find((p) => p.monthNum === m)?.name || `شهر ${m}`;
+      const status = key < txMonthKey ? 'PRIOR' : key === txMonthKey ? 'CURRENT' : 'FUTURE';
+      return {
+        target_rent_month: `${mName} ${txYear}`,
+        target_rent_month_key: key,
+        target_month_status: status,
+      };
+    }
+  }
+
+  return {
+    target_rent_month: null,
+    target_rent_month_key: txMonthKey,
+    target_month_status: 'CURRENT',
+  };
+}
+
+/**
+ * بناء تلخيص شامل للإيرادات والتحصيلات المسجلة فعلياً خلال الفترة
+ */
+export function buildPeriodCashCollectionsSummary(
+  transactions: Array<{
+    id: string;
+    number: number;
+    reference: string | null;
+    tx_date: string;
+    amount: string | number;
+    method: string;
+    description: string | null;
+    category?: { id: string; code: string; name_ar: string } | null;
+    cashbox?: { id: string; code?: string; name_ar: string; kind?: CashboxKind | null } | null;
+    contact?: { id?: string; name?: string; shop_number?: string | null } | null;
+  }>,
+  options: {
+    startDate: string;
+    endDate: string;
+    periodLabel: string;
+  },
+): PeriodCashCollectionsSummary {
+  const filtered = transactions.filter((t) => {
+    if (!t.tx_date) return false;
+    const d = t.tx_date.slice(0, 10);
+    return d >= options.startDate && d <= options.endDate;
+  });
+
+  let totalCollected = 0;
+  let priorPeriodAmount = 0;
+  let priorPeriodCount = 0;
+  let currentPeriodAmount = 0;
+  let currentPeriodCount = 0;
+  let futurePeriodAmount = 0;
+  let futurePeriodCount = 0;
+  let generalAmount = 0;
+  let generalCount = 0;
+
+  const methodMap = new Map<string, { count: number; total: number; labelAr: string }>();
+  const bankMap = new Map<string, { cashboxId: string; name: string; kind: CashboxKind | null; count: number; total: number }>();
+  const catMap = new Map<string, { categoryId: string; name: string; code: string; count: number; total: number }>();
+
+  const METHOD_LABELS: Record<string, string> = {
+    CASH: 'نقدي (CASH)',
+    CARD: 'بطاقة مصرفية (POS)',
+    TRANSFER: 'حوالة مصرفية (TRANSFER)',
+    CHEQUE: 'صك مصرفي (CHEQUE)',
+  };
+
+  const items: PeriodCashCollectionItem[] = filtered.map((t) => {
+    const amt = Number(t.amount || 0);
+    totalCollected += amt;
+
+    const { target_rent_month, target_rent_month_key, target_month_status } =
+      extractTargetRentMonth(t.description, t.tx_date);
+
+    if (target_month_status === 'PRIOR') {
+      priorPeriodAmount += amt;
+      priorPeriodCount += 1;
+    } else if (target_month_status === 'CURRENT') {
+      currentPeriodAmount += amt;
+      currentPeriodCount += 1;
+    } else if (target_month_status === 'FUTURE') {
+      futurePeriodAmount += amt;
+      futurePeriodCount += 1;
+    } else {
+      generalAmount += amt;
+      generalCount += 1;
+    }
+
+    // Method breakdown
+    const m = t.method || 'CASH';
+    const mInfo = methodMap.get(m) || { count: 0, total: 0, labelAr: METHOD_LABELS[m] || m };
+    mInfo.count += 1;
+    mInfo.total += amt;
+    methodMap.set(m, mInfo);
+
+    // Bank breakdown
+    const bId = t.cashbox?.id || 'OTHER';
+    const bName = t.cashbox?.name_ar || 'بدون تحديد خزينة';
+    const bKind = t.cashbox?.kind ?? null;
+    const bInfo = bankMap.get(bId) || { cashboxId: bId, name: bName, kind: bKind, count: 0, total: 0 };
+    bInfo.count += 1;
+    bInfo.total += amt;
+    bankMap.set(bId, bInfo);
+
+    // Category breakdown
+    const cId = t.category?.id || 'OTHER';
+    const cName = t.category?.name_ar || 'بدون بند';
+    const cCode = t.category?.code || '—';
+    const cInfo = catMap.get(cId) || { categoryId: cId, name: cName, code: cCode, count: 0, total: 0 };
+    cInfo.count += 1;
+    cInfo.total += amt;
+    catMap.set(cId, cInfo);
+
+    return {
+      transaction_id: t.id,
+      number: t.number,
+      reference: t.reference,
+      tx_date: t.tx_date,
+      amount: amt,
+      method: t.method,
+      category_id: t.category?.id ?? null,
+      category_name: cName,
+      category_code: cCode,
+      cashbox_id: t.cashbox?.id ?? null,
+      cashbox_name: bName,
+      cashbox_kind: bKind,
+      contact_name: t.contact?.name ?? null,
+      shop_number: t.contact?.shop_number ?? null,
+      description: t.description,
+      target_rent_month,
+      target_rent_month_key,
+      target_month_status,
+    };
+  });
+
+  return {
+    periodLabel: options.periodLabel,
+    startDate: options.startDate,
+    endDate: options.endDate,
+    totalCollected,
+    totalCount: filtered.length,
+    priorPeriodAmount,
+    priorPeriodCount,
+    currentPeriodAmount,
+    currentPeriodCount,
+    futurePeriodAmount,
+    futurePeriodCount,
+    generalAmount,
+    generalCount,
+    byMethod: Array.from(methodMap.entries()).map(([method, val]) => ({ method, ...val })),
+    byBank: Array.from(bankMap.values()).sort((a, b) => b.total - a.total),
+    byCategory: Array.from(catMap.values()).sort((a, b) => b.total - a.total),
+    items: items.sort((a, b) => new Date(b.tx_date).getTime() - new Date(a.tx_date).getTime()),
+  };
+}
+
 
 export type PeriodJournalEntryModel = {
   periodLabel: string;
@@ -1335,7 +1636,6 @@ function withEnsuredCashboxContra(
     category_name: section.fundingLabel,
     category_type: 'ASSET',
     cashbox_id: section.cashbox_id,
-    cashbox_name: section.fundingLabel,
     cashbox_kind: section.sectionKind,
     rowKey: `${section.sectionKey}::contra`,
     debit: focusIsCredit ? amount : 0,

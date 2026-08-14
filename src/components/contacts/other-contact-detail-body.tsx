@@ -24,7 +24,9 @@ import { TenantRentCalendarPanel } from '@/components/tenants/tenant-rent-calend
 import { getTenantStatus } from '@/components/tenants/tenant-status-config';
 import { getTenantCurrentMonthPresentation } from '@/lib/tenant-current-month';
 import { buildJournalEntriesForPdf } from '@/lib/journal-pdf';
+import { ContactLedgerPanel } from '@/components/contacts/contact-ledger-panel';
 import type { JournalEntryRow } from '@/lib/db/journal-queries';
+
 import type { TenantRentSummary } from '@/lib/db/queries';
 import type { ContactRow, TransactionWithRelations } from '@/lib/db/types';
 import { cn, formatDate, formatMoney } from '@/lib/utils';
@@ -333,123 +335,29 @@ export function OtherContactDetailBody({
               </TabsContent>
             )}
 
-            <TabsContent value="transactions">
-              {txLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-sage-600" />
-                </div>
-              ) : transactions.length === 0 ? (
-                <p className="text-sm text-ink-mute py-6 text-center">
-                  لا توجد معاملات مرتبطة بهذه الجهة
-                </p>
-              ) : (
-                <>
-                  <div className="sm:hidden">
-                    <MobileTransactionList rows={transactions} />
-                  </div>
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b text-ink-mute text-right">
-                          <th className="py-2 pr-2">التاريخ</th>
-                          <th className="py-2">النوع</th>
-                          <th className="py-2">الحساب</th>
-                          <th className="py-2 pl-2 text-left">المبلغ</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {transactions.map((tx) => (
-                          <tr key={tx.id} className="border-b border-border/60">
-                            <td className="py-2.5 pr-2">{formatDate(tx.tx_date)}</td>
-                            <td className="py-2.5">
-                              <span
-                                className={cn(
-                                  'text-xs font-medium',
-                                  tx.kind === 'REVENUE'
-                                    ? 'text-green-600'
-                                    : 'text-red-600',
-                                )}
-                              >
-                                {tx.kind === 'REVENUE' ? 'إيراد' : 'مصروف'}
-                              </span>
-                            </td>
-                            <td className="py-2.5 text-ink-mute">
-                              {tx.category?.name_ar ?? '—'}
-                            </td>
-                            <td className="py-2.5 pl-2 text-left font-medium">
-                              {formatMoney(Number(tx.amount), tx.currency)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
+            <TabsContent value="transactions" className="mt-0">
+              <ContactLedgerPanel
+                contact={contact}
+                transactions={transactions}
+                journalEntries={journalEntries}
+                txLoading={txLoading}
+                jeLoading={jeLoading}
+              />
             </TabsContent>
 
-            <TabsContent value="journals">
-              {jeLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-sage-600" />
-                </div>
-              ) : journalEntries.length === 0 ? (
-                <p className="text-sm text-ink-mute py-6 text-center">
-                  لا توجد قيود يومية مرتبطة
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {journalEntries.map((je) => (
-                    <div
-                      key={je.id}
-                      className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-border px-3 py-2.5"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="h-4 w-4 text-ink-mute shrink-0" />
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">
-                            قيد #{je.number}
-                            {je.description ? ` — ${je.description}` : ''}
-                          </p>
-                          <p className="text-xs text-ink-mute">
-                            {formatDate(je.entry_date)} ·{' '}
-                            {je.status === 'POSTED'
-                              ? 'مرحل'
-                              : je.status === 'DRAFT'
-                                ? 'مسودة'
-                                : 'معكوس'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <p className="font-medium text-sm tabular-nums">
-                          {formatMoney(Number(je.total_debit), 'LYD')}
-                        </p>
-                        <TajMallPdfToolbar
-                          fileName={`قيد-${je.number}`}
-                          render={async () => {
-                            const { JournalPDF } = await import('@/features/pdf/JournalPDF');
-                            const entries = await buildJournalEntriesForPdf([je]);
-                            return (
-                              <JournalPDF
-                                entries={entries}
-                                periodLabel={`القيد رقم ${je.number}`}
-                              />
-                            );
-                          }}
-                        />
-                        <Button size="sm" variant="ghost" className="h-8 text-xs" asChild>
-                          <Link href={`/journals?highlight=${je.id}`}>الدفتر</Link>
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <TabsContent value="journals" className="mt-0">
+              <ContactLedgerPanel
+                contact={contact}
+                transactions={transactions}
+                journalEntries={journalEntries}
+                txLoading={txLoading}
+                jeLoading={jeLoading}
+              />
             </TabsContent>
           </Tabs>
         </Card>
       </div>
+
     </>
   );
 }

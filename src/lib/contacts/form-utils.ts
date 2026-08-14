@@ -1,4 +1,9 @@
 import type { ContactRow } from '@/lib/db/types';
+import {
+  extractContactBusinessRole,
+  encodeContactRoleFields,
+  type ContactBusinessRole,
+} from '@/lib/contacts/contact-roles';
 
 /** قيمة من Supabase قد تكون number (numeric) أو string */
 function toFormString(value: unknown): string {
@@ -26,6 +31,7 @@ export function numericOrNull(value?: string | null | number): string | null {
 
 export type ContactFormState = {
   kind: ContactRow['kind'];
+  businessRole: ContactBusinessRole;
   name: string;
   phone: string;
   phone2: string;
@@ -35,6 +41,8 @@ export type ContactFormState = {
   floor: string;
   area_sqm: string;
   monthly_rent: string;
+  contract_start: string;
+  contract_end: string;
   job_title: string;
   department: string;
   salary: string;
@@ -42,28 +50,40 @@ export type ContactFormState = {
 };
 
 export const defaultContactFormState = (
-  kind: ContactRow['kind'] = 'CUSTOMER',
-): ContactFormState => ({
-  kind,
-  name: '',
-  phone: '',
-  phone2: '',
-  email: '',
-  address: '',
-  shop_number: '',
-  floor: '',
-  area_sqm: '',
-  monthly_rent: '',
-  job_title: '',
-  department: '',
-  salary: '',
-  notes: '',
-});
+  role: ContactBusinessRole = 'CUSTOMER',
+): ContactFormState => {
+  const isTenant = role === 'TENANT';
+  const isEmployee = role === 'EMPLOYEE';
+  const isLandlord = role === 'LANDLORD';
+
+  return {
+    kind: isTenant ? 'TENANT' : isEmployee ? 'EMPLOYEE' : isLandlord ? 'VENDOR' : role === 'CUSTOMER' ? 'CUSTOMER' : 'VENDOR',
+    businessRole: role,
+    name: '',
+    phone: '',
+    phone2: '',
+    email: '',
+    address: '',
+    shop_number: '',
+    floor: '',
+    area_sqm: '',
+    monthly_rent: '',
+    contract_start: '',
+    contract_end: '',
+    job_title: isLandlord ? 'مؤجر للمول' : '',
+    department: '',
+    salary: '',
+    notes: '',
+  };
+};
 
 export function contactToFormState(contact: ContactRow): ContactFormState {
   const row = contact as ContactRow & Record<string, unknown>;
+  const role = extractContactBusinessRole(contact);
+
   return {
     kind: contact.kind,
+    businessRole: role,
     name: toFormString(contact.name),
     phone: toFormString(contact.phone),
     phone2: toFormString(contact.phone2),
@@ -73,6 +93,8 @@ export function contactToFormState(contact: ContactRow): ContactFormState {
     floor: toFormString(contact.floor),
     area_sqm: toFormString(row.area_sqm),
     monthly_rent: toFormString(row.monthly_rent),
+    contract_start: toFormString(contact.contract_start ? contact.contract_start.slice(0, 10) : ''),
+    contract_end: toFormString(contact.contract_end ? contact.contract_end.slice(0, 10) : ''),
     job_title: toFormString(contact.job_title),
     department: toFormString(contact.department),
     salary: toFormString(row.salary),
@@ -107,32 +129,67 @@ export type ContactUpsertPayload = {
 
 /** حمولة الحفظ — الاسم فقط إلزامي */
 export function buildContactPayload(form: ContactFormState): ContactUpsertPayload {
-  const simpleProfile = form.kind === 'TENANT' || form.kind === 'EMPLOYEE';
+  const role = form.businessRole || 'CUSTOMER';
+  const { kind, roleTag, updatedNotes } = encodeContactRoleFields(role, form.notes);
+
+  let jobTitle = emptyToNull(form.job_title);
+  let department = emptyToNull(form.department);
+  let monthlyRent = numericOrNull(form.monthly_rent);
+  let salary = numericOrNull(form.salary);
+
+  if (role === 'LANDLORD') {
+    if (!jobTitle) jobTitle = 'مؤجر للمول';
+  } else {
+    // إذا كان المسمى القديم هو مؤجر للمول وتم تحويله لمورد أو دور آخر
+    if (jobTitle === 'مؤجر للمول') {
+      jobTitle = null;
+    }
+  }
+
+  if (role === 'SUPPLIER_ELECTRICITY' && !department) {
+    department = 'كهرباء وطاقة';
+  } else if (role === 'SUPPLIER_WATER' && !department) {
+    department = 'مياه وصرف';
+  } else if (role === 'SUPPLIER_GOODS' && !department) {
+    department = 'بضاعة ومواد';
+  } else if (role === 'SERVICE_PROVIDER' && !department) {
+    department = 'خدمات ومقاولات';
+  }
+
+  // تصفير حقول الإيجار إذا كان الدور لا يتضمن إيجاراً
+  if (role !== 'LANDLORD' && role !== 'TENANT') {
+    monthlyRent = null;
+  }
+  // تصفير المرتب إذا لم يكن موظفاً
+  if (role !== 'EMPLOYEE') {
+    salary = null;
+  }
 
   return {
-    kind: form.kind,
+    kind,
     name: toFormString(form.name).trim(),
     phone: emptyToNull(form.phone),
-    phone2: simpleProfile ? null : emptyToNull(form.phone2),
-    email: simpleProfile ? null : emptyToNull(form.email),
-    address: simpleProfile ? null : emptyToNull(form.address),
+    phone2: emptyToNull(form.phone2),
+    email: emptyToNull(form.email),
+    address: emptyToNull(form.address),
     shop_number: emptyToNull(form.shop_number),
     floor: emptyToNull(form.floor),
     area_sqm: numericOrNull(form.area_sqm),
-    monthly_rent: numericOrNull(form.monthly_rent),
-    job_title: emptyToNull(form.job_title),
-    department: emptyToNull(form.department),
-    salary: numericOrNull(form.salary),
-    notes: simpleProfile ? null : emptyToNull(form.notes),
+    monthly_rent: monthlyRent,
+    job_title: jobTitle,
+    department,
+    salary,
+    notes: updatedNotes ? updatedNotes : null,
     name_en: null,
     id_number: null,
     tax_number: null,
-    contract_start: null,
-    contract_end: null,
+    contract_start: emptyToNull(form.contract_start),
+    contract_end: emptyToNull(form.contract_end),
     hire_date: null,
     is_active: true,
   };
 }
+
 
 /** رسالة خطأ Supabase للمستخدم */
 export function formatContactSaveError(error: unknown): string {

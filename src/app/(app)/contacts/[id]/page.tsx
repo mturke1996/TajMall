@@ -47,10 +47,14 @@ import { RecordRentPaymentDialog } from '@/components/tenants/record-rent-paymen
 import { contactBackHref } from '@/lib/mall/routes';
 import { TenantContactDetail } from '@/components/tenants/tenant-contact-detail';
 import { OtherContactDetailBody } from '@/components/contacts/other-contact-detail-body';
+import { LandlordProfilePanel } from '@/components/contacts/landlord-profile-panel';
+import { UtilitySupplierPanel } from '@/components/contacts/utility-supplier-panel';
+import { extractContactBusinessRole, CONTACT_ROLES } from '@/lib/contacts/contact-roles';
 import { fallbackTenantRentFromContact } from '@/lib/tenant-rent-fallback';
 import { useTxDialog } from '@/stores/transaction-dialog';
 import { suggestedTxKindForContact } from '@/lib/party-contacts';
 import { usePermission } from '@/lib/supabase/use-permission';
+
 
 const KIND_ICON: Record<ContactKind, typeof Building2> = {
   TENANT: Building2,
@@ -78,6 +82,15 @@ export default function ContactDetailPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isPayOpen, setIsPayOpen] = useState(false);
   const [formData, setFormData] = useState<ContactFormState>(defaultContactFormState());
+  const role = useMemo(() => extractContactBusinessRole(contact), [contact]);
+
+  const roleMeta = CONTACT_ROLES[role] || CONTACT_ROLES.OTHER;
+  const isLandlord = role === 'LANDLORD';
+  const isUtilitySupplier =
+    role === 'SUPPLIER_ELECTRICITY' ||
+    role === 'SUPPLIER_WATER' ||
+    role === 'SUPPLIER_GOODS' ||
+    role === 'SERVICE_PROVIDER';
 
   const rentPaymentsCount = useMemo(
     () => transactions.filter((t) => t.kind === 'REVENUE').length,
@@ -88,6 +101,7 @@ export default function ContactDetailPage() {
     if (!contact || contact.kind !== 'TENANT') return null;
     return rent ?? fallbackTenantRentFromContact(contact);
   }, [contact, rent]);
+
 
   const totals = useMemo(() => {
     const revenue = transactions
@@ -259,6 +273,23 @@ export default function ContactDetailPage() {
             onRecordPayment={() => setIsPayOpen(true)}
             canRecordPayment={canRecordRent}
           />
+        ) : isLandlord ? (
+          <LandlordProfilePanel
+            contact={contactRecord}
+            transactions={transactions}
+            journalEntries={journalEntries}
+            txLoading={txLoading}
+            onEdit={openEdit}
+          />
+        ) : isUtilitySupplier ? (
+          <UtilitySupplierPanel
+            contact={contactRecord}
+            role={role}
+            transactions={transactions}
+            journalEntries={journalEntries}
+            txLoading={txLoading}
+            onEdit={openEdit}
+          />
         ) : (
           <OtherContactDetailBody
             contactId={id}
@@ -274,11 +305,12 @@ export default function ContactDetailPage() {
             rentPaymentsCount={rentPaymentsCount}
             canRecordRent={false}
             onRecordPayment={() => setIsPayOpen(true)}
-            kindLabel={kindInfo?.label}
-            kindColor={kindInfo?.color}
-            KindIcon={Icon}
+            kindLabel={roleMeta?.label || kindInfo?.label}
+            kindColor={roleMeta?.color || kindInfo?.color}
+            KindIcon={roleMeta?.icon || Icon}
           />
         )}
+
       </div>
 
       <ContactFormDialog
@@ -289,8 +321,8 @@ export default function ContactDetailPage() {
         editingId={id}
         onSubmit={handleSubmit}
         isPending={updateContact.isPending}
-        lockKind
       />
+
 
       {isTenant && rentSummary && (
         <RecordRentPaymentDialog

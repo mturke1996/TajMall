@@ -2,14 +2,16 @@
 
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { TrendingUp, ArrowDownToLine, Receipt } from 'lucide-react';
+import { TrendingUp, ArrowDownToLine, Receipt, SlidersHorizontal } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
+import { Button } from '@/components/ui/button';
 import { DataToolbar, type DateRangePreset, getDateRange } from '@/components/data/toolbar';
 import { TransactionsTable } from '@/components/data/transactions-table';
 import { Stat } from '@/components/dashboard/stat';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
-import { useTransactions } from '@/lib/db/queries';
+import { useTransactions, useCategories } from '@/lib/db/queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+import { RevenuesPdfDialog } from '@/features/pdf/revenues-pdf-dialog';
 import { useHighlightScroll } from '@/lib/hooks/use-highlight-scroll';
 import { transactionHighlightDomId } from '@/components/data/transactions-table';
 
@@ -18,7 +20,10 @@ export default function RevenuesPage() {
   const [query, setQuery] = useState('');
   const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
   const [methodFilter, setMethodFilter] = useState<'ALL' | 'CASH' | 'CHEQUE'>('ALL');
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+
   const { data, isLoading } = useTransactions('REVENUE');
+  const { data: categories = [] } = useCategories('REVENUE');
 
   const rows = useMemo(() => {
     const list = data ?? [];
@@ -73,18 +78,32 @@ export default function RevenuesPage() {
         description="جميع الإيرادات النقدية والمصرفية للمنظومة المالية."
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPdfModalOpen(true)}
+              className="min-h-11 touch-manipulation gap-1.5 font-semibold text-emerald-800 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-200 dark:border-emerald-800 dark:hover:bg-emerald-950 sm:min-h-9"
+              disabled={rows.length === 0}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              خيارات تقرير PDF المتقدمة
+            </Button>
             <TajMallPdfToolbar
               fileName={`إيرادات-${new Date().toISOString().slice(0, 10)}`}
               disabled={filtered.length === 0}
+              openLabel="عرض PDF سريع"
               render={async () => {
-                const { TransactionsReportPDF } = await import(
-                  '@/features/pdf/TransactionsReportPDF'
+                const { RevenuesReportPDF } = await import(
+                  '@/features/pdf/RevenuesReportPDF'
                 );
                 return (
-                  <TransactionsReportPDF
-                    titleAr="كشف الإيرادات"
-                    subtitleAr={`عدد القيود: ${filtered.length} — بحسب عرض القائمة الحالي`}
+                  <RevenuesReportPDF
+                    titleAr="كشف الإيرادات التفصيلي"
+                    subtitleAr={`عدد القيود: ${filtered.length} — بحسب تصفية الجدول`}
                     rows={filtered}
+                    groupByPaymentMethod={true}
+                    includeSummaries={true}
                   />
                 );
               }}
@@ -144,6 +163,13 @@ export default function RevenuesPage() {
           highlightId={highlightId}
         />
       </div>
+
+      <RevenuesPdfDialog
+        open={pdfModalOpen}
+        onOpenChange={setPdfModalOpen}
+        categories={categories}
+        transactions={rows}
+      />
     </>
   );
 }

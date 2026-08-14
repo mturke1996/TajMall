@@ -104,7 +104,6 @@
     scrollbar-gutter: stable;
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
-    overscroll-behavior-y: none;
   }
 
   body {
@@ -113,7 +112,14 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    overscroll-behavior-y: none;
+    width: 100%;
+    min-height: 100dvh;
+    overflow-x: clip;
+  }
+
+  /* Prevent text elements from pushing container widths */
+  p, h1, h2, h3, h4, h5, h6, span, a, label {
+    overflow-wrap: break-word;
   }
 
   /* Smooth, momentum-friendly scrolling on iOS containers */

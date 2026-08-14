@@ -21,28 +21,28 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        'flex flex-col gap-2 border-b border-border bg-canvas px-4 py-4 sm:px-5 md:px-8 md:py-5',
+        'flex w-full max-w-full min-w-0 flex-col gap-2 border-b border-border bg-canvas px-4 py-4 sm:px-5 md:px-8 md:py-5 overflow-hidden',
         className,
       )}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {eyebrow && (
-            <span className="text-[10.5px] font-semibold uppercase tracking-[0.20em] text-muted-foreground">
+            <span className="text-[10.5px] font-semibold uppercase tracking-[0.20em] text-muted-foreground break-words">
               {eyebrow}
             </span>
           )}
           {title && (
-            <h1 className={cn('text-[18px] font-bold tracking-tight leading-snug', titleClassName)}>
+            <h1 className={cn('text-[18px] font-bold tracking-tight leading-snug break-words', titleClassName)}>
               {title}
             </h1>
           )}
           {description && (
-            <p className="text-[13px] text-muted-foreground leading-snug mt-0.5">{description}</p>
+            <p className="text-[13px] text-muted-foreground leading-snug mt-0.5 break-words">{description}</p>
           )}
         </div>
         {actions && (
-          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
+          <div className="flex w-full min-w-0 max-w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
             {actions}
           </div>
         )}

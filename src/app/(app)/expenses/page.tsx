@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ArrowUpFromLine, Receipt, Wallet, Hash } from 'lucide-react';
+import { ArrowUpFromLine, Receipt, Wallet, Hash, SlidersHorizontal } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
+import { Button } from '@/components/ui/button';
 import { DataToolbar, type DateRangePreset, getDateRange } from '@/components/data/toolbar';
 import { TransactionsTable } from '@/components/data/transactions-table';
 import { Stat } from '@/components/dashboard/stat';
@@ -11,6 +12,7 @@ import { CategoryBreakdown } from '@/components/dashboard/category-breakdown';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
 import { useTransactions, useCategories } from '@/lib/db/queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+import { ExpensesPdfDialog } from '@/features/pdf/expenses-pdf-dialog';
 import { useHighlightScroll } from '@/lib/hooks/use-highlight-scroll';
 import { transactionHighlightDomId } from '@/components/data/transactions-table';
 
@@ -19,6 +21,8 @@ export default function ExpensesPage() {
   const [query, setQuery] = useState('');
   const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('ALL');
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+
 
   const { data, isLoading } = useTransactions('EXPENSE');
   const { data: categories = [] } = useCategories('EXPENSE');
@@ -88,6 +92,17 @@ export default function ExpensesPage() {
         description="مصاريف إدارية وعمومية وتشغيلية مرتبة حسب البند."
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPdfModalOpen(true)}
+              className="min-h-11 touch-manipulation gap-1.5 font-semibold text-sage-800 border-sage-300 hover:bg-sage-50 dark:text-sage-200 dark:border-sage-800 dark:hover:bg-sage-950 sm:min-h-9"
+              disabled={rows.length === 0}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              خيارات تقرير PDF المتقدمة
+            </Button>
             <TajMallPdfToolbar
               fileName={
                 selectedCategoryName
@@ -95,19 +110,23 @@ export default function ExpensesPage() {
                   : `مصروفات-${new Date().toISOString().slice(0, 10)}`
               }
               disabled={categoryFiltered.length === 0}
+              openLabel="عرض PDF سريع"
               render={async () => {
-                const { TransactionsReportPDF } = await import('@/features/pdf/TransactionsReportPDF');
+                const { ExpensesReportPDF } = await import('@/features/pdf/ExpensesReportPDF');
                 return (
-                  <TransactionsReportPDF
-                    titleAr={selectedCategoryName ? `كشف مصروفات: ${selectedCategoryName}` : "كشف المصروفات العمومية"}
-                    subtitleAr={`عدد القيود: ${categoryFiltered.length} — بحسب عرض القائمة المصفاة`}
+                  <ExpensesReportPDF
+                    titleAr={selectedCategoryName ? `كشف مصروفات: ${selectedCategoryName}` : 'كشف المصروفات العمومية'}
+                    subtitleAr={`عدد القيود: ${categoryFiltered.length} — بحسب تصفية الجدول`}
                     rows={categoryFiltered}
+                    groupByPaymentMethod={true}
+                    includeSummaries={true}
                   />
                 );
               }}
             />
             <NewTransactionButton kind="EXPENSE" label="مصروف جديد" />
           </div>
+
         }
       />
 
@@ -203,6 +222,15 @@ export default function ExpensesPage() {
           highlightId={highlightId}
         />
       </div>
+
+      <ExpensesPdfDialog
+        open={pdfModalOpen}
+        onOpenChange={setPdfModalOpen}
+        categories={categories}
+        transactions={rows}
+        defaultCategoryId={selectedCategoryId}
+      />
     </>
   );
 }
+

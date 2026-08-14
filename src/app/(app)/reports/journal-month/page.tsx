@@ -10,10 +10,20 @@ import {
   Layers,
   TrendingUp,
   TrendingDown,
+  Receipt,
+  Search,
+  Building2,
+  Calendar,
+  Sparkles,
+  Clock,
+  ArrowDownLeft,
+  SlidersHorizontal,
 } from 'lucide-react';
+
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -35,7 +45,9 @@ import {
 import { AccountingBackfillBanner } from '@/components/accounting/accounting-backfill-banner';
 import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+import { PeriodJournalPdfDialog } from '@/features/pdf/period-journal-pdf-dialog';
 import { type JournalStatus } from '@/lib/db/journal-queries';
+
 import {
   fetchPeriodJournalEntry,
   applyPeriodJournalCategoryFilter,
@@ -47,9 +59,12 @@ import {
   periodLineCashboxKindsLabel,
   isPeriodJournalGroupByType,
   parsePeriodJournalTypeFilter,
+  isPeriodJournalCashCollections,
   PERIOD_JOURNAL_GROUP_BY_TYPE,
   PERIOD_JOURNAL_TYPE_REVENUE,
   PERIOD_JOURNAL_TYPE_EXPENSE,
+  PERIOD_JOURNAL_MODE_CASH_COLLECTIONS,
+  buildPeriodCashCollectionsSummary,
   type PeriodJournalEntryModel,
 } from '@/lib/period-journal-entry';
 import {
@@ -60,7 +75,7 @@ import {
   reportsHref,
   type ReportPeriod,
 } from '@/lib/report-period';
-import { useCategories, useCashboxes } from '@/lib/db/queries';
+import { useCategories, useCashboxes, useTransactions } from '@/lib/db/queries';
 import { formatMoney, cn } from '@/lib/utils';
 
 type StatusFilter = JournalStatus | 'ALL';
@@ -70,7 +85,8 @@ type ViewMode =
   | typeof ALL_CATEGORIES
   | typeof PERIOD_JOURNAL_GROUP_BY_TYPE
   | typeof PERIOD_JOURNAL_TYPE_REVENUE
-  | typeof PERIOD_JOURNAL_TYPE_EXPENSE;
+  | typeof PERIOD_JOURNAL_TYPE_EXPENSE
+  | typeof PERIOD_JOURNAL_MODE_CASH_COLLECTIONS;
 
 const VIEW_MODE_OPTIONS: Array<{
   value: ViewMode;
@@ -102,6 +118,12 @@ const VIEW_MODE_OPTIONS: Array<{
     shortLabel: 'المصاريف',
     icon: TrendingDown,
   },
+  {
+    value: PERIOD_JOURNAL_MODE_CASH_COLLECTIONS,
+    label: 'التحصيل الفعلي في الفترة (تاريخ القبض/التسجيل)',
+    shortLabel: 'التحصيل الفعلي',
+    icon: Receipt,
+  },
 ];
 
 function isViewMode(value: string): value is ViewMode {
@@ -110,7 +132,9 @@ function isViewMode(value: string): value is ViewMode {
 
 function isSpecialCategoryFilter(value: string): boolean {
   return (
-    isPeriodJournalGroupByType(value) || parsePeriodJournalTypeFilter(value) != null
+    isPeriodJournalGroupByType(value) ||
+    parsePeriodJournalTypeFilter(value) != null ||
+    isPeriodJournalCashCollections(value)
   );
 }
 
@@ -144,6 +168,16 @@ function JournalMonthContent() {
 
   const { data: categories = [], isLoading: categoriesLoading } = useCategories();
   const { data: cashboxes = [] } = useCashboxes();
+  const { data: allTransactions = [] } = useTransactions();
+  const { data: revenueTransactions = [], isLoading: transactionsLoading } = useTransactions('REVENUE');
+
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+
+  // Search & Status filters for Cash Collections Mode
+  const [collectionSearch, setCollectionSearch] = useState('');
+  const [collectionStatusFilter, setCollectionStatusFilter] = useState<'ALL' | 'PRIOR' | 'CURRENT' | 'FUTURE'>('ALL');
+  const [collectionBankFilter, setCollectionBankFilter] = useState<string>('ALL');
+
 
   useEffect(() => {
     if (categoryParam && categoryParam !== ALL_CATEGORIES) {
@@ -201,11 +235,48 @@ function JournalMonthContent() {
 
   const isGroupedTypeView = isPeriodJournalGroupByType(categoryFilterId);
   const accountTypeFilter = parsePeriodJournalTypeFilter(categoryFilterId);
+  const isCashCollectionsView = isPeriodJournalCashCollections(categoryFilterId);
   const isTypeAggregateView = accountTypeFilter != null;
-  const isAggregateView = isGroupedTypeView || isTypeAggregateView;
+  const isAggregateView = isGroupedTypeView || isTypeAggregateView || isCashCollectionsView;
 
   const { startDate, endDate } = reportPeriodDateRange(period);
   const periodLabel = formatReportPeriodLabelAr(period);
+
+  // Build Cash Collections Summary
+  const cashCollectionsSummary = useMemo(() => {
+    return buildPeriodCashCollectionsSummary(revenueTransactions, {
+      startDate,
+      endDate,
+      periodLabel,
+    });
+  }, [revenueTransactions, startDate, endDate, periodLabel]);
+
+  // Filtered Cash Collection Items for UI Table
+  const filteredCollectionItems = useMemo(() => {
+    if (!cashCollectionsSummary) return [];
+    return cashCollectionsSummary.items.filter((it) => {
+      if (collectionStatusFilter !== 'ALL' && it.target_month_status !== collectionStatusFilter) {
+        return false;
+      }
+      if (collectionBankFilter !== 'ALL' && it.cashbox_id !== collectionBankFilter) {
+        return false;
+      }
+      if (collectionSearch.trim()) {
+        const q = collectionSearch.toLowerCase().trim();
+        const match =
+          (it.description ?? '').toLowerCase().includes(q) ||
+          (it.contact_name ?? '').toLowerCase().includes(q) ||
+          (it.shop_number ?? '').toLowerCase().includes(q) ||
+          (it.cashbox_name ?? '').toLowerCase().includes(q) ||
+          (it.category_name ?? '').toLowerCase().includes(q) ||
+          (it.target_rent_month ?? '').toLowerCase().includes(q) ||
+          String(it.number).includes(q) ||
+          (it.reference ?? '').includes(q);
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [cashCollectionsSummary, collectionStatusFilter, collectionBankFilter, collectionSearch]);
 
   const selectedCategory = useMemo(
     () =>
@@ -230,6 +301,9 @@ function JournalMonthContent() {
     let cancelled = false;
 
     async function run() {
+      if (isCashCollectionsView) {
+        return;
+      }
       setAggLoading(true);
       setAggError(null);
       setModel(null);
@@ -272,6 +346,7 @@ function JournalMonthContent() {
       cancelled = true;
     };
   }, [
+    isCashCollectionsView,
     focusCategoryId,
     period,
     statusFilter,
@@ -331,8 +406,8 @@ function JournalMonthContent() {
   }, [comprehensiveModelRaw]);
 
   const isFilteredView = categoryFilterId !== ALL_CATEGORIES;
-  const isLoading = aggLoading || categoriesLoading;
-  const isError = !!aggError;
+  const isLoading = (aggLoading || categoriesLoading) && !isCashCollectionsView;
+  const isError = !!aggError && !isCashCollectionsView;
   const errorMessage = aggError;
 
   const exportNames = useMemo(
@@ -357,6 +432,27 @@ function JournalMonthContent() {
       ]),
     [displayModel],
   );
+
+  const cashCollectionCsvRows = useMemo(() => {
+    if (!cashCollectionsSummary) return [];
+    return cashCollectionsSummary.items.map((it) => [
+      it.number,
+      it.tx_date,
+      it.target_rent_month || 'الشهر الحالي',
+      it.target_month_status === 'PRIOR'
+        ? 'مستحق سابق (متأخرات)'
+        : it.target_month_status === 'FUTURE'
+          ? 'إيجار مقدم'
+          : 'الشهر الحالي',
+      it.contact_name
+        ? `${it.contact_name}${it.shop_number ? ` (${it.shop_number})` : ''}`
+        : '—',
+      it.cashbox_name,
+      it.category_name,
+      it.amount,
+      it.description || '—',
+    ]);
+  }, [cashCollectionsSummary]);
 
   const renderComprehensivePdf = useCallback(async () => {
     const { PeriodJournalEntryPDF } = await import(
@@ -402,50 +498,104 @@ function JournalMonthContent() {
         eyebrow="مركز التقارير"
         title="قيد الفترة المحاسبي"
         description={
-          isGroupedTypeView
-            ? `إيرادات ومصاريف مجمّعة — مجموع فقط، والنقدي/كل مصرف دائن بورقة · ${periodLabel}`
-            : isTypeAggregateView && displayModel?.typeGroupFilter
-              ? `${displayModel.typeGroupFilter.name_ar} — مجموع فقط بلا تفصيل، والنقدي/كل مصرف دائن بورقة · ${periodLabel}`
-              : isSingleCategoryView && displayModel?.categoryFilter
-                ? `كشف بند ${displayModel.categoryFilter.name_ar} — قيد لكل خزينة ومصرف (مدين/دائن) · ${periodLabel}`
-                : `اختر طريقة التجميع أعلاه — أو اعرض كل بند على حدة · ${periodLabel}`
+          isCashCollectionsView
+            ? `كشف الإيرادات والتحصيلات المسجلة خلال الفترة (بناءً على تاريخ القبض والتسجيل الفعلي) · ${periodLabel}`
+            : isGroupedTypeView
+              ? `إيرادات ومصاريف مجمّعة — مجموع فقط، والنقدي/كل مصرف دائن بورقة · ${periodLabel}`
+              : isTypeAggregateView && displayModel?.typeGroupFilter
+                ? `${displayModel.typeGroupFilter.name_ar} — مجموع فقط بلا تفصيل، والنقدي/كل مصرف دائن بورقة · ${periodLabel}`
+                : isSingleCategoryView && displayModel?.categoryFilter
+                  ? `كشف بند ${displayModel.categoryFilter.name_ar} — قيد لكل خزينة ومصرف (مدين/دائن) · ${periodLabel}`
+                  : `اختر طريقة التجميع أعلاه — أو اعرض كل بند على حدة · ${periodLabel}`
         }
         actions={
           <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPdfModalOpen(true)}
+              className="min-h-11 touch-manipulation gap-1.5 font-semibold text-emerald-800 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-200 dark:border-emerald-800 dark:hover:bg-emerald-950 sm:min-h-9"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              خيارات تقرير PDF المتقدمة
+            </Button>
             <Button variant="outline" size="sm" className="gap-1.5" asChild>
               <Link href={reportsHref('/reports', period)}>
                 <LayoutGrid className="h-4 w-4" />
                 مركز التقارير
               </Link>
             </Button>
-            <ExportCsvButton
-              fileName={exportNames.fileName}
-              headers={['الرمز', 'البند', 'الخزينة', 'مدين', 'دائن', 'الصافي']}
-              rows={csvRows}
-              disabled={categoryPdfDisabled}
-            />
-            <TajMallPdfToolbar
-              fileName={comprehensiveExportNames.fileName}
-              shareTitle={comprehensiveExportNames.shareTitle}
-              shareText={comprehensiveExportNames.shareText}
-              cacheKey={`pje-comp:${startDate}:${endDate}:${statusFilter}:${comprehensiveModel?.lines.length ?? 0}:${comprehensiveModel?.totalDebit ?? 0}`}
-              disabled={comprehensivePdfDisabled}
-              openLabel="تقرير شامل PDF"
-              render={renderComprehensivePdf}
-            />
-            {isFilteredView ? (
-              <TajMallPdfToolbar
-                fileName={exportNames.fileName}
-                shareTitle={exportNames.shareTitle}
-                shareText={exportNames.shareText}
-                cacheKey={`pje-cat:${startDate}:${endDate}:${statusFilter}:${categoryFilterId}:${displayModel?.lines.length ?? 0}:${displayModel?.totalDebit ?? 0}`}
-                disabled={categoryPdfDisabled}
-                openLabel={
-                  isAggregateView ? 'التجميع PDF' : 'كشف البند PDF'
-                }
-                render={renderCategoryPdf}
-              />
-            ) : null}
+
+
+
+            {isCashCollectionsView ? (
+              <>
+                <ExportCsvButton
+                  fileName={`تحصيلات-فعلية-${periodLabel}`}
+                  headers={[
+                    'الرقم',
+                    'تاريخ القبض',
+                    'شهر الاستحقاق',
+                    'نوع التحصيل',
+                    'المستأجر/العميل',
+                    'الخزينة/المصرف',
+                    'البند',
+                    'المبلغ',
+                    'البيان',
+                  ]}
+                  rows={cashCollectionCsvRows}
+                  disabled={!cashCollectionsSummary || cashCollectionsSummary.items.length === 0}
+                />
+                <TajMallPdfToolbar
+                  fileName={`كشف-التحصيلات-الفعلية-${periodLabel}`}
+                  shareTitle={`كشف الإيرادات والتحصيلات المسجلة خلال ${periodLabel}`}
+                  disabled={!cashCollectionsSummary || cashCollectionsSummary.items.length === 0}
+                  openLabel="تقرير التحصيل الفعلي PDF"
+                  render={async () => {
+                    const { PeriodCashCollectionsReportPDF } = await import(
+                      '@/features/pdf/PeriodCashCollectionsReportPDF'
+                    );
+                    if (!cashCollectionsSummary) throw new Error('لا توجد بيانات للتحصيل');
+                    return (
+                      <PeriodCashCollectionsReportPDF
+                        summary={cashCollectionsSummary}
+                        documentTitle={`تاج مول — كشف التحصيلات الفعلية — ${periodLabel}`}
+                      />
+                    );
+                  }}
+                />
+              </>
+            ) : (
+              <>
+                <ExportCsvButton
+                  fileName={exportNames.fileName}
+                  headers={['الرمز', 'البند', 'الخزينة', 'مدين', 'دائن', 'الصافي']}
+                  rows={csvRows}
+                  disabled={categoryPdfDisabled}
+                />
+                <TajMallPdfToolbar
+                  fileName={comprehensiveExportNames.fileName}
+                  shareTitle={comprehensiveExportNames.shareTitle}
+                  shareText={comprehensiveExportNames.shareText}
+                  cacheKey={`pje-comp:${startDate}:${endDate}:${statusFilter}:${comprehensiveModel?.lines.length ?? 0}:${comprehensiveModel?.totalDebit ?? 0}`}
+                  disabled={comprehensivePdfDisabled}
+                  openLabel="تقرير شامل PDF"
+                  render={renderComprehensivePdf}
+                />
+                {isFilteredView ? (
+                  <TajMallPdfToolbar
+                    fileName={exportNames.fileName}
+                    shareTitle={exportNames.shareTitle}
+                    shareText={exportNames.shareText}
+                    cacheKey={`pje-cat:${startDate}:${endDate}:${statusFilter}:${categoryFilterId}:${displayModel?.lines.length ?? 0}:${displayModel?.totalDebit ?? 0}`}
+                    disabled={categoryPdfDisabled}
+                    openLabel={isAggregateView ? 'التجميع PDF' : 'كشف البند PDF'}
+                    render={renderCategoryPdf}
+                  />
+                ) : null}
+              </>
+            )}
           </>
         }
       />
@@ -458,14 +608,14 @@ function JournalMonthContent() {
             <div className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs font-medium text-muted-foreground">
-                  طريقة تجميع البنود
+                  طريقة تجميع وعرض قيد الفترة
                 </p>
                 {isAggregateView ? (
                   <Badge
                     variant="success"
                     className="font-normal normal-case tracking-normal"
                   >
-                    وضع التجميع مفعّل
+                    {isCashCollectionsView ? 'وضع التحصيل الفعلي مفعّل' : 'وضع التجميع مفعّل'}
                   </Badge>
                 ) : null}
               </div>
@@ -476,7 +626,7 @@ function JournalMonthContent() {
                 onValueChange={onCategoryChange}
                 className="w-full"
               >
-                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-4">
+                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-5">
                   {VIEW_MODE_OPTIONS.map((opt) => {
                     const Icon = opt.icon;
                     return (
@@ -486,10 +636,12 @@ function JournalMonthContent() {
                         className={cn(
                           'flex min-h-11 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center sm:min-h-10 sm:flex-row sm:gap-1.5',
                           'data-[state=active]:bg-sage-600 data-[state=active]:text-white data-[state=active]:border-sage-700',
+                          opt.value === PERIOD_JOURNAL_MODE_CASH_COLLECTIONS &&
+                            'data-[state=active]:bg-emerald-700 data-[state=active]:border-emerald-800'
                         )}
                       >
                         <Icon className="h-3.5 w-3.5 shrink-0" />
-                        <span className="text-[11px] leading-tight sm:text-[12.5px]">
+                        <span className="text-[11px] leading-tight sm:text-[12px]">
                           <span className="sm:hidden">{opt.shortLabel}</span>
                           <span className="hidden sm:inline">{opt.label}</span>
                         </span>
@@ -499,11 +651,13 @@ function JournalMonthContent() {
                 </TabsList>
               </Tabs>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                {isGroupedTypeView
-                  ? 'يجمع كل بنود الإيراد في صف واحد وكل بنود المصروف في صف واحد مع أطراف الخزينة.'
-                  : isTypeAggregateView
-                    ? 'يعرض مجموع النوع المختار فقط كقيد مزدوج (البند المجمّع + الطرف المقابل).'
-                    : 'اعرض كل بند بإجماله، أو اختر بنداً واحداً من القائمة أدناه.'}
+                {isCashCollectionsView
+                  ? 'يعرض جميع الإيرادات والتحصيلات المقبوضة فعلياً خلال هذه الفترة (بتاريخ التسجيل) مع فرز ما يخص شهور سابقة (مثل إيجار مايو المسجل في يوليو) أو مقدماً أو لنفس الشهر.'
+                  : isGroupedTypeView
+                    ? 'يجمع كل بنود الإيراد في صف واحد وكل بنود المصروف في صف واحد مع أطراف الخزينة.'
+                    : isTypeAggregateView
+                      ? 'يعرض مجموع النوع المختار فقط كقيد مزدوج (البند المجمّع + الطرف المقابل).'
+                      : 'اعرض كل بند بإجماله، أو اختر بنداً واحداً من القائمة أدناه.'}
               </p>
             </div>
 
@@ -535,7 +689,7 @@ function JournalMonthContent() {
                 </Select>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
                   {isAggregateView
-                    ? 'معطّل أثناء وضع التجميع — اختر «كل البنود» أعلاه أولاً.'
+                    ? 'معطّل أثناء وضع التجميع أو التحصيل الفعلي — اختر «كل البنود» أعلاه أولاً.'
                     : isSingleCategoryView
                       ? 'بند واحد: جدول قيد مستقل لكل خزينة نقدية ولكل مصرف — مدين ودائن.'
                       : 'اتركه على جميع البنود، أو اختر بنداً لكشف تفصيلي.'}
@@ -548,6 +702,7 @@ function JournalMonthContent() {
                 <Select
                   value={statusFilter}
                   onValueChange={(v) => onStatusChange(v as StatusFilter)}
+                  disabled={isCashCollectionsView}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -564,188 +719,355 @@ function JournalMonthContent() {
           </div>
         </AccountingFilterCard>
 
-        {isLoading ? (
-          <AccountingLoading />
-        ) : isError ? (
-          <AccountingError
-            title="تعذّر بناء قيد الفترة"
-            message={errorMessage ?? undefined}
-          />
-        ) : !displayModel || displayModel.lines.length === 0 ? (
-          <AccountingEmpty
-            icon={BookOpen}
-            title={
-              displayModel?.categoryFilter || displayModel?.typeGroupFilter
-                ? 'لا حركة على هذا التجميع'
-                : 'لا توجد حركة لبناء القيد'
-            }
-            description={
-              displayModel?.categoryFilter
-                ? `البند «${displayModel.categoryFilter.name_ar}» لم يتحرك في ${periodLabel}.`
-                : displayModel?.typeGroupFilter
-                  ? `«${displayModel.typeGroupFilter.name_ar}» بلا حركة في ${periodLabel}.`
-                  : 'اختر شهراً فيه قيود مرحّلة، أو غيّر فلتر المصدر.'
-            }
-          >
-            {displayModel?.categoryFilter || displayModel?.typeGroupFilter ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onCategoryChange(ALL_CATEGORIES)}
-              >
-                عرض جميع البنود
-              </Button>
-            ) : (
-              <>
-                <AccountingBackfillBanner
-                  title="قد توجد معاملات غير مرحّلة"
-                  description="إن كانت لديك معاملات قديمة ولم تظهر هنا، اضغط ترحيل لإنشاء قيودها في دفتر اليومية."
-                />
-                <Button size="sm" asChild>
-                  <Link href="/journals">دفتر اليومية</Link>
-                </Button>
-              </>
-            )}
-          </AccountingEmpty>
-        ) : (
-          <>
-            {displayModel.truncated ? (
-              <AccountingBackfillBanner
-                title="تنبيه: قد يكون المجموع ناقصاً"
-                description="تم بلوغ حد جلب القيود لهذه الفترة. عند اختيار بند واحد (مثل إيجارات المحلات) يُعاد الجلب كاملاً لهذا البند — تأكد أن البند محدد من القائمة."
-              />
-            ) : null}
-            <AccountingSummaryGrid
-              stats={[
-                {
-                  label: displayModel.typeGroupFilter
-                    ? 'صفوف مجمّعة'
-                    : displayModel.categoryFilter
-                      ? 'قيود البند'
-                      : 'بنود تحرّكت',
-                  value: displayModel.categoryFilter
-                    ? displayModel.sourceEntryCount
-                    : displayModel.lines.length,
-                  currency: '',
-                },
-                {
-                  label: displayModel.categoryFilter
-                    ? 'مدين (البند + الطرف)'
-                    : 'إجمالي المدين',
-                  value: displayModel.totalDebit,
-                  tone: 'positive',
-                },
-                {
-                  label: displayModel.categoryFilter
-                    ? 'دائن (البند + الطرف)'
-                    : 'إجمالي الدائن',
-                  value: displayModel.totalCredit,
-                  tone: 'negative',
-                },
-                {
-                  label: 'فرق التوازن',
-                  value: Math.abs(displayModel.totalDebit - displayModel.totalCredit),
-                  tone: displayModel.balanced ? 'positive' : 'negative',
-                },
-              ]}
-            />
-
-            {!(displayModel.categoryFilter && !displayModel.typeGroupFilter) ? (
-            <Card className="border-sage-600/30">
-              <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 border-b pb-3">
+        {/* VIEW A: Cash Collections by Actual Entry Date Mode */}
+        {isCashCollectionsView ? (
+          <div className="space-y-5">
+            {/* Informational Scope Strip */}
+            <div className="rounded-xl border border-emerald-300 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-700 text-white shrink-0">
+                  <Sparkles className="h-5 w-5" />
+                </div>
                 <div>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <FileSpreadsheet className="h-4 w-4 text-sage-700" />
-                    {displayModel.title}
-                  </CardTitle>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {displayModel.typeGroupFilter?.mode === 'group'
-                      ? `إيرادات معاً · مصاريف معاً · ${displayModel.lines.length} صف`
-                      : displayModel.categoryFilter
-                        ? `قيد مستقل لكل خزينة ومصرف · ${displayModel.categoryFilter.code}`
-                        : `مجاميع ${displayModel.lines.length} بند · ثم مجموع كل بند`}
+                  <h4 className="text-sm font-bold text-emerald-950 dark:text-emerald-100">
+                    كشف الإيرادات والتحصيلات المسجلة فعلياً خلال {periodLabel}
+                  </h4>
+                  <p className="text-xs text-emerald-800/80 dark:text-emerald-300/80 mt-0.5">
+                    الأساس: تاريخ القبض والتسجيل بالدفاتر المالية ({startDate} إلى {endDate}).
                   </p>
                 </div>
-                <Badge
-                  variant={displayModel.balanced ? 'success' : 'danger'}
-                  className="font-normal normal-case tracking-normal"
+              </div>
+              <Badge variant="outline" className="border-emerald-400 text-emerald-800 dark:text-emerald-200 self-start sm:self-auto font-semibold">
+                {cashCollectionsSummary.totalCount} عملية تحصيل
+              </Badge>
+            </div>
+
+            {/* 4 Stat Cards */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Card className="border-emerald-600/30 bg-emerald-50/30 dark:bg-emerald-950/20">
+                <CardContent className="p-4 space-y-1">
+                  <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                    إجمالي المحصل في الفترة
+                  </p>
+                  <p className="text-lg font-bold text-foreground font-mono">
+                    {formatMoney(cashCollectionsSummary.totalCollected, 'LYD')}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {cashCollectionsSummary.totalCount} قيد تحصيل مسجل
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-amber-500/30 bg-amber-50/30 dark:bg-amber-950/20">
+                <CardContent className="p-4 space-y-1">
+                  <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                    <Clock className="h-3.5 w-3.5" />
+                    <p className="text-xs font-semibold">
+                      مستحقات شهور سابقة (متأخرات)
+                    </p>
+                  </div>
+                  <p className="text-lg font-bold text-amber-900 dark:text-amber-200 font-mono">
+                    {formatMoney(cashCollectionsSummary.priorPeriodAmount, 'LYD')}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {cashCollectionsSummary.priorPeriodCount} قيد يخص شهوراً سابقة
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-emerald-600/30 bg-emerald-50/20">
+                <CardContent className="p-4 space-y-1">
+                  <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <p className="text-xs font-semibold">
+                      تحصيلات الشهر الحالي
+                    </p>
+                  </div>
+                  <p className="text-lg font-bold text-emerald-900 dark:text-emerald-100 font-mono">
+                    {formatMoney(cashCollectionsSummary.currentPeriodAmount, 'LYD')}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {cashCollectionsSummary.currentPeriodCount} قيد لنفس الشهر
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-indigo-500/30 bg-indigo-50/30 dark:bg-indigo-950/20">
+                <CardContent className="p-4 space-y-1">
+                  <div className="flex items-center gap-1.5 text-indigo-800 dark:text-indigo-300">
+                    <ArrowDownLeft className="h-3.5 w-3.5" />
+                    <p className="text-xs font-semibold">
+                      تحصيلات إيجار مقدم
+                    </p>
+                  </div>
+                  <p className="text-lg font-bold text-indigo-900 dark:text-indigo-200 font-mono">
+                    {formatMoney(cashCollectionsSummary.futurePeriodAmount, 'LYD')}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {cashCollectionsSummary.futurePeriodCount} قيد مقدم
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Distribution Cards: Banks & Categories */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Banks Distribution */}
+              <Card className="border-border">
+                <CardHeader className="py-3 px-4 border-b bg-canvas-sunken/40">
+                  <CardTitle className="text-xs font-bold flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Building2 className="h-4 w-4 text-emerald-700" />
+                      مجموع كل مصرف وخزينة مودع بها
+                    </span>
+                    <span className="text-[11px] text-muted-foreground font-normal">
+                      {cashCollectionsSummary.byBank.length} حسابات
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-border">
+                    {cashCollectionsSummary.byBank.map((b) => {
+                      const pct = cashCollectionsSummary.totalCollected > 0
+                        ? ((b.total / cashCollectionsSummary.totalCollected) * 100).toFixed(1)
+                        : '0';
+                      return (
+                        <div key={b.cashboxId} className="flex items-center justify-between p-3 text-xs hover:bg-canvas-sunken/30">
+                          <div className="space-y-0.5">
+                            <p className="font-semibold text-foreground">{b.name}</p>
+                            <p className="text-[11px] text-muted-foreground">{b.count} عملية إيداع</p>
+                          </div>
+                          <div className="text-left space-y-0.5">
+                            <p className="font-mono font-bold text-foreground">{formatMoney(b.total, 'LYD')}</p>
+                            <p className="text-[11px] text-muted-foreground">{pct}%</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Categories Distribution */}
+              <Card className="border-border">
+                <CardHeader className="py-3 px-4 border-b bg-canvas-sunken/40">
+                  <CardTitle className="text-xs font-bold flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Layers className="h-4 w-4 text-emerald-700" />
+                      مجموع كل بند من بنود الإيرادات
+                    </span>
+                    <span className="text-[11px] text-muted-foreground font-normal">
+                      {cashCollectionsSummary.byCategory.length} بنود
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-border">
+                    {cashCollectionsSummary.byCategory.map((c) => {
+                      const pct = cashCollectionsSummary.totalCollected > 0
+                        ? ((c.total / cashCollectionsSummary.totalCollected) * 100).toFixed(1)
+                        : '0';
+                      return (
+                        <div key={c.categoryId} className="flex items-center justify-between p-3 text-xs hover:bg-canvas-sunken/30">
+                          <div className="space-y-0.5">
+                            <p className="font-semibold text-foreground">{c.name}</p>
+                            <p className="text-[11px] font-mono text-muted-foreground">{c.code} · {c.count} عملية</p>
+                          </div>
+                          <div className="text-left space-y-0.5">
+                            <p className="font-mono font-bold text-foreground">{formatMoney(c.total, 'LYD')}</p>
+                            <p className="text-[11px] text-muted-foreground">{pct}%</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Filter & Search Bar for Table */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 bg-card border rounded-xl p-3 shadow-xs">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute end-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={collectionSearch}
+                  onChange={(e) => setCollectionSearch(e.target.value)}
+                  placeholder="ابحث في المستأجرين، المحلات، البيان…"
+                  className="h-8 pe-8 text-xs"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                <div className="flex items-center gap-1 bg-canvas-sunken p-0.5 rounded-lg border">
+                  <button
+                    type="button"
+                    onClick={() => setCollectionStatusFilter('ALL')}
+                    className={cn(
+                      'px-2.5 py-1 text-xs rounded-md font-medium transition-colors',
+                      collectionStatusFilter === 'ALL'
+                        ? 'bg-card text-foreground shadow-xs font-semibold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    الكل
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCollectionStatusFilter('PRIOR')}
+                    className={cn(
+                      'px-2.5 py-1 text-xs rounded-md font-medium transition-colors',
+                      collectionStatusFilter === 'PRIOR'
+                        ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 font-semibold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    ⏳ شهور سابقة
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCollectionStatusFilter('CURRENT')}
+                    className={cn(
+                      'px-2.5 py-1 text-xs rounded-md font-medium transition-colors',
+                      collectionStatusFilter === 'CURRENT'
+                        ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 font-semibold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    🎯 الشهر الحالي
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCollectionStatusFilter('FUTURE')}
+                    className={cn(
+                      'px-2.5 py-1 text-xs rounded-md font-medium transition-colors',
+                      collectionStatusFilter === 'FUTURE'
+                        ? 'bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-200 font-semibold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    🚀 مقدم
+                  </button>
+                </div>
+
+                <Select
+                  value={collectionBankFilter}
+                  onValueChange={setCollectionBankFilter}
                 >
-                  {displayModel.balanced ? 'متوازن — مدين = دائن' : 'غير متوازن'}
+                  <SelectTrigger className="h-8 text-xs w-[140px]">
+                    <SelectValue placeholder="كل المصارف" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">كل المصارف/الخزائن</SelectItem>
+                    {cashboxes.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name_ar}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Detailed Transactions Table */}
+            <Card className="border-border overflow-hidden">
+              <CardHeader className="py-3 px-4 border-b bg-canvas-sunken/40 flex flex-row items-center justify-between">
+                <CardTitle className="text-xs font-bold flex items-center gap-2">
+                  <Receipt className="h-4 w-4 text-emerald-700" />
+                  تفاصيل قيود التحصيل المسجلة ({filteredCollectionItems.length} عملية)
+                </CardTitle>
+                <Badge variant="outline" className="font-mono text-xs">
+                  المجموع:{' '}
+                  {formatMoney(
+                    filteredCollectionItems.reduce((s, it) => s + it.amount, 0),
+                    'LYD'
+                  )}
                 </Badge>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b bg-muted/40 text-muted-foreground">
-                        <th className="px-4 py-2.5 text-right font-medium">الرمز</th>
-                        <th className="px-4 py-2.5 text-right font-medium">البند المحاسبي</th>
-                        <th className="px-4 py-2.5 text-right font-medium">الخزينة</th>
-                        <th className="px-4 py-2.5 text-left font-medium">مدين</th>
-                        <th className="px-4 py-2.5 text-left font-medium">دائن</th>
-                        <th className="px-4 py-2.5 text-left font-medium">الصافي</th>
+                      <tr className="border-b bg-muted/40 text-muted-foreground text-xs">
+                        <th className="px-3.5 py-2.5 text-center font-medium w-16">الرقم</th>
+                        <th className="px-3.5 py-2.5 text-center font-medium w-24">تاريخ القبض</th>
+                        <th className="px-3.5 py-2.5 text-center font-medium w-36">شهر الاستحقاق المستهدف</th>
+                        <th className="px-3.5 py-2.5 text-right font-medium">المستأجر / المحل</th>
+                        <th className="px-3.5 py-2.5 text-right font-medium">الخزينة / المصرف</th>
+                        <th className="px-3.5 py-2.5 text-left font-medium">المبلغ</th>
+                        <th className="px-3.5 py-2.5 text-right font-medium">البيان</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {displayModel.lines.map((line) => (
-                        <tr
-                          key={line.rowKey}
-                          className="border-b last:border-0 hover:bg-muted/30"
-                        >
-                          <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                            {line.category_code || '—'}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <p className="font-semibold">
-                              {line.cashbox_name
-                                ? line.cashbox_name
-                                : line.category_name}
-                              {displayModel.categoryFilter?.id === line.category_id ||
-                              (displayModel.typeGroupFilter?.mode === 'group' &&
-                                (line.category_type === 'REVENUE' ||
-                                  line.category_type === 'EXPENSE'))
-                                ? ' ★'
-                                : ''}
-                            </p>
-                            {line.cashbox_name ? (
-                              <p className="text-[11px] text-muted-foreground">
-                                {line.category_name}
-                              </p>
-                            ) : null}
-                          </td>
-                          <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                            {periodLineCashboxKindsLabel(line)}
-                          </td>
-                          <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
-                            {formatMoney(line.debit, '')}
-                          </td>
-                          <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
-                            {formatMoney(line.credit, '')}
-                          </td>
-                          <td className="px-4 py-2.5 text-left font-mono tabular-nums">
-                            {formatMoney(Math.abs(line.net), '')}
+                    <tbody className="divide-y divide-border text-xs">
+                      {filteredCollectionItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-8 text-muted-foreground">
+                            لا توجد عمليات تحصيل مسجلة مطابقة للبحث
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        filteredCollectionItems.map((it) => (
+                          <tr key={it.transaction_id} className="hover:bg-muted/30">
+                            <td className="px-3.5 py-2.5 text-center font-mono text-muted-foreground">
+                              {it.number}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-center font-mono text-muted-foreground">
+                              {it.tx_date}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-center">
+                              {it.target_month_status === 'PRIOR' ? (
+                                <Badge variant="outline" className="bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-200 text-[11px] font-medium gap-1">
+                                  <span>⏳</span>
+                                  <span>{it.target_rent_month || 'شهر سابق'}</span>
+                                </Badge>
+                              ) : it.target_month_status === 'FUTURE' ? (
+                                <Badge variant="outline" className="bg-indigo-50 text-indigo-900 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-200 text-[11px] font-medium gap-1">
+                                  <span>🚀</span>
+                                  <span>{it.target_rent_month || 'مقدم'}</span>
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-emerald-50 text-emerald-900 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-200 text-[11px] font-medium gap-1">
+                                  <span>🎯</span>
+                                  <span>{it.target_rent_month || 'الشهر الحالي'}</span>
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="px-3.5 py-2.5">
+                              <p className="font-semibold text-foreground">
+                                {it.contact_name || '—'}
+                              </p>
+                              {it.shop_number && (
+                                <p className="text-[11px] text-muted-foreground">
+                                  محل {it.shop_number}
+                                </p>
+                              )}
+                            </td>
+                            <td className="px-3.5 py-2.5">
+                              <p className="font-medium text-foreground">{it.cashbox_name}</p>
+                              <p className="text-[10px] text-muted-foreground font-mono">{it.method}</p>
+                            </td>
+                            <td className="px-3.5 py-2.5 text-left font-mono font-bold text-emerald-700 dark:text-emerald-300">
+                              {formatMoney(it.amount, '')}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-muted-foreground max-w-xs truncate" title={it.description || ''}>
+                              {it.description || '—'}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-sage-50/80 font-bold">
-                        <td colSpan={3} className="px-4 py-3 text-right text-sm">
-                          الإجمالي
+                      <tr className="bg-emerald-50/60 dark:bg-emerald-950/40 font-bold border-t border-emerald-300">
+                        <td colSpan={5} className="px-3.5 py-3 text-right text-xs">
+                          إجمالي المبالغ المعروضة
                         </td>
-                        <td className="px-4 py-3 text-left font-mono tabular-nums text-emerald-800">
-                          {formatMoney(displayModel.totalDebit, '')}
-                        </td>
-                        <td className="px-4 py-3 text-left font-mono tabular-nums text-red-700">
-                          {formatMoney(displayModel.totalCredit, '')}
-                        </td>
-                        <td className="px-4 py-3 text-left font-mono tabular-nums">
+                        <td className="px-3.5 py-3 text-left font-mono text-emerald-800 dark:text-emerald-200 font-bold">
                           {formatMoney(
-                            Math.abs(
-                              displayModel.totalDebit - displayModel.totalCredit,
-                            ),
-                            '',
+                            filteredCollectionItems.reduce((s, it) => s + it.amount, 0),
+                            'LYD'
                           )}
+                        </td>
+                        <td className="px-3.5 py-3 text-xs text-muted-foreground">
+                          {filteredCollectionItems.length} عملية
                         </td>
                       </tr>
                     </tfoot>
@@ -753,369 +1075,192 @@ function JournalMonthContent() {
                 </div>
               </CardContent>
             </Card>
-            ) : null}
-
-            {(() => {
-              const contraSource = displayModel.categoryFilter
-                ? displayModel
-                : displayModel.typeGroupFilter
-                  ? displayModel
-                  : model;
-              if (!contraSource) return null;
-
-              const sectionSource =
-                displayModel.typeGroupFilter?.mode === 'group' && model
-                  ? model
-                  : displayModel;
-
-              const sections =
-                displayModel.categoryFilter && !displayModel.typeGroupFilter
-                  ? cashboxJournalSections
-                  : displayModel.typeGroupFilter?.mode === 'group'
-                  ? [
-                      ...buildCashBankSeparatedSections(
-                        sectionSource,
-                        PERIOD_JOURNAL_TYPE_EXPENSE,
-                      ),
-                      ...buildCashBankSeparatedSections(
-                        sectionSource,
-                        PERIOD_JOURNAL_TYPE_REVENUE,
-                      ),
-                    ]
-                  : null;
-
-              if (sections && sections.length > 0) {
-                return sections.map((section) => {
-                  const focusLine = section.focusLine;
-                  const detailLines =
-                    section.focusDetailLines &&
-                    section.focusDetailLines.length > 0
-                      ? section.focusDetailLines
-                      : [focusLine];
-                  const contraLines = section.contraLines;
-                  const display = describePeriodJournalSectionDisplay(
-                    focusLine,
-                    contraLines,
+          </div>
+        ) : (
+          /* VIEW B: Standard Accrual & Grouped Journal Views */
+          <>
+            {isLoading ? (
+              <AccountingLoading />
+            ) : isError ? (
+              <AccountingError
+                title="تعذّر بناء قيد الفترة"
+                message={errorMessage ?? undefined}
+              />
+            ) : !displayModel || displayModel.lines.length === 0 ? (
+              <AccountingEmpty
+                icon={BookOpen}
+                title={
+                  displayModel?.categoryFilter || displayModel?.typeGroupFilter
+                    ? 'لا حركة على هذا التجميع'
+                    : 'لا توجد حركة لبناء القيد'
+                }
+                description={
+                  displayModel?.categoryFilter
+                    ? `البند «${displayModel.categoryFilter.name_ar}» لم يتحرك في ${periodLabel}.`
+                    : displayModel?.typeGroupFilter
+                      ? `«${displayModel.typeGroupFilter.name_ar}» بلا حركة في ${periodLabel}.`
+                      : 'اختر شهراً فيه قيود مرحّلة، أو غيّر فلتر المصدر.'
+                }
+              >
+                {displayModel?.categoryFilter || displayModel?.typeGroupFilter ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onCategoryChange(ALL_CATEGORIES)}
+                  >
+                    عرض جميع البنود
+                  </Button>
+                ) : (
+                  <>
+                    <AccountingBackfillBanner
+                      title="قد توجد معاملات غير مرحّلة"
+                      description="إن كانت لديك معاملات قديمة ولم تظهر هنا، اضغط ترحيل لإنشاء قيودها في دفتر اليومية."
+                    />
+                    <Button size="sm" asChild>
+                      <Link href="/journals">دفتر اليومية</Link>
+                    </Button>
+                  </>
+                )}
+              </AccountingEmpty>
+            ) : (
+              <>
+                {displayModel.truncated ? (
+                  <AccountingBackfillBanner
+                    title="تنبيه: قد يكون المجموع ناقصاً"
+                    description="تم بلوغ حد جلب القيود لهذه الفترة. عند اختيار بند واحد (مثل إيجارات المحلات) يُعاد الجلب كاملاً لهذا البند — تأكد أن البند محدد من القائمة."
+                  />
+                ) : null}
+                <AccountingSummaryGrid
+                  stats={[
                     {
-                      fundingLabel: section.fundingLabel,
-                      sectionKind: section.sectionKind,
-                      focusTitle: section.title,
+                      label: displayModel.typeGroupFilter
+                        ? 'صفوف مجمّعة'
+                        : displayModel.categoryFilter
+                          ? 'قيود البند'
+                          : 'بنود تحرّكت',
+                      value: displayModel.categoryFilter
+                        ? displayModel.sourceEntryCount
+                        : displayModel.lines.length,
+                      currency: '',
                     },
-                  );
-                  const kindBadge =
-                    section.sectionKind === 'NONE'
-                      ? null
-                      : section.fundingLabel;
-                  const contraRole =
-                    section.sectionKind === 'NONE'
-                      ? `${display.contraSideLabel} ${display.contraLabel}`
-                      : `${display.contraSideLabel} ${section.fundingLabel}`;
-                  const focusRoleClass = display.focusIsCredit
-                    ? 'text-red-700'
-                    : 'text-emerald-800';
-                  const contraRoleClass = display.focusIsCredit
-                    ? 'text-emerald-800'
-                    : 'text-red-700';
+                    {
+                      label: displayModel.categoryFilter
+                        ? 'مدين (البند + الطرف)'
+                        : 'إجمالي المدين',
+                      value: displayModel.totalDebit,
+                      tone: 'positive',
+                    },
+                    {
+                      label: displayModel.categoryFilter
+                        ? 'دائن (البند + الطرف)'
+                        : 'إجمالي الدائن',
+                      value: displayModel.totalCredit,
+                      tone: 'negative',
+                    },
+                    {
+                      label: 'فرق التوازن',
+                      value: Math.abs(displayModel.totalDebit - displayModel.totalCredit),
+                      tone: displayModel.balanced ? 'positive' : 'negative',
+                    },
+                  ]}
+                />
 
-                  return (
-                    <Card key={section.sectionKey} className="border-border/80">
-                      <CardHeader className="border-b pb-3 space-y-0">
-                        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-                          <span>
-                            قيد {section.title}
-                            {section.fundingLabel &&
-                            section.fundingLabel !== '—' ? (
-                              <>
-                                {' '}
-                                —{' '}
-                                <span className="text-sage-800">
-                                  {section.fundingLabel}
-                                </span>
-                              </>
-                            ) : null}
-                          </span>
-                          {kindBadge || display.contraLabel !== 'الطرف المقابل' ? (
-                            <Badge
-                              variant="outline"
-                              className="font-normal normal-case tracking-normal"
-                            >
-                              {display.contraSideLabel}:{' '}
-                              {display.contraLabel !== 'الطرف المقابل'
-                                ? display.contraLabel
-                                : kindBadge}
-                            </Badge>
-                          ) : null}
+                {!(displayModel.categoryFilter && !displayModel.typeGroupFilter) ? (
+                  <Card className="border-sage-600/30">
+                    <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 border-b pb-3">
+                      <div>
+                        <CardTitle className="flex items-center gap-2 text-base">
+                          <FileSpreadsheet className="h-4 w-4 text-sage-700" />
+                          {displayModel.title}
                         </CardTitle>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {display.summaryLine} ·{' '}
-                          {formatMoney(display.focusAmount, '')} /{' '}
-                          {formatMoney(display.contraAmount, '')}
-                          {section.balanced ? ' · متوازن' : ' · مراجعة'}
+                          {displayModel.typeGroupFilter?.mode === 'group'
+                            ? `إيرادات معاً · مصاريف معاً · ${displayModel.lines.length} صف`
+                            : displayModel.categoryFilter
+                              ? `قيد مستقل لكل خزينة ومصرف · ${displayModel.categoryFilter.code}`
+                              : `مجاميع ${displayModel.lines.length} بند · ثم مجموع كل بند`}
                         </p>
-                      </CardHeader>
-                      <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b bg-muted/40 text-muted-foreground">
-                                <th className="px-4 py-2.5 text-right font-medium">
-                                  الرمز
-                                </th>
-                                <th className="px-4 py-2.5 text-right font-medium">
-                                  الحساب
-                                </th>
-                                <th className="px-4 py-2.5 text-right font-medium">
-                                  الدور
-                                </th>
-                                <th className="px-4 py-2.5 text-left font-medium">
-                                  مدين
-                                </th>
-                                <th className="px-4 py-2.5 text-left font-medium">
-                                  دائن
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {detailLines.map((dl) => (
-                                <tr
-                                  key={dl.rowKey}
-                                  className="border-b bg-sage-50/40"
-                                >
-                                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                                    {dl.category_code || '—'}
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    <p
-                                      className={cn(
-                                        'text-[11px] font-medium',
-                                        focusRoleClass,
-                                      )}
-                                    >
-                                      {display.focusRoleLabel}
-                                    </p>
-                                    <p className="text-base font-bold text-sage-900">
-                                      {dl.category_name}
-                                    </p>
-                                  </td>
-                                  <td
-                                    className={cn(
-                                      'px-4 py-2.5 text-xs font-semibold',
-                                      focusRoleClass,
-                                    )}
-                                  >
-                                    {display.focusSideLabel}
-                                  </td>
-                                  <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
-                                    {formatMoney(dl.debit, '')}
-                                  </td>
-                                  <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
-                                    {formatMoney(dl.credit, '')}
-                                  </td>
-                                </tr>
-                              ))}
-                              {contraLines.map((cl) => (
-                                <tr
-                                  key={cl.rowKey}
-                                  className="border-b last:border-0 hover:bg-muted/30"
-                                >
-                                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                                    {cl.category_code || '—'}
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    <p
-                                      className={cn(
-                                        'text-[11px] font-medium',
-                                        contraRoleClass,
-                                      )}
-                                    >
-                                      {contraRole}
-                                    </p>
-                                    <p className="font-semibold">
-                                      {section.sectionKind === 'NONE'
-                                        ? cl.category_name
-                                        : cl.cashbox_name ||
-                                          section.fundingLabel ||
-                                          cl.category_name}
-                                    </p>
-                                  </td>
-                                  <td
-                                    className={cn(
-                                      'px-4 py-2.5 text-xs font-semibold',
-                                      contraRoleClass,
-                                    )}
-                                  >
-                                    {cl.debit > 0 && cl.credit <= 0
-                                      ? 'مدين'
-                                      : cl.credit > 0 && cl.debit <= 0
-                                        ? 'دائن'
-                                        : 'طرف مقابل'}
-                                  </td>
-                                  <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
-                                    {formatMoney(cl.debit, '')}
-                                  </td>
-                                  <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
-                                    {formatMoney(cl.credit, '')}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                            <tfoot>
-                              <tr className="bg-sage-50/80 font-bold">
-                                <td
-                                  colSpan={3}
-                                  className="px-4 py-3 text-right text-sm"
-                                >
-                                  {section.balanced
-                                    ? 'مجموع القيد — مدين = دائن'
-                                    : 'مجموع القيد — فرق'}
-                                </td>
-                                <td className="px-4 py-3 text-left font-mono tabular-nums text-emerald-800">
-                                  {formatMoney(section.totalDebit, '')}
-                                </td>
-                                <td className="px-4 py-3 text-left font-mono tabular-nums text-red-700">
-                                  {formatMoney(section.totalCredit, '')}
-                                </td>
-                              </tr>
-                            </tfoot>
-                          </table>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                });
-              }
-
-              const focusLines =
-                displayModel.typeGroupFilter?.mode === 'group'
-                  ? displayModel.lines.filter(
-                      (l) =>
-                        l.category_type === 'REVENUE' ||
-                        l.category_type === 'EXPENSE',
-                    )
-                  : displayModel.lines;
-
-              return focusLines.map((line, lineIndex) => {
-                const focusLine = line;
-                const contraLines = buildContraLinesForFocus(
-                  contraSource,
-                  focusLine,
-                );
-                const display = describePeriodJournalSectionDisplay(
-                  focusLine,
-                  contraLines,
-                  {
-                    focusTitle:
-                      focusLine.cashbox_name || focusLine.category_name,
-                  },
-                );
-                const totalDebit =
-                  focusLine.debit +
-                  contraLines.reduce((s, l) => s + l.debit, 0);
-                const totalCredit =
-                  focusLine.credit +
-                  contraLines.reduce((s, l) => s + l.credit, 0);
-                const balanced =
-                  Math.abs(totalDebit - totalCredit) <= 0.005;
-
-                return (
-                  <Card key={line.rowKey} className="border-border/80">
-                    <CardHeader className="border-b pb-3 space-y-0">
-                      <CardTitle className="text-base">
-                        {lineIndex + 1}/{focusLines.length} ·{' '}
-                        {line.category_code || '—'} —{' '}
-                        {line.cashbox_name || line.category_name}
-                      </CardTitle>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {line.cashbox_name ? `${line.category_name} · ` : ''}
-                        {display.summaryLine} ·{' '}
-                        {formatMoney(display.focusAmount, '')} /{' '}
-                        {formatMoney(display.contraAmount, '')}
-                        {balanced ? ' · متوازن' : ' · مراجعة'}
-                      </p>
+                      </div>
+                      <Badge
+                        variant={displayModel.balanced ? 'success' : 'danger'}
+                        className="font-normal normal-case tracking-normal"
+                      >
+                        {displayModel.balanced ? 'متوازن — مدين = دائن' : 'غير متوازن'}
+                      </Badge>
                     </CardHeader>
                     <CardContent className="p-0">
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b bg-muted/40 text-muted-foreground">
-                              <th className="px-4 py-2.5 text-right font-medium">
-                                الرمز
-                              </th>
-                              <th className="px-4 py-2.5 text-right font-medium">
-                                الحساب
-                              </th>
-                              <th className="px-4 py-2.5 text-right font-medium">
-                                الدور
-                              </th>
-                              <th className="px-4 py-2.5 text-left font-medium">
-                                مدين
-                              </th>
-                              <th className="px-4 py-2.5 text-left font-medium">
-                                دائن
-                              </th>
+                              <th className="px-4 py-2.5 text-right font-medium">الرمز</th>
+                              <th className="px-4 py-2.5 text-right font-medium">البند المحاسبي</th>
+                              <th className="px-4 py-2.5 text-right font-medium">الخزينة</th>
+                              <th className="px-4 py-2.5 text-left font-medium">مدين</th>
+                              <th className="px-4 py-2.5 text-left font-medium">دائن</th>
+                              <th className="px-4 py-2.5 text-left font-medium">الصافي</th>
                             </tr>
                           </thead>
                           <tbody>
-                            <tr className="border-b bg-sage-50/40">
-                              <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                                {focusLine.category_code || '—'}
-                              </td>
-                              <td className="px-4 py-2.5 font-semibold">
-                                {focusLine.cashbox_name ||
-                                  focusLine.category_name}
-                              </td>
-                              <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                                {display.headerFocusLabel}
-                              </td>
-                              <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
-                                {formatMoney(focusLine.debit, '')}
-                              </td>
-                              <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
-                                {formatMoney(focusLine.credit, '')}
-                              </td>
-                            </tr>
-                            {contraLines.map((cl) => (
+                            {displayModel.lines.map((line) => (
                               <tr
-                                key={cl.rowKey}
+                                key={line.rowKey}
                                 className="border-b last:border-0 hover:bg-muted/30"
                               >
                                 <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                                  {cl.category_code || '—'}
+                                  {line.category_code || '—'}
                                 </td>
-                                <td className="px-4 py-2.5 font-semibold">
-                                  {cl.cashbox_name || cl.category_name}
+                                <td className="px-4 py-2.5">
+                                  <p className="font-semibold">
+                                    {line.cashbox_name
+                                      ? line.cashbox_name
+                                      : line.category_name}
+                                    {displayModel.categoryFilter?.id === line.category_id ||
+                                    (displayModel.typeGroupFilter?.mode === 'group' &&
+                                      (line.category_type === 'REVENUE' ||
+                                        line.category_type === 'EXPENSE'))
+                                      ? ' ★'
+                                      : ''}
+                                  </p>
+                                  {line.cashbox_name ? (
+                                    <p className="text-[11px] text-muted-foreground">
+                                      {line.category_name}
+                                    </p>
+                                  ) : null}
                                 </td>
                                 <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                                  {cl.debit > 0 && cl.credit <= 0
-                                    ? `مدين ${cl.cashbox_name || cl.category_name}`
-                                    : cl.credit > 0 && cl.debit <= 0
-                                      ? `دائن ${cl.cashbox_name || cl.category_name}`
-                                      : 'طرف مقابل'}
+                                  {periodLineCashboxKindsLabel(line)}
                                 </td>
                                 <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
-                                  {formatMoney(cl.debit, '')}
+                                  {formatMoney(line.debit, '')}
                                 </td>
                                 <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
-                                  {formatMoney(cl.credit, '')}
+                                  {formatMoney(line.credit, '')}
+                                </td>
+                                <td className="px-4 py-2.5 text-left font-mono tabular-nums">
+                                  {formatMoney(Math.abs(line.net), '')}
                                 </td>
                               </tr>
                             ))}
                           </tbody>
                           <tfoot>
                             <tr className="bg-sage-50/80 font-bold">
-                              <td
-                                colSpan={3}
-                                className="px-4 py-3 text-right text-sm"
-                              >
-                                {balanced
-                                  ? 'مجموع القيد — مدين = دائن'
-                                  : 'مجموع القيد — فرق'}
+                              <td colSpan={3} className="px-4 py-3 text-right text-sm">
+                                الإجمالي
                               </td>
                               <td className="px-4 py-3 text-left font-mono tabular-nums text-emerald-800">
-                                {formatMoney(totalDebit, '')}
+                                {formatMoney(displayModel.totalDebit, '')}
                               </td>
                               <td className="px-4 py-3 text-left font-mono tabular-nums text-red-700">
-                                {formatMoney(totalCredit, '')}
+                                {formatMoney(displayModel.totalCredit, '')}
+                              </td>
+                              <td className="px-4 py-3 text-left font-mono tabular-nums">
+                                {formatMoney(
+                                  Math.abs(
+                                    displayModel.totalDebit - displayModel.totalCredit,
+                                  ),
+                                  '',
+                                )}
                               </td>
                             </tr>
                           </tfoot>
@@ -1123,15 +1268,181 @@ function JournalMonthContent() {
                       </div>
                     </CardContent>
                   </Card>
-                );
-              });
-            })()}
+                ) : null}
+
+                {(() => {
+                  const contraSource = displayModel.categoryFilter
+                    ? displayModel
+                    : displayModel.typeGroupFilter
+                      ? displayModel
+                      : model;
+                  if (!contraSource) return null;
+
+                  const sectionSource =
+                    displayModel.typeGroupFilter?.mode === 'group' && model
+                      ? model
+                      : displayModel;
+
+                  const sections =
+                    displayModel.categoryFilter && !displayModel.typeGroupFilter
+                      ? cashboxJournalSections
+                      : displayModel.typeGroupFilter?.mode === 'group'
+                      ? [
+                          ...buildCashBankSeparatedSections(
+                            sectionSource,
+                            PERIOD_JOURNAL_TYPE_EXPENSE,
+                          ),
+                          ...buildCashBankSeparatedSections(
+                            sectionSource,
+                            PERIOD_JOURNAL_TYPE_REVENUE,
+                          ),
+                        ]
+                      : null;
+
+                  if (sections && sections.length > 0) {
+                    return sections.map((section) => {
+                      const focusLine = section.focusLine;
+                      const contraLines = section.contraLines;
+                      const display = describePeriodJournalSectionDisplay(
+                        focusLine,
+                        contraLines,
+                        {
+                          fundingLabel: section.fundingLabel,
+                          sectionKind: section.sectionKind,
+                          focusTitle: section.title,
+                        },
+                      );
+                      const totalDebit = section.totalDebit;
+                      const totalCredit = section.totalCredit;
+                      const balanced = section.balanced;
+
+                      return (
+                        <Card
+                          key={section.sectionKey}
+                          className="border-sage-600/30 overflow-hidden"
+                        >
+                          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 border-b pb-3 bg-muted/20">
+                            <div>
+                              <CardTitle className="text-base">
+                                {section.title}
+                              </CardTitle>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {section.subtitle}
+                              </p>
+                            </div>
+                            <Badge
+                              variant={balanced ? 'success' : 'danger'}
+                              className="font-normal"
+                            >
+                              {balanced ? 'متوازن' : 'غير متوازن'}
+                            </Badge>
+                          </CardHeader>
+                          <CardContent className="p-0">
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b bg-muted/40 text-muted-foreground">
+                                    <th className="px-4 py-2.5 text-right font-medium">الرمز</th>
+                                    <th className="px-4 py-2.5 text-right font-medium">الطرف / الحساب</th>
+                                    <th className="px-4 py-2.5 text-right font-medium">الدور المحاسبي</th>
+                                    <th className="px-4 py-2.5 text-left font-medium">مدين</th>
+                                    <th className="px-4 py-2.5 text-left font-medium">دائن</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr className="border-b bg-sage-50/40">
+                                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                                      {focusLine.category_code || '—'}
+                                    </td>
+                                    <td className="px-4 py-2.5 font-semibold">
+                                      {focusLine.cashbox_name || focusLine.category_name}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                                      {display.headerFocusLabel}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
+                                      {formatMoney(focusLine.debit, '')}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
+                                      {formatMoney(focusLine.credit, '')}
+                                    </td>
+                                  </tr>
+                                  {contraLines.map((cl) => (
+                                    <tr
+                                      key={cl.rowKey}
+                                      className="border-b last:border-0 hover:bg-muted/30"
+                                    >
+                                      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                                        {cl.category_code || '—'}
+                                      </td>
+                                      <td className="px-4 py-2.5 font-semibold">
+                                        {cl.cashbox_name || cl.category_name}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                                        {cl.debit > 0 && cl.credit <= 0
+                                          ? `مدين ${cl.cashbox_name || cl.category_name}`
+                                          : cl.credit > 0 && cl.debit <= 0
+                                            ? `دائن ${cl.cashbox_name || cl.category_name}`
+                                            : 'طرف مقابل'}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
+                                        {formatMoney(cl.debit, '')}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
+                                        {formatMoney(cl.credit, '')}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr className="bg-sage-50/80 font-bold">
+                                    <td colSpan={3} className="px-4 py-3 text-right text-sm">
+                                      {balanced ? 'مجموع القيد — مدين = دائن' : 'مجموع القيد — فرق'}
+                                    </td>
+                                    <td className="px-4 py-3 text-left font-mono tabular-nums text-emerald-800">
+                                      {formatMoney(totalDebit, '')}
+                                    </td>
+                                    <td className="px-4 py-3 text-left font-mono tabular-nums text-red-700">
+                                      {formatMoney(totalCredit, '')}
+                                    </td>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    });
+                  }
+                  return null;
+                })()}
+              </>
+            )}
           </>
         )}
       </AccountingPageBody>
+
+      <PeriodJournalPdfDialog
+        open={pdfModalOpen}
+        onOpenChange={setPdfModalOpen}
+        categories={categories}
+        cashboxes={cashboxes}
+        transactions={allTransactions}
+        defaultCategoryId={
+          categoryFilterId !== ALL_CATEGORIES && !isSpecialCategoryFilter(categoryFilterId)
+            ? categoryFilterId
+            : 'ALL'
+        }
+        defaultPeriod={{
+          year: period.year,
+          month: period.month ?? undefined,
+        }}
+      />
+
     </>
   );
 }
+
 
 export default function JournalMonthReportPage() {
   return (

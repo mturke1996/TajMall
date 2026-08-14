@@ -7,7 +7,9 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MobileTransactionList } from '@/components/data/mobile-transaction-list';
+import { TransactionsTable } from '@/components/data/transactions-table';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
+
 import { TenantCurrentMonthBanner } from '@/components/tenants/tenant-current-month-banner';
 import { TenantProfileStats } from '@/components/tenants/tenant-profile-stats';
 import { TenantProfileSidebar } from '@/components/tenants/tenant-profile-sidebar';
@@ -146,63 +148,15 @@ export function TenantContactDetail({
                 <TenantRentHistory tenantId={tenantId} contact={contact} />
               </TabsContent>
 
-              <TabsContent value="transactions" className="mt-0 p-4 sm:p-5">
-                {txLoading ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-sage-600" />
-                  </div>
-                ) : transactions.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-6 text-center">
-                    لا توجد معاملات مرتبطة بهذا المستأجر
-                  </p>
-                ) : (
-                  <>
-                    <div className="sm:hidden">
-                      <MobileTransactionList rows={transactions} />
-                    </div>
-                    <div className="hidden sm:block overflow-x-auto rounded-xl border border-border/60">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b bg-canvas-sunken/50 text-muted-foreground text-right">
-                            <th className="py-2.5 pr-3 font-medium">التاريخ</th>
-                            <th className="py-2.5 font-medium">النوع</th>
-                            <th className="py-2.5 font-medium">الحساب</th>
-                            <th className="py-2.5 pl-3 text-left font-medium">المبلغ</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {transactions.map((tx) => (
-                            <tr
-                              key={tx.id}
-                              className="border-b border-border/50 last:border-0 hover:bg-muted/30"
-                            >
-                              <td className="py-2.5 pr-3">{formatDate(tx.tx_date)}</td>
-                              <td className="py-2.5">
-                                <span
-                                  className={cn(
-                                    'text-xs font-semibold rounded-full px-2 py-0.5',
-                                    tx.kind === 'REVENUE'
-                                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
-                                      : 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300',
-                                  )}
-                                >
-                                  {tx.kind === 'REVENUE' ? 'إيراد' : 'مصروف'}
-                                </span>
-                              </td>
-                              <td className="py-2.5 text-muted-foreground">
-                                {tx.category?.name_ar ?? '—'}
-                              </td>
-                              <td className="py-2.5 pl-3 text-left font-semibold tabular-nums">
-                                {formatMoney(Number(tx.amount), tx.currency)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )}
+              <TabsContent value="transactions" className="mt-0">
+                <div className="hidden sm:block">
+                  <TransactionsTable rows={transactions} loading={txLoading} />
+                </div>
+                <div className="sm:hidden p-3">
+                  <MobileTransactionList rows={transactions} />
+                </div>
               </TabsContent>
+
 
               <TabsContent value="journals" className="mt-0 p-4 sm:p-5">
                 {jeLoading ? (

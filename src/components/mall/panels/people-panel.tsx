@@ -70,7 +70,6 @@ export function MallPeoplePanel() {
           editingId={directory.editingId}
           onSubmit={directory.handleSubmit}
           isPending={directory.isPending}
-          lockKind={!!directory.editingId}
         />
       </div>
     );
@@ -118,8 +117,8 @@ export function MallPeoplePanel() {
         isLoading={directory.isLoading}
         searchQuery={directory.searchQuery}
         onSearchChange={directory.setSearchQuery}
-        kindFilter={directory.kindFilter}
-        onKindFilterChange={() => {}}
+        roleFilter={directory.roleFilter}
+        onRoleFilterChange={directory.setRoleFilter}
         hideKindFilters={segment !== 'all'}
         stats={directory.stats}
         onAdd={directory.openAdd}
@@ -136,8 +135,8 @@ export function MallPeoplePanel() {
         editingId={directory.editingId}
         onSubmit={directory.handleSubmit}
         isPending={directory.isPending}
-        lockKind={!!directory.editingId}
       />
+
     </div>
   );
 }

@@ -15,7 +15,7 @@ export function AccountingPageShell({ children }: { children: React.ReactNode })
     (can('journal.view') || can('account.view') || can('account.manage'));
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
+    <div className="flex min-w-0 max-w-full w-full flex-1 flex-col">
       <AccountingSubNav />
       {!loading && !canSeeAccounting && (
         <div className="px-4 py-6 sm:px-5 md:px-8">

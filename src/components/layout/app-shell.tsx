@@ -48,7 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="flex min-h-[100dvh] bg-background" dir="rtl">
+    <div className="flex min-h-[100dvh] w-full bg-background" dir="rtl">
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       <AnimatePresence>
         {mobileOpen && (

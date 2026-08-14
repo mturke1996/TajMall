@@ -17,6 +17,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
           duration: 0.1,
           ease: [0.16, 1, 0.3, 1],
         }}
+        className="flex min-w-0 flex-1 flex-col"
         style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
       >
         {children}

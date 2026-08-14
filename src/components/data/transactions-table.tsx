@@ -123,27 +123,27 @@ export function TransactionsTable({
               key={r.id}
               id={transactionHighlightDomId(r.id)}
               className={cn(
-                'surface flex flex-col gap-2 p-3 scroll-mt-24',
+                'surface flex flex-col gap-2 p-3 scroll-mt-24 min-w-0 max-w-full overflow-hidden',
                 isHighlighted(highlightId, r.id) && 'ring-2 ring-sage-600 shadow-md',
               )}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
+              <div className="flex items-start justify-between gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span className={cn(
-                    'grid h-8 w-8 place-items-center rounded',
+                    'grid h-8 w-8 shrink-0 place-items-center rounded',
                     positive ? 'bg-pastel-green text-pastel-greenInk' : 'bg-pastel-red text-pastel-redInk'
                   )}>
                     {positive ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="font-medium truncate">{r.description || 'بدون وصف'}</p>
-                    <p className="text-xs text-ink-mute">{r.category?.name_ar}</p>
+                    <p className="text-xs text-ink-mute truncate">{r.category?.name_ar}</p>
                     {contactName && (
                       <Link
                         href={`/contacts/${r.contact?.id}`}
-                        className="text-xs text-sage-600 hover:text-sage-800 hover:underline flex items-center gap-1 mt-0.5"
+                        className="text-xs text-sage-600 hover:text-sage-800 hover:underline flex items-center gap-1 mt-0.5 min-w-0"
                       >
-                        {contactIcon}
+                        <span className="shrink-0">{contactIcon}</span>
                         <span className="truncate">{contactName} {r.contact?.shop_number ? `(محل ${r.contact.shop_number})` : ''}</span>
                       </Link>
                     )}
@@ -159,16 +159,16 @@ export function TransactionsTable({
                   {formatMoney(amount, currency, { compact: true })}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs text-ink-mute pt-1 border-t border-border/50">
-                <div className="flex items-center gap-1">
-                  <User className="h-3 w-3" />
-                  <span>{creatorName}</span>
+              <div className="flex items-center justify-between text-xs text-ink-mute pt-1 border-t border-border/50 min-w-0">
+                <div className="flex items-center gap-1 min-w-0 truncate">
+                  <User className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{creatorName}</span>
                 </div>
                 {(r.kind === 'REVENUE' ? canDeleteRevenue : canDeleteExpense) && (
                   <button
                     type="button"
                     onClick={() => handleDelete(r.id)}
-                    className="text-pastel-redInk hover:underline"
+                    className="text-pastel-redInk hover:underline shrink-0"
                   >
                     <Trash2 className="h-3 w-3 inline" /> حذف
                   </button>
@@ -180,7 +180,7 @@ export function TransactionsTable({
       </ul>
 
       {/* Desktop table */}
-      <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
+      <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block max-w-full">
         <Table>
           <TableHeader>
             <TableRow className="bg-canvas-sunken">

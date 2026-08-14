@@ -1,0 +1,12 @@
+{
+  "dry_run": true,
+  "audited_at": "2026-07-21T10:01:38.107Z",
+  "totals": {
+    "rent_txs": 360,
+    "actions": 0,
+    "txs_to_reverse": 0,
+    "amount_to_reverse": 0,
+    "tenants_affected": 0
+  },
+  "actions": []
+}

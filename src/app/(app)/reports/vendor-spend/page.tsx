@@ -130,9 +130,9 @@ function VendorSpendContent() {
             لا توجد مصروفات مربوطة بموردين في هذه الفترة. اربط المورد عند تسجيل المصروف أو إذن الصرف.
           </Card>
         ) : (
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+          <Card className="overflow-hidden max-w-full min-w-0">
+            <div className="overflow-x-auto max-w-full scroll-smooth-touch">
+              <table className="w-full min-w-[540px] text-sm">
                 <thead>
                   <tr className="border-b bg-muted/30 text-ink-mute text-right">
                     <th className="px-4 py-3 font-medium">المورد</th>

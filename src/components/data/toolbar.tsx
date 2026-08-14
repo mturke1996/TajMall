@@ -39,18 +39,18 @@ export function DataToolbar({
   onDatePreset?: (preset: DateRangePreset) => void;
 }) {
   return (
-    <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-2.5 sm:gap-2 sm:p-3">
+    <div className="flex w-full max-w-full min-w-0 flex-col gap-2.5 rounded-xl border border-border bg-card p-2.5 sm:gap-2 sm:p-3 overflow-hidden">
       {/* Row 1: Search + actions */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
+      <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 stroke-[1.5] text-muted-foreground" />
           <Input
             placeholder={searchPlaceholder}
-            className="pe-9 bg-canvas-sunken border-transparent focus:border-ring focus:bg-card transition-colors"
+            className="pe-9 bg-canvas-sunken border-transparent focus:border-ring focus:bg-card transition-colors w-full"
             onChange={(e) => onSearch?.(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           {typeof count === 'number' && (
             <Badge variant="neutral" className="font-mono normal-case tracking-normal shrink-0">
               {count.toLocaleString('en-US')} نتيجة
@@ -68,7 +68,7 @@ export function DataToolbar({
 
       {/* Row 2: Date presets (only if onDatePreset provided) */}
       {onDatePreset && (
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 max-w-full scroll-smooth-touch">
           <CalendarRange className="h-3.5 w-3.5 text-muted-foreground shrink-0 ms-0.5" />
           {PRESETS.map((p) => (
             <button

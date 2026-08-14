@@ -174,29 +174,26 @@ export function useJournalEntries(filters?: {
         q = q.or(`reference.ilike.%${s}%,description.ilike.%${s}%`);
       }
 
-      const { data: rows, error: viewError } = await q;
-      if (viewError) throw viewError;
-
-      let list = (rows as JournalEntryRow[]) ?? [];
-
       if (contactId || cashboxId) {
-        const ids = list.map((e) => e.id);
-        if (ids.length === 0) return [];
-
-        let lineQ = supabase.from('journal_lines').select('journal_id').in('journal_id', ids);
+        let lineQ = supabase.from('journal_lines').select('journal_id');
         if (contactId) lineQ = lineQ.eq('contact_id', contactId);
         if (cashboxId) lineQ = lineQ.eq('cashbox_id', cashboxId);
 
         const { data: lineRows, error: lineErr } = await lineQ;
         if (lineErr) throw lineErr;
-        const allowed = new Set((lineRows ?? []).map((r) => r.journal_id as string));
-        list = list.filter((e) => allowed.has(e.id));
+        const matchingIds = Array.from(new Set((lineRows ?? []).map((r) => r.journal_id as string)));
+        if (matchingIds.length === 0) return [];
+        q = q.in('id', matchingIds);
       }
 
-      return list;
+      const { data: rows, error: viewError } = await q;
+      if (viewError) throw viewError;
+
+      return (rows as JournalEntryRow[]) ?? [];
     },
   });
 }
+
 
 /**
  * قيود اليومية لفترة تاريخية (شهر/سنة) — مرتّبة زمنياً للتقارير المحاسبية.

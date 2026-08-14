@@ -6,37 +6,36 @@ import {
   Search,
   Loader2,
   Building2,
+  Building,
+  Zap,
+  Droplets,
+  Package,
+  Wrench,
   Briefcase,
   User,
   Store,
   Edit2,
   Trash2,
   ChevronLeft,
+  Filter,
+  DollarSign,
 } from 'lucide-react';
-import { MobilePageActionBar, MOBILE_PAGE_ACTION_PADDING } from '@/components/layout/mobile-page-action-bar';
-import { MobileContactListItem } from '@/components/contacts/mobile-contact-list-item';
+import { MobilePageActionBar } from '@/components/layout/mobile-page-action-bar';
 import { ContactPhoneActions } from '@/components/contacts/contact-phone-actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, formatMoney } from '@/lib/utils';
 import type { ContactKind, ContactRow } from '@/lib/db/types';
-import { KIND_OPTIONS } from '@/components/contacts/contact-form-dialog';
 import { useTxDialog } from '@/stores/transaction-dialog';
 import { suggestedTxKindForContact } from '@/lib/party-contacts';
 import { usePermission } from '@/lib/supabase/use-permission';
-
-const KIND_STYLES: Record<
-  ContactKind,
-  { bg: string; icon: string; badge: string }
-> = {
-  TENANT: { bg: 'bg-blue-100', icon: 'text-blue-600', badge: 'text-blue-700 bg-blue-50 border-blue-200' },
-  EMPLOYEE: { bg: 'bg-purple-100', icon: 'text-purple-600', badge: 'text-purple-700 bg-purple-50 border-purple-200' },
-  CUSTOMER: { bg: 'bg-green-100', icon: 'text-green-600', badge: 'text-green-700 bg-green-50 border-green-200' },
-  VENDOR: { bg: 'bg-orange-100', icon: 'text-orange-600', badge: 'text-orange-700 bg-orange-50 border-orange-200' },
-  OTHER: { bg: 'bg-slate-100', icon: 'text-slate-600', badge: 'text-slate-700 bg-slate-50 border-slate-200' },
-};
+import {
+  extractContactBusinessRole,
+  CONTACT_ROLES,
+  type ContactBusinessRole,
+} from '@/lib/contacts/contact-roles';
 
 export type ContactsDirectoryProps = {
   contacts: ContactRow[];
@@ -44,21 +43,25 @@ export type ContactsDirectoryProps = {
   isLoading: boolean;
   searchQuery: string;
   onSearchChange: (q: string) => void;
-  kindFilter: ContactKind | 'ALL';
-  onKindFilterChange: (k: ContactKind | 'ALL') => void;
+  roleFilter?: ContactBusinessRole | 'ALL';
+  onRoleFilterChange?: (r: ContactBusinessRole | 'ALL') => void;
+  kindFilter?: ContactKind | 'ALL';
+  onKindFilterChange?: (k: ContactKind | 'ALL') => void;
   stats: {
     total: number;
     tenants: number;
+    landlords: number;
+    electricity: number;
+    water: number;
+    goods: number;
+    services: number;
     employees: number;
     customers: number;
-    vendors?: number;
   };
-  onAdd: (kind?: ContactKind) => void;
+  onAdd: (role?: ContactBusinessRole) => void;
   onEdit: (contact: ContactRow) => void;
   onDelete: (id: string) => void;
-  /** إخفاء شرائح التصفية عند استخدام تبويب فرعي في المول */
   hideKindFilters?: boolean;
-  /** المشاهد: إخفاء إضافة/تعديل/حذف */
   allowMutate?: boolean;
 };
 
@@ -71,16 +74,18 @@ function QuickTxButton({
 }) {
   const open = useTxDialog((s) => s.open);
   const { can, loading } = usePermission();
-  const kind = suggestedTxKindForContact(contact.kind);
+  const role = extractContactBusinessRole(contact);
+  const isPayable = role === 'LANDLORD' || role === 'SUPPLIER_ELECTRICITY' || role === 'SUPPLIER_WATER' || role === 'SUPPLIER_GOODS' || role === 'SERVICE_PROVIDER' || role === 'EMPLOYEE';
+  const kind = isPayable ? 'EXPENSE' : 'REVENUE';
   const perm = kind === 'REVENUE' ? 'revenue.create' : 'expense.create';
+
   if (loading || !can(perm)) return null;
-  if (contact.kind === 'TENANT') return null;
 
   return (
     <Button
       size="sm"
-      variant="ghost"
-      className={cn('h-8 gap-1', className)}
+      variant="outline"
+      className={cn('h-7 px-2 text-xs gap-1 font-semibold', className)}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -89,119 +94,69 @@ function QuickTxButton({
           contactId: contact.id,
           contactKind: contact.kind,
         });
+
       }}
     >
-      <Plus className="h-3.5 w-3.5" />
-      معاملة
+      <Plus className="h-3 w-3" />
+      {role === 'LANDLORD' ? 'سداد إيجار' : isPayable ? 'سند صرف' : 'سند قبض'}
     </Button>
   );
 }
 
-function ContactSubtitle({ contact }: { contact: ContactRow }) {
-  if (contact.shop_number) {
+function ContactRoleSubtitle({ contact }: { contact: ContactRow }) {
+  const role = extractContactBusinessRole(contact);
+
+  if (role === 'LANDLORD') {
     return (
-      <span>
-        محل {contact.shop_number}
-        {contact.floor ? ` · ط${contact.floor}` : ''}
+      <span className="text-amber-800 dark:text-amber-300 font-medium">
+        {contact.shop_number ? `موقع: ${contact.shop_number}` : 'عقار مؤجر للمول'}
+        {contact.monthly_rent && Number(contact.monthly_rent) > 0 ? ` · إيجار: ${formatMoney(Number(contact.monthly_rent), 'د.ل')}/شهر` : ''}
       </span>
     );
   }
-  if (contact.job_title) {
+
+  if (role === 'TENANT') {
     return (
-      <span>
-        {contact.job_title}
+      <span className="text-emerald-800 dark:text-emerald-300 font-medium">
+        محل {contact.shop_number || '—'}
+        {contact.floor ? ` · ط${contact.floor}` : ''}
+        {contact.monthly_rent && Number(contact.monthly_rent) > 0 ? ` · إيجار: ${formatMoney(Number(contact.monthly_rent), 'د.ل')}/شهر` : ''}
+      </span>
+    );
+  }
+
+  if (role === 'SUPPLIER_ELECTRICITY' || role === 'SUPPLIER_WATER') {
+    return (
+      <span className="text-foreground font-medium">
+        {contact.shop_number ? `عداد/معرف: ${contact.shop_number}` : 'مورد طاقة/مياه'}
         {contact.department ? ` · ${contact.department}` : ''}
       </span>
     );
   }
-  if (contact.phone) {
-    return <span dir="ltr" className="inline-block">{contact.phone}</span>;
+
+  if (role === 'EMPLOYEE') {
+    return (
+      <span className="text-purple-800 dark:text-purple-300 font-medium">
+        {contact.job_title || 'موظف'}
+        {contact.department ? ` · ${contact.department}` : ''}
+      </span>
+    );
   }
-  return <span className="italic opacity-70">بدون تفاصيل إضافية</span>;
-}
 
-function StatChip({
-  label,
-  value,
-  icon: Icon,
-  active,
-  onClick,
-  className,
-  iconClassName,
-}: {
-  label: string;
-  value: number;
-  icon: typeof User;
-  active?: boolean;
-  onClick?: () => void;
-  className?: string;
-  iconClassName?: string;
-}) {
-  const Comp = onClick ? 'button' : 'div';
-  return (
-    <Comp
-      type={onClick ? 'button' : undefined}
-      onClick={onClick}
-      className={cn(
-        'flex min-w-[7.5rem] shrink-0 snap-center flex-col gap-1 rounded-xl border p-3 text-right transition-colors',
-        'sm:min-w-0 sm:flex-row sm:items-center sm:gap-3 sm:p-4',
-        active
-          ? 'border-sage-600 bg-sage-50 ring-1 ring-sage-600/20'
-          : 'border-border bg-card hover:border-sage-300',
-        onClick && 'cursor-pointer active:scale-[0.98]',
-        className,
-      )}
-    >
-      <div
-        className={cn(
-          'flex h-9 w-9 items-center justify-center rounded-lg sm:h-11 sm:w-11',
-          className,
-        )}
-      >
-        <Icon className={cn('h-4 w-4 sm:h-5 sm:w-5', iconClassName)} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[11px] text-ink-mute sm:text-xs">{label}</p>
-        <p className="text-lg font-bold tabular-nums sm:text-xl">{value}</p>
-      </div>
-    </Comp>
-  );
-}
+  if (contact.job_title || contact.department) {
+    return (
+      <span>
+        {contact.job_title || ''}
+        {contact.department ? ` · ${contact.department}` : ''}
+      </span>
+    );
+  }
 
-function ContactActions({
-  contact,
-  onEdit,
-  onDelete,
-  allowMutate = true,
-}: {
-  contact: ContactRow;
-  onEdit: (c: ContactRow) => void;
-  onDelete: (id: string) => void;
-  allowMutate?: boolean;
-}) {
-  if (!allowMutate) return null;
-  return (
-    <div className="flex shrink-0 gap-0.5" onClick={(e) => e.stopPropagation()}>
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-9 w-9 touch-manipulation"
-        aria-label="تعديل"
-        onClick={() => onEdit(contact)}
-      >
-        <Edit2 className="h-4 w-4" />
-      </Button>
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-9 w-9 text-red-600 touch-manipulation"
-        aria-label="حذف"
-        onClick={() => onDelete(contact.id)}
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
-    </div>
-  );
+  if (contact.phone) {
+    return <span dir="ltr" className="font-mono text-muted-foreground">{contact.phone}</span>;
+  }
+
+  return <span className="italic text-muted-foreground">بدون تفاصيل إضافية</span>;
 }
 
 export function ContactsDirectory({
@@ -210,8 +165,8 @@ export function ContactsDirectory({
   isLoading,
   searchQuery,
   onSearchChange,
-  kindFilter,
-  onKindFilterChange,
+  roleFilter = 'ALL',
+  onRoleFilterChange,
   stats,
   onAdd,
   onEdit,
@@ -219,359 +174,186 @@ export function ContactsDirectory({
   hideKindFilters = false,
   allowMutate = true,
 }: ContactsDirectoryProps) {
-  const vendorCount = stats.vendors ?? contacts.filter((c) => c.kind === 'VENDOR').length;
-  const filterChips: { value: ContactKind | 'ALL'; label: string; count: number; icon?: typeof User }[] = [
-    { value: 'ALL', label: 'الكل', count: stats.total },
-    { value: 'TENANT', label: 'مستأجر', count: stats.tenants, icon: Building2 },
-    { value: 'EMPLOYEE', label: 'موظف', count: stats.employees, icon: Briefcase },
-    { value: 'CUSTOMER', label: 'عميل', count: stats.customers, icon: User },
-    { value: 'VENDOR', label: 'مورد', count: vendorCount, icon: Store },
+  const { canWrite } = usePermission();
+
+  const filterTabs: Array<{
+    id: ContactBusinessRole | 'ALL';
+    label: string;
+    count: number;
+    icon: typeof User;
+  }> = [
+    { id: 'ALL', label: 'الكل', count: stats.total, icon: Store },
+    { id: 'TENANT', label: 'مستأجري المحلات', count: stats.tenants, icon: Building2 },
+    { id: 'LANDLORD', label: 'مؤجرين للمول', count: stats.landlords, icon: Building },
+    { id: 'SUPPLIER_ELECTRICITY', label: 'موردي الكهرباء والطاقة', count: stats.electricity, icon: Zap },
+    { id: 'SUPPLIER_WATER', label: 'موردي المياه والصرف', count: stats.water, icon: Droplets },
+    { id: 'SUPPLIER_GOODS', label: 'موردي البضائع والمواد', count: stats.goods, icon: Package },
+    { id: 'SERVICE_PROVIDER', label: 'مقدمي الخدمات والمقاولات', count: stats.services, icon: Wrench },
+    { id: 'EMPLOYEE', label: 'الموظفين', count: stats.employees, icon: Briefcase },
+    { id: 'CUSTOMER', label: 'العملاء', count: stats.customers, icon: User },
   ];
 
-  const quickAddKinds =
-    kindFilter === 'ALL'
-      ? KIND_OPTIONS
-      : KIND_OPTIONS.filter((k) => k.value === kindFilter);
-
   return (
-    <div className={cn('flex flex-col gap-4 md:gap-6', MOBILE_PAGE_ACTION_PADDING)}>
-      {!hideKindFilters && (
-      <div className="-mx-4 px-4 md:mx-0 md:px-0">
-        <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-4 md:overflow-visible">
-          <StatChip
-            label="الإجمالي"
-            value={stats.total}
-            icon={User}
-            className="bg-slate-100"
-            iconClassName="text-slate-600"
-            active={kindFilter === 'ALL'}
-            onClick={() => onKindFilterChange('ALL')}
-          />
-          <StatChip
-            label="المستأجرين"
-            value={stats.tenants}
-            icon={Building2}
-            className="bg-blue-100"
-            iconClassName="text-blue-600"
-            active={kindFilter === 'TENANT'}
-            onClick={() => onKindFilterChange('TENANT')}
-          />
-          <StatChip
-            label="الموظفين"
-            value={stats.employees}
-            icon={Briefcase}
-            className="bg-purple-100"
-            iconClassName="text-purple-600"
-            active={kindFilter === 'EMPLOYEE'}
-            onClick={() => onKindFilterChange('EMPLOYEE')}
-          />
-          <StatChip
-            label="العملاء"
-            value={stats.customers}
-            icon={Store}
-            className="bg-green-100"
-            iconClassName="text-green-600"
-            active={kindFilter === 'CUSTOMER'}
-            onClick={() => onKindFilterChange('CUSTOMER')}
-          />
-        </div>
-      </div>
-      )}
-
-      {/* شريط بحث وفلاتر — ثابت على الجوال */}
-      <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/80 md:static md:mx-0 md:z-auto md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
-        <div className="relative">
-          <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+    <div className="space-y-4">
+      {/* 1. Header Toolbar with Search & Add */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border">
+        <div className="relative flex-1">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="بحث: الاسم، الهاتف، رقم المحل…"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="h-11 pr-10 text-base md:h-10 md:text-sm"
-            autoComplete="off"
+            placeholder="بحث بالاسم، رقم المحل/العقار، الهاتف، المسمى، أو الكود…"
+            className="pr-9 text-xs h-9 bg-canvas"
           />
         </div>
 
-        {allowMutate && !hideKindFilters && (
-        <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1">
-          {filterChips.map((chip) => {
-            const Icon = chip.icon;
-            const isActive = kindFilter === chip.value;
+        {allowMutate && canWrite && (
+          <Button
+            onClick={() => onAdd(roleFilter !== 'ALL' ? roleFilter : undefined)}
+            className="gap-1.5 h-9 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs shrink-0"
+          >
+            <Plus className="h-4 w-4" />
+            إضافة جهة جديدة
+          </Button>
+        )}
+      </div>
+
+      {/* 2. Role Filter Tabs (شرائح التصفية الذكية) */}
+      {!hideKindFilters && onRoleFilterChange && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          {filterTabs.map((tab) => {
+            const isSelected = roleFilter === tab.id;
+            const TabIcon = tab.icon;
             return (
               <button
-                key={chip.value}
+                key={tab.id}
                 type="button"
-                onClick={() => onKindFilterChange(chip.value)}
+                onClick={() => onRoleFilterChange(tab.id)}
                 className={cn(
-                  'inline-flex shrink-0 snap-center items-center gap-1.5 rounded-full border px-3 py-2 text-[13px] font-medium transition-colors touch-manipulation',
-                  isActive
-                    ? 'border-sage-700 bg-sage-700 text-white shadow-sm'
-                    : 'border-border bg-card text-ink hover:bg-secondary',
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap transition-all',
+                  isSelected
+                    ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                    : 'bg-card text-muted-foreground border-border hover:bg-muted/40 hover:text-foreground'
                 )}
               >
-                {Icon && <Icon className="h-3.5 w-3.5" />}
-                {chip.label}
-                <span
-                  className={cn(
-                    'rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
-                    isActive ? 'bg-white/20' : 'bg-canvas-sunken text-ink-mute',
-                  )}
-                >
-                  {chip.count}
+                <TabIcon className="h-3.5 w-3.5" />
+                <span>{tab.label}</span>
+                <span className={cn(
+                  'px-1.5 py-0.2 rounded-full text-[10px] font-mono',
+                  isSelected ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
+                )}>
+                  {tab.count}
                 </span>
               </button>
             );
           })}
         </div>
-        )}
-
-        {allowMutate && (
-        <>
-        {/* اختصارات إضافة سريعة — جوال */}
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar md:hidden">
-          {quickAddKinds.map((k) => (
-            <button
-              key={k.value}
-              type="button"
-              onClick={() => onAdd(k.value)}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-2 text-[12px] font-medium touch-manipulation active:bg-secondary"
-            >
-              <k.icon className={cn('h-3.5 w-3.5', k.color)} />
-              {k.label.split(' ')[0]}
-            </button>
-          ))}
-        </div>
-
-        {/* اختصارات إضافة — سطح المكتب */}
-        <div className="hidden flex-wrap gap-2 md:flex">
-          {quickAddKinds.map((k) => (
-            <Button
-              key={k.value}
-              type="button"
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => onAdd(k.value)}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {k.label}
-            </Button>
-          ))}
-        </div>
-        </>
-        )}
-      </div>
-
-      {/* عداد النتائج */}
-      {!isLoading && (
-        <p className="text-[12px] text-ink-mute md:text-sm">
-          {filteredContacts.length === contacts.length
-            ? `${contacts.length} سجل`
-            : `${filteredContacts.length} من ${contacts.length} سجل`}
-        </p>
       )}
 
+      {/* 3. Directory Table / List */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-sage-600" />
-          <p className="text-sm text-ink-mute">جارٍ تحميل الدليل…</p>
+        <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="text-xs">جاري تحميل سجلات جهات الاتصال…</span>
         </div>
       ) : filteredContacts.length === 0 ? (
-        <Card className="flex flex-col items-center px-6 py-12 text-center">
-          <User className="h-10 w-10 text-ink-mute/60" />
-          <p className="mt-3 font-medium">لا توجد نتائج</p>
-          <p className="mt-1 max-w-xs text-sm text-ink-mute">
-            {searchQuery
-              ? 'جرّب كلمة بحث أخرى أو غيّر التصفية'
-              : 'ابدأ بإضافة أول جهة بالاسم فقط'}
-          </p>
-          {allowMutate && (
-            <Button className="mt-5 min-h-11 px-6" onClick={() => onAdd()}>
-              <Plus className="h-4 w-4 ml-1" />
-              إضافة جديد
-            </Button>
-          )}
+        <Card className="p-12 text-center border-border">
+          <Store className="h-8 w-8 mx-auto text-muted-foreground mb-2 opacity-50" />
+          <h3 className="text-sm font-bold text-foreground">لا توجد سجلات مطابقة</h3>
+          <p className="text-xs text-muted-foreground mt-1">جرّب تغيير عبارة البحث أو الفلتر المحدد.</p>
         </Card>
       ) : (
-        <>
-          {/* جدول — شاشات كبيرة */}
-          <div className="hidden overflow-hidden rounded-xl border border-border bg-card lg:block">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-canvas-sunken/80 text-right text-[12px] text-ink-mute">
-                    <th className="px-4 py-3 font-semibold">الاسم</th>
-                    <th className="px-4 py-3 font-semibold">النوع</th>
-                    <th className="px-4 py-3 font-semibold">الهاتف</th>
-                    <th className="px-4 py-3 font-semibold">تفاصيل</th>
-                    <th className="px-4 py-3 font-semibold w-[120px]">إجراءات</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredContacts.map((contact, i) => {
-                    const kindInfo = KIND_OPTIONS.find((k) => k.value === contact.kind);
-                    const styles = KIND_STYLES[contact.kind];
-                    const Icon = kindInfo?.icon ?? User;
-                    return (
-                      <tr
-                        key={contact.id}
-                        className={cn(
-                          'border-b border-border/60 transition-colors hover:bg-sage-50/40',
-                          i % 2 === 1 && 'bg-canvas-sunken/20',
-                        )}
-                      >
-                        <td className="px-4 py-3">
-                          <Link
-                            href={`/contacts/${contact.id}`}
-                            className="font-medium text-ink hover:text-sage-700 hover:underline"
-                          >
-                            {contact.name}
-                          </Link>
-                          {contact.code && (
-                            <p className="text-[11px] text-ink-mute">{contact.code}</p>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium',
-                              styles.badge,
-                            )}
-                          >
-                            <Icon className="h-3 w-3" />
-                            {kindInfo?.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-ink-mute">
-                          {contact.phone ? (
-                            <ContactPhoneActions
-                              name={contact.name}
-                              phone={contact.phone}
-                              kind={contact.kind}
-                              compact
-                            />
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-ink-mute max-w-[200px] truncate">
-                          <ContactSubtitle contact={contact} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1">
-                            <QuickTxButton contact={contact} />
-                            <Button size="sm" variant="outline" className="h-8" asChild>
-                              <Link href={`/contacts/${contact.id}`}>الملف</Link>
-                            </Button>
-                            <ContactActions
-                              contact={contact}
-                              onEdit={onEdit}
-                              onDelete={onDelete}
-                              allowMutate={allowMutate}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-right" dir="rtl">
+              <thead>
+                <tr className="bg-canvas-sunken text-muted-foreground font-semibold border-b border-border">
+                  <th className="py-3 px-4">الاسم وجهة التعامل</th>
+                  <th className="py-3 px-4">التصنيف والدور</th>
+                  <th className="py-3 px-4">بيانات الموقع / العقد / العداد</th>
+                  <th className="py-3 px-4">الهاتف والتواصل</th>
+                  <th className="py-3 px-4 text-center">الإجراء السريع</th>
+                  <th className="py-3 px-4 text-left">إدارة</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredContacts.map((contact) => {
+                  const role = extractContactBusinessRole(contact);
+                  const roleMeta = CONTACT_ROLES[role] || CONTACT_ROLES.OTHER;
+                  const RoleIcon = roleMeta.icon;
 
-          {/* بطاقات — تابلت */}
-          <div className="hidden gap-3 sm:grid sm:grid-cols-2 lg:hidden">
-            {filteredContacts.map((contact) => {
-              const kindInfo = KIND_OPTIONS.find((k) => k.value === contact.kind);
-              const styles = KIND_STYLES[contact.kind];
-              const Icon = kindInfo?.icon ?? User;
-              return (
-                <Card
-                  key={contact.id}
-                  className="overflow-hidden transition-shadow hover:shadow-md"
-                >
-                  <Link
-                    href={`/contacts/${contact.id}`}
-                    className="flex items-start gap-3 p-4 active:bg-secondary/30"
-                  >
-                    <div
-                      className={cn(
-                        'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
-                        styles.bg,
-                      )}
+                  return (
+                    <tr
+                      key={contact.id}
+                      className="hover:bg-muted/30 transition-colors group cursor-pointer"
+                      onClick={() => {
+                        window.location.href = `/contacts/${contact.id}`;
+                      }}
                     >
-                      <Icon className={cn('h-5 w-5', styles.icon)} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-semibold leading-snug">{contact.name}</h3>
-                        <ChevronLeft className="h-4 w-4 shrink-0 text-ink-mute" />
-                      </div>
-                      <Badge variant="outline" className="mt-1 text-[10px]">
-                        {kindInfo?.label}
-                      </Badge>
-                      <p className="mt-2 text-[13px] text-ink-mute">
-                        <ContactSubtitle contact={contact} />
-                      </p>
-                    </div>
-                  </Link>
-                  <div className="flex border-t border-border px-2 py-1.5">
-                    <QuickTxButton contact={contact} className="flex-1" />
-                    {allowMutate && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="flex-1"
-                          onClick={() => onEdit(contact)}
-                        >
-                          <Edit2 className="h-4 w-4 ml-1" />
-                          تعديل
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="flex-1 text-red-600"
-                          onClick={() => onDelete(contact.id)}
-                        >
-                          <Trash2 className="h-4 w-4 ml-1" />
-                          حذف
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', roleMeta.bgColor, roleMeta.color)}>
+                            <RoleIcon className="h-4 w-4 stroke-[1.8]" />
+                          </div>
+                          <div>
+                            <span className="font-bold text-foreground block group-hover:text-primary transition-colors">
+                              {contact.name}
+                            </span>
+                            {contact.code ? (
+                              <span className="text-[10px] text-muted-foreground font-mono">{contact.code}</span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <Badge variant="outline" className={cn('gap-1 font-semibold text-[11px]', roleMeta.borderColor, roleMeta.bgColor, roleMeta.color)}>
+                          <RoleIcon className="h-3 w-3" />
+                          {roleMeta.badge}
+                        </Badge>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <ContactRoleSubtitle contact={contact} />
+                      </td>
+
+                      <td className="py-3 px-4 font-mono text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                        <ContactPhoneActions phone={contact.phone} name={contact.name} />
+                      </td>
+
+                      <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <QuickTxButton contact={contact} />
+                      </td>
+
+                      <td className="py-3 px-4 text-left" onClick={(e) => e.stopPropagation()}>
+                        {allowMutate && canWrite && (
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={() => onEdit(contact)}
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                              onClick={() => onDelete(contact.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-
-          {/* قائمة — جوال */}
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border sm:hidden">
-            {filteredContacts.map((contact) => (
-              <MobileContactListItem
-                key={contact.id}
-                contact={contact}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                allowMutate={allowMutate}
-              />
-            ))}
-          </ul>
-        </>
-      )}
-
-      {allowMutate && (
-        <MobilePageActionBar>
-          <Button
-            className="h-12 w-full gap-2 text-base font-semibold shadow-sm touch-manipulation"
-            onClick={() => onAdd(kindFilter === 'ALL' ? undefined : kindFilter)}
-          >
-            <Plus className="h-5 w-5" />
-            إضافة{' '}
-            {kindFilter !== 'ALL'
-              ? filterChips.find((c) => c.value === kindFilter)?.label ?? ''
-              : 'جديد'}
-          </Button>
-        </MobilePageActionBar>
+        </div>
       )}
     </div>
   );

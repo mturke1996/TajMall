@@ -3,6 +3,11 @@
 import { useState } from 'react';
 import {
   Building2,
+  Building,
+  Zap,
+  Droplets,
+  Package,
+  Wrench,
   Briefcase,
   User,
   Store,
@@ -12,6 +17,8 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  Calendar,
+  Layers,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,18 +35,100 @@ import {
   type ContactFormState,
   defaultContactFormState,
 } from '@/lib/contacts/form-utils';
+import {
+  CONTACT_ROLES,
+  type ContactBusinessRole,
+} from '@/lib/contacts/contact-roles';
 
-const KIND_OPTIONS: {
-  value: ContactKind;
+export const ROLE_OPTIONS: Array<{
+  value: ContactBusinessRole;
   label: string;
+  badge: string;
   icon: typeof Building2;
   color: string;
-}[] = [
-  { value: 'TENANT', label: 'مستأجر / محل', icon: Building2, color: 'text-blue-600' },
-  { value: 'EMPLOYEE', label: 'موظف', icon: Briefcase, color: 'text-purple-600' },
-  { value: 'CUSTOMER', label: 'عميل', icon: User, color: 'text-green-600' },
-  { value: 'VENDOR', label: 'مورد', icon: Store, color: 'text-orange-600' },
+  bg: string;
+  border: string;
+}> = [
+  {
+    value: 'TENANT',
+    label: 'مستأجر محل بالمول',
+    badge: 'مستأجر محل',
+    icon: Building2,
+    color: 'text-emerald-700 dark:text-emerald-300',
+    bg: 'bg-emerald-50 dark:bg-emerald-950/40',
+    border: 'border-emerald-300 dark:border-emerald-800',
+  },
+  {
+    value: 'LANDLORD',
+    label: 'مؤجر للمول (المول مستأجر منه)',
+    badge: 'مؤجر للمول',
+    icon: Building,
+    color: 'text-amber-700 dark:text-amber-300',
+    bg: 'bg-amber-50 dark:bg-amber-950/40',
+    border: 'border-amber-300 dark:border-amber-800',
+  },
+  {
+    value: 'SUPPLIER_ELECTRICITY',
+    label: 'مورّد كهرباء وطاقة / محروقات',
+    badge: 'توريد كهرباء',
+    icon: Zap,
+    color: 'text-yellow-700 dark:text-yellow-300',
+    bg: 'bg-yellow-50 dark:bg-yellow-950/40',
+    border: 'border-yellow-300 dark:border-yellow-800',
+  },
+  {
+    value: 'SUPPLIER_WATER',
+    label: 'مورّد مياه وصرف صحي',
+    badge: 'توريد مياه',
+    icon: Droplets,
+    color: 'text-sky-700 dark:text-sky-300',
+    bg: 'bg-sky-50 dark:bg-sky-950/40',
+    border: 'border-sky-300 dark:border-sky-800',
+  },
+  {
+    value: 'SUPPLIER_GOODS',
+    label: 'مورّد بضاعة ومواد تشغيل',
+    badge: 'توريد بضاعة',
+    icon: Package,
+    color: 'text-indigo-700 dark:text-indigo-300',
+    bg: 'bg-indigo-50 dark:bg-indigo-950/40',
+    border: 'border-indigo-300 dark:border-indigo-800',
+  },
+  {
+    value: 'SERVICE_PROVIDER',
+    label: 'مقدّم خدمات ومقاولات وصيانة',
+    badge: 'خدمات ومقاولات',
+    icon: Wrench,
+    color: 'text-cyan-700 dark:text-cyan-300',
+    bg: 'bg-cyan-50 dark:bg-cyan-950/40',
+    border: 'border-cyan-300 dark:border-cyan-800',
+  },
+  {
+    value: 'EMPLOYEE',
+    label: 'موظف / كادر إداري',
+    badge: 'موظف',
+    icon: Briefcase,
+    color: 'text-purple-700 dark:text-purple-300',
+    bg: 'bg-purple-50 dark:bg-purple-950/40',
+    border: 'border-purple-300 dark:border-purple-800',
+  },
+  {
+    value: 'CUSTOMER',
+    label: 'عميل عام / مستفيد',
+    badge: 'عميل عام',
+    icon: User,
+    color: 'text-teal-700 dark:text-teal-300',
+    bg: 'bg-teal-50 dark:bg-teal-950/40',
+    border: 'border-teal-300 dark:border-teal-800',
+  },
 ];
+
+export const KIND_OPTIONS = ROLE_OPTIONS.map((r) => ({
+  value: r.value as unknown as ContactKind,
+  label: r.label,
+  icon: r.icon,
+  color: r.color,
+}));
 
 type ContactFormDialogProps = {
   open: boolean;
@@ -49,7 +138,7 @@ type ContactFormDialogProps = {
   editingId: string | null;
   onSubmit: (e: React.FormEvent) => void;
   isPending: boolean;
-  /** منع تغيير النوع عند التعديل (مثلاً مستأجر مرتبط بعقد) */
+  /** منع تغيير النوع عند التعديل */
   lockKind?: boolean;
 };
 
@@ -64,251 +153,398 @@ export function ContactFormDialog({
   lockKind = false,
 }: ContactFormDialogProps) {
   const [showOptional, setShowOptional] = useState(false);
-  const isTenant = formData.kind === 'TENANT';
-  const isEmployee = formData.kind === 'EMPLOYEE';
-  const showExtraContactFields = !isTenant && !isEmployee;
+  const role = formData.businessRole || 'CUSTOMER';
+
+  const isTenant = role === 'TENANT';
+  const isLandlord = role === 'LANDLORD';
+  const isElectricity = role === 'SUPPLIER_ELECTRICITY';
+  const isWater = role === 'SUPPLIER_WATER';
+  const isGoods = role === 'SUPPLIER_GOODS';
+  const isService = role === 'SERVICE_PROVIDER';
+  const isEmployee = role === 'EMPLOYEE';
+
+  const handleRoleChange = (newRole: ContactBusinessRole) => {
+    const isT = newRole === 'TENANT';
+    const isE = newRole === 'EMPLOYEE';
+    const isL = newRole === 'LANDLORD';
+    const newKind: ContactKind = isT ? 'TENANT' : isE ? 'EMPLOYEE' : isL ? 'VENDOR' : newRole === 'CUSTOMER' ? 'CUSTOMER' : 'VENDOR';
+
+    onFormChange({
+      ...formData,
+      kind: newKind,
+      businessRole: newRole,
+      job_title: isL ? (formData.job_title || 'مؤجر للمول') : formData.job_title,
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-lg max-h-[90dvh] overflow-y-auto sm:max-h-[85vh] w-[calc(100%-1.5rem)] sm:w-full rounded-2xl"
+        className="max-w-xl max-h-[90dvh] overflow-y-auto sm:max-h-[85vh] w-[calc(100%-1.5rem)] sm:w-full rounded-2xl p-0 overflow-hidden"
         dir="rtl"
       >
-        <DialogHeader>
-          <DialogTitle>{editingId ? 'تعديل' : 'إضافة جديد'}</DialogTitle>
-          <p className="text-sm text-ink-mute pt-1">
-            {isTenant || isEmployee
-              ? 'الاسم إلزامي — الهاتف وباقي الحقول اختيارية'
-              : 'يكفي الاسم للحفظ — باقي الحقول اختيارية'}
-          </p>
-        </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4 py-2">
-          {lockKind && editingId ? (
-            <div className="rounded-lg border border-border bg-canvas-sunken/50 px-3 py-2 text-sm">
-              <span className="text-ink-mute">النوع: </span>
-              <span className="font-medium">
-                {KIND_OPTIONS.find((k) => k.value === formData.kind)?.label ?? formData.kind}
-              </span>
+        <div className="border-b border-border bg-canvas-sunken/60 px-5 py-4">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-foreground">
+              {editingId ? 'تعديل بيانات جهة الاتصال' : 'إضافة جهة اتصال جديدة'}
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground pt-0.5">
+              حدد نوع ودور جهة التعامل بدقة لتهيئة البروفايل المحاسبي المتخصص
+            </p>
+          </DialogHeader>
+        </div>
+
+        <form onSubmit={onSubmit} className="p-5 space-y-4">
+          {/* 1. Business Role Selector */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <Label className="text-xs font-bold text-foreground">
+                نوع ودور جهة التعامل *
+              </Label>
+              {editingId && (
+                <span className="text-[10px] font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                  قابلة للتغيير والتحويل
+                </span>
+              )}
             </div>
-          ) : (
-            <div>
-              <Label>النوع</Label>
-              <div className="grid grid-cols-2 gap-2 mt-1">
-                {KIND_OPTIONS.map((k) => (
+
+            <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-0.5">
+              {ROLE_OPTIONS.map((r) => {
+                const isSelected = role === r.value;
+                const Icon = r.icon;
+                return (
                   <button
-                    key={k.value}
+                    key={r.value}
                     type="button"
-                    disabled={lockKind}
-                    onClick={() => onFormChange({ ...formData, kind: k.value })}
+                    onClick={() => handleRoleChange(r.value)}
                     className={cn(
-                      'flex items-center gap-2 p-2 rounded-md border text-sm touch-manipulation',
-                      formData.kind === k.value
-                        ? 'border-sage-500 bg-sage-50 text-sage-700'
-                        : 'border-border hover:bg-secondary',
-                      lockKind && 'opacity-60 cursor-not-allowed',
+                      'flex items-center gap-2.5 p-2.5 rounded-lg border text-right transition-all cursor-pointer',
+                      isSelected
+                        ? cn('border-2 font-bold shadow-xs ring-1 ring-primary/20', r.border, r.bg, r.color)
+                        : 'border-border bg-card hover:bg-muted/40 text-muted-foreground'
                     )}
                   >
-                    <k.icon className={cn('h-4 w-4', k.color)} />
-                    {k.label}
+                    <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', r.bg)}>
+                      <Icon className={cn('h-4 w-4', r.color)} />
+                    </div>
+                    <span className="text-xs leading-tight line-clamp-1">{r.label}</span>
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
-          )}
-
-          <div>
-            <Label>الاسم *</Label>
-            <Input
-              value={formData.name}
-              onChange={(e) => onFormChange({ ...formData, name: e.target.value })}
-              placeholder="اسم المستأجر أو العميل"
-              autoFocus
-            />
           </div>
 
-          <div>
-            <Label className="flex items-center gap-1 text-ink-mute">
-              <Phone className="h-3 w-3" /> الهاتف (اختياري)
-            </Label>
-            <Input
-              value={formData.phone}
-              onChange={(e) => onFormChange({ ...formData, phone: e.target.value })}
-              placeholder="09xxxxxxxx"
-              inputMode="tel"
-            />
+
+          {/* 2. Basic Info (Name & Phone) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div>
+              <Label className="text-xs font-semibold block mb-1">
+                {isLandlord ? 'اسم المؤجر / مالك العقار *' : isTenant ? 'اسم المستأجر / النشاط *' : isElectricity || isWater || isGoods ? 'اسم المورد / الشركة *' : 'الاسم *'}
+              </Label>
+              <Input
+                value={formData.name}
+                onChange={(e) => onFormChange({ ...formData, name: e.target.value })}
+                placeholder={isLandlord ? 'مثال: شركة العقارات / فلان الفلاني' : 'الاسم الكامل'}
+                className="h-9 text-xs"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold block mb-1">الهاتف الرئيسي</Label>
+              <Input
+                value={formData.phone}
+                onChange={(e) => onFormChange({ ...formData, phone: e.target.value })}
+                placeholder="09xxxxxxxx"
+                inputMode="tel"
+                className="h-9 text-xs"
+              />
+            </div>
           </div>
 
-          {isTenant && (
-            <div className="border rounded-md p-3 space-y-3 bg-blue-50/50">
-              <p className="text-sm font-medium text-blue-700 flex items-center gap-1">
-                <Building2 className="h-4 w-4" /> بيانات المحل (اختياري)
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>رقم المحل</Label>
-                  <Input
-                    value={formData.shop_number}
-                    onChange={(e) =>
-                      onFormChange({ ...formData, shop_number: e.target.value })
-                    }
-                    placeholder="A-101"
-                  />
-                </div>
-                <div>
-                  <Label>الطابق</Label>
-                  <Input
-                    value={formData.floor}
-                    onChange={(e) => onFormChange({ ...formData, floor: e.target.value })}
-                    placeholder="1"
-                  />
-                </div>
+          {/* 3A. Specialized Card: LANDLORD (مؤجر للمول) */}
+          {isLandlord && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/30 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+                <Building className="h-4 w-4 stroke-[2]" />
+                <span className="text-xs font-bold">بيانات عقد الإيجار للمؤجر المستحق</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label>المساحة (م²)</Label>
-                  <Input
-                    type="number"
-                    value={formData.area_sqm}
-                    onChange={(e) =>
-                      onFormChange({ ...formData, area_sqm: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label className="flex items-center gap-1">
-                    <DollarSign className="h-3 w-3" /> الإيجار الشهري
+                  <Label className="text-[11px] font-semibold text-amber-950 dark:text-amber-200 block mb-1">
+                    قيمة الإيجار الشهري المستحق للمؤجر (د.ل) *
                   </Label>
                   <Input
                     type="number"
                     value={formData.monthly_rent}
-                    onChange={(e) =>
-                      onFormChange({ ...formData, monthly_rent: e.target.value })
-                    }
+                    onChange={(e) => onFormChange({ ...formData, monthly_rent: e.target.value })}
+                    placeholder="مثال: 5000"
+                    className="h-9 text-xs bg-card font-mono font-bold text-amber-900 dark:text-amber-100"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-semibold text-amber-950 dark:text-amber-200 block mb-1">
+                    اسم العقار / الموقع المستأجر للمول
+                  </Label>
+                  <Input
+                    value={formData.shop_number}
+                    onChange={(e) => onFormChange({ ...formData, shop_number: e.target.value })}
+                    placeholder="مثال: أرضية المولدات / مواقف السيارات"
+                    className="h-9 text-xs bg-card"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-semibold text-amber-950 dark:text-amber-200 block mb-1">
+                    تاريخ بداية عقد الإيجار
+                  </Label>
+                  <Input
+                    type="date"
+                    value={formData.contract_start}
+                    onChange={(e) => onFormChange({ ...formData, contract_start: e.target.value })}
+                    className="h-9 text-xs bg-card font-mono"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-semibold text-amber-950 dark:text-amber-200 block mb-1">
+                    تاريخ نهاية عقد الإيجار
+                  </Label>
+                  <Input
+                    type="date"
+                    value={formData.contract_end}
+                    onChange={(e) => onFormChange({ ...formData, contract_end: e.target.value })}
+                    className="h-9 text-xs bg-card font-mono"
                   />
                 </div>
               </div>
             </div>
           )}
 
-          {isEmployee && (
-            <div className="border rounded-md p-3 space-y-3 bg-purple-50/50">
-              <p className="text-sm font-medium text-purple-700 flex items-center gap-1">
-                <Briefcase className="h-4 w-4" /> بيانات وظيفية (اختياري)
-              </p>
-              <div className="grid grid-cols-2 gap-3">
+          {/* 3B. Specialized Card: TENANT (مستأجر محل بالمول) */}
+          {isTenant && (
+            <div className="rounded-xl border border-emerald-300 bg-emerald-50/60 dark:border-emerald-800 dark:bg-emerald-950/30 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200">
+                <Building2 className="h-4 w-4 stroke-[2]" />
+                <span className="text-xs font-bold">بيانات المحل المستأجر بالمول</span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div>
-                  <Label>المسمى الوظيفي</Label>
+                  <Label className="text-[11px] font-semibold text-emerald-950 dark:text-emerald-200 block mb-1">
+                    رقم المحل
+                  </Label>
                   <Input
-                    value={formData.job_title}
-                    onChange={(e) =>
-                      onFormChange({ ...formData, job_title: e.target.value })
-                    }
-                    placeholder="أمين صندوق"
+                    value={formData.shop_number}
+                    onChange={(e) => onFormChange({ ...formData, shop_number: e.target.value })}
+                    placeholder="مثال: 12"
+                    className="h-9 text-xs bg-card font-mono"
                   />
                 </div>
+
                 <div>
-                  <Label>القسم</Label>
+                  <Label className="text-[11px] font-semibold text-emerald-950 dark:text-emerald-200 block mb-1">
+                    الطابق
+                  </Label>
+                  <Input
+                    value={formData.floor}
+                    onChange={(e) => onFormChange({ ...formData, floor: e.target.value })}
+                    placeholder="الأرضي / الأول"
+                    className="h-9 text-xs bg-card"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-semibold text-emerald-950 dark:text-emerald-200 block mb-1">
+                    المساحة (م²)
+                  </Label>
+                  <Input
+                    value={formData.area_sqm}
+                    onChange={(e) => onFormChange({ ...formData, area_sqm: e.target.value })}
+                    placeholder="مثال: 45"
+                    className="h-9 text-xs bg-card font-mono"
+                  />
+                </div>
+
+                <div className="col-span-2 sm:col-span-3">
+                  <Label className="text-[11px] font-semibold text-emerald-950 dark:text-emerald-200 block mb-1">
+                    قيمة الإيجار الشهري (د.ل)
+                  </Label>
+                  <Input
+                    type="number"
+                    value={formData.monthly_rent}
+                    onChange={(e) => onFormChange({ ...formData, monthly_rent: e.target.value })}
+                    placeholder="مثال: 3500"
+                    className="h-9 text-xs bg-card font-mono font-bold text-emerald-900 dark:text-emerald-100"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3C. Specialized Card: UTILITIES & SUPPLIERS (كهرباء ومياه وبضاعة ومقاولات) */}
+          {(isElectricity || isWater || isGoods || isService) && (
+            <div className="rounded-xl border border-border bg-canvas p-4 space-y-3">
+              <div className="flex items-center gap-2 text-foreground">
+                <Layers className="h-4 w-4 text-primary" />
+                <span className="text-xs font-bold">بيانات التوريد والاشتراك</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[11px] font-semibold block mb-1">
+                    {isElectricity || isWater ? 'رقم العداد / الوحدة / المعرف' : 'كود التوريد / العقد'}
+                  </Label>
+                  <Input
+                    value={formData.shop_number}
+                    onChange={(e) => onFormChange({ ...formData, shop_number: e.target.value })}
+                    placeholder={isElectricity ? 'مثال: عداد رقم 104' : 'المعرف'}
+                    className="h-9 text-xs bg-card"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-semibold block mb-1">
+                    التصنيف / نوع التوريد
+                  </Label>
                   <Input
                     value={formData.department}
-                    onChange={(e) =>
-                      onFormChange({ ...formData, department: e.target.value })
-                    }
-                    placeholder="المالية"
+                    onChange={(e) => onFormChange({ ...formData, department: e.target.value })}
+                    placeholder={isElectricity ? 'ديزل مولدات / شبكة عامة' : isWater ? 'صهاريج / شبكة' : 'نوع المواد'}
+                    className="h-9 text-xs bg-card"
                   />
                 </div>
-              </div>
-              <div>
-                <Label className="flex items-center gap-1">
-                  <DollarSign className="h-3 w-3" /> الراتب الشهري
-                </Label>
-                <Input
-                  type="number"
-                  value={formData.salary}
-                  onChange={(e) => onFormChange({ ...formData, salary: e.target.value })}
-                />
               </div>
             </div>
           )}
 
-          {showExtraContactFields && (
-            <>
-              <button
-                type="button"
-                onClick={() => setShowOptional((v) => !v)}
-                className="flex w-full items-center justify-between rounded-md border border-dashed border-border px-3 py-2 text-sm text-ink-mute hover:bg-secondary/50"
-              >
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5" />
-                  بيانات إضافية (بريد، عنوان، ملاحظات…)
-                </span>
-                {showOptional ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
-                )}
-              </button>
+          {/* 3D. Specialized Card: EMPLOYEE (موظف) */}
+          {isEmployee && (
+            <div className="rounded-xl border border-purple-200 bg-purple-50/50 dark:border-purple-900 dark:bg-purple-950/30 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-purple-900 dark:text-purple-200">
+                <Briefcase className="h-4 w-4 stroke-[2]" />
+                <span className="text-xs font-bold">بيانات الموظف والمرتب</span>
+              </div>
 
-              {showOptional && (
-                <div className="space-y-3 rounded-md border border-border bg-canvas-sunken/30 p-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-[11px] font-semibold text-purple-950 dark:text-purple-200 block mb-1">
+                    المسمى الوظيفي
+                  </Label>
+                  <Input
+                    value={formData.job_title}
+                    onChange={(e) => onFormChange({ ...formData, job_title: e.target.value })}
+                    placeholder="محاسب / فني"
+                    className="h-9 text-xs bg-card"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-semibold text-purple-950 dark:text-purple-200 block mb-1">
+                    القسم
+                  </Label>
+                  <Input
+                    value={formData.department}
+                    onChange={(e) => onFormChange({ ...formData, department: e.target.value })}
+                    placeholder="الإدارة المالية"
+                    className="h-9 text-xs bg-card"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-semibold text-purple-950 dark:text-purple-200 block mb-1">
+                    المرتب الشهري (د.ل)
+                  </Label>
+                  <Input
+                    type="number"
+                    value={formData.salary}
+                    onChange={(e) => onFormChange({ ...formData, salary: e.target.value })}
+                    placeholder="2500"
+                    className="h-9 text-xs bg-card font-mono font-bold"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Optional Fields Toggle */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowOptional(!showOptional)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground py-1"
+            >
+              {showOptional ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              {showOptional ? 'إخفاء الحقول الإضافية' : 'إظهار حقول إضافية (العنوان، البريد، الملاحظات)'}
+            </button>
+
+            {showOptional && (
+              <div className="space-y-3 pt-2 border-t border-border/80">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <Label>هاتف إضافي</Label>
+                    <Label className="text-[11px] font-medium block mb-1">الهاتف الإضافي</Label>
                     <Input
                       value={formData.phone2}
-                      onChange={(e) =>
-                        onFormChange({ ...formData, phone2: e.target.value })
-                      }
-                      inputMode="tel"
+                      onChange={(e) => onFormChange({ ...formData, phone2: e.target.value })}
+                      placeholder="هاتف بديل"
+                      className="h-9 text-xs bg-card"
                     />
                   </div>
                   <div>
-                    <Label>البريد الإلكتروني</Label>
+                    <Label className="text-[11px] font-medium block mb-1">البريد الإلكتروني</Label>
                     <Input
                       value={formData.email}
-                      onChange={(e) =>
-                        onFormChange({ ...formData, email: e.target.value })
-                      }
-                      placeholder="اختياري"
-                    />
-                  </div>
-                  <div>
-                    <Label>العنوان</Label>
-                    <Input
-                      value={formData.address}
-                      onChange={(e) =>
-                        onFormChange({ ...formData, address: e.target.value })
-                      }
-                      placeholder="اختياري"
-                    />
-                  </div>
-                  <div>
-                    <Label>ملاحظات</Label>
-                    <Input
-                      value={formData.notes}
-                      onChange={(e) =>
-                        onFormChange({ ...formData, notes: e.target.value })
-                      }
+                      onChange={(e) => onFormChange({ ...formData, email: e.target.value })}
+                      placeholder="email@example.com"
+                      className="h-9 text-xs bg-card"
                     />
                   </div>
                 </div>
-              )}
-            </>
-          )}
 
-          <div className="flex gap-2 pt-2">
+                <div>
+                  <Label className="text-[11px] font-medium block mb-1">العنوان أو الموقع</Label>
+                  <Input
+                    value={formData.address}
+                    onChange={(e) => onFormChange({ ...formData, address: e.target.value })}
+                    placeholder="العنوان التفصيلي"
+                    className="h-9 text-xs bg-card"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-medium block mb-1">ملاحظات خاصة</Label>
+                  <Input
+                    value={formData.notes}
+                    onChange={(e) => onFormChange({ ...formData, notes: e.target.value })}
+                    placeholder="أي ملاحظات أو بنود خاصة بالاتفاق"
+                    className="h-9 text-xs bg-card"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Dialog Actions */}
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
             <Button
               type="button"
               variant="outline"
-              className="flex-1"
+              size="sm"
               onClick={() => onOpenChange(false)}
+              className="text-xs"
             >
               إلغاء
             </Button>
-            <Button type="submit" className="flex-1" disabled={isPending}>
-              {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>{editingId ? 'تحديث' : 'حفظ'}</>
-              )}
+            <Button
+              type="submit"
+              size="sm"
+              disabled={isPending || !formData.name.trim()}
+              className="text-xs font-bold gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white min-w-24"
+            >
+              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {editingId ? 'حفظ التعديلات' : 'إضافة الجهة'}
             </Button>
           </div>
         </form>
@@ -316,5 +552,3 @@ export function ContactFormDialog({
     </Dialog>
   );
 }
-
-export { defaultContactFormState, KIND_OPTIONS };

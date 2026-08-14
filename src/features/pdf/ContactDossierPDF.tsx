@@ -16,9 +16,11 @@ import {
 } from './pdf-payment';
 import { isRentCategoryCode } from '@/lib/charge-invoice';
 import { contactKindLabelAr } from '@/lib/party-contacts';
+import { extractContactBusinessRole, CONTACT_ROLES } from '@/lib/contacts/contact-roles';
 import type { ContactRow } from '@/lib/db/types';
 import type { TransactionWithRelations } from '@/lib/db/types';
 import type { TenantRentSummary } from '@/lib/db/queries';
+
 
 const s = StyleSheet.create({
   summaryRow: {
@@ -117,8 +119,11 @@ export type ContactDossierPdfProps = {
 };
 
 export function ContactDossierPDF({ contact, rent, transactions }: ContactDossierPdfProps) {
-  const isTenant = contact.kind === 'TENANT';
-  const kindLabel = contactKindLabelAr(contact.kind);
+  const role = extractContactBusinessRole(contact);
+  const roleMeta = CONTACT_ROLES[role] || CONTACT_ROLES.OTHER;
+  const isTenant = role === 'TENANT';
+  const isLandlord = role === 'LANDLORD';
+  const kindLabel = roleMeta.label;
 
   const posted = transactions
     .filter((t) => t.status === 'POSTED')
@@ -157,13 +162,18 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
 
   const title = isTenant
     ? `ملف المستأجر — ${contact.name}`
-    : `ملف ${kindLabel} — ${contact.name}`;
+    : isLandlord
+      ? `ملف المؤجر للمول — ${contact.name}`
+      : `ملف ${kindLabel} — ${contact.name}`;
 
-  const subtitle = contact.shop_number
-    ? `محل ${contact.shop_number}${contact.floor ? ` · طابق ${contact.floor}` : ''}`
-    : contact.job_title
-      ? `${contact.job_title}${contact.department ? ` · ${contact.department}` : ''}`
-      : kindLabel;
+  const subtitle = isLandlord
+    ? `${contact.shop_number ? `موقع: ${contact.shop_number} · ` : ''}إيجار مستحق: ${pdfFormatAmountRaw(Number(contact.monthly_rent) || 0)} د.ل/شهر`
+    : contact.shop_number
+      ? `محل ${contact.shop_number}${contact.floor ? ` · طابق ${contact.floor}` : ''}`
+      : contact.job_title
+        ? `${contact.job_title}${contact.department ? ` · ${contact.department}` : ''}`
+        : kindLabel;
+
 
   const metaCells = isTenant
     ? [
