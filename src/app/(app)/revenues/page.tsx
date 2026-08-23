@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { TrendingUp, ArrowDownToLine, Receipt, SlidersHorizontal } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
-import { DataToolbar, type DateRangePreset, getDateRange } from '@/components/data/toolbar';
+import { DataToolbar, type DateRangePreset, isInDatePreset } from '@/components/data/toolbar';
+import { exportTransactionsCsv, filterTransactions } from '@/lib/transactions-filter';
 import { TransactionsTable } from '@/components/data/transactions-table';
 import { Stat } from '@/components/dashboard/stat';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
@@ -36,12 +37,8 @@ export default function RevenuesPage() {
   }, [data]);
 
   const dateFiltered = useMemo(() => {
-    const { from, to } = getDateRange(datePreset);
-    if (!from || !to) return rows;
-    return rows.filter((r) => {
-      const d = new Date(r.tx_date);
-      return d >= from && d <= to;
-    });
+    if (datePreset === 'all') return rows;
+    return rows.filter((r) => isInDatePreset(r.tx_date, datePreset));
   }, [rows, datePreset]);
 
   const methodFiltered = useMemo(() => {
@@ -49,16 +46,8 @@ export default function RevenuesPage() {
     return dateFiltered.filter((r) => r.method === methodFilter);
   }, [dateFiltered, methodFilter]);
 
-  const filtered = useMemo(() => {
-    if (!query) return methodFiltered;
-    const q = query.toLowerCase();
-    return methodFiltered.filter(
-      (r) =>
-        (r.description ?? '').toLowerCase().includes(q) ||
-        (r.category?.name_ar ?? '').includes(query) ||
-        (r.reference ?? String(r.number)).includes(query),
-    );
-  }, [methodFiltered, query]);
+  const filtered = useMemo(() => filterTransactions(methodFiltered, query), [methodFiltered, query]);
+  const isFiltered = Boolean(query.trim()) || datePreset !== 'all' || methodFilter !== 'ALL';
 
   useHighlightScroll(highlightId, transactionHighlightDomId, [filtered.length]);
 
@@ -151,7 +140,7 @@ export default function RevenuesPage() {
           searchPlaceholder="ابحث في الإيرادات…"
           count={filtered.length}
           onSearch={setQuery}
-          onExport={() => {}}
+          onExport={() => exportTransactionsCsv(filtered, `إيرادات-${new Date().toISOString().slice(0, 10)}`)}
           datePreset={datePreset}
           onDatePreset={setDatePreset}
         />
@@ -161,6 +150,8 @@ export default function RevenuesPage() {
           loading={isLoading}
           kindFilter="REVENUE"
           highlightId={highlightId}
+          isFiltered={isFiltered}
+          tableId="revenues"
         />
       </div>
 

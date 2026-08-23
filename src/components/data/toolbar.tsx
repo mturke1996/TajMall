@@ -99,9 +99,25 @@ export function DataToolbar({
   );
 }
 
+function isoDay(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 /**
- * Returns a date range [from, to] for a given preset.
- * Use this to filter data client-side.
+ * True when a `YYYY-MM-DD` business date falls inside the preset, last day included.
+ * Compare day strings, not Date objects: `new Date('2026-09-30')` is UTC midnight, which in
+ * Libya (UTC+2) is later than the local end-of-range Date and silently dropped the last day.
+ */
+export function isInDatePreset(txDate: string | null | undefined, preset: DateRangePreset): boolean {
+  const { from, to } = getDateRange(preset);
+  if (!from || !to) return true;
+  const day = (txDate ?? '').slice(0, 10);
+  return day >= isoDay(from) && day <= isoDay(to);
+}
+
+/**
+ * Returns a date range [from, to] for a given preset (local dates).
+ * To filter business dates use isInDatePreset.
  */
 export function getDateRange(preset: DateRangePreset): { from: Date | null; to: Date | null } {
   const now = new Date();

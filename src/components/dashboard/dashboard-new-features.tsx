@@ -1,84 +1,32 @@
 'use client';
 
 import Link from 'next/link';
-import {
-  Bell,
-  Landmark,
-  Users,
-  Coins,
-  Scale,
-  BookMarked,
-  FolderTree,
-  Sparkles,
-  ChevronLeft,
-  BookOpen,
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Bell, BookMarked, ChevronLeft, Coins, FolderTree, Landmark, Scale, Users, type LucideIcon } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatDateRelative } from '@/lib/utils';
-import {
-  useNotifications,
-  useUnreadNotificationCount,
-} from '@/lib/db/notification-queries';
+import { useNotifications, useUnreadNotificationCount } from '@/lib/db/notification-queries';
 import { useJournalSummary } from '@/lib/db/journal-queries';
 import { useTenantCharges } from '@/lib/db/mall-queries';
 import { AccountingBackfillBanner } from '@/components/accounting/accounting-backfill-banner';
 import { usePermission } from '@/lib/supabase/use-permission';
 
-const FEATURE_LINKS = [
-  {
-    href: '/reports/balance-sheet',
-    label: 'الميزانية العمومية',
-    description: 'الأصول والخصوم وحقوق الملكية',
-    icon: Landmark,
-    color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
-  },
-  {
-    href: '/reports/ar-aging',
-    label: 'أعمار الذمم',
-    description: 'تحليل متأخرات المستأجرين',
-    icon: Users,
-    color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
-  },
-  {
-    href: '/mall?tab=charges',
-    label: 'المطالبات والفواتير',
-    description: 'فواتير PDF وتذكيرات التحصيل',
-    icon: Coins,
-    color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  },
-  {
-    href: '/accounts',
-    label: 'البنود المحاسبية',
-    description: 'دليل الحسابات وبنود الميزانية',
-    icon: FolderTree,
-    color: 'bg-sage-100 text-sage-800 dark:bg-sage-900/30 dark:text-sage-400',
-  },
-  {
-    href: '/reports/trial-balance',
-    label: 'ميزان المراجعة',
-    description: 'توازن المدين والدائن',
-    icon: Scale,
-    color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  },
-  {
-    href: '/reports/ledger',
-    label: 'دفتر الأستاذ',
-    description: 'كشف حساب تفصيلي لكل بند',
-    icon: BookMarked,
-    color: 'bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300',
-  },
-] as const;
+const SHORTCUTS: Array<{ href: string; label: string; description: string; icon: LucideIcon }> = [
+  { href: '/reports/balance-sheet', label: 'الميزانية العمومية', description: 'الأصول والخصوم وحقوق الملكية', icon: Landmark },
+  { href: '/reports/ar-aging', label: 'أعمار الذمم', description: 'متأخرات المستأجرين حسب المدة', icon: Users },
+  { href: '/mall?tab=charges', label: 'المطالبات', description: 'فواتير الإيجار وتذكيرات التحصيل', icon: Coins },
+  { href: '/reports/trial-balance', label: 'ميزان المراجعة', description: 'توازن المدين والدائن', icon: Scale },
+  { href: '/reports/ledger', label: 'دفتر الأستاذ', description: 'حركة كل بند بالتفصيل', icon: BookMarked },
+  { href: '/accounts', label: 'دليل الحسابات', description: 'البنود وتصنيفها', icon: FolderTree },
+];
 
-const SEVERITY_STYLES = {
-  info: 'border-border bg-canvas-sunken',
-  success: 'border-emerald-200 bg-emerald-50/80 dark:border-emerald-900/50',
-  warning: 'border-amber-200 bg-amber-50/80 dark:border-amber-900/50',
-  danger: 'border-rose-200 bg-rose-50/80 dark:border-rose-900/50',
-} as const;
+const SEVERITY_DOT: Record<string, string> = {
+  info: 'bg-ink-mute',
+  success: 'bg-pastel-greenInk',
+  warning: 'bg-pastel-yellowInk',
+  danger: 'bg-pastel-redInk',
+};
 
+/** Dashboard footer: report shortcuts, the latest alerts, and the ledger backfill prompt when needed. */
 export function DashboardNewFeatures() {
   const { data: unread = 0, isLoading: unreadLoading } = useUnreadNotificationCount();
   const { data: notifications = [], isLoading: notifLoading } = useNotifications();
@@ -95,126 +43,95 @@ export function DashboardNewFeatures() {
     (can('journal.post') || can('journal.create'));
 
   return (
-    <section className="space-y-3" aria-label="الميزات الجديدة">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-amber-600" />
-          الميزات الجديدة
-        </h3>
-        <div className="flex flex-wrap items-center gap-2">
-          {!journalLoading && journalSummary != null && (
-            <Badge variant="outline" className="text-[11px] font-normal gap-1">
-              <BookOpen className="h-3 w-3" />
-              {journalSummary.posted_entries} مرحّل
-              {Number(journalSummary.draft_entries) > 0 && (
-                <span className="text-amber-700 dark:text-amber-400">
-                  · {journalSummary.draft_entries} مسودة
+    <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_22rem]" aria-label="اختصارات وتنبيهات">
+      <div className="flex flex-col gap-3">
+        <header className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-[13px] font-semibold text-foreground">اختصارات التقارير</h3>
+          <p className="text-[12px] text-muted-foreground tabular-nums">
+            {!journalLoading && journalSummary != null && (
+              <>
+                {Number(journalSummary.posted_entries).toLocaleString('en-US')} قيد مرحّل
+                {Number(journalSummary.draft_entries) > 0 && ` · ${journalSummary.draft_entries} مسودة`}
+              </>
+            )}
+            {unpaidCharges > 0 && ` · ${unpaidCharges} مطالبة غير مسددة`}
+          </p>
+        </header>
+        <ul className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 xl:grid-cols-3">
+          {SHORTCUTS.map((item) => (
+            <li key={item.href} className="bg-card">
+              <Link
+                href={item.href}
+                prefetch
+                className="group flex h-full items-center gap-3 px-4 py-3.5 transition-colors duration-100 hover:bg-canvas-sunken focus-visible:bg-canvas-sunken focus-visible:outline-none"
+              >
+                <item.icon className="h-[18px] w-[18px] shrink-0 stroke-[1.5] text-muted-foreground group-hover:text-foreground" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13.5px] font-medium text-foreground">{item.label}</span>
+                  <span className="block truncate text-[12px] text-muted-foreground">{item.description}</span>
                 </span>
-              )}
-            </Badge>
+                <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground/60 group-hover:text-foreground" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <header className="flex items-baseline justify-between gap-2">
+          <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+            <Bell className="h-4 w-4 stroke-[1.5] text-muted-foreground" />
+            آخر التنبيهات
+          </h3>
+          {!unreadLoading && unread > 0 && (
+            <span className="rounded-full bg-pastel-red px-2 text-[11.5px] font-medium leading-5 text-pastel-redInk tabular-nums">
+              {unread} غير مقروء
+            </span>
           )}
-          {unpaidCharges > 0 && (
-            <Badge variant="outline" className="text-[11px] font-normal text-amber-800 border-amber-200">
-              {unpaidCharges} مطالبة غير مسددة
-            </Badge>
+        </header>
+        <div className="flex flex-1 flex-col rounded-xl border border-border bg-card">
+          {notifLoading ? (
+            <div className="flex flex-col gap-2 p-3">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          ) : recentAlerts.length === 0 ? (
+            <p className="flex flex-1 items-center justify-center px-4 py-8 text-center text-[12.5px] text-muted-foreground">
+              لا توجد تنبيهات. ستظهر هنا تذكيرات المتأخرات.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border/70">
+              {recentAlerts.map((n) => (
+                <li key={n.id} className="flex items-start gap-2.5 px-3.5 py-2.5">
+                  <span
+                    className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', SEVERITY_DOT[n.severity] ?? SEVERITY_DOT.info)}
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className={cn('block truncate text-[12.5px]', !n.is_read && 'font-semibold')}>{n.title_ar}</span>
+                    <span className="block text-[11.5px] text-muted-foreground">{formatDateRelative(n.created_at)}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
+          <Link
+            href="/notifications"
+            className="mt-auto flex items-center justify-center gap-1 border-t border-border px-3 py-2.5 text-[12.5px] text-muted-foreground transition-colors duration-100 hover:bg-canvas-sunken hover:text-foreground"
+          >
+            كل التنبيهات
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {FEATURE_LINKS.map((item) => (
-          <Link key={item.href} href={item.href} prefetch className="block h-full group">
-            <div className="relative flex h-full items-center gap-3 rounded-xl border border-dashed border-sage-300/80 bg-gradient-to-br from-sage-50/90 to-card p-3.5 shadow-sm transition-all duration-200 hover:border-sage-400 hover:shadow-lift dark:from-sage-950/20 dark:border-sage-800/60">
-              <span className="absolute top-2 start-2 rounded-md bg-amber-500/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
-                جديد
-              </span>
-              <div
-                className={cn(
-                  'mt-4 p-2.5 rounded-lg shrink-0 transition-transform group-hover:scale-105',
-                  item.color,
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1 pt-3">
-                <p className="text-sm font-semibold group-hover:text-primary transition-colors">
-                  {item.label}
-                </p>
-                <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 line-clamp-2">
-                  {item.description}
-                </p>
-              </div>
-              <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary transition-transform group-hover:-translate-x-0.5" />
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 md:gap-4">
-        <Link href="/notifications" prefetch className="block h-full group">
-          <Card className="h-full border-dashed border-sage-300/70 bg-gradient-to-br from-card to-sage-50/50 transition-all hover:shadow-lift hover:border-sage-400 dark:to-sage-950/15">
-            <CardHeader className="pb-2">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-sage-600" />
-                    مركز الإشعارات
-                  </CardTitle>
-                  <CardDescription>تذكيرات المطالبات والمتابعة</CardDescription>
-                </div>
-                {!unreadLoading && unread > 0 && (
-                  <Badge className="bg-rose-600 hover:bg-rose-600 shrink-0">
-                    {unread} غير مقروء
-                  </Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {notifLoading ? (
-                <>
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </>
-              ) : recentAlerts.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-4 text-center">
-                  لا توجد إشعارات — ستظهر تذكيرات المتأخرات هنا
-                </p>
-              ) : (
-                recentAlerts.map((n) => (
-                  <div
-                    key={n.id}
-                    className={cn(
-                      'rounded-lg border px-2.5 py-2 text-xs',
-                      SEVERITY_STYLES[n.severity] ?? SEVERITY_STYLES.info,
-                      !n.is_read && 'ring-1 ring-sage-300/50',
-                    )}
-                  >
-                    <p className="font-medium truncate">{n.title_ar}</p>
-                    <p className="text-muted-foreground mt-0.5 truncate">
-                      {formatDateRelative(n.created_at)}
-                    </p>
-                  </div>
-                ))
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-xs gap-1 mt-1 pointer-events-none"
-                tabIndex={-1}
-              >
-                فتح المركز
-                <ChevronLeft className="h-3 w-3" />
-              </Button>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
-
       {showBackfill && (
-        <AccountingBackfillBanner
-          title="التقارير الجديدة تحتاج قيوداً مرحّلة"
-          description="بعد ترحيل المعاملات القديمة ستظهر بيانات الميزانية وأعمار الذمم وميزان المراجعة."
-        />
+        <div className="lg:col-span-2">
+          <AccountingBackfillBanner
+            title="التقارير تحتاج قيوداً مرحّلة"
+            description="بعد ترحيل المعاملات القديمة تظهر بيانات الميزانية وأعمار الذمم وميزان المراجعة."
+          />
+        </div>
       )}
     </section>
   );

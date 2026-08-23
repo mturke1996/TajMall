@@ -3,8 +3,10 @@
  */
 export function isNavActive(pathname: string, href: string): boolean {
   if (href === '/dashboard') return pathname === '/dashboard';
-  // مركز التقارير فقط — لا يفعّل على /reports/ledger وغيرها
-  if (href === '/reports') return pathname === '/reports';
+  // مركز التقارير يبقى مفعّلاً داخل أي تقرير، عدا قيد الفترة الذي له بند مستقل في القائمة
+  if (href === '/reports') {
+    return pathname === '/reports' || (pathname.startsWith('/reports/') && !pathname.startsWith('/reports/journal-month'));
+  }
   if (href === '/documents') return pathname === '/documents';
 
   const [path, queryString] = href.split('?');

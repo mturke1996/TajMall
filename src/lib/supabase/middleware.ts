@@ -83,7 +83,9 @@ export async function updateSession(request: NextRequest) {
     path === '/sw.js' ||
     path === '/manifest.webmanifest' ||
     path.startsWith('/icon-') ||
-    path.startsWith('/apple-');
+    path.startsWith('/apple-') ||
+    // Development-only component gallery (the page itself 404s in production).
+    (process.env.NODE_ENV !== 'production' && path.startsWith('/ui-kit'));
 
   // Unauthenticated → push to /login (preserving target as ?next=)
   if (!user && !isPublic) {

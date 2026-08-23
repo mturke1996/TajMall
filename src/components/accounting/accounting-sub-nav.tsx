@@ -19,7 +19,7 @@ export function AccountingSubNav() {
 
   return (
     <nav
-      className="sticky top-0 z-20 border-b border-border bg-canvas/95 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/80"
+      className="sticky top-0 z-20 border-b border-border bg-canvas"
       aria-label="تنقل المحاسبة والتقارير"
     >
       <div className="relative">

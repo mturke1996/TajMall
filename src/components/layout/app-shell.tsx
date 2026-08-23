@@ -8,32 +8,15 @@ import { MobileBottomNav } from './mobile-bottom-nav';
 import { PageTransition } from './page-transition';
 import { CommandPalette } from './command-palette';
 import { NewTransactionDialog } from '@/components/transactions/new-transaction-dialog';
-import { AnimatePresence } from 'framer-motion';
-import { useRouter } from 'next/navigation';
-import { NAV } from './nav-items';
-import { AppDataBootstrap } from './app-data-bootstrap';
 import { AutoColdBackup } from '@/components/backup/auto-cold-backup';
+import { useNotificationsRealtime } from '@/lib/db/notification-queries';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
-  const router = useRouter();
 
-  // Prefetch all application pages in the background on initial mount to make navigation instant
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const hrefs = NAV.flatMap((section) => section.items.map((item) => item.href));
-      hrefs.forEach((href) => {
-        try {
-          router.prefetch(href);
-        } catch (err) {
-          console.warn(`Failed to prefetch ${href}:`, err);
-        }
-      });
-    }, 1200); // 1.2s delay to avoid blocking critical initial rendering
-    return () => clearTimeout(timer);
-  }, [router]);
+  useNotificationsRealtime();
 
   // Global keyboard shortcut ⌘K / Ctrl+K → open command palette
   useEffect(() => {
@@ -49,22 +32,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-[100dvh] w-full bg-background" dir="rtl">
+      <a
+        href="#main-content"
+        className="sr-only rounded-md bg-background px-4 py-3 text-sm font-semibold shadow-lg ring-2 ring-ring focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-[100]"
+      >
+        تجاوز إلى المحتوى
+      </a>
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-      <AnimatePresence>
-        {mobileOpen && (
-          <MobileNav open={mobileOpen} onClose={() => setMobileOpen(false)} />
-        )}
-      </AnimatePresence>
+      <MobileNav open={mobileOpen} onClose={() => setMobileOpen(false)} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           onOpenMobileNav={() => setMobileOpen(true)}
+          mobileNavOpen={mobileOpen}
           onOpenSearch={() => setCmdOpen(true)}
         />
-        <main className="flex min-w-0 flex-1 flex-col pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0">
-          <AppDataBootstrap>
-            <PageTransition>{children}</PageTransition>
-          </AppDataBootstrap>
+        <main
+          id="main-content"
+          className="flex min-w-0 flex-1 flex-col pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0"
+        >
+          <PageTransition>{children}</PageTransition>
         </main>
       </div>
 

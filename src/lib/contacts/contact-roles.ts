@@ -309,6 +309,7 @@ export function buildLandlordRentSchedule(
   const expenseTxs = transactions.filter(
     (t) =>
       (t.contact?.id === contact.id || (t as unknown as { contact_id?: string }).contact_id === contact.id) &&
+      t.status === 'POSTED' &&
       (t.kind === 'EXPENSE' || t.kind == null)
   );
 

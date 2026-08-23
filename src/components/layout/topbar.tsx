@@ -16,7 +16,7 @@ function NotificationBell() {
   const { data: unread = 0 } = useUnreadNotificationCount();
 
   return (
-    <Button size="icon-sm" variant="ghost" className="relative" asChild>
+    <Button size="icon" variant="ghost" className="relative min-h-11 min-w-11" asChild>
       <Link href="/notifications" prefetch aria-label="الإشعارات">
         <Bell className="h-4 w-4" />
         {unread > 0 && (
@@ -55,23 +55,34 @@ function ThemeToggle() {
 
 export function TopBar({
   onOpenMobileNav,
+  mobileNavOpen = false,
   onOpenSearch,
 }: {
   onOpenMobileNav?: () => void;
+  mobileNavOpen?: boolean;
   onOpenSearch?: () => void;
 }) {
   const { isViewer, loading: permLoading, can } = usePermission();
 
   return (
     <header
-      className="sticky top-0 z-30 flex min-h-16 shrink-0 items-center gap-2 border-b border-border bg-canvas/95 px-3 backdrop-blur-sm"
+      className="sticky top-0 z-30 flex min-h-16 shrink-0 items-center gap-2 border-b border-border bg-canvas px-3"
       style={{
         paddingTop: 'max(env(safe-area-inset-top), 8px)',
         paddingBottom: '8px',
       }}
     >
       {/* Mobile nav button */}
-      <Button variant="ghost" size="icon" className="md:hidden" onClick={onOpenMobileNav}>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="min-h-11 min-w-11 md:hidden"
+        onClick={onOpenMobileNav}
+        aria-label="فتح قائمة التنقل"
+        aria-haspopup="dialog"
+        aria-controls={mobileNavOpen ? 'mobile-navigation' : undefined}
+        aria-expanded={mobileNavOpen}
+      >
         <Menu className="h-5 w-5" />
       </Button>
 
@@ -102,7 +113,12 @@ export function TopBar({
             قراءة فقط
           </Badge>
         )}
-        <NewTransactionButton variant="outline" size="sm" />
+        <NewTransactionButton
+          kind={can('revenue.create') ? 'REVENUE' : 'EXPENSE'}
+          variant="outline"
+          size="sm"
+          className="hidden md:inline-flex"
+        />
         <NotificationBell />
         <ThemeToggle />
         {can('org.users') && (

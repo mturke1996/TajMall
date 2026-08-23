@@ -14,7 +14,6 @@ import {
   PieChart,
   Loader2,
   Share2,
-  Sparkles,
   BookOpen,
   Receipt,
   ArrowDownLeft,
@@ -36,10 +35,7 @@ import { toast } from 'sonner';
 
 import { renderPdfBlob, savePdfBlob, shouldUseInAppPdfViewer } from './pdf-blob-utils';
 import { PdfPreviewDialog } from './pdf-preview-dialog';
-import {
-  PeriodJournalExecutivePDF,
-  type PeriodJournalBankGroup,
-} from './PeriodJournalExecutivePDF';
+import type { PeriodJournalBankGroup } from './PeriodJournalExecutivePDF';
 import { extractTargetRentMonth } from '@/lib/period-journal-entry';
 import type {
   CategoryRow,
@@ -378,6 +374,7 @@ export function PeriodJournalPdfDialog({
 
   // Generate Report JSX for PDF Renderer
   const generatePdfElement = useCallback(async () => {
+    const { PeriodJournalExecutivePDF } = await import('./PeriodJournalExecutivePDF');
     return (
       <PeriodJournalExecutivePDF
         titleAr={customTitle.trim() || 'قيد الفترة المحاسبي المعتمد'}
@@ -493,7 +490,7 @@ export function PeriodJournalPdfDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
-          className="max-w-3xl w-[calc(100%-1.5rem)] p-0 overflow-hidden rounded-2xl border bg-card shadow-2xl"
+          className="max-w-3xl w-[calc(100%-1.5rem)] p-0 overflow-hidden rounded-2xl border bg-card shadow-lift"
           dir="rtl"
         >
           {/* Header */}
@@ -534,7 +531,7 @@ export function PeriodJournalPdfDialog({
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
-                    📊 مجموع البند فقط (لكل مصرف)
+                    مجموع البند فقط (لكل مصرف)
                   </button>
                   <button
                     type="button"
@@ -601,7 +598,7 @@ export function PeriodJournalPdfDialog({
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-foreground">
-                      🎯 شهر الاستحقاق المستهدف
+                      شهر الاستحقاق المستهدف
                     </span>
                     {basisMode === 'RENT_MONTH_TARGET' && (
                       <Check className="h-3.5 w-3.5 text-emerald-700" />

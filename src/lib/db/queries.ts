@@ -23,6 +23,7 @@ import type {
   SaveDisbursementVoucherInput,
 } from "./types";
 import { CONTACT_LIST_COLUMNS } from "@/lib/db/contact-columns";
+import { fetchAllContactPages } from "@/lib/contacts/contact-transactions";
 
 /**
  * Centralised TanStack Query hooks over Supabase JS.
@@ -841,20 +842,39 @@ export function useCategoryTransactionsForMonth(
   });
 }
 
-export function useContactTransactions(contactId: string, limit = 200) {
+export function useContactTransactions(contactId: string) {
   return useQuery<TransactionWithRelations[]>({
     queryKey: qk.contactTransactions(contactId),
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase
+      const { data: latest, error: latestError } = await supabase
         .from("transactions")
-        .select(TX_SELECT)
+        .select("number")
         .eq("contact_id", contactId)
-        .order("tx_date", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(limit);
-      if (error) throw error;
-      return (data as unknown as TransactionWithRelations[]) ?? [];
+        .order("number", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestError) throw latestError;
+      if (latest?.number == null) return [];
+
+      const maxNumber = latest.number;
+      const transactions = await fetchAllContactPages(async (offset, pageSize) => {
+        const { data, error } = await supabase
+          .from("transactions")
+          .select(TX_SELECT)
+          .eq("contact_id", contactId)
+          .lte("number", maxNumber)
+          .order("number", { ascending: false })
+          .range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        return (data as unknown as TransactionWithRelations[]) ?? [];
+      });
+
+      return transactions.sort((a, b) =>
+        b.tx_date.localeCompare(a.tx_date) ||
+        b.created_at.localeCompare(a.created_at) ||
+        b.id.localeCompare(a.id),
+      );
     },
     enabled: !!contactId,
   });

@@ -12,7 +12,6 @@ import {
   Hash,
   ChevronDown,
   ChevronUp,
-  Sparkles,
   Search,
   FileStack,
   LayoutTemplate,
@@ -589,7 +588,7 @@ export function JournalEntryDialog({
                     <Loader2 className="h-4 w-4 animate-spin text-sage-600" />
                   ) : (
                     <>
-                      <Sparkles className="h-3.5 w-3.5 text-sage-600 shrink-0" />
+                      <Hash className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <span className="font-mono text-sm font-semibold text-sage-900 truncate">
                         {autoReference || '—'}
                       </span>
@@ -817,7 +816,7 @@ export function JournalEntryDialog({
         </div>
 
         <div
-          className="shrink-0 border-t bg-card/95 backdrop-blur-sm px-4 py-3 space-y-3"
+          className="shrink-0 border-t bg-card px-4 py-3 space-y-3"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
           <div

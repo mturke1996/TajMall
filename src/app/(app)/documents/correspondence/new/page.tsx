@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/select';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
-import { OfficialLetterPDF } from '@/features/pdf/OfficialLetterPDF';
 import { useCreateCorrespondenceLetter } from '@/lib/db/document-queries';
 import {
   formatDocumentPdfExportNames,
@@ -116,11 +115,16 @@ function NewCorrespondenceContent() {
               fileName={pdfExport.fileName}
               shareTitle={pdfExport.shareTitle}
               shareText={pdfExport.shareText}
-              render={async () => (
-                <OfficialLetterPDF
-                  letter={{ ...previewModel, documentTitle: pdfExport.documentTitle }}
-                />
-              )}
+              render={async () => {
+                const { OfficialLetterPDF } = await import(
+                  '@/features/pdf/OfficialLetterPDF'
+                );
+                return (
+                  <OfficialLetterPDF
+                    letter={{ ...previewModel, documentTitle: pdfExport.documentTitle }}
+                  />
+                );
+              }}
             />
             <Button
               size="sm"

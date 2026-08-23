@@ -6,7 +6,12 @@
 /** يهرب حقلاً واحداً حسب معيار CSV (RFC 4180). */
 function escapeCsvField(value: unknown): string {
   if (value === null || value === undefined) return '';
-  const s = String(value);
+  let s = String(value);
+  // A text cell starting with = + - @ is executed as a formula by Excel/Sheets (CSV injection).
+  // Numbers are left alone so negative amounts stay numeric.
+  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) {
+    s = `'${s}`;
+  }
   if (/[",\n\r]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;
   }

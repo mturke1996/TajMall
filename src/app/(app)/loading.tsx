@@ -1,34 +1,22 @@
-"use client";
-
-import { BrandGlyph } from "@/components/brand/logo";
-
+/**
+ * Route transition indicator. Seen on almost every navigation, so it stays quiet:
+ * a thin line under the top bar instead of a full-screen loader.
+ */
 export default function Loading() {
   return (
-    <div className="flex h-[calc(100vh-4rem)] items-center justify-center bg-background/50 backdrop-blur-sm" dir="rtl">
-      <div className="flex flex-col items-center gap-4">
-        {/* Pulsing Logo */}
-        <div className="relative">
-          <div className="absolute inset-0 rounded-full bg-sage-500/20 blur-md animate-ping" style={{ animationDuration: '2s' }} />
-          <BrandGlyph size={60} className="relative z-10 border border-border/80 shadow-lg" />
-        </div>
-        
-        {/* Clean, thin loading bar */}
-        <div className="w-32 h-[3px] bg-canvas-sunken rounded-full overflow-hidden relative">
-          <div 
-            className="absolute inset-y-0 bg-sage-700 w-12 rounded-full" 
-            style={{
-              animation: 'progress-slide 1.5s infinite ease-in-out',
-            }}
-          />
-        </div>
-        
-        <span className="text-xs font-semibold text-ink-mute">جاري تحميل المنظومة...</span>
+    <div className="relative h-[calc(100vh-4rem)]" dir="rtl" aria-busy="true">
+      <span className="sr-only">جارٍ تحميل الصفحة</span>
+      <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-transparent">
+        <div className="route-progress h-full w-1/3 bg-foreground/70" />
       </div>
       <style>{`
-        @keyframes progress-slide {
-          0% { left: -33%; }
-          50% { left: 100%; }
-          100% { left: -33%; }
+        .route-progress { animation: route-progress 1.1s cubic-bezier(0.77, 0, 0.175, 1) infinite; }
+        @keyframes route-progress {
+          from { transform: translateX(110%); }
+          to   { transform: translateX(-330%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .route-progress { animation: none; width: 100%; opacity: 0.4; }
         }
       `}</style>
     </div>

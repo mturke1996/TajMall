@@ -29,7 +29,9 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const openTx = useTxDialog((s) => s.open);
   const { can } = usePermission();
-  const canCreate = can("revenue.create") || can("expense.create");
+  const canCreateRevenue = can("revenue.create");
+  const canCreateExpense = can("expense.create");
+  const canCreate = canCreateRevenue || canCreateExpense;
 
   return (
     <nav
@@ -45,7 +47,11 @@ export function MobileBottomNav() {
           <motion.button
             whileTap={canCreate ? { scale: 0.94 } : undefined}
             type="button"
-            onClick={canCreate ? () => openTx("REVENUE") : undefined}
+            onClick={
+              canCreate
+                ? () => openTx(canCreateRevenue ? "REVENUE" : "EXPENSE")
+                : undefined
+            }
             disabled={!canCreate}
             className={cn(
               "grid h-[52px] w-[52px] place-items-center rounded-full ring-4 ring-canvas shadow-lg transition-all",
@@ -80,8 +86,9 @@ function TabLink({
     <Link
       href={item.href}
       prefetch
+      aria-current={isActive ? "page" : undefined}
       className={cn(
-        "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors duration-100",
+        "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-colors duration-100",
         isActive ? "text-sage-700" : "text-ink-mute",
       )}
     >
@@ -91,7 +98,7 @@ function TabLink({
       >
         <Icon className="h-[18px] w-[18px]" />
       </motion.span>
-      <span className="max-w-[52px] truncate text-[9.5px] leading-tight">{item.label}</span>
+      <span className="max-w-[64px] truncate text-xs leading-tight">{item.label}</span>
       <span
         className={cn(
           "mt-0.5 h-1 w-1 rounded-full transition-opacity",

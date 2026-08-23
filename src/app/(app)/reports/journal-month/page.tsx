@@ -14,7 +14,6 @@ import {
   Search,
   Building2,
   Calendar,
-  Sparkles,
   Clock,
   ArrowDownLeft,
   SlidersHorizontal,
@@ -726,7 +725,7 @@ function JournalMonthContent() {
             <div className="rounded-xl border border-emerald-300 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start sm:items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-700 text-white shrink-0">
-                  <Sparkles className="h-5 w-5" />
+                  <Layers className="h-5 w-5" />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-emerald-950 dark:text-emerald-100">
@@ -933,7 +932,7 @@ function JournalMonthContent() {
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
-                    🎯 الشهر الحالي
+                    الشهر الحالي
                   </button>
                   <button
                     type="button"
@@ -945,7 +944,7 @@ function JournalMonthContent() {
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
-                    🚀 مقدم
+                    مقدم
                   </button>
                 </div>
 
@@ -1021,12 +1020,10 @@ function JournalMonthContent() {
                                 </Badge>
                               ) : it.target_month_status === 'FUTURE' ? (
                                 <Badge variant="outline" className="bg-indigo-50 text-indigo-900 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-200 text-[11px] font-medium gap-1">
-                                  <span>🚀</span>
                                   <span>{it.target_rent_month || 'مقدم'}</span>
                                 </Badge>
                               ) : (
                                 <Badge variant="outline" className="bg-emerald-50 text-emerald-900 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-200 text-[11px] font-medium gap-1">
-                                  <span>🎯</span>
                                   <span>{it.target_rent_month || 'الشهر الحالي'}</span>
                                 </Badge>
                               )}

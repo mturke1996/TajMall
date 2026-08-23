@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Building2,
   Building,
@@ -154,6 +154,10 @@ export function ContactFormDialog({
 }: ContactFormDialogProps) {
   const [showOptional, setShowOptional] = useState(false);
   const role = formData.businessRole || 'CUSTOMER';
+
+  useEffect(() => {
+    if (open) setShowOptional(Boolean(editingId));
+  }, [editingId, open]);
 
   const isTenant = role === 'TENANT';
   const isLandlord = role === 'LANDLORD';
@@ -474,14 +478,64 @@ export function ContactFormDialog({
             <button
               type="button"
               onClick={() => setShowOptional(!showOptional)}
-              className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground py-1"
+              className="flex min-h-11 items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground py-1"
             >
               {showOptional ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-              {showOptional ? 'إخفاء الحقول الإضافية' : 'إظهار حقول إضافية (العنوان، البريد، الملاحظات)'}
+              {showOptional ? 'إخفاء بيانات الملف الإضافية' : 'بيانات الملف والتواصل الإضافية'}
             </button>
 
             {showOptional && (
               <div className="space-y-3 pt-2 border-t border-border/80">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-[11px] font-medium block mb-1">الاسم باللغة الإنجليزية</Label>
+                    <Input
+                      value={formData.name_en}
+                      onChange={(e) => onFormChange({ ...formData, name_en: e.target.value })}
+                      autoComplete="organization"
+                      className="h-11 text-sm bg-card"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] font-medium block mb-1">رقم الهوية / السجل</Label>
+                    <Input
+                      value={formData.id_number}
+                      onChange={(e) => onFormChange({ ...formData, id_number: e.target.value })}
+                      autoComplete="off"
+                      className="h-11 text-sm bg-card"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] font-medium block mb-1">الرقم الضريبي</Label>
+                    <Input
+                      value={formData.tax_number}
+                      onChange={(e) => onFormChange({ ...formData, tax_number: e.target.value })}
+                      autoComplete="off"
+                      className="h-11 text-sm bg-card"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] font-medium block mb-1">تاريخ بدء التعامل / التعيين</Label>
+                    <Input
+                      type="date"
+                      value={formData.hire_date}
+                      onChange={(e) => onFormChange({ ...formData, hire_date: e.target.value })}
+                      className="h-11 text-sm bg-card"
+                    />
+                  </div>
+                </div>
+
+                <label className="flex min-h-11 items-center justify-between rounded-xl border border-border bg-card px-3 text-sm">
+                  <span className="font-medium">الجهة نشطة ويمكن التعامل معها</span>
+                  <input
+                    type="checkbox"
+                    checked={formData.is_active}
+                    onChange={(e) => onFormChange({ ...formData, is_active: e.target.checked })}
+                    className="h-5 w-5 accent-emerald-700"
+                    aria-label="الجهة نشطة ويمكن التعامل معها"
+                  />
+                </label>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-[11px] font-medium block mb-1">الهاتف الإضافي</Label>

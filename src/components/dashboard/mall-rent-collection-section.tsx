@@ -255,7 +255,7 @@ export function MallRentCollectionSection({
       </div>
 
       <Card className="overflow-hidden border-sage-200/50 dark:border-sage-800/40">
-        <CardHeader className="pb-3 border-b border-border/60 bg-gradient-to-l from-sage-50/80 to-transparent dark:from-sage-950/30">
+        <CardHeader className="pb-3 border-b border-border/60 bg-canvas-sunken">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle className="text-base flex items-center gap-2">

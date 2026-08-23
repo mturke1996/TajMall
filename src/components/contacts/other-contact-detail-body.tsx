@@ -147,13 +147,28 @@ export function OtherContactDetailBody({
                 <KindIcon className={cn('h-6 w-6', kindColor)} />
               </div>
               <div>
-                <Badge variant="outline">{kindLabel}</Badge>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge variant="outline">{kindLabel}</Badge>
+                  <Badge className={cn(
+                    contact.is_active
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                      : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
+                  )}>
+                    {contact.is_active ? 'نشط' : 'غير نشط'}
+                  </Badge>
+                </div>
                 {contact.code && (
                   <p className="text-xs text-ink-mute mt-1">{contact.code}</p>
                 )}
               </div>
             </div>
             <dl className="space-y-2 text-sm">
+              {contact.name_en && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-ink-mute">الاسم باللغة الإنجليزية</dt>
+                  <dd className="font-medium text-left" dir="ltr">{contact.name_en}</dd>
+                </div>
+              )}
               {contact.phone && (
                 <div className="space-y-2">
                   <div className="flex justify-between gap-2">
@@ -167,6 +182,18 @@ export function OtherContactDetailBody({
                     phone={contact.phone}
                     kind={contact.kind}
                   />
+                </div>
+              )}
+              {contact.email && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-ink-mute">البريد الإلكتروني</dt>
+                  <dd className="max-w-[65%] break-all text-left" dir="ltr">{contact.email}</dd>
+                </div>
+              )}
+              {contact.address && (
+                <div className="flex justify-between gap-2">
+                  <dt className="shrink-0 text-ink-mute">العنوان</dt>
+                  <dd className="text-left">{contact.address}</dd>
                 </div>
               )}
               {contact.phone2 && (
