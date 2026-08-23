@@ -352,7 +352,7 @@ export default function CategoryDetailPage() {
         </div>
 
         {viewMode === 'journal' ? (
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3">
             <SummaryCard
               label="مدين الفترة"
               value={formatMoney(periodDebit, 'LYD')}
@@ -362,16 +362,6 @@ export default function CategoryDetailPage() {
               label="دائن الفترة"
               value={formatMoney(periodCredit, 'LYD')}
               tone="negative"
-            />
-            <SummaryCard
-              label="رصيد افتتاحي"
-              value={formatMoney(openingBalance, 'LYD')}
-              tone="default"
-            />
-            <SummaryCard
-              label="رصيد ختامي"
-              value={formatMoney(closingBalance, 'LYD')}
-              tone="default"
             />
           </div>
         ) : (
@@ -430,7 +420,7 @@ export default function CategoryDetailPage() {
             </Card>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-border bg-card">
-              <table className="w-full min-w-[720px] border-collapse text-sm" dir="rtl">
+              <table className="w-full min-w-[600px] border-collapse text-sm" dir="rtl">
                 <thead>
                   <tr className="border-b bg-muted/40 text-[11px] font-semibold text-ink-mute">
                     <th className="px-3 py-2.5 text-start">التاريخ</th>
@@ -438,31 +428,10 @@ export default function CategoryDetailPage() {
                     <th className="px-3 py-2.5 text-start">البيان</th>
                     <th className="px-3 py-2.5 text-left text-emerald-800">مدين</th>
                     <th className="px-3 py-2.5 text-left text-rose-800">دائن</th>
-                    <th className="px-3 py-2.5 text-left">الرصيد</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(ledgerResult?.openingDebit || ledgerResult?.openingCredit) ? (
-                    <tr className="border-b bg-canvas-sunken/40 text-[12.5px]">
-                      <td className="px-3 py-2 text-ink-mute" colSpan={3}>
-                        رصيد افتتاحي
-                      </td>
-                      <td className="px-3 py-2 text-left font-mono tabular-nums text-emerald-800" dir="ltr">
-                        {(ledgerResult?.openingDebit ?? 0) > 0
-                          ? formatMoney(ledgerResult!.openingDebit, 'LYD')
-                          : '—'}
-                      </td>
-                      <td className="px-3 py-2 text-left font-mono tabular-nums text-rose-800" dir="ltr">
-                        {(ledgerResult?.openingCredit ?? 0) > 0
-                          ? formatMoney(ledgerResult!.openingCredit, 'LYD')
-                          : '—'}
-                      </td>
-                      <td className="px-3 py-2 text-left font-mono tabular-nums" dir="ltr">
-                        {formatMoney(openingBalance, 'LYD')}
-                      </td>
-                    </tr>
-                  ) : null}
-                  {journalRowsNewestFirst.map(({ line, balance }, i) => (
+                  {journalRowsNewestFirst.map(({ line }, i) => (
                     <tr
                       key={`${line.journal_id}-${i}`}
                       className="border-b border-border/70 hover:bg-muted/20"
@@ -498,12 +467,6 @@ export default function CategoryDetailPage() {
                       >
                         {line.credit > 0 ? formatMoney(line.credit, 'LYD') : '—'}
                       </td>
-                      <td
-                        className="px-3 py-2.5 text-left font-mono tabular-nums font-medium"
-                        dir="ltr"
-                      >
-                        {formatMoney(balance, 'LYD')}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -517,9 +480,6 @@ export default function CategoryDetailPage() {
                     </td>
                     <td className="px-3 py-3 text-left font-mono tabular-nums text-rose-900" dir="ltr">
                       {formatMoney(periodCredit, 'LYD')}
-                    </td>
-                    <td className="px-3 py-3 text-left font-mono tabular-nums" dir="ltr">
-                      {formatMoney(closingBalance, 'LYD')}
                     </td>
                   </tr>
                 </tfoot>

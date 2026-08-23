@@ -7,19 +7,18 @@ import { PDF } from './pdfBase';
 import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTable';
 
 const W = {
-  balance: '14%',
-  credit: '13%',
-  debit: '13%',
-  desc: '42%',
-  meta: '18%',
+  credit: '15%',
+  debit: '15%',
+  desc: '50%',
+  meta: '20%',
 };
 
 export type LedgerReportPdfProps = {
   category: { name_ar: string; code: string; type: string };
   startDate?: string;
   endDate?: string;
-  openingBalance: number;
-  closingBalance: number;
+  openingBalance?: number;
+  closingBalance?: number;
   totalDebit: number;
   totalCredit: number;
   lines: Array<{
@@ -29,7 +28,7 @@ export type LedgerReportPdfProps = {
     description: string | null;
     debit: number;
     credit: number;
-    runningBalance: number;
+    runningBalance?: number;
   }>;
   documentTitle?: string;
 };
@@ -62,8 +61,8 @@ export function LedgerReportPDF({
         hint: periodLabel,
       }}
       metaCells={[
-        { label: 'الرصيد الافتتاحي', moneyAmount: openingBalance, adaptiveMoney: true },
-        { label: 'الرصيد الختامي', moneyAmount: closingBalance, adaptiveMoney: true },
+        { label: 'إجمالي المدين', moneyAmount: totalDebit, adaptiveMoney: true },
+        { label: 'إجمالي الدائن', moneyAmount: totalCredit, adaptiveMoney: true },
       ]}
     >
       <View style={pdfReportTable.hero} wrap={false}>
@@ -83,26 +82,10 @@ export function LedgerReportPDF({
 
       <View style={pdfReportTable.tableWrap}>
         <View style={pdfReportTable.tableHead} wrap={false}>
-          <Text style={[pdfReportTable.th, { width: W.balance }]}>{ar('الرصيد')}</Text>
           <Text style={[pdfReportTable.th, { width: W.credit }]}>{ar('دائن')}</Text>
           <Text style={[pdfReportTable.th, { width: W.debit }]}>{ar('مدين')}</Text>
           <Text style={[pdfReportTable.thAr, { width: W.desc }]}>{ar('البيان')}</Text>
           <Text style={[pdfReportTable.th, { width: W.meta }]}>{ar('تاريخ / قيد')}</Text>
-        </View>
-
-        <View
-          style={[pdfReportTable.tableRow, { backgroundColor: PDF.logoGreenSoft }]}
-          wrap={false}
-        >
-          <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
-            <PdfReportMoney amount={openingBalance} bold />
-          </View>
-          <Text style={[pdfReportTable.tdMuted, { width: W.credit }]}>—</Text>
-          <Text style={[pdfReportTable.tdMuted, { width: W.debit }]}>—</Text>
-          <Text style={[pdfReportTable.tdAr, { width: W.desc, fontWeight: 'bold' }]}>
-            {ar('الرصيد الافتتاحي')}
-          </Text>
-          <Text style={[pdfReportTable.tdMuted, { width: W.meta }]}>—</Text>
         </View>
 
         {lines.length === 0 ? (
@@ -117,9 +100,6 @@ export function LedgerReportPDF({
               key={`${l.journal_number}-${i}`}
               style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]}
             >
-              <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
-                <PdfReportMoney amount={Number(l.runningBalance)} />
-              </View>
               <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
                 <PdfReportMoney amount={Number(l.credit)} color={PDF.danger} />
               </View>
@@ -157,10 +137,6 @@ export function LedgerReportPDF({
             <Text style={pdfReportTable.totalMiniLabel}>{ar('مدين')}</Text>
             <PdfReportMoney amount={totalDebit} bold />
           </View>
-          <View style={pdfReportTable.totalMini}>
-            <Text style={pdfReportTable.totalMiniLabel}>{ar('ختامي')}</Text>
-            <PdfReportMoney amount={closingBalance} bold />
-          </View>
         </View>
         <Text style={pdfReportTable.totalLabel}>{ar('إجمالي دفتر الأستاذ')}</Text>
       </View>
@@ -169,3 +145,4 @@ export function LedgerReportPDF({
     </ReportShell>
   );
 }
+
