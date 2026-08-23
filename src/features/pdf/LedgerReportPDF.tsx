@@ -49,14 +49,14 @@ export function LedgerReportPDF({
       ? `${startDate ?? '…'} — ${endDate ?? '…'}`
       : 'كل الفترات';
 
-  const calculatedDebit =
-    typeof totalDebit === 'number'
-      ? totalDebit
-      : lines.reduce((sum, l) => sum + (Number(l.debit) || 0), 0);
-  const calculatedCredit =
-    typeof totalCredit === 'number'
-      ? totalCredit
-      : lines.reduce((sum, l) => sum + (Number(l.credit) || 0), 0);
+  const sumLinesDebit = (lines ?? []).reduce((sum, l) => sum + (Number(l.debit) || 0), 0);
+  const sumLinesCredit = (lines ?? []).reduce((sum, l) => sum + (Number(l.credit) || 0), 0);
+  const calculatedDebit = sumLinesDebit > 0 ? sumLinesDebit : (Number(totalDebit) || 0);
+  const calculatedCredit = sumLinesCredit > 0 ? sumLinesCredit : (Number(totalCredit) || 0);
+  const mainTotal =
+    category.type === 'EXPENSE' || category.type === 'ASSET'
+      ? (calculatedDebit > 0 ? calculatedDebit : calculatedCredit)
+      : (calculatedCredit > 0 ? calculatedCredit : calculatedDebit);
 
   return (
     <ReportShell
@@ -139,20 +139,20 @@ export function LedgerReportPDF({
       <View style={pdfReportTable.totalBar} wrap={false}>
         <View style={pdfReportTable.totalCluster}>
           <View style={pdfReportTable.totalMini}>
-            <Text style={pdfReportTable.totalMiniLabel}>{ar('دائن')}</Text>
-            <PdfReportMoney amount={calculatedCredit} bold />
-          </View>
-          <View style={pdfReportTable.totalMini}>
-            <Text style={pdfReportTable.totalMiniLabel}>{ar('مدين')}</Text>
-            <PdfReportMoney amount={calculatedDebit} bold />
+            <Text style={pdfReportTable.totalMiniLabel}>{ar('إجمالي المبلغ')}</Text>
+            <PdfReportMoney amount={mainTotal} bold light showZero />
           </View>
         </View>
-        <Text style={pdfReportTable.totalLabel}>{ar('المجموع')}</Text>
+        <Text style={pdfReportTable.totalLabel}>
+          {ar(`المجموع (${lines.length} حركة)`)}
+        </Text>
       </View>
 
       <PdfReportCaption />
     </ReportShell>
   );
 }
+
+
 
 
