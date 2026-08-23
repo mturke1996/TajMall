@@ -29,14 +29,22 @@ export function numericOrNull(value?: string | null | number): string | null {
   return Number.isFinite(n) ? s : null;
 }
 
+/** Do not start financial activity from an archived contact profile. */
+export function canCreateContactTransaction(isActive: boolean, hasPermission: boolean): boolean {
+  return isActive && hasPermission;
+}
+
 export type ContactFormState = {
   kind: ContactRow['kind'];
   businessRole: ContactBusinessRole;
   name: string;
+  name_en: string;
   phone: string;
   phone2: string;
   email: string;
   address: string;
+  id_number: string;
+  tax_number: string;
   shop_number: string;
   floor: string;
   area_sqm: string;
@@ -46,6 +54,8 @@ export type ContactFormState = {
   job_title: string;
   department: string;
   salary: string;
+  hire_date: string;
+  is_active: boolean;
   notes: string;
 };
 
@@ -60,10 +70,13 @@ export const defaultContactFormState = (
     kind: isTenant ? 'TENANT' : isEmployee ? 'EMPLOYEE' : isLandlord ? 'VENDOR' : role === 'CUSTOMER' ? 'CUSTOMER' : 'VENDOR',
     businessRole: role,
     name: '',
+    name_en: '',
     phone: '',
     phone2: '',
     email: '',
     address: '',
+    id_number: '',
+    tax_number: '',
     shop_number: '',
     floor: '',
     area_sqm: '',
@@ -73,6 +86,8 @@ export const defaultContactFormState = (
     job_title: isLandlord ? 'مؤجر للمول' : '',
     department: '',
     salary: '',
+    hire_date: '',
+    is_active: true,
     notes: '',
   };
 };
@@ -85,10 +100,13 @@ export function contactToFormState(contact: ContactRow): ContactFormState {
     kind: contact.kind,
     businessRole: role,
     name: toFormString(contact.name),
+    name_en: toFormString(contact.name_en),
     phone: toFormString(contact.phone),
     phone2: toFormString(contact.phone2),
     email: toFormString(contact.email),
     address: toFormString(contact.address),
+    id_number: toFormString(contact.id_number),
+    tax_number: toFormString(contact.tax_number),
     shop_number: toFormString(contact.shop_number),
     floor: toFormString(contact.floor),
     area_sqm: toFormString(row.area_sqm),
@@ -98,6 +116,8 @@ export function contactToFormState(contact: ContactRow): ContactFormState {
     job_title: toFormString(contact.job_title),
     department: toFormString(contact.department),
     salary: toFormString(row.salary),
+    hire_date: toFormString(contact.hire_date ? contact.hire_date.slice(0, 10) : ''),
+    is_active: contact.is_active,
     notes: toFormString(contact.notes),
   };
 }
@@ -180,13 +200,13 @@ export function buildContactPayload(form: ContactFormState): ContactUpsertPayloa
     department,
     salary,
     notes: updatedNotes ? updatedNotes : null,
-    name_en: null,
-    id_number: null,
-    tax_number: null,
+    name_en: emptyToNull(form.name_en),
+    id_number: emptyToNull(form.id_number),
+    tax_number: emptyToNull(form.tax_number),
     contract_start: emptyToNull(form.contract_start),
     contract_end: emptyToNull(form.contract_end),
-    hire_date: null,
-    is_active: true,
+    hire_date: emptyToNull(form.hire_date),
+    is_active: form.is_active,
   };
 }
 

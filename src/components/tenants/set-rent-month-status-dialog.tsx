@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { RentMonthPicker } from '@/components/rent/rent-month-picker';
 import { useSetTenantRentMonthStatus } from '@/lib/db/rent-queries';
+import { useContactTransactions } from '@/lib/db/queries';
 import { buildRentCalendarFromCharges } from '@/lib/rent-calendar-from-charges';
 import {
   filterTenantJournalEntries,
@@ -98,10 +99,26 @@ export function SetRentMonthStatusDialog({
   // تغيّر مرجع المصفوفة دون تغيّر محتواها فعلياً.
   const selectedKey = selected.join(',');
 
-  const journals = useMemo(
-    () => filterTenantJournalEntries(journalEntries),
-    [journalEntries],
+  // A month may only be marked paid against cash actually received from this tenant: a posted
+  // rent revenue transaction. Accrual entries, expenses and other tenants' receipts are excluded.
+  const { data: tenantTransactions = [], isLoading: tenantTxLoading } = useContactTransactions(tenantId);
+  const rentReceiptIds = useMemo(
+    () =>
+      new Set(
+        tenantTransactions
+          .filter((t) => t.kind === 'REVENUE' && t.status === 'POSTED' && t.category?.code === 'REV-RNT')
+          .map((t) => t.id),
+      ),
+    [tenantTransactions],
   );
+  const journals = useMemo(
+    () =>
+      filterTenantJournalEntries(journalEntries).filter(
+        (je) => je.source_type === 'TRANSACTION' && !!je.source_id && rentReceiptIds.has(je.source_id),
+      ),
+    [journalEntries, rentReceiptIds],
+  );
+  const journalsBusy = journalsLoading || tenantTxLoading;
 
   useEffect(() => {
     if (open) {
@@ -429,18 +446,19 @@ export function SetRentMonthStatusDialog({
           )}
 
           <div className="space-y-2">
-            <Label className="text-ink">قيد اليومية</Label>
+            <Label className="text-ink">دفعة الإيجار</Label>
+            <p className="text-xs text-ink-mute">تظهر فقط دفعات الإيجار المرحّلة لهذا المستأجر.</p>
             {selected.length === 0 ? (
               <p className="text-sm text-ink-mute rounded-xl border border-dashed border-border px-3 py-4 text-center bg-canvas-sunken/30">
                 اختر شهراً أو شهرين أولاً
               </p>
-            ) : journalsLoading ? (
+            ) : journalsBusy ? (
               <div className="flex justify-center py-6">
                 <Loader2 className="h-6 w-6 animate-spin text-sage-600" />
               </div>
             ) : journals.length === 0 ? (
               <p className="text-sm text-ink-mute rounded-xl border border-border px-3 py-4 text-center">
-                لا قيود في ملف المستأجر — أضفها من تبويب «قيود»
+                لا توجد دفعات إيجار مرحّلة لهذا المستأجر. سجّل التحصيل أولاً ثم اربطه بالشهر هنا.
               </p>
             ) : (
               <ul className="max-h-48 overflow-y-auto rounded-xl border border-border divide-y divide-border">

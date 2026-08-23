@@ -3,11 +3,11 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 /**
- * Pill-shaped editorial badges in warm pastel tones.
- * Strict per minimalist-ui: pale background + dark contextual ink.
+ * Pill-shaped badges in warm pastel tones: pale background + dark contextual ink.
+ * No uppercase and no letter-spacing — tracking pulls joined Arabic letters apart.
  */
 const badgeVariants = cva(
-  'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10.5px] font-medium uppercase tracking-[0.12em] [&>svg]:size-3 [&>svg]:stroke-[1.6]',
+  'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-medium leading-5 [&>svg]:size-3 [&>svg]:stroke-[1.6]',
   {
     variants: {
       variant: {

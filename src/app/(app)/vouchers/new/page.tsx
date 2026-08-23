@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
-import { VoucherPDF, type VoucherPdfModel } from '@/features/pdf/VoucherPDF';
+import type { VoucherPdfModel } from '@/features/pdf/VoucherPDF';
 import {
   clearVoucherDraft,
   loadVoucherDraft,
@@ -299,7 +299,10 @@ export default function NewVoucherPage() {
             <TajMallPdfToolbar
               className="flex w-full basis-full flex-wrap gap-2 sm:w-auto sm:basis-auto"
               fileName={`إذن-صرف-${voucherModel.number}-${voucherDate}`}
-              render={async () => <VoucherPDF voucher={voucherModel} />}
+              render={async () => {
+                const { VoucherPDF } = await import('@/features/pdf/VoucherPDF');
+                return <VoucherPDF voucher={voucherModel} />;
+              }}
             />
             <Button
               variant="outline"
@@ -342,7 +345,7 @@ export default function NewVoucherPage() {
           </div>
 
           {datePreview ? (
-            <div className="rounded-2xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50/80 via-white to-stone-50 p-5 shadow-[0_1px_0_0_rgba(0,0,0,0.02),inset_0_1px_0_0_rgba(255,255,255,0.6)]">
+            <div className="rounded-2xl border border-border bg-canvas-sunken p-5">
               <p className="mb-3 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-emerald-700/90">
                 تاريخ الإذن — معاينة الوثيقة
               </p>

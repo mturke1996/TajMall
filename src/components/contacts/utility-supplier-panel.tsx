@@ -28,6 +28,8 @@ import {
 import { useTxDialog } from '@/stores/transaction-dialog';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { ContactLedgerPanel } from '@/components/contacts/contact-ledger-panel';
+import { canCreateContactTransaction } from '@/lib/contacts/form-utils';
+import { getPostedContactTransactions } from '@/lib/contacts/contact-transactions';
 
 
 type Props = {
@@ -51,8 +53,9 @@ export function UtilitySupplierPanel({
   const RoleIcon = meta.icon;
   const openTx = useTxDialog((s) => s.open);
   const { can } = usePermission();
+  const mayRecordPayment = canCreateContactTransaction(contact.is_active, can('expense.create'));
 
-  const expenseTxs = transactions.filter(
+  const expenseTxs = getPostedContactTransactions(transactions).filter(
     (t) =>
       (t.contact?.id === contact.id || (t as unknown as { contact_id?: string }).contact_id === contact.id) &&
       (t.kind === 'EXPENSE' || t.kind == null)
@@ -62,6 +65,7 @@ export function UtilitySupplierPanel({
   const lastTx = expenseTxs[0];
 
   const handleRecordPayment = () => {
+    if (!mayRecordPayment) return;
     openTx({
       kind: 'EXPENSE',
       contactId: contact.id,
@@ -95,7 +99,7 @@ export function UtilitySupplierPanel({
           </div>
 
           <div className="flex items-center gap-2">
-            {can('expense.create') && (
+            {mayRecordPayment && (
               <Button
                 onClick={handleRecordPayment}
                 className="gap-1.5 font-semibold text-xs h-9 bg-primary text-primary-foreground shadow-xs"
@@ -141,10 +145,17 @@ export function UtilitySupplierPanel({
 
         <Card className="p-4 border-border bg-card">
           <span className="text-xs text-muted-foreground block mb-1">الرصيد والتعامل</span>
-          <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 mt-1">
-            نشط ومستمر
+          <Badge className={cn(
+            'mt-1',
+            contact.is_active
+              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+              : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
+          )}>
+            {contact.is_active ? 'مورد نشط' : 'ملف غير نشط'}
           </Badge>
-          <span className="text-[11px] text-muted-foreground block mt-1">مورد معتمد</span>
+          <span className="text-[11px] text-muted-foreground block mt-1">
+            {contact.is_active ? 'يمكن تسجيل معاملات جديدة' : 'للعرض والرجوع إلى الحركات السابقة'}
+          </span>
         </Card>
       </div>
 
@@ -155,7 +166,11 @@ export function UtilitySupplierPanel({
             <Activity className="h-4 w-4 text-primary" />
             <h3 className="text-xs font-bold text-foreground">بيانات التوريد والاشتراك</h3>
           </div>
-          <div className="space-y-2 text-xs">
+            <div className="space-y-2 text-xs">
+            <div className="flex justify-between py-1.5 border-b border-border/60">
+              <span className="text-muted-foreground">الاسم باللغة الإنجليزية:</span>
+              <span className="font-semibold text-foreground" dir="ltr">{contact.name_en || '—'}</span>
+            </div>
             <div className="flex justify-between py-1.5 border-b border-border/60">
               <span className="text-muted-foreground">نوع التوريد والخدمة:</span>
               <span className="font-semibold text-foreground">{meta.label}</span>

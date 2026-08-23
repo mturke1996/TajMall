@@ -1,20 +1,44 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { ArrowUpFromLine, Receipt, Wallet, Hash, SlidersHorizontal } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
-import { DataToolbar, type DateRangePreset, getDateRange } from '@/components/data/toolbar';
+import { DataToolbar, type DateRangePreset, isInDatePreset } from '@/components/data/toolbar';
+import { exportTransactionsCsv, filterTransactions } from '@/lib/transactions-filter';
 import { TransactionsTable } from '@/components/data/transactions-table';
 import { Stat } from '@/components/dashboard/stat';
-import { CategoryBreakdown } from '@/components/dashboard/category-breakdown';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
 import { useTransactions, useCategories } from '@/lib/db/queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { ExpensesPdfDialog } from '@/features/pdf/expenses-pdf-dialog';
 import { useHighlightScroll } from '@/lib/hooks/use-highlight-scroll';
 import { transactionHighlightDomId } from '@/components/data/transactions-table';
+
+const CategoryBreakdown = dynamic(
+  () =>
+    import('@/components/dashboard/category-breakdown').then(
+      (module) => module.CategoryBreakdown,
+    ),
+  {
+    loading: () => (
+      <div
+        role="status"
+        aria-label="جارٍ تحميل توزيع المصروفات"
+        className="grid min-h-[180px] grid-cols-1 items-center gap-6 sm:grid-cols-[160px_1fr]"
+      >
+        <div className="mx-auto h-40 w-40 animate-pulse rounded-full border-[18px] border-canvas-sunken" />
+        <div className="flex flex-col gap-3">
+          {[0, 1, 2, 3].map((item) => (
+            <div key={item} className="h-3 animate-pulse rounded bg-canvas-sunken" />
+          ))}
+        </div>
+      </div>
+    ),
+  },
+);
 
 export default function ExpensesPage() {
   const highlightId = useSearchParams().get('highlight');
@@ -31,25 +55,12 @@ export default function ExpensesPage() {
 
   // Apply date range filter
   const dateFiltered = useMemo(() => {
-    const { from, to } = getDateRange(datePreset);
-    if (!from || !to) return rows;
-    return rows.filter((r) => {
-      const d = new Date(r.tx_date);
-      return d >= from && d <= to;
-    });
+    if (datePreset === 'all') return rows;
+    return rows.filter((r) => isInDatePreset(r.tx_date, datePreset));
   }, [rows, datePreset]);
 
   // Apply text search filter
-  const filtered = useMemo(() => {
-    if (!query) return dateFiltered;
-    const q = query.toLowerCase();
-    return dateFiltered.filter(
-      (r) =>
-        (r.description ?? '').toLowerCase().includes(q) ||
-        (r.category?.name_ar ?? '').includes(query) ||
-        (r.reference ?? String(r.number)).includes(query),
-    );
-  }, [dateFiltered, query]);
+  const filtered = useMemo(() => filterTransactions(dateFiltered, query), [dateFiltered, query]);
 
   // Apply category dropdown filter
   const categoryFiltered = useMemo(() => {
@@ -197,7 +208,7 @@ export default function ExpensesPage() {
           searchPlaceholder="ابحث في المصروفات…"
           count={categoryFiltered.length}
           onSearch={setQuery}
-          onExport={() => {}}
+          onExport={() => exportTransactionsCsv(categoryFiltered, `مصروفات-${new Date().toISOString().slice(0, 10)}`)}
           datePreset={datePreset}
           onDatePreset={setDatePreset}
         >
@@ -220,6 +231,8 @@ export default function ExpensesPage() {
           loading={isLoading}
           kindFilter="EXPENSE"
           highlightId={highlightId}
+          isFiltered={Boolean(query.trim()) || datePreset !== 'all' || selectedCategoryId !== 'ALL'}
+          tableId="expenses"
         />
       </div>
 

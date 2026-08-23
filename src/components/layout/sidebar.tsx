@@ -15,10 +15,13 @@ export function Sidebar({
   collapsed,
   onToggle,
   className,
+  previewAllItems = false,
 }: {
   collapsed?: boolean;
   onToggle?: () => void;
   className?: string;
+  /** Development gallery only: show every item without a signed-in user. */
+  previewAllItems?: boolean;
 }) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
@@ -84,7 +87,7 @@ export function Sidebar({
             {/* Section label */}
             <span
               className={cn(
-                "px-3 pb-1.5 pt-0.5 text-[10px] font-bold uppercase tracking-[0.20em] text-muted-foreground/70 transition-opacity duration-150",
+                "px-3 pb-1.5 pt-0.5 text-[11.5px] font-semibold text-muted-foreground/80",
                 collapsed && "sr-only",
               )}
             >
@@ -93,7 +96,7 @@ export function Sidebar({
 
             {/* Nav items */}
             {section.items.map((item) => {
-              if (item.permission && !can(item.permission)) {
+              if (!previewAllItems && item.permission && !can(item.permission)) {
                 return null;
               }
               const active = isNavActive(pathname, item.href);
@@ -102,12 +105,10 @@ export function Sidebar({
                 <Link
                   key={item.href}
                   href={item.href}
-                  prefetch={true}
                   title={collapsed ? item.labelAr : undefined}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-100",
-                    "active:scale-[0.97]",
+                    "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] font-medium transition-colors duration-100",
                     active
                       ? [
                           "bg-canvas-sunken text-foreground shadow-whisper",
@@ -118,7 +119,7 @@ export function Sidebar({
                 >
                   <Icon
                     className={cn(
-                      "h-[17px] w-[17px] shrink-0 transition-colors duration-100",
+                      "h-[17px] w-[17px] shrink-0 stroke-[1.6] transition-colors duration-100",
                       active
                         ? "text-foreground"
                         : "text-muted-foreground/70 group-hover:text-foreground",
@@ -126,7 +127,7 @@ export function Sidebar({
                   />
                   <span
                     className={cn(
-                      "min-w-0 flex-1 truncate transition-all duration-150",
+                      "min-w-0 flex-1 truncate",
                       collapsed && "pointer-events-none w-0 opacity-0",
                     )}
                   >
@@ -146,11 +147,11 @@ export function Sidebar({
                       className={cn(
                         "ms-auto rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none",
                         item.badge.tone === 'danger'
-                          ? "bg-rose-500 text-white"
+                          ? "bg-pastel-red text-pastel-redInk"
                           : item.badge.tone === 'success'
-                          ? "bg-emerald-500 text-white"
+                          ? "bg-pastel-green text-pastel-greenInk"
                           : item.badge.tone === 'warning'
-                          ? "bg-amber-400 text-amber-900"
+                          ? "bg-pastel-yellow text-pastel-yellowInk"
                           : "bg-canvas-sunken text-foreground",
                       )}
                     >

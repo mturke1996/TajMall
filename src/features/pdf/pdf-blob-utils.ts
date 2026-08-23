@@ -1,16 +1,10 @@
 import type { ReactElement } from 'react';
-import { pdf } from '@react-pdf/renderer';
-import { registerPdfFonts } from './pdfFonts';
-import { prepareTajMallPdfTree } from './prepare-taj-mall-pdf-tree';
 
 export async function renderPdfBlob(
   render: () => Promise<ReactElement>,
 ): Promise<Blob> {
-  registerPdfFonts();
-  const wrapped = await prepareTajMallPdfTree(await render());
-  const instance = pdf();
-  instance.updateContainer(wrapped);
-  return instance.toBlob();
+  const { renderPdfBlobWithRuntime } = await import('./pdf-runtime');
+  return renderPdfBlobWithRuntime(render);
 }
 
 export function normalizePdfFileName(fileName: string): string {

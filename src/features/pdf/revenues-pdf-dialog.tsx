@@ -31,7 +31,6 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { renderPdfBlob, savePdfBlob, shouldUseInAppPdfViewer } from './pdf-blob-utils';
 import { PdfPreviewDialog } from './pdf-preview-dialog';
-import { RevenuesReportPDF } from './RevenuesReportPDF';
 import type { CategoryRow, TransactionWithRelations } from '@/lib/db/types';
 
 const MONTH_NAMES_AR = [
@@ -292,6 +291,7 @@ export function RevenuesPdfDialog({
 
   // Generate Report JSX for PDF renderer
   const generatePdfElement = useCallback(async () => {
+    const { RevenuesReportPDF } = await import('./RevenuesReportPDF');
     return (
       <RevenuesReportPDF
         titleAr={customTitle.trim() || 'كشف الإيرادات التفصيلي'}
@@ -396,7 +396,7 @@ export function RevenuesPdfDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
-          className="max-w-2xl w-[calc(100%-1.5rem)] p-0 overflow-hidden rounded-2xl border bg-card shadow-2xl"
+          className="max-w-2xl w-[calc(100%-1.5rem)] p-0 overflow-hidden rounded-2xl border bg-card shadow-lift"
           dir="rtl"
         >
           {/* Header */}

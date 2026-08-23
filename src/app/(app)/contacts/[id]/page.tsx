@@ -54,6 +54,8 @@ import { fallbackTenantRentFromContact } from '@/lib/tenant-rent-fallback';
 import { useTxDialog } from '@/stores/transaction-dialog';
 import { suggestedTxKindForContact } from '@/lib/party-contacts';
 import { usePermission } from '@/lib/supabase/use-permission';
+import { canCreateContactTransaction } from '@/lib/contacts/form-utils';
+import { getPostedContactTransactions } from '@/lib/contacts/contact-transactions';
 
 
 const KIND_ICON: Record<ContactKind, typeof Building2> = {
@@ -92,9 +94,14 @@ export default function ContactDetailPage() {
     role === 'SUPPLIER_GOODS' ||
     role === 'SERVICE_PROVIDER';
 
-  const rentPaymentsCount = useMemo(
-    () => transactions.filter((t) => t.kind === 'REVENUE').length,
+  const postedTransactions = useMemo(
+    () => getPostedContactTransactions(transactions),
     [transactions],
+  );
+
+  const rentPaymentsCount = useMemo(
+    () => postedTransactions.filter((t) => t.kind === 'REVENUE').length,
+    [postedTransactions],
   );
 
   const rentSummary = useMemo(() => {
@@ -104,14 +111,14 @@ export default function ContactDetailPage() {
 
 
   const totals = useMemo(() => {
-    const revenue = transactions
+    const revenue = postedTransactions
       .filter((t) => t.kind === 'REVENUE')
       .reduce((s, t) => s + Number(t.amount || 0), 0);
-    const expense = transactions
+    const expense = postedTransactions
       .filter((t) => t.kind === 'EXPENSE')
       .reduce((s, t) => s + Number(t.amount || 0), 0);
     return { revenue, expense, net: revenue - expense };
-  }, [transactions]);
+  }, [postedTransactions]);
 
   function openEdit() {
     if (!contact) return;
@@ -178,6 +185,12 @@ export default function ContactDetailPage() {
   const isTenant = contact.kind === 'TENANT';
   const monthlyRent = Number(contact.monthly_rent) || 0;
   const canRecordRent = isTenant && !!rentSummary;
+  const transactionPermission =
+    suggestedTxKindForContact(contact.kind) === 'REVENUE' ? 'revenue.create' : 'expense.create';
+  const mayCreateTransaction = canCreateContactTransaction(
+    contact.is_active,
+    can(transactionPermission),
+  );
   const contactRecord = contact;
   const pdfFileName = `ملف-${contactRecord.name}-${new Date().toISOString().slice(0, 10)}`;
 
@@ -217,12 +230,7 @@ export default function ContactDetailPage() {
             </Button>
             <div className="hidden flex-wrap items-center gap-2 sm:flex">
               <TajMallPdfToolbar fileName={pdfFileName} render={renderContactPdf} />
-              {!isTenant &&
-              can(
-                suggestedTxKindForContact(contact.kind) === 'REVENUE'
-                  ? 'revenue.create'
-                  : 'expense.create',
-              ) ? (
+              {!isTenant && mayCreateTransaction ? (
                 <Button
                   size="sm"
                   onClick={() =>
@@ -258,6 +266,14 @@ export default function ContactDetailPage() {
           MOBILE_PAGE_ACTION_PADDING,
         )}
       >
+        {!contact.is_active && (
+          <div
+            role="status"
+            className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+          >
+            هذا الملف غير نشط. تظل بياناته وحركاته السابقة متاحة، لكن لا يمكن بدء معاملة جديدة قبل إعادة تفعيله من تعديل الملف.
+          </div>
+        )}
         {isTenant && rentSummary ? (
           <TenantContactDetail
             contact={contactRecord}
@@ -334,12 +350,7 @@ export default function ContactDetailPage() {
 
       <MobilePageActionBar>
         <div className="flex gap-2">
-          {!isTenant &&
-          can(
-            suggestedTxKindForContact(contact.kind) === 'REVENUE'
-              ? 'revenue.create'
-              : 'expense.create',
-          ) ? (
+          {!isTenant && mayCreateTransaction ? (
             <Button
               className="h-11 flex-1 gap-1.5 touch-manipulation"
               onClick={() =>

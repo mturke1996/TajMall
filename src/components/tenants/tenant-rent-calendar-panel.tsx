@@ -104,7 +104,7 @@ function YearSection({
       )}
 
       <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
-        <div className="rounded-xl border-2 border-emerald-200/80 bg-gradient-to-b from-emerald-50/90 to-white p-4 min-h-[6rem]">
+        <div className="rounded-xl border border-pastel-greenInk/20 bg-pastel-green p-4 min-h-[6rem]">
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-700" />
             <h4 className="font-bold text-emerald-900 text-sm">
@@ -122,7 +122,7 @@ function YearSection({
           )}
         </div>
 
-        <div className="rounded-xl border-2 border-red-200/80 bg-gradient-to-b from-red-50/80 to-white p-4 min-h-[6rem]">
+        <div className="rounded-xl border border-pastel-redInk/20 bg-pastel-red p-4 min-h-[6rem]">
           <div className="flex items-center gap-2 mb-2">
             <AlertCircle className="h-4 w-4 text-red-700" />
             <h4 className="font-bold text-red-900 text-sm">
@@ -285,7 +285,7 @@ export function TenantRentCalendarPanel({
           className,
         )}
       >
-        <div className="bg-gradient-to-l from-sage-800 via-sage-700 to-sage-600 px-4 py-4 sm:px-5 text-white">
+        <div className="bg-sage-800 px-4 py-4 sm:px-5 text-white">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">

@@ -573,11 +573,11 @@ export function PeriodCashCollectionsReportPDF({
                     </Text>
                   ) : it.target_month_status === 'FUTURE' ? (
                     <Text style={styles.statusBadgeFuture}>
-                      {ar(`🚀 ${it.target_rent_month || 'مقدم'}`)}
+                      {ar(it.target_rent_month ? `مقدم: ${it.target_rent_month}` : 'مقدم')}
                     </Text>
                   ) : (
                     <Text style={styles.statusBadgeCurrent}>
-                      {ar(`🎯 ${it.target_rent_month || 'الشهر الحالي'}`)}
+                      {ar(it.target_rent_month || 'الشهر الحالي')}
                     </Text>
                   )}
                 </View>

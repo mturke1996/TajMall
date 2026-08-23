@@ -15,7 +15,7 @@ export function MobilePageActionBar({
   return (
     <div
       className={cn(
-        'fixed inset-x-0 z-40 border-t border-border bg-canvas/95 p-3 backdrop-blur-md',
+        'fixed inset-x-0 z-40 border-t border-border bg-canvas p-3',
         'shadow-[0_-4px_24px_rgba(0,0,0,0.07)] md:hidden',
         'bottom-[calc(4rem+env(safe-area-inset-bottom,0px))]',
         className,

@@ -18,10 +18,7 @@ import {
 } from '@/components/ui/select';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
-import {
-  ReceiptVoucherPDF,
-  type ReceiptVoucherPdfModel,
-} from '@/features/pdf/ReceiptVoucherPDF';
+import type { ReceiptVoucherPdfModel } from '@/features/pdf/ReceiptVoucherPDF';
 import { useCreateReceiptVoucher } from '@/lib/db/document-queries';
 import { useCashboxes, useCategories } from '@/lib/db/queries';
 import { receiptUiMethodToPaymentMethod } from '@/lib/receipt-voucher-db';
@@ -143,11 +140,16 @@ export default function NewReceiptPage() {
               fileName={pdfExport.fileName}
               shareTitle={pdfExport.shareTitle}
               shareText={pdfExport.shareText}
-              render={async () => (
-                <ReceiptVoucherPDF
-                  voucher={{ ...previewModel, documentTitle: pdfExport.documentTitle }}
-                />
-              )}
+              render={async () => {
+                const { ReceiptVoucherPDF } = await import(
+                  '@/features/pdf/ReceiptVoucherPDF'
+                );
+                return (
+                  <ReceiptVoucherPDF
+                    voucher={{ ...previewModel, documentTitle: pdfExport.documentTitle }}
+                  />
+                );
+              }}
             />
             <Button
               size="sm"
