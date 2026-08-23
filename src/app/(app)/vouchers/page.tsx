@@ -18,7 +18,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EmptyState } from '@/components/data/empty-state';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
-import { VoucherPDF } from '@/features/pdf/VoucherPDF';
 import type { VoucherPdfModel } from '@/features/pdf/VoucherPDF';
 import {
   useDisbursementVouchers,
@@ -137,7 +136,10 @@ export default function VouchersPage() {
           <>
             <TajMallPdfToolbar
               fileName="إذن-صرف-معاينة"
-              render={async () => <VoucherPDF voucher={previewVoucher} />}
+              render={async () => {
+                const { VoucherPDF } = await import('@/features/pdf/VoucherPDF');
+                return <VoucherPDF voucher={previewVoucher} />;
+              }}
             />
             <WriteGuard permission="voucher.create">
               <Button size="sm" className="gap-1.5" asChild>
@@ -239,7 +241,10 @@ export default function VouchersPage() {
                     )}
                     <TajMallPdfToolbar
                       fileName={`إذن-صرف-${row.voucher_number}-${row.voucher_date}`}
-                      render={async () => <VoucherPDF voucher={model} />}
+                      render={async () => {
+                        const { VoucherPDF } = await import('@/features/pdf/VoucherPDF');
+                        return <VoucherPDF voucher={model} />;
+                      }}
                     />
                     <WriteGuard permission="voucher.create">
                       <Button

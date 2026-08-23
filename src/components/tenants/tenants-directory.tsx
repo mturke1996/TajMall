@@ -215,7 +215,7 @@ export function TenantsDirectory({
         </div>
       </div>
 
-      <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur-md md:static md:mx-0 md:z-auto md:border-0 md:bg-transparent md:px-0 md:py-0">
+      <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-border bg-canvas px-4 py-3 md:static md:mx-0 md:z-auto md:border-0 md:bg-transparent md:px-0 md:py-0">
         <div className="relative">
           <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
           <Input

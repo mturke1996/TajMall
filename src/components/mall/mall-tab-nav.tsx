@@ -63,7 +63,7 @@ export function MallTabNav({
   onChange: (tab: MallTab) => void;
 }) {
   return (
-    <div className="sticky top-0 z-30 border-b border-border bg-canvas/95 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/80">
+    <div className="sticky top-0 z-30 border-b border-border bg-canvas">
       <div
         className="flex gap-1 overflow-x-auto px-4 py-2 no-scrollbar snap-x snap-mandatory md:gap-1.5 md:px-8"
         role="tablist"

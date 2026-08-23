@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { QueryClient, QueryClientProvider, keepPreviousData } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
+import { DirectionProvider } from "@radix-ui/react-direction";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -20,10 +21,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
             retryDelay: (attemptIndex) =>
               Math.min(1000 * 2 ** attemptIndex, 30000),
           },
+          // Writes are never retried automatically: if the first request reached the server and
+          // only the response was lost, a retry would record the same payment twice.
           mutations: {
-            retry: 1,
-            retryDelay: (attemptIndex) =>
-              Math.min(1000 * 2 ** attemptIndex, 30000),
+            retry: 0,
           },
         },
       }),
@@ -37,7 +38,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange={false}
     >
       <QueryClientProvider client={client}>
-        <TooltipProvider delayDuration={80}>{children}</TooltipProvider>
+        {/* Radix menus, tabs and selects read this for keyboard arrows and submenu sides. */}
+        <DirectionProvider dir="rtl">
+          <TooltipProvider delayDuration={80}>{children}</TooltipProvider>
+        </DirectionProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

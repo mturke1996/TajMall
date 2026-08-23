@@ -16,7 +16,6 @@ import {
   Activity,
   CreditCard,
   Landmark,
-  Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
 import {

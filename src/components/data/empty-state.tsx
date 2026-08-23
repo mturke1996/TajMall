@@ -3,10 +3,7 @@ import { ArrowLeft, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-/**
- * Editorial empty state — redesigned with gradient icon container
- * and better visual hierarchy.
- */
+/** Empty state: what is missing, why, and the next action. */
 export function EmptyState({
   icon: Icon,
   title,
@@ -29,9 +26,7 @@ export function EmptyState({
         className,
       )}
     >
-      {/* Icon container with subtle gradient */}
       <div className="relative">
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-border/60 to-transparent blur-xl" />
         <span className="relative grid h-14 w-14 place-items-center rounded-2xl border border-border bg-card shadow-whisper text-muted-foreground">
           <Icon className="h-6 w-6 stroke-[1.5]" />
         </span>

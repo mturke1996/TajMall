@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { NAV } from "./nav-items";
+import { PALETTE_SECTIONS } from "./nav-items";
 import { usePermission } from "@/lib/supabase/use-permission";
 import {
   Search,
@@ -69,7 +69,7 @@ export function CommandPalette({
             {(can('revenue.create') || can('expense.create') || can('voucher.create')) && (
             <Command.Group
               heading="إجراءات سريعة"
-              className="px-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.18em] [&_[cmdk-group-heading]]:text-ink-mute"
+              className="px-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11.5px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-ink-mute"
             >
               {can('revenue.create') && (
                 <Item
@@ -104,13 +104,14 @@ export function CommandPalette({
             </Command.Group>
             )}
 
-            {NAV.map((section) => (
+            {PALETTE_SECTIONS.map((section) => (
               <Command.Group
                 key={section.titleAr}
                 heading={section.titleAr}
-                className="px-1 mt-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.18em] [&_[cmdk-group-heading]]:text-ink-mute"
+                className="px-1 mt-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11.5px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-ink-mute"
               >
                 {section.items.map((item) => {
+                  if (item.permission && !can(item.permission)) return null;
                   const Icon = item.icon;
                   return (
                     <Item

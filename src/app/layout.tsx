@@ -88,8 +88,6 @@ export const viewport: Viewport = {
   ],
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false, // إحساس تطبيق ثابت — بلا تقريب/تبعيد بالإصبع
   viewportFit: 'cover', // edge-to-edge on iPhone notch
   colorScheme: 'light',
 };

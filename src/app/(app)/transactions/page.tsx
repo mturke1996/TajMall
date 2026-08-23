@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeftRight, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
-import { DataToolbar, type DateRangePreset, getDateRange } from '@/components/data/toolbar';
+import { DataToolbar, type DateRangePreset, isInDatePreset } from '@/components/data/toolbar';
+import { exportTransactionsCsv, filterTransactions } from '@/lib/transactions-filter';
 import { TransactionsTable } from '@/components/data/transactions-table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
@@ -42,25 +43,13 @@ export default function TransactionsPage() {
 
   // 1. Date filter
   const dateFiltered = useMemo(() => {
-    const { from, to } = getDateRange(datePreset);
-    if (!from || !to) return rows;
-    return rows.filter((r) => {
-      const d = new Date(r.tx_date);
-      return d >= from && d <= to;
-    });
+    if (datePreset === 'all') return rows;
+    return rows.filter((r) => isInDatePreset(r.tx_date, datePreset));
   }, [rows, datePreset]);
 
   // 2. Text search
-  const searched = useMemo(() => {
-    if (!query) return dateFiltered;
-    const q = query.toLowerCase();
-    return dateFiltered.filter(
-      (r) =>
-        (r.description ?? '').toLowerCase().includes(q) ||
-        (r.category?.name_ar ?? '').includes(query) ||
-        (r.reference ?? String(r.number)).includes(query),
-    );
-  }, [dateFiltered, query]);
+  const searched = useMemo(() => filterTransactions(dateFiltered, query), [dateFiltered, query]);
+  const isFiltered = Boolean(query.trim()) || datePreset !== 'all';
 
   // 3. Split by kind
   const revenues = useMemo(() => searched.filter((r) => r.kind === 'REVENUE'), [searched]);
@@ -160,7 +149,7 @@ export default function TransactionsPage() {
               searchPlaceholder="ابحث في رقم القيد أو البيان أو البند…"
               count={pdfRows.length}
               onSearch={setQuery}
-              onExport={() => {}}
+              onExport={() => exportTransactionsCsv(pdfRows, `معاملات-${tab}-${new Date().toISOString().slice(0, 10)}`)}
               datePreset={datePreset}
               onDatePreset={setDatePreset}
             />
@@ -168,13 +157,13 @@ export default function TransactionsPage() {
 
           {/* Tables */}
           <TabsContent value="all" className="mt-4">
-            <TransactionsTable rows={searched} loading={isLoading} highlightId={highlightId} />
+            <TransactionsTable rows={searched} loading={isLoading} highlightId={highlightId} isFiltered={isFiltered} tableId="transactions-all" />
           </TabsContent>
           <TabsContent value="revenues" className="mt-4">
-            <TransactionsTable rows={revenues} loading={isLoading} kindFilter="REVENUE" highlightId={highlightId} />
+            <TransactionsTable rows={revenues} loading={isLoading} kindFilter="REVENUE" highlightId={highlightId} isFiltered={isFiltered} tableId="transactions-revenues" />
           </TabsContent>
           <TabsContent value="expenses" className="mt-4">
-            <TransactionsTable rows={expenses} loading={isLoading} kindFilter="EXPENSE" highlightId={highlightId} />
+            <TransactionsTable rows={expenses} loading={isLoading} kindFilter="EXPENSE" highlightId={highlightId} isFiltered={isFiltered} tableId="transactions-expenses" />
           </TabsContent>
         </Tabs>
       </div>

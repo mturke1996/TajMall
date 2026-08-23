@@ -32,7 +32,6 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { renderPdfBlob, savePdfBlob, shouldUseInAppPdfViewer } from './pdf-blob-utils';
 import { PdfPreviewDialog } from './pdf-preview-dialog';
-import { ExpensesReportPDF } from './ExpensesReportPDF';
 import type { CategoryRow, TransactionWithRelations } from '@/lib/db/types';
 
 const MONTH_NAMES_AR = [
@@ -302,6 +301,7 @@ export function ExpensesPdfDialog({
 
   // Generate Report JSX for PDF renderer
   const generatePdfElement = useCallback(async () => {
+    const { ExpensesReportPDF } = await import('./ExpensesReportPDF');
     return (
       <ExpensesReportPDF
         titleAr={customTitle.trim() || 'كشف المصروفات التفصيلي'}
@@ -406,7 +406,7 @@ export function ExpensesPdfDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
-          className="max-w-2xl w-[calc(100%-1.5rem)] p-0 overflow-hidden rounded-2xl border bg-card shadow-2xl"
+          className="max-w-2xl w-[calc(100%-1.5rem)] p-0 overflow-hidden rounded-2xl border bg-card shadow-lift"
           dir="rtl"
         >
           {/* Header */}

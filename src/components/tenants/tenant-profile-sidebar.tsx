@@ -32,7 +32,7 @@ export function TenantProfileSidebar({
   return (
     <div className="flex flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
       <Card className="overflow-hidden border-sage-200/60 shadow-sm">
-        <div className="bg-gradient-to-l from-sage-800 via-sage-700 to-sage-600 px-4 py-5 text-white">
+        <div className="bg-sage-800 px-4 py-5 text-white">
           <div className="flex items-start gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
               <Building2 className="h-6 w-6" />

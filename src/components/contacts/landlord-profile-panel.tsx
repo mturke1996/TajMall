@@ -32,6 +32,7 @@ import {
 import { useTxDialog } from '@/stores/transaction-dialog';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { ContactLedgerPanel } from '@/components/contacts/contact-ledger-panel';
+import { canCreateContactTransaction } from '@/lib/contacts/form-utils';
 
 
 type Props = {
@@ -53,12 +54,14 @@ export function LandlordProfilePanel({
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   const openTx = useTxDialog((s) => s.open);
   const { can } = usePermission();
+  const mayRecordPayment = canCreateContactTransaction(contact.is_active, can('expense.create'));
 
   const schedule: LandlordRentSchedule = React.useMemo(() => {
     return buildLandlordRentSchedule(contact, transactions, selectedYear);
   }, [contact, transactions, selectedYear]);
 
   const handleRecordLandlordPayment = (targetMonth?: LandlordRentMonth) => {
+    if (!mayRecordPayment) return;
     const desc = targetMonth
       ? `سداد إيجار شهر ${targetMonth.monthNameAr} ${selectedYear} للمؤجر ${contact.name}`
       : `سداد إيجار للمؤجر ${contact.name}`;
@@ -74,7 +77,7 @@ export function LandlordProfilePanel({
   return (
     <div className="space-y-6">
       {/* 1. Header Banner for Landlord */}
-      <div className="rounded-2xl border border-amber-200 bg-gradient-to-l from-amber-50/90 via-amber-50/40 to-card p-5 dark:border-amber-900/60 dark:from-amber-950/40 dark:to-card">
+      <div className="rounded-2xl border border-border bg-pastel-yellow/60 p-5 dark:bg-canvas-sunken">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
@@ -96,7 +99,7 @@ export function LandlordProfilePanel({
           </div>
 
           <div className="flex items-center gap-2">
-            {can('expense.create') && (
+            {mayRecordPayment && (
               <Button
                 onClick={() => handleRecordLandlordPayment()}
                 className="gap-1.5 bg-amber-700 hover:bg-amber-800 text-white font-semibold text-xs h-9 shadow-xs"
@@ -240,7 +243,7 @@ export function LandlordProfilePanel({
                         )}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        {m.remainingAmount > 0 ? (
+                        {m.remainingAmount > 0 && mayRecordPayment ? (
                           <Button
                             size="sm"
                             variant="outline"

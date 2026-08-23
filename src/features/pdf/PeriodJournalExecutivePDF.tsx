@@ -555,11 +555,11 @@ export function PeriodJournalExecutivePDF({
                                 </Text>
                               ) : it.targetMonthStatus === 'FUTURE' ? (
                                 <Text style={s.rentBadgeFuture}>
-                                  {ar(`🚀 مقدم: ${it.targetRentMonth || 'مستقبلي'}`)}
+                                  {ar(`مقدم: ${it.targetRentMonth || 'مستقبلي'}`)}
                                 </Text>
                               ) : (
                                 <Text style={s.rentBadgeCurrent}>
-                                  {ar(`🎯 ${it.targetRentMonth || 'الشهر الحالي'}`)}
+                                  {ar(it.targetRentMonth || 'الشهر الحالي')}
                                 </Text>
                               )}
                             </View>

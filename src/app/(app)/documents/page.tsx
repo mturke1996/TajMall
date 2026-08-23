@@ -100,7 +100,7 @@ export default function DocumentsHubPage() {
                 key={card.href}
                 className={cn(
                   'group relative overflow-hidden transition-shadow hover:shadow-md',
-                  card.featured && 'border-sage-300/60 bg-gradient-to-br from-sage-50/80 to-card',
+                  card.featured && 'border-foreground/15 bg-canvas-sunken',
                 )}
               >
                 <CardHeader className="pb-2">

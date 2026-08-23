@@ -27,7 +27,6 @@ import {
 } from '@/components/ui/select';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
-import { OfficialLetterPDF } from '@/features/pdf/OfficialLetterPDF';
 import {
   useCorrespondenceLetter,
   useDeleteCorrespondenceLetter,
@@ -164,11 +163,16 @@ export default function CorrespondenceDetailPage() {
               fileName={pdfExport.fileName}
               shareTitle={pdfExport.shareTitle}
               shareText={pdfExport.shareText}
-              render={async () => (
-                <OfficialLetterPDF
-                  letter={{ ...previewModel, documentTitle: pdfExport.documentTitle }}
-                />
-              )}
+              render={async () => {
+                const { OfficialLetterPDF } = await import(
+                  '@/features/pdf/OfficialLetterPDF'
+                );
+                return (
+                  <OfficialLetterPDF
+                    letter={{ ...previewModel, documentTitle: pdfExport.documentTitle }}
+                  />
+                );
+              }}
             />
             {canDelete ? (
               <Button

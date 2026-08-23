@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X } from "lucide-react";
 import { NAV } from "./nav-items";
 import { isNavActive } from "./nav-active";
 import { Logo } from "@/components/brand/logo";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
 import { usePermission } from "@/lib/supabase/use-permission";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export function MobileNav({
   open,
@@ -22,45 +24,30 @@ export function MobileNav({
   const { can } = usePermission();
 
   return (
-    <>
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.15 }}
-        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] md:hidden"
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
-      <motion.aside
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ type: "spring", damping: 25, stiffness: 220 }}
-        className="fixed inset-y-0 end-0 z-50 flex w-[280px] flex-col border-s border-border bg-canvas md:hidden"
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent
+        id="mobile-navigation"
         dir="rtl"
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        className="inset-y-0 end-0 left-auto top-0 flex h-[100dvh] w-[min(88vw,340px)] max-h-none max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-y-0 border-e-0 p-0 shadow-lift md:hidden"
+        aria-label="قائمة التنقل الرئيسية"
       >
         {/* Header */}
-        <div className="flex h-16 items-center gap-3 border-b border-border px-4">
+        <div
+          className="flex h-16 shrink-0 items-center gap-3 border-b border-border px-4"
+          style={{ paddingTop: "env(safe-area-inset-top)" }}
+        >
           <Logo size="md" showTagline />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="me-auto"
-            onClick={onClose}
-          >
-            <X className="h-5 w-5" />
-          </Button>
+          <DialogTitle className="sr-only">التنقل الرئيسي</DialogTitle>
         </div>
 
         {/* Nav - Fast links */}
-        <nav className="flex flex-1 flex-col gap-5 overflow-y-auto p-3 pb-[calc(88px+env(safe-area-inset-bottom))]">
+        <nav
+          aria-label="التنقل الرئيسي"
+          className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-3 pb-[calc(20px+env(safe-area-inset-bottom))]"
+        >
           {NAV.map((section) => (
             <div key={section.titleAr} className="flex flex-col gap-0.5">
-              <span className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-mute">
+              <span className="px-3 pb-1.5 text-[11.5px] font-semibold text-ink-mute">
                 {section.titleAr}
               </span>
               {section.items.map((item) => {
@@ -73,8 +60,8 @@ export function MobileNav({
                   <Link
                     key={item.href}
                     href={item.href}
-                    prefetch={true}
                     onClick={onClose}
+                    aria-current={active ? "page" : undefined}
                     className={cn(
                       "flex items-center gap-3 rounded-md px-3 py-2.5 text-[14px] font-medium transition-colors duration-100",
                       active
@@ -95,7 +82,7 @@ export function MobileNav({
             </div>
           ))}
         </nav>
-      </motion.aside>
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }
