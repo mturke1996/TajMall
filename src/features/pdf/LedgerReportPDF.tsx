@@ -49,6 +49,15 @@ export function LedgerReportPDF({
       ? `${startDate ?? '…'} — ${endDate ?? '…'}`
       : 'كل الفترات';
 
+  const calculatedDebit =
+    typeof totalDebit === 'number'
+      ? totalDebit
+      : lines.reduce((sum, l) => sum + (Number(l.debit) || 0), 0);
+  const calculatedCredit =
+    typeof totalCredit === 'number'
+      ? totalCredit
+      : lines.reduce((sum, l) => sum + (Number(l.credit) || 0), 0);
+
   return (
     <ReportShell
       title={`دفتر الأستاذ — ${category.name_ar}`}
@@ -61,8 +70,8 @@ export function LedgerReportPDF({
         hint: periodLabel,
       }}
       metaCells={[
-        { label: 'إجمالي المدين', moneyAmount: totalDebit, adaptiveMoney: true },
-        { label: 'إجمالي الدائن', moneyAmount: totalCredit, adaptiveMoney: true },
+        { label: 'إجمالي المدين', moneyAmount: calculatedDebit, adaptiveMoney: true },
+        { label: 'إجمالي الدائن', moneyAmount: calculatedCredit, adaptiveMoney: true },
       ]}
     >
       <View style={pdfReportTable.hero} wrap={false}>
@@ -131,18 +140,19 @@ export function LedgerReportPDF({
         <View style={pdfReportTable.totalCluster}>
           <View style={pdfReportTable.totalMini}>
             <Text style={pdfReportTable.totalMiniLabel}>{ar('دائن')}</Text>
-            <PdfReportMoney amount={totalCredit} bold />
+            <PdfReportMoney amount={calculatedCredit} bold />
           </View>
           <View style={pdfReportTable.totalMini}>
             <Text style={pdfReportTable.totalMiniLabel}>{ar('مدين')}</Text>
-            <PdfReportMoney amount={totalDebit} bold />
+            <PdfReportMoney amount={calculatedDebit} bold />
           </View>
         </View>
-        <Text style={pdfReportTable.totalLabel}>{ar('إجمالي دفتر الأستاذ')}</Text>
+        <Text style={pdfReportTable.totalLabel}>{ar('المجموع')}</Text>
       </View>
 
       <PdfReportCaption />
     </ReportShell>
   );
 }
+
 
