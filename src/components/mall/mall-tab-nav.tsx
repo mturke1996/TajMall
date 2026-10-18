@@ -3,6 +3,7 @@
 import {
   LayoutGrid,
   Building2,
+  DoorOpen,
   FileText,
   Coins,
   Users,
@@ -32,6 +33,13 @@ export const MALL_TAB_META: {
     shortLabel: 'المستأجرين',
     description: 'متابعة الشهور المدفوعة وغير المدفوعة وتسجيل التحصيل',
     icon: Building2,
+  },
+  {
+    id: 'units',
+    label: 'المحلات والإشغال',
+    shortLabel: 'المحلات',
+    description: 'المؤجر والشاغر من محلات المول ونسبة الإشغال، وإضافة المحلات وتعديلها',
+    icon: DoorOpen,
   },
   {
     id: 'contracts',

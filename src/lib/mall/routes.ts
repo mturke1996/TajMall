@@ -3,6 +3,7 @@ export const MALL_HREF = '/mall';
 export type MallTab =
   | 'overview'
   | 'tenants'
+  | 'units'
   | 'contracts'
   | 'charges'
   | 'people';
@@ -13,6 +14,7 @@ export type PeopleSegment = 'all' | 'TENANT' | 'EMPLOYEE' | 'VENDOR' | 'CUSTOMER
 export const MALL_TABS: MallTab[] = [
   'overview',
   'tenants',
+  'units',
   'contracts',
   'charges',
   'people',
@@ -48,7 +50,7 @@ export function peopleSegmentHref(segment: PeopleSegment, extra?: Record<string,
 
 /** مسار قديم → تبويب موحّد */
 export const LEGACY_MALL_REDIRECTS: Record<string, MallTab> = {
-  '/mall/units': 'tenants',
+  '/mall/units': 'units',
   '/mall/contracts': 'contracts',
   '/mall/charges': 'charges',
   '/tenants': 'tenants',

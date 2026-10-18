@@ -1,4 +1,4 @@
-import { formatMoney } from '@/lib/utils';
+import { arabicCount, formatDate, formatMoney } from '@/lib/utils';
 
 /**
  * يحوّل رقم هاتف ليبي محلي (0912345678 أو 912345678) إلى صيغة دولية بلا
@@ -71,4 +71,26 @@ export function buildRentReminderMessage(input: {
     'إدارة تاج مول',
   ];
   return lines.join('\n');
+}
+
+/**
+ * رسالة تنبيه لمستأجر بقرب انتهاء عقده (أو بانتهائه). `daysLeft` سالب إن كان التاريخ قد مضى.
+ */
+export function buildContractExpiryMessage(input: {
+  tenantName: string;
+  shopNumber?: string | null;
+  endDate: string;
+  daysLeft: number;
+}): string {
+  const { tenantName, shopNumber, endDate, daysLeft } = input;
+  const shop = shopNumber ? `المحل رقم ${shopNumber}` : 'المحل';
+  const when = formatDate(endDate);
+  const days = (n: number) => arabicCount(n, ['يوم واحد', 'يومين', 'أيام', 'يوماً']);
+  const body =
+    daysLeft < 0
+      ? `نفيدكم بأن عقد إيجار ${shop} انتهى بتاريخ ${when}. نرجو التواصل مع الإدارة لتجديد العقد أو ترتيب تسليم المحل.`
+      : daysLeft === 0
+        ? `نفيدكم بأن عقد إيجار ${shop} ينتهي اليوم (${when}). نرجو التواصل مع الإدارة لتجديد العقد.`
+        : `نفيدكم بأن عقد إيجار ${shop} ينتهي بتاريخ ${when} (بعد ${days(daysLeft)}). نرجو التواصل مع الإدارة قبل هذا التاريخ لتجديد العقد.`;
+  return [`السيد/ة ${tenantName}،`, '', body, 'ونشكر لكم تعاونكم.', '', 'إدارة تاج مول'].join('\n');
 }

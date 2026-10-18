@@ -49,6 +49,7 @@ jobs:
           npm run verify:payroll-pdf
           npm run verify:audit-safe
           npm run verify:period-review
+          npm run verify:occupancy
 
       - name: Database replica tests (proposed migrations, no live database)
         run: |

@@ -495,6 +495,36 @@ export function useTerminateLeaseContract() {
   });
 }
 
+/**
+ * Moves a running lease's end date later: the renewal. The rent, the deposit and the charges already
+ * made stay as they are; the database refuses a date that overlaps another active lease on the unit.
+ */
+export function useExtendLeaseContract() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { id: string; endDate: string }) => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase
+        .from('lease_contracts')
+        .update({ end_date: vars.endDate })
+        .eq('id', vars.id)
+        .eq('status', 'ACTIVE')
+        .select('id')
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error('العقد غير موجود أو لم يعد نشطاً.');
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: mqk.leaseContracts });
+      invalidateMoneyQueries(qc);
+      toast.success('تم تمديد العقد');
+    },
+    onError: (err: any) => {
+      toast.error(friendlyError(err, 'تعذّر تمديد العقد'));
+    },
+  });
+}
+
 // ── Tenant Charges ────────────────────────────────────────────────
 const TENANT_CHARGE_SELECT = `
   *,

@@ -5,22 +5,29 @@ import Link from 'next/link';
 import { ChevronLeft, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { arabicCount, cn, formatDate, formatMoney } from '@/lib/utils';
+import { arabicCount, cn, formatDate, formatMoney, todayISODate } from '@/lib/utils';
 import { useTenantRentSummary } from '@/lib/db/queries';
 import { aggregateMallRentKpis } from '@/lib/mall-rent-kpis';
-import { useLeaseContracts, useTenantCharges } from '@/lib/db/mall-queries';
+import { useLeaseContracts, useMallUnits, useTenantCharges } from '@/lib/db/mall-queries';
+import { buildContractExpiry } from '@/lib/contract-expiry';
+import { buildMallOccupancy } from '@/lib/mall-occupancy';
 import { currentMonthNameAr } from '@/lib/rent-months';
 import type { MallTab } from '@/lib/mall/routes';
 import { mallTabHref, peopleSegmentHref } from '@/lib/mall/routes';
 
-const DAY = 24 * 60 * 60 * 1000;
+/** A sentence about `n` things that agrees in number: one, two (dual) and three or more. */
+function agree(n: number, forms: { one: string; two: string; many: (count: number) => string }) {
+  return n === 1 ? forms.one : n === 2 ? forms.two : forms.many(n);
+}
+const count = (n: number, noun: [string, string]) => (n <= 10 ? `${n} ${noun[0]}` : `${n} ${noun[1]}`);
 
 /**
  * The mall at a glance: how rent stands this month, what needs following up (unfinished rent, open
  * charges, leases ending soon) and who still owes this month.
  */
 export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) => void }) {
-  const { data: contracts = [] } = useLeaseContracts();
+  const { data: contracts = [], isSuccess: contractsLoaded } = useLeaseContracts();
+  const { data: units = [], isSuccess: unitsLoaded } = useMallUnits();
   const { data: charges = [] } = useTenantCharges();
   const { data: tenants = [] } = useTenantRentSummary();
 
@@ -44,13 +51,13 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
   const openCharges = charges.filter((c) => c.status !== 'PAID' && Number(c.amount) > Number(c.total_paid));
   const openChargesTotal = openCharges.reduce((s, c) => s + (Number(c.amount) - Number(c.total_paid)), 0);
 
-  // the time the page opened: enough for "ends within 60 days", and stable across re-renders
-  const [now] = useState(() => Date.now());
-  const endingSoon = useMemo(() => {
-    return activeContracts
-      .filter((c) => c.end_date && new Date(c.end_date).getTime() - now <= 60 * DAY && new Date(c.end_date).getTime() >= now - DAY)
-      .sort((a, b) => String(a.end_date).localeCompare(String(b.end_date)));
-  }, [activeContracts, now]);
+  // the day the page opened: stable across re-renders
+  const [today] = useState(() => todayISODate());
+  const expiry = useMemo(() => buildContractExpiry({ contracts, today }), [contracts, today]);
+  const occupancy = useMemo(() => buildMallOccupancy({ units, contracts, today }), [units, contracts, today]);
+  // only once both lists are in: with one missing every unit would read as vacant
+  const occupancyReady = contractsLoaded && unitsLoaded && units.length > 0;
+  const endingSoon = expiry.items.filter((i) => !i.pastEnd && i.daysLeft <= 60);
 
   const followUps: { label: string; detail: string; tab: MallTab }[] = [];
   if (owingThisMonth.length > 0)
@@ -65,21 +72,64 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
       detail: `متبقٍ ${formatMoney(openChargesTotal, 'LYD')}`,
       tab: 'charges',
     });
+  if (expiry.counts.expired > 0)
+    followUps.push({
+      label: agree(expiry.counts.expired, {
+        one: 'عقد واحد انتهى تاريخه وما زال نشطاً',
+        two: 'عقدان انتهى تاريخهما وما زالا نشطين',
+        many: (n) => `${count(n, ['عقود', 'عقداً'])} انتهى تاريخها وما زالت نشطة`,
+      }),
+      detail: 'جدّده أو أنهِه',
+      tab: 'contracts',
+    });
   if (endingSoon.length > 0)
     followUps.push({
-      label: `${arabicCount(endingSoon.length, ['عقد واحد', 'عقدان', 'عقود', 'عقداً'])} ${endingSoon.length === 1 ? 'ينتهي' : 'تنتهي'} خلال 60 يوماً`,
-      detail: `أقربها ${formatDate(endingSoon[0].end_date)}`,
+      label: agree(endingSoon.length, {
+        one: 'عقد واحد ينتهي خلال 60 يوماً',
+        two: 'عقدان ينتهيان خلال 60 يوماً',
+        many: (n) => `${count(n, ['عقود', 'عقداً'])} تنتهي خلال 60 يوماً`,
+      }),
+      detail: `أقربها ${formatDate(endingSoon[0].endDate)}`,
       tab: 'contracts',
+    });
+  if (occupancyReady && occupancy.flagged.length > 0)
+    followUps.push({
+      label: agree(occupancy.flagged.length, {
+        one: 'محل واحد حالته لا تطابق عقوده',
+        two: 'محلان حالتهما لا تطابق عقودهما',
+        many: (n) => `${count(n, ['محلات', 'محلاً'])} حالتها لا تطابق عقودها`,
+      }),
+      detail: 'صحّحها من المحلات',
+      tab: 'units',
+    });
+  if (occupancyReady && occupancy.longVacant.length > 0)
+    followUps.push({
+      label: agree(occupancy.longVacant.length, {
+        one: 'محل واحد شاغر منذ ثلاثة أشهر أو أكثر',
+        two: 'محلان شاغران منذ ثلاثة أشهر أو أكثر',
+        many: (n) => `${count(n, ['محلات', 'محلاً'])} شاغرة منذ ثلاثة أشهر أو أكثر`,
+      }),
+      detail: `أطولها ${arabicCount(occupancy.longVacant[0].vacantDays ?? 0, ['يوم واحد', 'يومان', 'أيام', 'يوماً'])}`,
+      tab: 'units',
     });
 
   return (
     <div className="flex flex-col gap-5">
       <Card className="overflow-hidden">
-        <div className="grid grid-cols-2 gap-px bg-border md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-px bg-border md:grid-cols-5">
           <div className="bg-card p-4">
             <p className="text-[12.5px] text-ink-mute">المستأجرون</p>
             <p className="mt-1 text-[20px] font-semibold tabular-nums">{tenants.length}</p>
             <p className="mt-0.5 text-[12px] text-ink-mute">{activeContracts.length} عقد نشط</p>
+          </div>
+          <div className="bg-card p-4">
+            <p className="text-[12.5px] text-ink-mute">إشغال المحلات</p>
+            <p className="mt-1 text-[20px] font-semibold tabular-nums">
+              {occupancyReady ? `${occupancy.totals.rate.toLocaleString('en-US', { maximumFractionDigits: 1 })}%` : '—'}
+            </p>
+            <p className="mt-0.5 text-[12px] text-ink-mute tabular-nums">
+              {occupancyReady ? `${occupancy.totals.rented} مؤجر · ${occupancy.totals.vacant} شاغر` : 'جارٍ التحميل'}
+            </p>
           </div>
           <div className="bg-card p-4">
             <p className="text-[12.5px] text-ink-mute">إيجار {monthName}</p>
@@ -95,7 +145,7 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
               {formatMoney(rentKpis.collectedRent, 'LYD')} من {formatMoney(rentKpis.expectedRent, 'LYD')}
             </p>
           </div>
-          <div className="bg-card p-4">
+          <div className="col-span-2 bg-card p-4 md:col-span-1">
             <p className="text-[12.5px] text-ink-mute">مستحقات مفتوحة</p>
             <p className={cn('mt-1 text-[20px] font-semibold tabular-nums', rentKpis.outstandingRent > 0 && 'text-danger-ink')}>
               {formatMoney(rentKpis.outstandingRent, 'LYD')}

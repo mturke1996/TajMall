@@ -6,6 +6,7 @@ import {
   BookOpen,
   Receipt,
   Building2,
+  DoorOpen,
   Shield,
   Settings,
   Activity,
@@ -69,6 +70,7 @@ export const NAV: NavSection[] = [
     title: 'Rent & Collection',
     items: [
       { href: '/mall?tab=tenants', labelAr: 'المستأجرون والتحصيل', label: 'Tenants', icon: Building2, permission: 'revenue.view' },
+      { href: '/mall?tab=units', labelAr: 'المحلات والإشغال', label: 'Units', icon: DoorOpen, permission: 'revenue.view' },
       { href: '/mall?tab=charges', labelAr: 'المطالبات والرسوم', label: 'Charges', icon: Coins, permission: 'revenue.view' },
       { href: '/mall?tab=contracts', labelAr: 'عقود الإيجار', label: 'Contracts', icon: FileText, permission: 'revenue.view' },
       { href: '/mall', labelAr: 'نظرة عامة على المول', label: 'Mall overview', icon: LayoutGrid, permission: 'revenue.view' },

@@ -32,7 +32,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import Link from 'next/link';
-import { cn, formatMoney, formatDate, arabicCount } from '@/lib/utils';
+import { ContractExpiryAlerts, whenText } from '@/components/mall/contract-expiry-alerts';
+import { daysBetween } from '@/lib/mall-dates';
+import { cn, formatMoney, formatDate, todayISODate } from '@/lib/utils';
 import { useContacts } from '@/lib/db/queries';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
@@ -108,7 +110,8 @@ export function MallContractsPanel() {
   };
 
   const confirm = useConfirm();
-  const [openedAt] = useState(() => Date.now());
+  // the day the panel opened: stable across re-renders
+  const [today] = useState(() => todayISODate());
 
   const handleTerminate = async (contractId: string, unitId: string) => {
     const ok = await confirm({
@@ -147,6 +150,8 @@ export function MallContractsPanel() {
           </Button>
         </WriteGuard>
       </MallPanelToolbar>
+
+      <ContractExpiryAlerts contracts={contracts} />
 
       {/* Contracts Table */}
       <Card>
@@ -195,6 +200,16 @@ export function MallContractsPanel() {
                   <p className="text-[12px] text-ink-mute mt-2">
                     {formatDate(contract.start_date)} — {formatDate(contract.end_date)}
                   </p>
+                  {(() => {
+                    const left = contract.status === 'ACTIVE' ? daysBetween(today, contract.end_date) : null;
+                    if (left == null || left > 60) return null;
+                    return (
+                      <p className={cn('text-[12px]', left < 0 ? 'text-danger-ink' : 'text-warning-ink')}>
+                        {whenText({ daysLeft: left })}
+                        {left < 0 && ' وما زال نشطاً'}
+                      </p>
+                    );
+                  })()}
                   <p className="mt-1 font-bold tabular-nums text-foreground">
                     {formatMoney(Number(contract.monthly_rent), 'LYD')} / شهر
                   </p>
@@ -230,8 +245,9 @@ export function MallContractsPanel() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {contracts.map((contract) => {
-                    const daysLeft = contract.end_date ? Math.ceil((new Date(contract.end_date).getTime() - openedAt) / 86_400_000) : null;
-                    const endingSoon = contract.status === 'ACTIVE' && daysLeft != null && daysLeft >= 0 && daysLeft <= 60;
+                    const daysLeft = contract.status === 'ACTIVE' ? daysBetween(today, contract.end_date) : null;
+                    const pastEnd = daysLeft != null && daysLeft < 0;
+                    const endingSoon = daysLeft != null && daysLeft >= 0 && daysLeft <= 60;
                     return (
                       <tr key={contract.id} className="hover:bg-canvas-sunken/50">
                         <td className="px-3 py-2.5">
@@ -248,9 +264,10 @@ export function MallContractsPanel() {
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-ink-soft">
                           {formatDate(contract.start_date)} — {formatDate(contract.end_date)}
-                          {endingSoon && (
-                            <span className="block text-[12px] text-warning-ink">
-                              {daysLeft === 0 ? 'ينتهي اليوم' : `ينتهي بعد ${arabicCount(daysLeft, ['يوم واحد', 'يومين', 'أيام', 'يوماً'])}`}
+                          {(pastEnd || endingSoon) && daysLeft != null && (
+                            <span className={cn('block text-[12px]', pastEnd ? 'text-danger-ink' : 'text-warning-ink')}>
+                              {whenText({ daysLeft })}
+                              {pastEnd && ' وما زال نشطاً'}
                             </span>
                           )}
                         </td>

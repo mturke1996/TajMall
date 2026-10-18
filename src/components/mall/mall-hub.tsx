@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { MallTabNav, MALL_TAB_META } from '@/components/mall/mall-tab-nav';
 import { MallOverviewPanel } from '@/components/mall/panels/overview-panel';
 import { MallTenantsPanel } from '@/components/mall/panels/tenants-panel';
+import { MallUnitsPanel } from '@/components/mall/panels/units-panel';
 import { MallContractsPanel } from '@/components/mall/panels/contracts-panel';
 import { MallChargesPanel } from '@/components/mall/panels/charges-panel';
 import { MallPeoplePanel } from '@/components/mall/panels/people-panel';
@@ -17,8 +18,7 @@ function MallHubContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawTab = searchParams.get('tab');
-  const activeTab: MallTab =
-    rawTab === 'units' ? 'tenants' : isMallTab(rawTab) ? rawTab : 'overview';
+  const activeTab: MallTab = isMallTab(rawTab) ? rawTab : 'overview';
 
   const meta = MALL_TAB_META.find((t) => t.id === activeTab) ?? MALL_TAB_META[0];
 
@@ -42,6 +42,7 @@ function MallHubContent() {
       <div className="px-4 py-4 sm:px-5 sm:py-6 md:px-8 md:py-8">
         {activeTab === 'overview' && <MallOverviewPanel onNavigate={setTab} />}
         {activeTab === 'tenants' && <MallTenantsPanel />}
+        {activeTab === 'units' && <MallUnitsPanel />}
         {activeTab === 'contracts' && <MallContractsPanel />}
         {activeTab === 'charges' && <MallChargesPanel />}
         {activeTab === 'people' && <MallPeoplePanel />}
