@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 import { Check, Edit2, Loader2, Plus, Search, Shield, Users, X } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -233,11 +232,8 @@ export default function UsersPage() {
         {!isLoading && filtered.length > 0 && (
           <ul className="flex flex-col gap-2.5 md:hidden">
             {filtered.map((p, i) => (
-              <motion.li
+              <li
                 key={p.id}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(i * 0.03, 0.25) }}
                 className="surface flex flex-col gap-3 p-4"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -297,7 +293,7 @@ export default function UsersPage() {
                     </SelectContent>
                   </Select>
                 </div>
-              </motion.li>
+              </li>
             ))}
           </ul>
         )}
@@ -380,9 +376,8 @@ export default function UsersPage() {
         )}
 
         <p className="text-[12px] leading-relaxed text-ink-mute">
-          لإكمال تسجيل المدعو، تأكد من تفعيل البريد في Supabase (Authentication → Providers →
-          Email) ومن ضبط قوالب البريد أو SMTP. يمكنك مؤقتاً إنشاء مستخدم من لوحة Supabase ثم
-          تعيين اسمه ودوره من الجدول أعلاه.
+          تصل الدعوة إلى بريد المستخدم ليكمل التسجيل. إن لم تصل خلال دقائق، فاطلب من مسؤول النظام التحقق من
+          إعداد البريد.
         </p>
       </div>
 

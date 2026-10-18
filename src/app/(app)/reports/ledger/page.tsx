@@ -289,7 +289,6 @@ function GeneralLedgerContent() {
               <AccountingError
                 title="فشل تحميل دفتر الأستاذ"
                 message={(error as Error)?.message}
-                hint="طبّق هجرة 017_fix_journal_rpc_and_ledger.sql على Supabase ثم أعد تحميل الصفحة."
               />
             ) : linesWithBalance.length === 0 ? (
               <div className="space-y-4">

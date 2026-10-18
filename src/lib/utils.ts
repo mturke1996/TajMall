@@ -144,34 +144,44 @@ export function clamp(n: number, min: number, max: number) {
   return Math.min(Math.max(n, min), max);
 }
 
+/** Arabic count with the right noun form: 1 → "شهر"، 2 → "شهرين"، 3–10 → "3 أشهر"، 11+ → "11 شهراً". */
+function arabicCount(n: number, forms: [one: string, two: string, few: string, many: string]): string {
+  if (n === 1) return forms[0];
+  if (n === 2) return forms[1];
+  if (n >= 3 && n <= 10) return `${n} ${forms[2]}`;
+  return `${n} ${forms[3]}`;
+}
+
+const REL_UNITS = {
+  minute: ['دقيقة', 'دقيقتين', 'دقائق', 'دقيقة'],
+  hour: ['ساعة', 'ساعتين', 'ساعات', 'ساعة'],
+  day: ['يوم', 'يومين', 'أيام', 'يوماً'],
+  week: ['أسبوع', 'أسبوعين', 'أسابيع', 'أسبوعاً'],
+  month: ['شهر', 'شهرين', 'أشهر', 'شهراً'],
+  year: ['سنة', 'سنتين', 'سنوات', 'سنة'],
+} as const satisfies Record<string, readonly [string, string, string, string]>;
+
 export function formatDateRelative(date: Date | string | number) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return '—';
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  const absDiff = Math.abs(diff);
-  const isFuture = diff < 0;
-
-  const seconds = Math.floor(absDiff / 1000);
+  const diff = Date.now() - d.getTime();
+  const seconds = Math.floor(Math.abs(diff) / 1000);
+  if (seconds < 60) return 'الآن';
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
-  if (seconds < 60) return 'الآن';
-
-  if (isFuture) {
-    if (minutes < 60) return `بعد ${minutes} دقيقة`;
-    if (hours < 24) return `بعد ${hours} ساعة`;
-    if (days < 7) return `بعد ${days} يوم`;
-    if (days < 30) return `بعد ${Math.floor(days / 7)} أسبوع`;
-    if (days < 365) return `بعد ${Math.floor(days / 30)} شهر`;
-    return `بعد ${Math.floor(days / 365)} سنة`;
-  }
-
-  if (minutes < 60) return `منذ ${minutes} دقيقة`;
-  if (hours < 24) return `منذ ${hours} ساعة`;
-  if (days < 7) return `منذ ${days} يوم`;
-  if (days < 30) return `منذ ${Math.floor(days / 7)} أسبوع`;
-  if (days < 365) return `منذ ${Math.floor(days / 30)} شهر`;
-  return `منذ ${Math.floor(days / 365)} سنة`;
+  const [n, unit] =
+    minutes < 60
+      ? [minutes, REL_UNITS.minute]
+      : hours < 24
+        ? [hours, REL_UNITS.hour]
+        : days < 7
+          ? [days, REL_UNITS.day]
+          : days < 30
+            ? [Math.floor(days / 7), REL_UNITS.week]
+            : days < 365
+              ? [Math.floor(days / 30), REL_UNITS.month]
+              : [Math.floor(days / 365), REL_UNITS.year];
+  return `${diff < 0 ? 'بعد' : 'منذ'} ${arabicCount(n, unit as unknown as [string, string, string, string])}`;
 }

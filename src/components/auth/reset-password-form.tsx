@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
 import { Eye, EyeOff, KeyRound, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -126,7 +125,7 @@ export function ResetPasswordForm() {
 
   return (
     <div className="relative flex min-h-dvh items-center justify-center p-6 paper" dir="rtl">
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
+      <div className="w-full max-w-md">
         <div className="surface flex flex-col gap-6 p-7 sm:p-8">
           <div className="flex flex-col items-center gap-4 text-center">
             <Logo size="lg" />
@@ -185,7 +184,7 @@ export function ResetPasswordForm() {
             </Button>
           </form>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

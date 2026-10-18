@@ -1,8 +1,8 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 
+/** Fiscal year as a compact segmented control. */
 export function AccountingYearPicker({
   value,
   onChange,
@@ -18,24 +18,30 @@ export function AccountingYearPicker({
   const list = years ?? [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
 
   return (
-    <div className={cn('min-w-0', className)}>
-      <p className="mb-2 text-xs font-medium text-muted-foreground">السنة المالية</p>
-      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 scroll-smooth-touch scrollbar-none snap-x snap-mandatory">
-        {list.map((year) => (
-          <Button
-            key={year}
-            type="button"
-            variant={value === year ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onChange(year)}
-            className={cn(
-              'snap-center shrink-0 min-h-10 min-w-17 touch-manipulation',
-              value === year && 'bg-foreground hover:bg-foreground text-background border-foreground',
-            )}
-          >
-            {year}
-          </Button>
-        ))}
+    <div className={cn('flex min-w-0 items-center gap-2', className)}>
+      <span className="shrink-0 text-[12.5px] text-ink-mute">السنة</span>
+      <div
+        className="flex min-w-0 overflow-x-auto rounded-lg border border-border bg-canvas-sunken p-0.5 scrollbar-none"
+        role="group"
+        aria-label="السنة المالية"
+      >
+        {list.map((year) => {
+          const active = value === year;
+          return (
+            <button
+              key={year}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onChange(year)}
+              className={cn(
+                'h-8 shrink-0 rounded-md px-3 text-[13px] font-medium tabular-nums touch-manipulation transition-colors',
+                active ? 'bg-card text-foreground shadow-xs' : 'text-ink-mute hover:text-foreground',
+              )}
+            >
+              {year}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

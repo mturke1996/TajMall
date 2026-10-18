@@ -16,6 +16,7 @@ import { useSyncOverdueChargeReminders } from '@/lib/db/notification-queries';
 import { WhatsAppReminderButton } from '@/components/tenants/whatsapp-reminder-button';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { formatAccountingReportExportNames } from '@/lib/report-pdf-export';
+import { friendlyError } from '@/lib/user-messages';
 
 type AgingRow = {
   tenant_id: string;
@@ -158,13 +159,12 @@ export default function TenantArAgingPage() {
           ) : isError ? (
             <div className="flex flex-col items-center gap-2 text-danger py-8">
               <AlertTriangle className="h-8 w-8" />
-              <p>{(error as Error)?.message}</p>
-              <p className="text-xs">طبّق هجرة 018 على Supabase</p>
+              <p>{friendlyError(error)}</p>
             </div>
           ) : rows.length === 0 ? (
             <div className="flex flex-col items-center py-12 text-muted-foreground gap-2">
               <Users className="h-10 w-10 opacity-50" />
-              <p>لا توجد ذمم مستحقة — ممتاز!</p>
+              <p>لا توجد ذمم مستحقة في هذا التاريخ.</p>
             </div>
           ) : (
             <>

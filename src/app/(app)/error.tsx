@@ -24,7 +24,6 @@ export default function AppError({
     >
       <div className="flex w-full max-w-md flex-col items-center gap-5 text-center">
         <div className="relative">
-          <div className="absolute inset-0 rounded-full bg-danger/10 blur-md" />
           <BrandGlyph size={56} className="relative z-10 border border-border/80" />
           <span className="absolute -bottom-1 -inset-s-1 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card">
             <AlertTriangle className="h-3.5 w-3.5 text-danger" strokeWidth={2} />

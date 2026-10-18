@@ -5,7 +5,6 @@ import { Sidebar } from './sidebar';
 import { TopBar } from './topbar';
 import { MobileNav } from './mobile-nav';
 import { MobileBottomNav } from './mobile-bottom-nav';
-import { PageTransition } from './page-transition';
 import { CommandPalette } from './command-palette';
 import { NewTransactionDialog } from '@/components/transactions/new-transaction-dialog';
 import { AutoColdBackup } from '@/components/backup/auto-cold-backup';
@@ -51,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           id="main-content"
           className="flex min-w-0 flex-1 flex-col pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0"
         >
-          <PageTransition>{children}</PageTransition>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
         </main>
       </div>
 

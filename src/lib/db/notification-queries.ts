@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { friendlyError } from '@/lib/user-messages';
 
 export type AppNotificationRow = {
   id: string;
@@ -152,7 +153,7 @@ export function useSyncOverdueChargeReminders() {
       qc.invalidateQueries({ queryKey: nqk.unreadCount });
     },
     onError: (err: { message?: string }) => {
-      toast.error(err.message ?? 'فشل مزامنة التذكيرات — طبّق هجرة 019');
+      toast.error(friendlyError(err, 'تعذّرت مزامنة التذكيرات — أعد المحاولة.'));
     },
   });
 }

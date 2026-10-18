@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo } from 'react';
-import { motion } from 'framer-motion';
 import { Shield, Users, Check } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Badge } from '@/components/ui/badge';
@@ -101,12 +100,9 @@ export default function RolesPage() {
       <div className="flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-6 md:gap-7 md:px-8 md:py-7">
         <section className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           {SYSTEM_ROLES.map((r, i) => (
-            <motion.div
+            <div
               key={r.name}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04 }}
-              className="surface flex flex-col gap-3 p-4 transition-shadow duration-200 hover:shadow-whisper sm:p-5"
+              className="surface flex flex-col gap-3 p-4 transition-colors sm:p-5"
             >
               <div className="flex items-start justify-between">
                 <span className="grid h-9 w-9 place-items-center rounded-md border border-border bg-canvas-sunken text-foreground">
@@ -123,7 +119,7 @@ export default function RolesPage() {
                   {ROLE_DESCRIPTIONS[r.name] ?? ''}
                 </p>
               </div>
-            </motion.div>
+            </div>
           ))}
         </section>
 

@@ -2,6 +2,7 @@
 
 import { Loader2, AlertTriangle, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { friendlyError } from '@/lib/user-messages';
 
 export function AccountingLoading({ className }: { className?: string }) {
   return (
@@ -37,8 +38,13 @@ export function AccountingError({
     >
       <AlertTriangle className="h-8 w-8 text-danger" />
       <p className="font-semibold text-danger-ink">{title}</p>
-      {message && <p className="text-sm text-danger-ink wrap-break-word max-w-md">{message}</p>}
-      {hint && <p className="text-xs text-danger/90 mt-1 max-w-md leading-relaxed">{hint}</p>}
+      <p className="max-w-md text-sm text-danger-ink">{hint ?? friendlyError(message)}</p>
+      {message && (
+        <details className="max-w-md text-start text-[12px] text-ink-mute">
+          <summary className="cursor-pointer">تفاصيل تقنية</summary>
+          <p className="mt-1 wrap-break-word" dir="ltr">{message}</p>
+        </details>
+      )}
     </div>
   );
 }

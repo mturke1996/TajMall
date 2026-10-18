@@ -2557,7 +2557,7 @@ async function fetchAllPeriodJournalLinesPaged(input: {
       }
       if (offsetUnsupported) {
         throw new Error(
-          'توقف ترقيم بنود الفترة قبل الاكتمال — أعد تحميل الصفحة أو طبّق هجرة 072',
+          'توقف ترقيم بنود الفترة قبل الاكتمال — أعد تحميل الصفحة، وإن تكرر أبلغ مسؤول النظام.',
         );
       }
       throw error;
@@ -3034,7 +3034,7 @@ async function fetchPeriodJournalByCategoryAccrualPath(input: {
   /** Fallback: دفتر الأستاذ للبند ثم توسيع القيود بالكامل */
   if (status !== 'POSTED' && status !== 'ALL') {
     throw new Error(
-      'دالة بنود الفترة غير متاحة لهذه الحالة — طبّق هجرة 072 أو اختر قيوداً مرحّلة',
+      'هذا الخيار غير متاح حالياً — اختر «قيود مرحّلة فقط» أو أبلغ مسؤول النظام.',
     );
   }
 
@@ -3141,7 +3141,7 @@ async function fetchAllPeriodJournalEntriesPaged(input: {
       }
       if (offsetUnsupported) {
         throw new Error(
-          'توقف ترقيم رؤوس القيود قبل الاكتمال — أعد المحاولة أو طبّق هجرة 072',
+          'توقف ترقيم القيود قبل الاكتمال — أعد المحاولة، وإن تكرر أبلغ مسؤول النظام.',
         );
       }
       throw error;

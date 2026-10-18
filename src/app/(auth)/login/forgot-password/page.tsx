@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { motion } from 'framer-motion';
 import { ArrowRight, Loader2, Mail, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,9 +47,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="relative flex min-h-dvh items-center justify-center p-6 paper" dir="rtl">
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
+      <div
         className="w-full max-w-md"
       >
         <div className="surface flex flex-col gap-6 p-7 sm:p-8">
@@ -124,7 +121,7 @@ export default function ForgotPasswordPage() {
             </form>
           )}
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

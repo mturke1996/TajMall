@@ -232,38 +232,20 @@ export function EmployeeSelect({
 /** Shown instead of the payroll screens until migration 080 is applied to the database. */
 export function PayrollSchemaMissing() {
   return (
-    <section className="mx-auto flex max-w-2xl flex-col gap-5 rounded-xl border border-border bg-card p-6 sm:p-8">
-      <div className="flex items-start gap-4">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border bg-canvas-sunken text-muted-foreground">
-          <DatabaseZap className="h-5 w-5 stroke-[1.5]" />
-        </span>
-        <div className="flex flex-col gap-1.5">
-          <h2 className="text-[16px] font-semibold">وحدة الرواتب جاهزة في الواجهة ولم تُفعَّل في قاعدة البيانات بعد</h2>
-          <p className="text-[13px] leading-relaxed text-muted-foreground">
-            تعمل هذه الشاشات على جداول ودوال الترحيل <span dir="ltr" className="font-mono">080_payroll</span>، وهو
-            مُختبَر على نسخة مطابقة ولم يُطبَّق على قاعدة البيانات الحقيقية. بعد تطبيقه (ويسبقه الترحيل 078) تظهر هنا
-            مباشرة دون أي تحديث للتطبيق.
+    <section className="mx-auto flex max-w-xl flex-col gap-4 rounded-xl border border-border bg-card p-5 sm:p-6">
+      <div className="flex items-start gap-3">
+        <DatabaseZap className="mt-0.5 h-5 w-5 shrink-0 text-ink-mute" aria-hidden />
+        <div className="flex flex-col gap-1">
+          <h2 className="text-[15px] font-semibold">الرواتب غير مفعّلة بعد</h2>
+          <p className="text-[13px] leading-relaxed text-ink-mute">
+            تحتاج قاعدة البيانات إلى تحديث قبل استخدام كشوف الرواتب والسلف والمكافآت. أبلغ مسؤول النظام، وتظهر
+            الشاشات هنا مباشرة بعد التحديث. إلى ذلك الحين تُسجَّل الرواتب كمصروف من ملف الموظف.
           </p>
         </div>
       </div>
-      <ul className="grid gap-2 text-[13px] sm:grid-cols-2">
-        {[
-          'هيكل راتب لكل موظف بتاريخ سريان وسجل تغييرات',
-          'مكافآت وعمل إضافي وخصومات وغياب باعتماد',
-          'سلف بأقساط تُستقطع تلقائياً من الكشف',
-          'كشف شهري: إعداد ثم اعتماد ثم ترحيل ثم صرف',
-          'قيد محاسبي واحد متوازن لكل شهر',
-          'قسيمة راتب وكشف مجمع بصيغة PDF',
-        ].map((line) => (
-          <li key={line} className="flex items-start gap-2 text-ink-soft">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-            {line}
-          </li>
-        ))}
-      </ul>
       <div className="flex flex-wrap gap-2 border-t border-border pt-4">
         <Button asChild variant="outline" size="sm">
-          <Link href="/mall?tab=people&segment=EMPLOYEE">دليل الموظفين</Link>
+          <Link href="/mall?tab=people&segment=EMPLOYEE">الموظفون</Link>
         </Button>
         <Button asChild variant="ghost" size="sm">
           <Link href="/reports/employee-spend">تقرير إنفاق الموظفين</Link>
@@ -276,7 +258,7 @@ export function PayrollSchemaMissing() {
 /** A quiet inline message for a failed load that is not the missing schema. */
 export function PayrollLoadError({ message }: { message: string }) {
   return (
-    <div className="rounded-lg border border-pastel-redInk/20 bg-pastel-red px-4 py-3 text-[13px] text-pastel-redInk">
+    <div className="rounded-lg border border-danger-line bg-danger-soft px-4 py-3 text-[13px] text-danger-ink">
       {message}
     </div>
   );

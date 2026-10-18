@@ -13,6 +13,7 @@ import {
   useMarkAllNotificationsRead,
   useSyncOverdueChargeReminders,
 } from '@/lib/db/notification-queries';
+import { NEEDS_DB_UPDATE } from '@/lib/user-messages';
 
 const SEVERITY: Record<string, string> = {
   info: 'border-border bg-canvas-sunken',
@@ -72,7 +73,7 @@ export default function NotificationsPage() {
           <EmptyState
             icon={Bell}
             title="تعذّر تحميل الإشعارات"
-            description="طبّق هجرة 019_manual_allocations_and_notifications.sql على Supabase."
+            description={NEEDS_DB_UPDATE}
           />
         ) : items.length === 0 ? (
           <EmptyState

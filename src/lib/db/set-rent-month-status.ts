@@ -1,5 +1,6 @@
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { PostgrestError } from '@supabase/supabase-js';
+import { NEEDS_DB_UPDATE } from '@/lib/user-messages';
 
 export type SetRentMonthStatusInput = {
   tenantId: string;
@@ -66,13 +67,13 @@ export async function setTenantRentMonthStatus(
 
   if (isUnitLeaseOverlapError(error.message ?? '')) {
     throw new Error(
-      'رقم المحل مربوط بعقد نشط لمستأجر آخر. شغّل هجرة 031 على قاعدة البيانات ثم أعد المحاولة.',
+      'رقم المحل مربوط بعقد نشط لمستأجر آخر — راجع عقود المحل قبل الربط.',
     );
   }
 
   if (isMissingRpcSignature(error)) {
     throw new Error(
-      'دالة تحصيل الإيجار غير متاحة على القاعدة. طبّق ترحيلات Supabase (set_tenant_rent_month_status) ثم أعد المحاولة.',
+      NEEDS_DB_UPDATE,
     );
   }
 

@@ -10,7 +10,7 @@ import { useEffect, useRef } from 'react';
 export function useActiveInView<T extends HTMLElement>(activeKey: unknown) {
   const ref = useRef<T>(null);
   useEffect(() => {
-    const el = ref.current?.querySelector<HTMLElement>('[aria-selected="true"], [aria-pressed="true"]');
+    const el = ref.current?.querySelector<HTMLElement>('[aria-selected="true"], [aria-pressed="true"], [aria-current="page"]');
     el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
   }, [activeKey]);
   return ref;

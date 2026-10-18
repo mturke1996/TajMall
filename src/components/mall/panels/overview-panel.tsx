@@ -146,9 +146,9 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
                 type="button"
                 onClick={() => onNavigate(item.tab)}
                 className={cn(
-                  'flex flex-col items-start gap-2 rounded-xl border p-4 text-start transition-shadow touch-manipulation active:scale-[0.99]',
+                  'flex flex-col items-start gap-2 rounded-xl border p-4 text-start transition-colors touch-manipulation active:scale-[0.99]',
                   item.tone,
-                  'hover:shadow-md',
+                  'hover:border-foreground/25',
                 )}
               >
                 <Icon className="h-6 w-6 text-foreground" />

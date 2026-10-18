@@ -29,6 +29,7 @@ import { invalidateRentCalendarQueries } from '@/lib/db/rent-queries';
 import { toast } from 'sonner';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { formatContactSaveError } from '@/lib/contacts/form-utils';
+import { NEEDS_DB_UPDATE } from '@/lib/user-messages';
 
 /** يُرجع رسالة خطأ مفيدة من خطأ Supabase/Postgres بدل رسالة عامة. */
 function extractSaveError(err: unknown): string {
@@ -36,15 +37,15 @@ function extractSaveError(err: unknown): string {
   const code = e?.code;
   const raw = e?.message?.trim();
   const hints: Record<string, string> = {
-    '23502': 'حقل إجباري ناقص في قاعدة البيانات (غالباً حساب الخزينة/النقد AST-CSH غير معرّف في account_mappings).',
+    '23502': 'إعداد الحسابات غير مكتمل (حساب الخزينة غير مربوط) — أبلغ مسؤول النظام.',
     '23503': 'مرجع غير صالح — تحقق من البند/الخزينة/الجهة المختارة.',
-    '23505': 'قيمة مكررة تخالف قيد التفرد.',
-    '42501': 'لا توجد صلاحية للحفظ (RLS) — تحقق من دور المستخدم.',
-    '42804': 'نوع طريقة الدفع غير متوافق — نفّذ migration 073 في Supabase.',
+    '23505': 'القيمة مسجّلة من قبل.',
+    '42501': 'لا توجد صلاحية للحفظ — تحقق من دورك.',
+    '42804': NEEDS_DB_UPDATE,
     'P0001': raw ?? 'خطأ منطقي في قاعدة البيانات.',
   };
   if (raw?.includes('payment_method') && raw.includes('type text')) {
-    return 'فشل الحفظ: نوع طريقة الدفع — نفّذ migration 073 في Supabase (record_rent_payment).';
+    return `فشل الحفظ: ${NEEDS_DB_UPDATE}`;
   }
   const hint = code ? hints[code] : undefined;
   if (hint) return `فشل الحفظ: ${hint}`;

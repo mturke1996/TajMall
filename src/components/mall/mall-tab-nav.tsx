@@ -65,7 +65,7 @@ export function MallTabNav({
 }) {
   const rowRef = useActiveInView<HTMLDivElement>(active);
   return (
-    <div className="sticky top-0 z-30 border-b border-border bg-canvas">
+    <div className="sticky top-16 z-20 border-b border-border bg-canvas">
       <div
         ref={rowRef}
         className="flex gap-1 overflow-x-auto px-4 py-2 no-scrollbar snap-x snap-mandatory md:gap-1.5 md:px-8"
@@ -85,7 +85,7 @@ export function MallTabNav({
               className={cn(
                 'inline-flex shrink-0 snap-center items-center gap-1.5 rounded-lg px-3 py-2.5 text-[13px] font-medium touch-manipulation transition-colors',
                 isActive
-                  ? 'bg-foreground text-background shadow-xs'
+                  ? 'bg-foreground text-background'
                   : 'text-ink-mute hover:bg-secondary hover:text-ink',
               )}
             >

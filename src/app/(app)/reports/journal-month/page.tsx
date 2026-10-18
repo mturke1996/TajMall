@@ -1113,8 +1113,8 @@ function JournalMonthContent() {
                       title="قد توجد معاملات غير مرحّلة"
                       description="إن كانت لديك معاملات قديمة ولم تظهر هنا، اضغط ترحيل لإنشاء قيودها في دفتر اليومية."
                     />
-                    <Button size="sm" asChild>
-                      <Link href="/journals">دفتر اليومية</Link>
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link href="/journals">فتح دفتر اليومية</Link>
                     </Button>
                   </>
                 )}
@@ -1122,10 +1122,9 @@ function JournalMonthContent() {
             ) : (
               <>
                 {displayModel.truncated ? (
-                  <AccountingBackfillBanner
-                    title="تنبيه: قد يكون المجموع ناقصاً"
-                    description="تم بلوغ حد جلب القيود لهذه الفترة. عند اختيار بند واحد (مثل إيجارات المحلات) يُعاد الجلب كاملاً لهذا البند — تأكد أن البند محدد من القائمة."
-                  />
+                  <p role="status" className="rounded-xl border border-warning-line bg-warning-soft px-4 py-3 text-[13px] leading-relaxed text-warning-ink">
+                    قد يكون المجموع ناقصاً: بلغ عدد قيود هذه الفترة حد الجلب. اختر بنداً واحداً من القائمة ليُجلب كاملاً.
+                  </p>
                 ) : null}
                 <AccountingSummaryGrid
                   stats={[

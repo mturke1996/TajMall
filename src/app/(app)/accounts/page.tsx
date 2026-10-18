@@ -158,7 +158,7 @@ export default function AccountsPage() {
             title={source.length === 0 ? 'لا توجد بنود' : 'لا توجد بنود مطابقة'}
             description={
               source.length === 0
-                ? 'طبّق هجرات Supabase (001 و013) أو أضف بنداً جديداً.'
+                ? 'أضف أول بند محاسبي، أو اطلب من مسؤول النظام تهيئة دليل الحسابات.'
                 : 'جرّب كلمة بحث أخرى أو غيّر التبويب.'
             }
             action={
@@ -174,94 +174,89 @@ export default function AccountsPage() {
             }
           />
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-            {filtered.map((c: CategoryRow, i) => {
-              const inactive = c.active === false;
-              return (
-                <div
-                  key={c.id}
-                  className={cn(
-                    'surface group/card animate-fade-up flex flex-col gap-3 p-4 transition-shadow duration-200 hover:shadow-whisper touch-manipulation',
-                    inactive && 'opacity-60',
-                  )}
-                  style={{ animationDelay: `${Math.min(i * 20, 300)}ms` }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <Link
-                      href={`/accounts/${c.id}`}
-                      className="flex min-w-0 items-center gap-3 group/name"
-                    >
-                      <span
-                        className={cn(
-                          'grid h-9 w-9 shrink-0 place-items-center rounded-md border',
-                          c.type === 'REVENUE' && 'border-pastel-greenInk/15 bg-pastel-green text-pastel-greenInk',
-                          c.type === 'EXPENSE' && 'border-pastel-redInk/15 bg-pastel-red text-pastel-redInk',
-                          ['ASSET', 'LIABILITY', 'EQUITY'].includes(c.type) &&
-                            'border-border bg-canvas-sunken text-foreground',
-                        )}
-                      >
-                        {c.type === 'REVENUE' ? (
-                          <ArrowDownToLine className="h-4 w-4 stroke-[1.6]" />
-                        ) : c.type === 'EXPENSE' ? (
-                          <ArrowUpFromLine className="h-4 w-4 stroke-[1.6]" />
-                        ) : (
-                          <Landmark className="h-4 w-4 stroke-[1.6]" />
-                        )}
-                      </span>
-                      <span className="flex min-w-0 flex-col">
-                        <span className="truncate text-[14px] font-semibold group-hover/name:underline">
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-border bg-canvas-sunken text-[12.5px] text-ink-mute">
+                  <th scope="col" className="w-28 px-4 py-2.5 text-start font-medium">الرمز</th>
+                  <th scope="col" className="px-4 py-2.5 text-start font-medium">البند</th>
+                  <th scope="col" className="hidden px-4 py-2.5 text-start font-medium sm:table-cell">النوع</th>
+                  <th scope="col" className="px-4 py-2.5 text-end font-medium">
+                    <span className="sr-only">إجراءات</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filtered.map((c: CategoryRow) => {
+                  const inactive = c.active === false;
+                  return (
+                    <tr key={c.id} className={cn('hover:bg-canvas-sunken/50', inactive && 'text-ink-mute')}>
+                      <td className="px-4 py-2.5 font-mono text-[12.5px] text-ink-mute" dir="ltr">
+                        {c.code}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <Link href={`/accounts/${c.id}`} className="font-medium text-foreground hover:underline">
                           {c.name_ar}
+                        </Link>
+                        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] text-ink-mute">
+                          <span className="sm:hidden">{TYPE_LABEL[c.type] ?? c.type}</span>
+                          {inactive && <Badge variant="neutral">معطّل</Badge>}
                         </span>
-                        <span className="truncate text-[11px] text-ink-mute">{c.name}</span>
-                      </span>
-                    </Link>
-                    <Badge variant="outline" className="shrink-0 text-[11px]">
-                      {TYPE_LABEL[c.type] ?? c.type}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
-                    <span className="font-mono text-[11px] text-ink-mute">{c.code}</span>
-                    <div className="flex items-center gap-1">
-                      <Link
-                        href={ledgerUrl(c.id, year)}
-                        title="كشف دفتر الأستاذ"
-                        className="grid h-7 w-7 place-items-center rounded-md border border-border text-ink-mute transition-colors hover:bg-canvas-sunken hover:text-foreground touch-manipulation"
-                      >
-                        <BookMarked className="h-3.5 w-3.5 stroke-[1.6]" />
-                      </Link>
-                      {canManage && (
-                        <>
-                          <button aria-label={`تعديل البند ${c.name_ar}`}
-                            type="button"
-                            title="تعديل"
-                            onClick={() => {
-                              setEditingRow(c);
-                              setDialogOpen(true);
-                            }}
-                            className="grid h-7 w-7 place-items-center rounded-md border border-border text-ink-mute transition-colors hover:bg-canvas-sunken hover:text-foreground touch-manipulation"
-                          >
-                            <Pencil className="h-3.5 w-3.5 stroke-[1.6]" />
-                          </button>
-                          <button aria-label={`${inactive ? 'تفعيل' : 'تعطيل'} البند ${c.name_ar}`}
-                            type="button"
-                            title={inactive ? 'تفعيل' : 'تعطيل'}
-                            onClick={() => handleToggleActive(c)}
+                      </td>
+                      <td className="hidden px-4 py-2.5 sm:table-cell">
+                        <span className="inline-flex items-center gap-1.5 text-ink-soft">
+                          <span
                             className={cn(
-                              'grid h-7 w-7 place-items-center rounded-md border border-border transition-colors touch-manipulation',
-                              inactive
-                                ? 'text-pastel-greenInk hover:bg-pastel-green/20'
-                                : 'text-ink-mute hover:bg-pastel-red/20 hover:text-pastel-redInk',
+                              'h-2 w-2 rounded-full',
+                              c.type === 'REVENUE' ? 'bg-success' : c.type === 'EXPENSE' ? 'bg-danger' : 'bg-info',
                             )}
-                          >
-                            <Power className="h-3.5 w-3.5 stroke-[1.6]" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                            aria-hidden
+                          />
+                          {TYPE_LABEL[c.type] ?? c.type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button asChild size="sm" variant="ghost" className="h-8 gap-1 px-2 text-[12.5px]">
+                            <Link href={ledgerUrl(c.id, year)}>
+                              <BookMarked className="h-3.5 w-3.5" aria-hidden />
+                              <span className="hidden md:inline">دفتر الأستاذ</span>
+                              <span className="sr-only md:hidden">دفتر الأستاذ</span>
+                            </Link>
+                          </Button>
+                          {canManage && (
+                            <>
+                              <Button
+                                aria-label={`تعديل البند ${c.name_ar}`}
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-ink-mute hover:text-foreground"
+                                onClick={() => {
+                                  setEditingRow(c);
+                                  setDialogOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                aria-label={`${inactive ? 'تفعيل' : 'تعطيل'} البند ${c.name_ar}`}
+                                title={inactive ? 'تفعيل' : 'تعطيل'}
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-ink-mute hover:text-foreground"
+                                onClick={() => handleToggleActive(c)}
+                              >
+                                <Power className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </AccountingPageBody>

@@ -1,130 +1,125 @@
-import {
-  Building2,
-  Coins,
-  Globe2,
-  Palette,
-  Shield,
-  Database,
-  Bell,
-  KeyRound,
-  ArrowLeft,
-  ClipboardList,
-} from 'lucide-react';
-import Link from 'next/link';
-import { PageHeader } from '@/components/layout/page-header';
+'use client';
 
-const GROUPS = [
+import { useSyncExternalStore } from 'react';
+import Link from 'next/link';
+import { useTheme } from 'next-themes';
+import { ChevronLeft } from 'lucide-react';
+import { PageHeader } from '@/components/layout/page-header';
+import { usePermission } from '@/lib/supabase/use-permission';
+import type { PermissionKey } from '@/lib/constants';
+import { cn } from '@/lib/utils';
+
+type Item = { title: string; desc: string; href: string; permission?: PermissionKey };
+
+/** Only pages that exist and that the user may open. */
+const GROUPS: { title: string; items: Item[] }[] = [
   {
-    title: 'المنظمة',
+    title: 'الحساب',
+    items: [{ title: 'الملف الشخصي وكلمة المرور', desc: 'اسمك كما يظهر في السجل، وتغيير كلمة المرور.', href: '/profile' }],
+  },
+  {
+    title: 'الفريق والصلاحيات',
     items: [
-      {
-        icon: Building2,
-        title: 'بيانات المنشأة',
-        desc: 'الاسم، الشعار، العنوان، الرقم الضريبي.',
-        href: '/settings/organization',
-      },
-      {
-        icon: Coins,
-        title: 'العملة والمحاسبة',
-        desc: 'العملة الافتراضية، الفترة المالية، أرقام القيود.',
-        href: '/settings/accounting',
-      },
-      {
-        icon: Globe2,
-        title: 'اللغة والمنطقة',
-        desc: 'العربية / الإنجليزية، التقويم، المنطقة الزمنية.',
-        href: '/settings/locale',
-      },
+      { title: 'المستخدمون', desc: 'دعوة مستخدم جديد وتعيين دوره.', href: '/users', permission: 'org.users' },
+      { title: 'الأدوار والصلاحيات', desc: 'ما يستطيع كل دور رؤيته وتسجيله.', href: '/roles', permission: 'org.roles' },
+      { title: 'الفروع', desc: 'فروع المنشأة المسجّلة.', href: '/branches', permission: 'org.branches' },
+      { title: 'سجل الرقابة', desc: 'كل تعديل مع اسم من قام به والرصيد بعده.', href: '/audit-log', permission: 'org.audit' },
     ],
   },
   {
-    title: 'المظهر والأمان',
+    title: 'المحاسبة والخزائن',
     items: [
-      {
-        icon: Palette,
-        title: 'المظهر',
-        desc: 'الألوان، الخطوط، شكل التقارير المطبوعة.',
-        href: '/settings/appearance',
-      },
-      {
-        icon: Shield,
-        title: 'الأمان',
-        desc: 'كلمة المرور، التحقق الثنائي، الجلسات النشطة.',
-        href: '/profile#password',
-      },
-      {
-        icon: KeyRound,
-        title: 'مفاتيح API',
-        desc: 'مفاتيح للربط مع الأنظمة الخارجية.',
-        href: '/settings/api-keys',
-      },
+      { title: 'البنود المحاسبية', desc: 'بنود الإيرادات والمصروفات وربطها بالحسابات.', href: '/accounts', permission: 'account.view' },
+      { title: 'الفترات المالية', desc: 'إقفال الأشهر والترحيل السنوي.', href: '/reports/periods', permission: 'journal.view' },
+      { title: 'الخزائن والمصارف', desc: 'الخزائن والحسابات المصرفية وأرصدتها.', href: '/cashboxes', permission: 'cashbox.view' },
+      { title: 'جرد الخزائن', desc: 'عدّ فعلي للنقد وتسوية الفرق مع الدفتر.', href: '/settings/cashbox-count', permission: 'cashbox.manage' },
     ],
   },
   {
-    title: 'النظام',
-    items: [
-      {
-        icon: Bell,
-        title: 'الإشعارات',
-        desc: 'البريد الإلكتروني، إشعارات الويب، تنبيهات النظام.',
-        href: '/settings/notifications',
-      },
-      {
-        icon: Database,
-        title: 'النسخ الاحتياطي',
-        desc: 'تصدير قاعدة البيانات واستيرادها.',
-        href: '/settings/backup',
-      },
-      {
-        icon: ClipboardList,
-        title: 'جرد الخزائن',
-        desc: 'عدّ فعلي للخزائن وتسوية الدفتر برقم سري.',
-        href: '/settings/cashbox-count',
-      },
-    ],
+    title: 'البيانات',
+    items: [{ title: 'النسخ الاحتياطي', desc: 'تنزيل نسخة من البيانات إلى جهازك.', href: '/settings/backup', permission: 'org.settings' }],
   },
 ];
 
+const THEMES = [
+  { value: 'light', label: 'فاتح' },
+  { value: 'dark', label: 'داكن' },
+  { value: 'system', label: 'حسب الجهاز' },
+] as const;
+
+const subscribeNoop = () => () => {};
+
+function ThemeSetting() {
+  const { theme, setTheme } = useTheme();
+  // the stored theme is only known in the browser
+  const isClient = useSyncExternalStore(subscribeNoop, () => true, () => false);
+  return (
+    <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="text-[14px] font-medium text-foreground">المظهر</p>
+        <p className="mt-0.5 text-[12.5px] text-ink-mute">ألوان الواجهة على هذا الجهاز.</p>
+      </div>
+      <div className="flex w-fit rounded-lg border border-border bg-canvas-sunken p-0.5" role="group" aria-label="المظهر">
+        {THEMES.map((t) => {
+          const active = isClient && theme === t.value;
+          return (
+            <button
+              key={t.value}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setTheme(t.value)}
+              className={cn(
+                'h-8 rounded-md px-3 text-[13px] font-medium transition-colors',
+                active ? 'bg-card text-foreground shadow-xs' : 'text-ink-mute hover:text-foreground',
+              )}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
+  const { can, loading } = usePermission();
+  const groups = GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((it) => !it.permission || (!loading && can(it.permission))),
+  })).filter((g) => g.items.length > 0);
+
   return (
     <>
-      <PageHeader
-        eyebrow="الإعدادات"
-        title="إعدادات المنظومة"
-        description="خصّص المنظومة لتعمل بالطريقة المثالية لعملك."
-      />
+      <PageHeader title="الإعدادات" description="الحساب والفريق والمحاسبة والبيانات." />
 
-      <div className="flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-6 md:gap-7 md:px-8 md:py-7">
-        {GROUPS.map((group) => (
-          <section key={group.title} className="flex flex-col gap-3">
-            <h2 className="text-[11px] font-semibold text-ink-mute">
-              {group.title}
-            </h2>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {group.items.map((it) => {
-                const Icon = it.icon;
-                return (
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-7">
+        <section className="flex flex-col gap-2">
+          <h2 className="px-1 text-[12.5px] font-medium text-ink-mute">الواجهة</h2>
+          <div className="surface overflow-hidden">
+            <ThemeSetting />
+          </div>
+        </section>
+
+        {groups.map((group) => (
+          <section key={group.title} className="flex flex-col gap-2">
+            <h2 className="px-1 text-[12.5px] font-medium text-ink-mute">{group.title}</h2>
+            <ul className="surface divide-y divide-border overflow-hidden">
+              {group.items.map((it) => (
+                <li key={it.href}>
                   <Link
-                    key={it.title}
                     href={it.href}
-                    className="surface group flex items-start gap-3 p-4 transition-shadow duration-200 hover:shadow-whisper sm:gap-4 sm:p-5"
+                    className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-canvas-sunken/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                   >
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-border bg-canvas-sunken text-foreground">
-                      <Icon className="h-[16px] w-[16px] stroke-[1.5]" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[14px] font-medium text-foreground">{it.title}</span>
+                      <span className="mt-0.5 block text-[12.5px] text-ink-mute">{it.desc}</span>
                     </span>
-                    <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <h3 className="text-[14px] font-semibold tracking-tight">
-                        {it.title}
-                      </h3>
-                      <p className="text-[12.5px] leading-[1.55] text-ink-mute">
-                        {it.desc}
-                      </p>
-                    </div>
-                    <ArrowLeft className="mt-1 h-4 w-4 shrink-0 stroke-[1.5] text-ink-mute transition-transform duration-200 group-hover:-translate-x-0.5 group-hover:text-foreground" />
+                    <ChevronLeft className="h-4 w-4 shrink-0 text-ink-mute" aria-hidden />
                   </Link>
-                );
-              })}
-            </div>
+                </li>
+              ))}
+            </ul>
           </section>
         ))}
       </div>

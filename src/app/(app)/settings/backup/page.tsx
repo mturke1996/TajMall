@@ -125,7 +125,7 @@ export default function BackupSettingsPage() {
       <PageHeader
         eyebrow="الإعدادات"
         title="النسخ الاحتياطي المحلي"
-        description="لقطة باردة على جهازك للطوارئ أو النقل لاستضافة أخرى — التطبيق يبقى يعمل من Supabase."
+        description="نسخة من البيانات تُحفظ على جهازك للطوارئ أو للنقل. لا تؤثر على عمل المنظومة."
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link href="/settings">

@@ -3,8 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Loader2, Eye, EyeOff, Facebook, AlertCircle } from 'lucide-react';
+import { Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -84,18 +83,15 @@ function LoginCard() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+    <div
       className="w-full max-w-md"
     >
       <div className="surface flex flex-col gap-7 p-7 sm:p-8">
         <div className="flex flex-col items-center gap-5 text-center">
           <Logo size="lg" />
           <div className="flex flex-col gap-1.5">
-            <h1 className="text-[20px] font-semibold tracking-tight">
-              مرحباً بك في {BRAND.name}
+            <h1 className="text-[20px] font-semibold">
+              تسجيل الدخول إلى {BRAND.name}
             </h1>
             <p className="text-[13px] leading-[1.6] text-ink-mute">
               {BRAND.tagline} · {BRAND.region}
@@ -149,14 +145,12 @@ function LoginCard() {
           </div>
 
           {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-start gap-2 rounded-md border border-pastel-redInk/15 bg-pastel-red px-3 py-2 text-[12.5px] text-pastel-redInk"
+            <div
+              role="alert" className="flex items-start gap-2 rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-[12.5px] text-danger-ink"
             >
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 stroke-[1.7]" />
               <span>{error}</span>
-            </motion.div>
+            </div>
           )}
 
           <Button type="submit" size="lg" disabled={loading} className="mt-1 gap-1.5">
@@ -166,21 +160,12 @@ function LoginCard() {
         </form>
 
         <div className="flex flex-col gap-3 border-t border-border pt-5 text-center">
-          <a
-            href={BRAND.socials.facebook}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 text-[12px] text-ink-mute transition-colors duration-150 hover:text-foreground"
-          >
-            <Facebook className="h-3.5 w-3.5 stroke-[1.6]" />
-            تابعنا على فيسبوك
-          </a>
           <p className="text-[11px] text-ink-mute">
             © {new Date().getFullYear()} {BRAND.fullName}. جميع الحقوق محفوظة.
           </p>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 

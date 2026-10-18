@@ -385,7 +385,7 @@ export function JournalEntryDialog({
         template.requires_total_amount && !(total > 0)
           ? 'أدخل المبلغ الإجمالي للقالب أولاً'
           : missing.length > 0
-            ? `بنود ناقصة في دليل الحسابات: ${missing.join('، ')} — طبّق هجرة 013 أو أضف البنود`
+            ? `بنود ناقصة في دليل الحسابات: ${missing.join('، ')} — أضفها من «البنود المحاسبية»`
             : 'تعذّر تطبيق القالب',
       );
       return;

@@ -27,7 +27,7 @@ export default function InvoicesPage() {
       <PageHeader
         eyebrow="مركز الوثائق"
         title="الفواتير والمطالبات"
-        description="فواتير إيجار ورسوم المستأجرين — PDF احترافي بأسماء ملفات واضحة"
+        description="فواتير الإيجار والرسوم لكل مستأجر، للطباعة أو الإرسال."
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link href="/documents">العودة للمركز</Link>

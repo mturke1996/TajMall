@@ -56,6 +56,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { JournalVoucherTable } from '@/components/accounting/journal-voucher-table';
 import { JournalBalanceBadge } from '@/components/accounting/journal-balance-badge';
 import { mapJournalLineRowToVoucherLine } from '@/lib/journal-entry-display';
+import { friendlyError, technicalDetail } from '@/lib/user-messages';
 
 const STATUS_CONFIG: Record<JournalStatus, {
   label: string;
@@ -364,11 +365,11 @@ function JournalsPageInner() {
         {(entriesQueryError || summaryQueryError) && (
           <Card className="border border-danger-line bg-danger-soft p-4 text-sm text-danger-ink">
             <p className="font-semibold">تعذّر تحميل بيانات دفتر اليومية</p>
-            <p className="mt-2 text-danger-ink/90 leading-relaxed">
-              {(entriesQueryErr as Error)?.message ??
-                (summaryQueryErr as Error)?.message ??
-                'طبّق هجرات Supabase بالترتيب: 007 ثم 012 ثم 015–017 (خصوصاً 017_fix_journal_rpc_and_ledger.sql) ثم أعد تحميل الصفحة.'}
-            </p>
+            <p className="mt-2 leading-relaxed text-danger-ink/90">{friendlyError(entriesQueryErr ?? summaryQueryErr)}</p>
+            <details className="mt-2 text-[12px] text-ink-mute">
+              <summary className="cursor-pointer">تفاصيل تقنية</summary>
+              <p className="mt-1" dir="ltr">{technicalDetail(entriesQueryErr ?? summaryQueryErr)}</p>
+            </details>
           </Card>
         )}
 
@@ -488,7 +489,7 @@ function JournalsPageInner() {
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-ink-soft" />
           </div>
-        ) : filteredEntries.length === 0 ? (
+        ) : entriesQueryError ? null : filteredEntries.length === 0 ? (
           <Card className="p-8 text-center">
             <BookOpen className="mx-auto h-12 w-12 text-ink-mute mb-3" />
             <h3 className="font-medium text-lg">لا توجد قيود</h3>

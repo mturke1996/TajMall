@@ -4,6 +4,7 @@ import {
   encodeContactRoleFields,
   type ContactBusinessRole,
 } from '@/lib/contacts/contact-roles';
+import { NEEDS_DB_UPDATE } from '@/lib/user-messages';
 
 /** قيمة من Supabase قد تكون number (numeric) أو string */
 function toFormString(value: unknown): string {
@@ -223,10 +224,10 @@ export function formatContactSaveError(error: unknown): string {
       return 'لا توجد صلاحية للحفظ — دورك «مشاهد» (قراءة فقط). اطلب من المدير ترقية دورك من صفحة المستخدمين.';
     }
     if (msg.includes('permission denied') || msg.includes('42501')) {
-      return 'لا توجد صلاحية للحفظ — تأكد من تسجيل الدخول ودورك (مدير/محاسب/أمين صندوق) أو نفّذ migrations 073–074 في Supabase';
+      return 'لا توجد صلاحية للحفظ — تأكد من تسجيل الدخول ومن دورك (مدير، محاسب، أمين صندوق).';
     }
     if (msg.includes('portal_token')) {
-      return 'خطأ صلاحيات جهة الاتصال — نفّذ migration 073 في Supabase';
+      return NEEDS_DB_UPDATE;
     }
     if (msg.includes('JWT') || msg.includes('session')) {
       return 'انتهت الجلسة — سجّل الدخول مرة أخرى';

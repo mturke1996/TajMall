@@ -1,7 +1,7 @@
 'use client';
 
 import { cn, formatMoney } from '@/lib/utils';
-import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 
 export type SummaryStat = {
   label: string;
@@ -10,40 +10,35 @@ export type SummaryStat = {
   tone?: 'default' | 'positive' | 'negative';
 };
 
-export function AccountingSummaryGrid({
-  stats,
-  className,
-}: {
-  stats: SummaryStat[];
-  className?: string;
-}) {
+/** Report totals in one card. A tone colours the figure only when it is not zero. */
+export function AccountingSummaryGrid({ stats, className }: { stats: SummaryStat[]; className?: string }) {
   return (
-    <div
-      className={cn(
-        'grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4',
-        stats.length === 3 && 'lg:grid-cols-3',
-        stats.length >= 4 && 'lg:grid-cols-4',
-        className,
-      )}
-    >
-      {stats.map((stat) => (
-        <Card
-          key={stat.label}
-        >
-          <CardHeader className="py-4">
-            <span className="text-xs font-medium text-muted-foreground">{stat.label}</span>
-            <CardTitle
-              className={cn(
-                'mt-1 text-xl font-semibold tabular-nums sm:text-2xl',
-                stat.tone === 'positive' && 'text-success-ink',
-                stat.tone === 'negative' && 'text-danger-ink',
-              )}
-            >
-              {formatMoney(stat.value, stat.currency ?? 'LYD')}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      ))}
-    </div>
+    <Card className={cn('overflow-hidden', className)}>
+      <div
+        className={cn(
+          'grid grid-cols-1 gap-px bg-border sm:grid-cols-2',
+          stats.length === 3 && 'lg:grid-cols-3',
+          stats.length >= 4 && 'lg:grid-cols-4',
+        )}
+      >
+        {stats.map((stat) => {
+          const nonZero = Math.abs(stat.value) > 0.0005;
+          return (
+            <div key={stat.label} className="bg-card p-4">
+              <p className="text-[12.5px] text-ink-mute">{stat.label}</p>
+              <p
+                className={cn(
+                  'mt-1 text-[20px] font-semibold tabular-nums text-foreground',
+                  nonZero && stat.tone === 'positive' && 'text-success-ink',
+                  nonZero && stat.tone === 'negative' && 'text-danger-ink',
+                )}
+              >
+                {formatMoney(stat.value, stat.currency ?? 'LYD')}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }

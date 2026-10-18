@@ -44,7 +44,7 @@ export default function DocumentsHubPage() {
       href: '/documents/correspondence?type=official',
       newHref: '/documents/correspondence/new?type=official',
       titleAr: 'المراسلات الرسمية',
-      description: 'خطابات رسمية بختم وتوقيع — PDF احترافي للجهات والمؤسسات',
+      description: 'خطابات رسمية بالختم والتوقيع للجهات والمؤسسات',
       icon: Stamp,
       count: officialCount,
       featured: true,
@@ -88,7 +88,7 @@ export default function DocumentsHubPage() {
       <PageHeader
         eyebrow="الوثائق والمراسلات"
         title="مركز الوثائق"
-        description="إنشاء وإدارة المراسلات والفواتير وإيصالات القبض وإذونات الصرف — تصدير PDF بجودة عالية"
+        description="المراسلات والفواتير وإيصالات القبض وإذونات الصرف، وطباعتها PDF."
       />
 
       <AccountingPageBody>
@@ -99,7 +99,7 @@ export default function DocumentsHubPage() {
               <Card
                 key={card.href}
                 className={cn(
-                  'group relative overflow-hidden transition-shadow hover:shadow-md',
+                  'group relative overflow-hidden transition-colors hover:border-foreground/25',
                   card.featured && 'border-foreground/15 bg-canvas-sunken',
                 )}
               >

@@ -2,36 +2,46 @@
 
 import { RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useBackfillTransactions } from '@/lib/db/mall-queries';
 import { usePermission } from '@/lib/supabase/use-permission';
 
+/**
+ * Offered under an empty report: transactions recorded before journal posting existed have no journal
+ * entry, so reports built from the ledger miss them until they are posted.
+ */
 export function AccountingBackfillBanner({
-  title = 'لا توجد قيود مرحّلة كافية',
-  description = 'المعاملات القديمة قد لا تظهر في التقارير حتى تُرحَّل إلى دفتر اليومية.',
+  title = 'معاملات لم تُرحَّل إلى اليومية؟',
+  description = 'المعاملات القديمة لا تظهر في التقارير حتى يُنشأ لها قيد في دفتر اليومية.',
 }: {
   title?: string;
   description?: string;
 }) {
   const backfill = useBackfillTransactions();
   const { can } = usePermission();
+  const confirm = useConfirm();
 
   if (!can('journal.post') && !can('journal.create')) return null;
 
+  async function run() {
+    const ok = await confirm({
+      title: 'ترحيل المعاملات إلى دفتر اليومية',
+      description: 'يُنشأ قيد لكل معاملة مسجّلة ليس لها قيد بعد. المعاملات التي لها قيود لا تتغير.',
+      confirmLabel: 'رحّل المعاملات',
+      tone: 'default',
+    });
+    if (ok) backfill.mutate();
+  }
+
   return (
-    <div className="rounded-xl border border-warning-line bg-warning-soft/80 p-4 text-center space-y-2 w-full">
-      <p className="font-semibold text-warning-ink text-sm">{title}</p>
-      <p className="text-xs text-warning-ink/90 max-w-lg mx-auto leading-relaxed">{description}</p>
-      <Button
-        onClick={() => backfill.mutate()}
-        disabled={backfill.isPending}
-        className="mt-2 gap-2 touch-manipulation min-h-11"
-      >
-        {backfill.isPending ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <RefreshCw className="h-4 w-4" />
-        )}
-        ترحيل المعاملات إلى القيود اليومية
+    <div className="flex w-full flex-col items-start gap-3 rounded-xl border border-border bg-card p-4 text-start sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-[13.5px] font-medium text-foreground">{title}</p>
+        <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-mute">{description}</p>
+      </div>
+      <Button variant="outline" size="sm" onClick={run} disabled={backfill.isPending} className="h-9 shrink-0 gap-1.5 touch-manipulation">
+        {backfill.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <RefreshCw className="h-4 w-4" aria-hidden />}
+        ترحيل إلى اليومية
       </Button>
     </div>
   );

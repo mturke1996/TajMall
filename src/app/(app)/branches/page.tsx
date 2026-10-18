@@ -29,7 +29,7 @@ export default function BranchesPage() {
           <EmptyState
             icon={Building2}
             title="لا توجد فروع"
-            description="لم يتم العثور على فروع نشطة. تأكد من تشغيل ترحيل قاعدة البيانات الأولية أو أضف فروعاً من لوحة Supabase."
+            description="لا توجد فروع نشطة مسجّلة. يضيف مسؤول النظام الفروع عند الإعداد."
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

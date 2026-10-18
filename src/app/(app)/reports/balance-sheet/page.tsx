@@ -16,6 +16,7 @@ import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { formatAccountingReportExportNames } from '@/lib/report-pdf-export';
+import { friendlyError } from '@/lib/user-messages';
 
 type BsRow = {
   category_id: string;
@@ -218,8 +219,7 @@ export default function BalanceSheetPage() {
         <div className="flex flex-col items-center gap-2 text-danger bg-danger-soft rounded-lg p-6">
           <AlertTriangle className="h-8 w-8" />
           <p className="font-semibold">فشل تحميل الميزانية</p>
-          <p className="text-sm">{(error as Error)?.message}</p>
-          <p className="text-xs text-danger">طبّق هجرة 018_accounting_completion.sql</p>
+          <p className="text-sm">{friendlyError(error)}</p>
         </div>
       ) : !hasData ? (
         <div className="px-4">

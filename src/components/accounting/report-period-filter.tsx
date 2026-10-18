@@ -1,13 +1,11 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { AccountingYearPicker } from '@/components/accounting/accounting-year-picker';
-import {
-  type ReportPeriod,
-  reportMonthOptions,
-} from '@/lib/report-period';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { type ReportPeriod, reportMonthOptions } from '@/lib/report-period';
 
+/** Year and period (whole year or one month) on one line. */
 export function ReportPeriodFilter({
   value,
   onChange,
@@ -20,53 +18,35 @@ export function ReportPeriodFilter({
   showYearOnlyOption?: boolean;
 }) {
   const months = reportMonthOptions();
+  const selected = value.mode === 'year' ? 'year' : String(value.month ?? '');
 
   return (
-    <div className={cn('space-y-4', className)}>
-      <AccountingYearPicker
-        value={value.year}
-        onChange={(year) => onChange({ ...value, year })}
-      />
-
-      <div className="min-w-0">
-        <p className="mb-2 text-xs font-medium text-muted-foreground">الفترة</p>
-        <div className="-mx-1 flex flex-wrap gap-1.5 px-1">
-          {showYearOnlyOption ? (
-            <Button
-              type="button"
-              variant={value.mode === 'year' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onChange({ year: value.year, month: null, mode: 'year' })}
-              className={cn(
-                'min-h-10 touch-manipulation',
-                value.mode === 'year' &&
-                  'bg-foreground hover:bg-foreground text-background border-foreground',
-              )}
-            >
-              السنة كاملة
-            </Button>
-          ) : null}
-          {months.map((m) => {
-            const active = value.mode === 'month' && value.month === m.value;
-            return (
-              <Button
-                key={m.value}
-                type="button"
-                variant={active ? 'default' : 'outline'}
-                size="sm"
-                onClick={() =>
-                  onChange({ year: value.year, month: m.value, mode: 'month' })
-                }
-                className={cn(
-                  'min-h-10 min-w-18 touch-manipulation',
-                  active && 'bg-foreground hover:bg-foreground text-background border-foreground',
-                )}
-              >
+    <div className={cn('flex flex-wrap items-center gap-x-5 gap-y-3', className)}>
+      <AccountingYearPicker value={value.year} onChange={(year) => onChange({ ...value, year })} />
+      <div className="flex items-center gap-2">
+        <span className="shrink-0 text-[12.5px] text-ink-mute">الفترة</span>
+        <Select
+          value={selected}
+          onValueChange={(v) =>
+            onChange(
+              v === 'year'
+                ? { year: value.year, month: null, mode: 'year' }
+                : { year: value.year, month: Number(v), mode: 'month' },
+            )
+          }
+        >
+          <SelectTrigger className="h-9 w-40" aria-label="الفترة">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {showYearOnlyOption && <SelectItem value="year">السنة كاملة</SelectItem>}
+            {months.map((m) => (
+              <SelectItem key={m.value} value={String(m.value)}>
                 {m.label}
-              </Button>
-            );
-          })}
-        </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );

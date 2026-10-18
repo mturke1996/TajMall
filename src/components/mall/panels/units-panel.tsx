@@ -172,7 +172,7 @@ export function MallUnitsPanel() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {units.map((unit) => (
-            <Card key={unit.id} className="relative hover:shadow-md transition-shadow">
+            <Card key={unit.id} className="relative transition-colors hover:border-foreground/25">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <div className="space-y-0.5">

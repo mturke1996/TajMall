@@ -19,7 +19,6 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { AccountingFilterCard } from '@/components/accounting/accounting-filter-card';
@@ -38,94 +37,112 @@ import {
   reportsHref,
   type ReportPeriod,
 } from '@/lib/report-period';
-import { cn } from '@/lib/utils';
+
+type ReportGroup = 'statements' | 'books' | 'analysis';
+
+const GROUPS: { id: ReportGroup; title: string }[] = [
+  { id: 'statements', title: 'القوائم المالية' },
+  { id: 'books', title: 'الدفاتر والقيود' },
+  { id: 'analysis', title: 'التحليلات' },
+];
 
 type ReportCard = {
   href: string;
+  group: ReportGroup;
   titleAr: string;
   description: string;
   icon: typeof BookOpen;
-  featured?: boolean;
-  permissionNote?: string;
 };
 
 const REPORT_CARDS: ReportCard[] = [
   {
     href: '/reports/journal-month',
+    group: 'books',
     titleAr: 'قيد الفترة المحاسبي',
     description:
       'قيد ملخّص للفترة — مع تجميع الإيرادات معاً والمصاريف معاً',
     icon: FileSpreadsheet,
-    featured: true,
   },
   {
     href: '/journals',
+    group: 'books',
     titleAr: 'دفتر اليومية',
     description: 'إنشاء وترحيل وعكس القيود المزدوجة',
     icon: BookOpen,
   },
   {
     href: '/reports/ledger',
+    group: 'books',
     titleAr: 'دفتر الأستاذ العام',
     description: 'كشف حركة تفصيلي لكل بند محاسبي',
     icon: BookMarked,
   },
   {
     href: '/reports/trial-balance',
+    group: 'statements',
     titleAr: 'ميزان المراجعة',
     description: 'توازن إجمالي المدين والدائن',
     icon: Scale,
   },
   {
     href: '/reports/balance-sheet',
+    group: 'statements',
     titleAr: 'الميزانية العمومية',
     description: 'الأصول والخصوم وحقوق الملكية',
     icon: Landmark,
   },
   {
     href: '/reports/profit-loss',
+    group: 'statements',
     titleAr: 'الأرباح والخسائر',
     description: 'الإيرادات مقابل المصروفات للفترة',
     icon: TrendingUp,
   },
   {
     href: '/reports/cash-flow',
+    group: 'statements',
     titleAr: 'التدفقات النقدية',
     description: 'حركة النقد الداخل والخارج',
     icon: Wallet,
   },
   {
     href: '/reports/ar-aging',
+    group: 'analysis',
     titleAr: 'أعمار ذمم المستأجرين',
     description: 'تحليل المتأخرات حسب الأعمار',
     icon: Users,
   },
   {
     href: '/reports/vendor-spend',
+    group: 'analysis',
     titleAr: 'إنفاق الموردين',
     description: 'مصروفات مجمّعة حسب المورد المرتبط',
     icon: Landmark,
   },
   {
     href: '/reports/customer-revenue',
+    group: 'analysis',
     titleAr: 'إيراد العملاء',
     description: 'إيرادات خدمات/مواقف مربوطة بعملاء',
     icon: Store,
   },
   {
     href: '/reports/employee-spend',
+    group: 'analysis',
     titleAr: 'إنفاق الموظفين',
     description: 'مرتبات ومصروفات مربوطة بموظفين',
     icon: Briefcase,
   },
   {
     href: '/reports/budget',
+    group: 'analysis',
     titleAr: 'الموازنة مقابل الفعلي',
     description: 'مقارنة المخطط بالمحقق',
     icon: Coins,
   },
   {
     href: '/reports/periods',
+    group: 'books',
     titleAr: 'الفترات المالية',
     description: 'إغلاق الفترات والترحيل السنوي',
     icon: CalendarRange,
@@ -210,59 +227,45 @@ function ReportsHubContent() {
           <AccountingSummaryGrid
             stats={[
               { label: 'قيود مرحّلة', value: summary.count, currency: '' },
-              { label: 'إجمالي المدين', value: summary.debit, tone: 'positive' },
-              { label: 'إجمالي الدائن', value: summary.credit, tone: 'negative' },
+              { label: 'إجمالي المدين', value: summary.debit },
+              { label: 'إجمالي الدائن', value: summary.credit },
               {
                 label: 'فرق التوازن',
                 value: Math.abs(summary.debit - summary.credit),
-                tone: summary.balanced ? 'positive' : 'negative',
+                tone: summary.balanced ? 'default' : 'negative',
               },
             ]}
           />
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {REPORT_CARDS.map((card) => {
-            const Icon = card.icon;
-            const href = reportsHref(card.href, period);
-            return (
-              <Link key={card.href} href={href} className="group block h-full">
-                <Card
-                  className={cn(
-                    'h-full transition-colors hover:border-ink-soft/40 hover:bg-canvas-sunken/40',
-                    card.featured && 'border-ink-soft/50 bg-canvas-sunken/30 shadow-xs',
-                  )}
-                >
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between gap-3">
-                      <div
-                        className={cn(
-                          'flex h-10 w-10 items-center justify-center rounded-lg',
-                          card.featured
-                            ? 'bg-foreground text-background'
-                            : 'bg-secondary text-foreground',
-                        )}
+        <div className="grid gap-5 lg:grid-cols-3">
+          {GROUPS.map((group) => (
+            <section key={group.id} className="flex flex-col gap-2" aria-labelledby={`reports-${group.id}`}>
+              <h2 id={`reports-${group.id}`} className="px-1 text-[12.5px] font-medium text-ink-mute">
+                {group.title}
+              </h2>
+              <ul className="surface divide-y divide-border overflow-hidden">
+                {REPORT_CARDS.filter((card) => card.group === group.id).map((card) => {
+                  const Icon = card.icon;
+                  return (
+                    <li key={card.href}>
+                      <Link
+                        href={reportsHref(card.href, period)}
+                        className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-canvas-sunken/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                       >
-                        <Icon className="h-5 w-5" aria-hidden />
-                      </div>
-                      <ArrowLeft className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                    </div>
-                    <CardTitle className="pt-2 text-base">{card.titleAr}</CardTitle>
-                    <CardDescription className="text-xs leading-relaxed">
-                      {card.description}
-                    </CardDescription>
-                  </CardHeader>
-                  {card.featured ? (
-                    <CardContent className="pt-0">
-                      <p className="text-[11px] font-medium text-foreground">
-                        التقرير الرئيسي — قيد ملخّص بكل بند وإجماله
-                      </p>
-                    </CardContent>
-                  ) : null}
-                </Card>
-              </Link>
-            );
-          })}
+                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-ink-mute" aria-hidden />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[14px] font-medium text-foreground">{card.titleAr}</span>
+                          <span className="mt-0.5 block text-[12.5px] leading-relaxed text-ink-mute">{card.description}</span>
+                        </span>
+                        <ArrowLeft className="mt-1 h-4 w-4 shrink-0 text-ink-mute" aria-hidden />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
         </div>
       </AccountingPageBody>
     </>

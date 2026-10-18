@@ -133,25 +133,3 @@ export function getTenantCurrentMonthPresentation(
       };
   }
 }
-
-export const TENANT_MONTH_TONE_STYLES: Record<
-  TenantMonthTone,
-  { hero: string; tile: 'emerald' | 'amber' | 'rose' | 'neutral' | 'sage' }
-> = {
-  emerald: {
-    hero: 'bg-success/30 ring-1 ring-success-line/50 text-white',
-    tile: 'emerald',
-  },
-  amber: {
-    hero: 'bg-warning-line/35 ring-1 ring-warning-line/60 text-white',
-    tile: 'amber',
-  },
-  rose: {
-    hero: 'bg-danger/30 ring-1 ring-danger-line/40 text-white',
-    tile: 'rose',
-  },
-  neutral: {
-    hero: 'bg-white/15 ring-1 ring-white/25 text-white',
-    tile: 'neutral',
-  },
-};

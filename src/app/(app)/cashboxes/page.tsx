@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 import { Plus, Wallet, Landmark, Loader2, Pencil, ArrowLeftRight, ChevronLeft, BookOpen, ClipboardList } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -129,12 +128,9 @@ export default function CashboxesPage() {
                 const outflow = Number(c.month_outflow);
                 const net = inflow - outflow;
                 return (
-                  <motion.div
+                  <div
                     key={c.id}
                     id={cashboxHighlightDomId(c.id)}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.04, duration: 0.4 }}
                     className={cn(
                       'scroll-mt-24',
                       isHighlighted(highlightId, c.id) && 'rounded-xl ring-2 ring-ink-soft shadow-md',
@@ -252,7 +248,7 @@ export default function CashboxesPage() {
                         </span>
                       </footer>
                     </Link>
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>

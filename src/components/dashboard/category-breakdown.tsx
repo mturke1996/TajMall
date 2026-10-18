@@ -1,6 +1,5 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts';
 import { formatMoney } from '@/lib/utils';
 
@@ -75,11 +74,8 @@ export function CategoryBreakdown({
           data.map((s, i) => {
             const pct = total ? (s.value / total) * 100 : 0;
             return (
-              <motion.li
+              <li
                 key={s.label}
-                initial={{ opacity: 0, x: 4 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.04 }}
                 className="flex items-center gap-3"
               >
                 <span
@@ -95,7 +91,7 @@ export function CategoryBreakdown({
                 <span className="num w-24 text-end text-[13px] tabular-nums">
                   {formatMoney(s.value, currency, { compact: true })}
                 </span>
-              </motion.li>
+              </li>
             );
           })
         )}

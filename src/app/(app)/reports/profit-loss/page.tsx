@@ -4,7 +4,6 @@ import { Suspense, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -217,12 +216,12 @@ function ProfitLossContent() {
 
       <AccountingPageBody>
         <AccountingFilterCard>
-          <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
             <AccountingYearPicker value={selectedYear} onChange={setSelectedYear} />
 
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">نوع الفترة</p>
-              <div className="flex flex-wrap gap-1.5">
+            <div className="flex items-center gap-2">
+              <span className="shrink-0 text-[12.5px] text-ink-mute">الفترة</span>
+              <div className="flex rounded-lg border border-border bg-canvas-sunken p-0.5" role="group" aria-label="نوع الفترة">
                 {(
                   [
                     ['YEAR', 'سنوي'],
@@ -230,63 +229,50 @@ function ProfitLossContent() {
                     ['MONTH', 'شهري'],
                   ] as const
                 ).map(([key, label]) => (
-                  <Button
+                  <button
                     key={key}
                     type="button"
-                    variant={periodType === key ? 'default' : 'outline'}
-                    size="sm"
+                    aria-pressed={periodType === key}
                     className={cn(
-                      'min-h-10 touch-manipulation',
-                      periodType === key && 'bg-foreground hover:bg-foreground',
+                      'h-8 rounded-md px-3 text-[13px] font-medium touch-manipulation transition-colors',
+                      periodType === key ? 'bg-card text-foreground shadow-xs' : 'text-ink-mute hover:text-foreground',
                     )}
                     onClick={() => setPeriodType(key)}
                   >
                     {label}
-                  </Button>
+                  </button>
                 ))}
               </div>
             </div>
 
             {periodType === 'QUARTER' && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">الربع</p>
-                <Select
-                  value={selectedQuarter.toString()}
-                  onValueChange={(v) => setSelectedQuarter(Number(v))}
-                >
-                  <SelectTrigger className="w-full min-h-11">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {quarters.map((q) => (
-                      <SelectItem key={q.value} value={q.value.toString()}>
-                        {q.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={selectedQuarter.toString()} onValueChange={(v) => setSelectedQuarter(Number(v))}>
+                <SelectTrigger className="h-9 w-40" aria-label="الربع">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {quarters.map((q) => (
+                    <SelectItem key={q.value} value={q.value.toString()}>
+                      {q.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
 
             {periodType === 'MONTH' && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">الشهر</p>
-                <Select
-                  value={selectedMonth.toString()}
-                  onValueChange={(v) => setSelectedMonth(Number(v))}
-                >
-                  <SelectTrigger className="w-full min-h-11">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {months.map((m) => (
-                      <SelectItem key={m.value} value={m.value.toString()}>
-                        {m.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={selectedMonth.toString()} onValueChange={(v) => setSelectedMonth(Number(v))}>
+                <SelectTrigger className="h-9 w-40" aria-label="الشهر">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map((m) => (
+                    <SelectItem key={m.value} value={m.value.toString()}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </div>
         </AccountingFilterCard>
