@@ -379,9 +379,13 @@ for (let t = 0; t < 60; t++) {
   }
 }
 
+// Close the replica before exiting: an open PGlite instance ends the process with code 100.
+await db.close();
+
 if (failures.length) {
   console.error(failures.slice(0, 30).join('\n'));
   console.error(`\n✗ verify-rent-allocation: ${failures.length} failure(s); ${passed} engine cases passed, ${dbCases} database cases run`);
   process.exit(1);
 }
 console.log(`✓ verify-rent-allocation: ${passed} engine cases; ${dbCases} payments match the database month by month`, outcomes);
+process.exitCode = 0;
