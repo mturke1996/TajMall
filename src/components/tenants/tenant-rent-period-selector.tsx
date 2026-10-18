@@ -39,6 +39,7 @@ function PeriodChip({
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
         'inline-flex shrink-0 snap-center flex-col items-center justify-center rounded-lg border px-3 py-2 touch-manipulation min-w-[4.5rem]',
@@ -75,6 +76,7 @@ function ModeTab({
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
         'inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-[12px] font-semibold touch-manipulation transition-colors',
@@ -156,7 +158,7 @@ export function TenantRentPeriodSelector({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div
           className="inline-flex items-center gap-0.5 rounded-full border border-border bg-canvas-sunken/60 p-0.5"
-          role="tablist"
+          role="group"
           aria-label="نوع الفترة"
         >
           {PERIOD_MODE_OPTIONS.map((opt) => (
@@ -176,7 +178,7 @@ export function TenantRentPeriodSelector({
       {/* اختيار السنة متاح دائماً مع كل الأنماط */}
       <div
         className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1"
-        role="listbox"
+        role="group"
         aria-label="اختيار السنة"
       >
         {years.map((y) => {
@@ -202,7 +204,7 @@ export function TenantRentPeriodSelector({
       {!hideSubPeriodRow && (
         <div
           className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1"
-          role="listbox"
+          role="group"
           aria-label="اختيار الفترة"
         >
           {selection.mode === 'month' &&

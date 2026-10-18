@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -85,4 +85,64 @@ export function ConfirmDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+type ConfirmOptions = {
+  title: string;
+  description?: ReactNode;
+  details?: Array<{ label: string; value: ReactNode }>;
+  confirmLabel: string;
+  cancelLabel?: string;
+  tone?: 'danger' | 'default';
+};
+
+const ConfirmContext = createContext<((options: ConfirmOptions) => Promise<boolean>) | null>(null);
+
+/** One confirmation dialog for the whole app, opened with `await confirm({...})`. */
+export function ConfirmProvider({ children }: { children: ReactNode }) {
+  const [options, setOptions] = useState<ConfirmOptions | null>(null);
+  const resolver = useRef<((ok: boolean) => void) | null>(null);
+
+  const confirm = useCallback((next: ConfirmOptions) => {
+    resolver.current?.(false); // a second request cancels a pending one
+    setOptions(next);
+    return new Promise<boolean>((resolve) => {
+      resolver.current = resolve;
+    });
+  }, []);
+
+  const settle = (ok: boolean) => {
+    resolver.current?.(ok);
+    resolver.current = null;
+    setOptions(null);
+  };
+
+  return (
+    <ConfirmContext.Provider value={confirm}>
+      {children}
+      {options && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => !open && settle(false)}
+          title={options.title}
+          description={options.description}
+          details={options.details}
+          confirmLabel={options.confirmLabel}
+          cancelLabel={options.cancelLabel}
+          tone={options.tone}
+          onConfirm={() => settle(true)}
+        />
+      )}
+    </ConfirmContext.Provider>
+  );
+}
+
+/**
+ * Replaces window.confirm: `if (!(await confirm({ title, confirmLabel }))) return;`
+ * The native dialog cannot show what is about to change, ignores RTL and is blocked in some browsers.
+ */
+export function useConfirm() {
+  const confirm = useContext(ConfirmContext);
+  if (!confirm) throw new Error('useConfirm must be used inside <ConfirmProvider>');
+  return confirm;
 }

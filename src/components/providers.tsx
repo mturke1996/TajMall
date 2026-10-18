@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider, keepPreviousData } from "@tanstack/re
 import { ThemeProvider } from "next-themes";
 import { DirectionProvider } from "@radix-ui/react-direction";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(
@@ -40,7 +41,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={client}>
         {/* Radix menus, tabs and selects read this for keyboard arrows and submenu sides. */}
         <DirectionProvider dir="rtl">
-          <TooltipProvider delayDuration={80}>{children}</TooltipProvider>
+          <TooltipProvider delayDuration={80}>
+            <ConfirmProvider>{children}</ConfirmProvider>
+          </TooltipProvider>
         </DirectionProvider>
       </QueryClientProvider>
     </ThemeProvider>

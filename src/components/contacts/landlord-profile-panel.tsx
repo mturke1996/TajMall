@@ -168,7 +168,7 @@ export function LandlordProfilePanel({
           </div>
 
           <div className="flex items-center gap-1.5 bg-card p-0.5 rounded-lg border border-border">
-            <button
+            <button aria-label="السنة السابقة"
               type="button"
               onClick={() => setSelectedYear((y) => y - 1)}
               className="p-1 text-muted-foreground hover:text-foreground rounded"
@@ -176,7 +176,7 @@ export function LandlordProfilePanel({
               <ChevronRight className="h-4 w-4" />
             </button>
             <span className="px-2 font-mono font-bold text-xs">{selectedYear}</span>
-            <button
+            <button aria-label="السنة التالية"
               type="button"
               onClick={() => setSelectedYear((y) => y + 1)}
               className="p-1 text-muted-foreground hover:text-foreground rounded"

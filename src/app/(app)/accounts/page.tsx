@@ -25,6 +25,7 @@ import { CategoryFormDialog } from '@/components/accounting/category-form-dialog
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { currentYear } from '@/lib/rent-months';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import type { CategoryRow } from '@/lib/db/types';
 
 const TYPE_LABEL: Record<string, string> = {
@@ -44,12 +45,22 @@ export default function AccountsPage() {
   const canManage = can('account.manage');
   const { data, isLoading } = useCategories();
   const updateCategory = useUpdateCategory();
+  const confirm = useConfirm();
   const source = useMemo(() => data ?? [], [data]);
   const year = currentYear();
 
-  const handleToggleActive = (c: CategoryRow) => {
-    const action = c.active === false ? 'تفعيل' : 'تعطيل';
-    if (!confirm(`تأكيد ${action} البند «${c.name_ar}»؟`)) return;
+  const handleToggleActive = async (c: CategoryRow) => {
+    const activate = c.active === false;
+    const ok = await confirm({
+      title: activate ? 'تفعيل البند' : 'تعطيل البند',
+      description: activate
+        ? 'يعود البند للظهور في قوائم الاختيار.'
+        : 'يختفي البند من قوائم الاختيار، وتبقى حركاته وقيوده السابقة كما هي.',
+      details: [{ label: 'البند', value: `${c.code} — ${c.name_ar}` }],
+      confirmLabel: activate ? 'فعّل البند' : 'عطّل البند',
+      tone: activate ? 'default' : 'danger',
+    });
+    if (!ok) return;
     updateCategory.mutate({ id: c.id, active: c.active === false });
   };
 
@@ -220,7 +231,7 @@ export default function AccountsPage() {
                       </Link>
                       {canManage && (
                         <>
-                          <button
+                          <button aria-label={`تعديل البند ${c.name_ar}`}
                             type="button"
                             title="تعديل"
                             onClick={() => {
@@ -231,7 +242,7 @@ export default function AccountsPage() {
                           >
                             <Pencil className="h-3.5 w-3.5 stroke-[1.6]" />
                           </button>
-                          <button
+                          <button aria-label={`${inactive ? 'تفعيل' : 'تعطيل'} البند ${c.name_ar}`}
                             type="button"
                             title={inactive ? 'تفعيل' : 'تعطيل'}
                             onClick={() => handleToggleActive(c)}

@@ -416,9 +416,15 @@ export function AdvancedDashboard() {
                 ) : pieData.length === 0 ? (
                   <EmptyState message="لا توجد مصروفات مسجلة" />
                 ) : (
+                  <div
+                    role="img"
+                    aria-label={`توزيع المصروفات: ${pieData.map((d) => `${d.label} ${formatMoney(d.value, 'LYD', { compact: true })}`).join('، ')}`}
+                  >
+                  <div aria-hidden>
                   <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                       <Pie
+                        rootTabIndex={-1}
                         data={pieData}
                         cx="50%"
                         cy="45%"
@@ -446,6 +452,8 @@ export function AdvancedDashboard() {
                       />
                     </PieChart>
                   </ResponsiveContainer>
+                  </div>
+                  </div>
                 )}
               </CardContent>
             </Card>

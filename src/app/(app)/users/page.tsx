@@ -250,10 +250,10 @@ export default function UsersPage() {
                           className="h-8 text-[13px]"
                           autoFocus
                         />
-                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-success" onClick={() => saveEditName(p.id)}>
+                        <Button aria-label="حفظ الاسم" size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-success" onClick={() => saveEditName(p.id)}>
                           <Check className="h-4 w-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-danger" onClick={cancelEditName}>
+                        <Button aria-label="إلغاء التعديل" size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-danger" onClick={cancelEditName}>
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
@@ -325,10 +325,10 @@ export default function UsersPage() {
                             className="h-8 w-48 text-[13px]"
                             autoFocus
                           />
-                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-success" onClick={() => saveEditName(p.id)}>
+                          <Button aria-label="حفظ الاسم" size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-success" onClick={() => saveEditName(p.id)}>
                             <Check className="h-4 w-4" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-danger" onClick={cancelEditName}>
+                          <Button aria-label="إلغاء التعديل" size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-danger" onClick={cancelEditName}>
                             <X className="h-4 w-4" />
                           </Button>
                         </div>
@@ -360,7 +360,7 @@ export default function UsersPage() {
                         onValueChange={(v) => onRoleChange(p.id, v)}
                         disabled={p.id === user?.id}
                       >
-                        <SelectTrigger className="h-10 w-[200px]">
+                        <SelectTrigger className="h-10 w-[200px]" aria-label={`دور ${p.full_name_ar ?? p.full_name ?? 'المستخدم'}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

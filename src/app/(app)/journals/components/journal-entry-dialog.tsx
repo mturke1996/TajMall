@@ -541,7 +541,7 @@ export function JournalEntryDialog({
                         {new Date(d.updated_at).toLocaleString('ar-LY')}
                       </span>
                     </button>
-                    <Button
+                    <Button aria-label="حذف المسودة"
                       type="button"
                       variant="ghost"
                       size="icon"

@@ -36,6 +36,7 @@ import {
 import Link from 'next/link';
 import { cn, formatMoney, formatDate } from '@/lib/utils';
 import { useContacts } from '@/lib/db/queries';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   useLeaseContracts,
   useCreateLeaseContract,
@@ -108,8 +109,15 @@ export function MallContractsPanel() {
     }
   };
 
+  const confirm = useConfirm();
+
   const handleTerminate = async (contractId: string, unitId: string) => {
-    if (!confirm('هل أنت متأكد من إنهاء هذا عقد الإيجار اليوم؟ سيتم تفريغ المحل وتحديث تواريخ العقد.')) return;
+    const ok = await confirm({
+      title: 'إنهاء عقد الإيجار',
+      description: 'ينتهي العقد بتاريخ اليوم، ويصبح المحل متاحاً، ولا تُولَّد مطالبات بعده.',
+      confirmLabel: 'أنهِ العقد',
+    });
+    if (!ok) return;
     await terminateContract.mutateAsync({ id: contractId, unitId });
   };
 

@@ -27,10 +27,11 @@ import {
 } from '@/lib/db/queries';
 import type { VoucherApprovalStatus } from '@/lib/db/types';
 import { WriteGuard } from '@/components/auth/write-guard';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { disbursementRowToPdfModel } from '@/lib/voucher-db';
 import { useHighlightScroll, isHighlighted } from '@/lib/hooks/use-highlight-scroll';
-import { cn } from '@/lib/utils';
+import { cn, formatMoney } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const STATUS_LABEL: Record<VoucherApprovalStatus, string> = {
@@ -59,6 +60,7 @@ export default function VouchersPage() {
   const submitForApproval = useSubmitVoucherForApproval();
   const decideApproval = useDecideVoucherApproval();
   const deleteVoucher = useDeleteDisbursementVoucher();
+  const confirm = useConfirm();
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
@@ -85,12 +87,21 @@ export default function VouchersPage() {
     );
   }
 
-  function handleDelete(row: { id: string; voucher_number: string; status: VoucherApprovalStatus }) {
-    const extra =
-      row.status === 'APPROVED'
-        ? ' الإذن معتمد وسيُعكس قيده من الدفتر والخزينة.'
-        : '';
-    if (!confirm(`حذف إذن الصرف ${row.voucher_number}؟${extra}`)) return;
+  async function handleDelete(row: { id: string; voucher_number: string; status: VoucherApprovalStatus; payee?: string | null; total_amount?: string | number | null }) {
+    const ok = await confirm({
+      title: 'حذف إذن الصرف',
+      description:
+        row.status === 'APPROVED'
+          ? 'الإذن معتمد: سيُعكس قيده ويعود المبلغ إلى رصيد الخزينة.'
+          : 'يُحذف الإذن نهائياً.',
+      details: [
+        { label: 'رقم الإذن', value: <bdi>{row.voucher_number}</bdi> },
+        ...(row.payee ? [{ label: 'المستفيد', value: row.payee }] : []),
+        ...(row.total_amount != null ? [{ label: 'المبلغ', value: formatMoney(Number(row.total_amount), 'LYD') }] : []),
+      ],
+      confirmLabel: 'احذف الإذن',
+    });
+    if (!ok) return;
     deleteVoucher.mutate(row.id, {
       onSuccess: () => toast.success(`تم حذف الإذن ${row.voucher_number}`),
       onError: (e) =>

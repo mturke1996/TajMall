@@ -38,6 +38,7 @@ import {
   useDeleteMallUnit,
 } from '@/lib/db/mall-queries';
 import type { MallUnitRow } from '@/lib/db/types';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 export function MallUnitsPanel() {
   const { data: units = [], isLoading, isError, error } = useMallUnits();
@@ -108,8 +109,16 @@ export function MallUnitsPanel() {
     }
   };
 
+  const confirm = useConfirm();
+
   const handleDelete = async (id: string, unitNumber: string) => {
-    if (!confirm(`هل أنت متأكد من حذف المحل رقم ${unitNumber}؟`)) return;
+    const ok = await confirm({
+      title: 'حذف المحل',
+      description: 'يُحذف المحل من قائمة الوحدات. لا يُحذف محل عليه عقد.',
+      details: [{ label: 'رقم المحل', value: <bdi>{unitNumber}</bdi> }],
+      confirmLabel: 'احذف المحل',
+    });
+    if (!ok) return;
     await deleteUnit.mutateAsync(id);
   };
 
@@ -186,7 +195,7 @@ export function MallUnitsPanel() {
                 )}
                 <WriteGuard permission="document.create">
                   <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                    <Button
+                    <Button aria-label={`تعديل المحل ${unit.unit_number}`}
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-muted-foreground hover:text-ink-soft"
@@ -195,7 +204,7 @@ export function MallUnitsPanel() {
                       <Edit2 className="h-4 w-4" />
                     </Button>
                     {unit.status !== 'OCCUPIED' && (
-                      <Button
+                      <Button aria-label={`حذف المحل ${unit.unit_number}`}
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-danger hover:text-danger-ink hover:bg-danger-soft"

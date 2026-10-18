@@ -213,6 +213,7 @@ export default function ExpensesPage() {
           onDatePreset={setDatePreset}
         >
           <select
+            aria-label="تصفية حسب بند المصروف"
             value={selectedCategoryId}
             onChange={(e) => setSelectedCategoryId(e.target.value)}
             className="h-9 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-semibold focus:ring-1 focus:ring-foreground outline-none select-none max-w-[180px] cursor-pointer"

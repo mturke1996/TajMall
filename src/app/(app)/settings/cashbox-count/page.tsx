@@ -17,6 +17,7 @@ import {
 } from '@/lib/db/cashbox-inventory-queries';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { cn, formatMoney, todayISODate } from '@/lib/utils';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 function todayIso() {
   return todayISODate();
@@ -30,6 +31,7 @@ export default function CashboxCountPage() {
   const { data: runs = [] } = useCashboxInventoryRuns();
   const setPin = useSetCashboxInventoryPin();
   const apply = useApplyCashboxInventory();
+  const confirm = useConfirm();
 
   const [counts, setCounts] = useState<Record<string, string>>({});
   const [pin, setPinValue] = useState('');
@@ -87,7 +89,7 @@ export default function CashboxCountPage() {
     );
   }
 
-  function handleApply() {
+  async function handleApply() {
     if (!pinSet) {
       toast.error('اضبط الرقم السري أولاً');
       return;
@@ -104,11 +106,23 @@ export default function CashboxCountPage() {
       toast.error('أدخل الرقم السري (4 إلى 8 أرقام)');
       return;
     }
-    const extra =
-      diffs.length > 0
-        ? ` سيُرحَّل قيد تسوية لـ ${diffs.length} خزينة (صافي ${net >= 0 ? '+' : ''}${net.toLocaleString('en-US')} د.ل).`
-        : '';
-    if (!confirm(`اعتماد جرد الخزائن؟${extra}`)) return;
+    const ok = await confirm({
+      title: 'اعتماد جرد الخزائن',
+      description:
+        diffs.length > 0
+          ? 'يُرحَّل قيد تسوية بالفروقات، فيصبح رصيد كل خزينة مساوياً للمبلغ المعدود.'
+          : 'الأرصدة مطابقة للعدّ؛ يُحفظ الجرد بلا قيد تسوية.',
+      details:
+        diffs.length > 0
+          ? [
+              { label: 'خزائن بفروقات', value: <bdi>{diffs.length}</bdi> },
+              { label: 'صافي الفروقات', value: formatMoney(net, 'LYD', { signed: true }) },
+            ]
+          : undefined,
+      confirmLabel: 'اعتمد الجرد',
+      tone: 'default',
+    });
+    if (!ok) return;
 
     apply.mutate(
       {

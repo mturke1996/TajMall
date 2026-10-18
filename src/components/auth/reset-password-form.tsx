@@ -149,7 +149,7 @@ export function ResetPasswordForm() {
                   minLength={10}
                   required
                 />
-                <button
+                <button aria-label={showPwd ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
                   type="button"
                   onClick={() => setShowPwd((s) => !s)}
                   className="absolute end-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-ink-mute hover:bg-secondary"

@@ -455,7 +455,7 @@ function JournalsPageInner() {
             )}
           >
             <Select value={cashboxFilter} onValueChange={setCashboxFilter}>
-              <SelectTrigger className="bg-canvas h-11 touch-manipulation">
+              <SelectTrigger className="bg-canvas h-11 touch-manipulation" aria-label="تصفية حسب الخزينة">
                 <SelectValue placeholder="كل الخزائن" />
               </SelectTrigger>
               <SelectContent dir="rtl" className="max-h-[min(20rem,50vh)]">
@@ -468,7 +468,7 @@ function JournalsPageInner() {
               </SelectContent>
             </Select>
             <Select value={contactFilter} onValueChange={setContactFilter}>
-              <SelectTrigger className="bg-canvas h-11 touch-manipulation">
+              <SelectTrigger className="bg-canvas h-11 touch-manipulation" aria-label="تصفية حسب الجهة">
                 <SelectValue placeholder="كل الجهات" />
               </SelectTrigger>
               <SelectContent dir="rtl" className="max-h-[min(20rem,50vh)]">

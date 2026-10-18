@@ -30,9 +30,12 @@ export function CategoryBreakdown({
           </div>
         ) : (
           <>
+            {/* The list beside the chart carries the same figures for screen readers. */}
+            <div className="h-full w-full" aria-hidden>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
+                  rootTabIndex={-1}
                   data={data}
                   innerRadius={52}
                   outerRadius={76}
@@ -49,6 +52,7 @@ export function CategoryBreakdown({
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
+            </div>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-center">
               <span className="text-[9.5px] text-ink-mute">
                 الإجمالي

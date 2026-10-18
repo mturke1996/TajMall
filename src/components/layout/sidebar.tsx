@@ -87,7 +87,7 @@ export function Sidebar({
             {/* Section label */}
             <span
               className={cn(
-                "px-3 pb-1.5 pt-0.5 text-[11.5px] font-semibold text-muted-foreground/80",
+                "px-3 pb-1.5 pt-0.5 text-[11.5px] font-semibold text-muted-foreground",
                 collapsed && "sr-only",
               )}
             >

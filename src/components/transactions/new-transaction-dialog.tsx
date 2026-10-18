@@ -408,7 +408,7 @@ export function NewTransactionDialog() {
               مسودة محفوظة
             </span>
           ) : null}
-          <button onClick={close} className="ms-auto rounded p-1 hover:bg-secondary">
+          <button type="button" aria-label="إغلاق" onClick={close} className="ms-auto rounded p-1 hover:bg-secondary">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -447,7 +447,7 @@ export function NewTransactionDialog() {
                         {new Date(d.updated_at).toLocaleString('ar-LY')}
                       </span>
                     </button>
-                    <Button
+                    <Button aria-label="حذف المسودة"
                       type="button"
                       variant="ghost"
                       size="icon"

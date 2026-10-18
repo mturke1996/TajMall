@@ -32,7 +32,7 @@
 
     /* muted */
     --muted: 42 22% 94%;
-    --muted-foreground: 115 5% 44%;       /* #6E7470 warm gray */
+    --muted-foreground: 115 5% 41%;       /* warm gray, ≥4.5:1 on every light fill (canvas, sunken, muted) */
 
     --accent: 42 22% 94%;
     --accent-foreground: 210 12% 14%;
@@ -53,7 +53,7 @@
     /* ink variants */
     --ink: 210 12% 10%;
     --ink-soft: 210 8% 23%;
-    --ink-mute: 115 4% 43%;
+    --ink-mute: 115 4% 41%;
 
     /* semantic status colours — one family per meaning, each with a soft fill, a hairline and an ink */
     --success: 152 42% 32%;
@@ -64,7 +64,7 @@
     --danger-soft: 4 64% 96%;
     --danger-line: 4 48% 86%;
     --danger-ink: 2 52% 34%;
-    --warning: 38 82% 38%;
+    --warning: 38 82% 33%;
     --warning-soft: 45 68% 92%;
     --warning-line: 43 52% 78%;
     --warning-ink: 40 78% 26%;

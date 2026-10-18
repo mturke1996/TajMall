@@ -28,6 +28,7 @@ import {
   type YearClosePreview,
 } from '@/lib/db/mall-queries';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   AccountingEmpty,
   AccountingError,
@@ -71,19 +72,29 @@ export default function FiscalPeriodsPage() {
     }
   };
 
+  const confirm = useConfirm();
+
   const handleTogglePeriod = async (id: string, currentlyClosed: boolean) => {
-    const action = currentlyClosed ? 'فتح' : 'إغلاق';
-    if (!confirm(`هل أنت متأكد من ${action} هذه الفترة المالية؟`)) return;
+    const ok = await confirm({
+      title: currentlyClosed ? 'فتح الفترة المالية' : 'إغلاق الفترة المالية',
+      description: currentlyClosed
+        ? 'تصبح الفترة قابلة للتعديل: يمكن تسجيل أو حذف حركات بتواريخها.'
+        : 'لا تُسجَّل بعدها حركة ولا يُحذف قيد بتاريخ داخل الفترة؛ التحصيل المتأخر يُسجَّل بتاريخ اليوم.',
+      confirmLabel: currentlyClosed ? 'افتح الفترة' : 'أغلق الفترة',
+      tone: currentlyClosed ? 'danger' : 'default',
+    });
+    if (!ok) return;
     await toggleClosePeriod.mutateAsync({ id, closed: !currentlyClosed });
   };
 
   const handleBackfill = async () => {
-    if (
-      !confirm(
-        'هل تريد ترحيل كافة المعاملات القديمة غير المرحّلة إلى دفتر اليومية؟ قد يستغرق بضع ثوانٍ.',
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: 'ترحيل المعاملات القديمة',
+      description: 'تُنشأ قيود يومية لكل معاملة قديمة ليس لها قيد. قد يستغرق ذلك بضع ثوانٍ.',
+      confirmLabel: 'رحّل المعاملات',
+      tone: 'default',
+    });
+    if (!ok) return;
     await backfillTx.mutateAsync();
   };
 
@@ -98,15 +109,16 @@ export default function FiscalPeriodsPage() {
   const handleConfirmCloseYear = async () => {
     if (!yearPreview || !yearPreview.can_close || yearPreview.already_closed) return;
     const year = yearPreview.year;
-    if (
-      !confirm(
-        `تأكيد إقفال سنة ${year}؟\n\nسيُنشأ قيد إقفال ينقل الصافي إلى «أرباح محتجزة».\nهذا الإجراء يدوي ولا يتكرر لنفس السنة.${
-          alsoClosePeriods ? '\nسيتم أيضاً إغلاق كل فترات السنة.' : '\nفترات السنة لن تُغلق تلقائياً — أغلقها يدوياً بزر «إغلاق الفترة».'
-        }`,
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: `إقفال سنة ${year}`,
+      description: 'يُنشأ قيد إقفال ينقل صافي السنة إلى «أرباح محتجزة». يُنفَّذ مرة واحدة لكل سنة.',
+      details: [
+        { label: 'السنة', value: <bdi>{year}</bdi> },
+        { label: 'فترات السنة', value: alsoClosePeriods ? 'تُغلق كلها' : 'تبقى مفتوحة (أغلقها يدوياً)' },
+      ],
+      confirmLabel: 'أقفل السنة',
+    });
+    if (!ok) return;
     await closeYear.mutateAsync({ year, closePeriods: alsoClosePeriods });
     setYearPreview(null);
     setAlsoClosePeriods(false);

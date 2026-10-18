@@ -279,7 +279,7 @@ export default function NewReceiptPage() {
                   />
                 </div>
                 {lines.length > 1 ? (
-                  <Button
+                  <Button aria-label="حذف السطر"
                     type="button"
                     variant="ghost"
                     size="icon"

@@ -100,7 +100,7 @@ export function PayrollAdvancesPanel({
         meta: { label: 'السداد' },
         cell: ({ row }) => (
           <div className="flex min-w-[8rem] flex-col gap-1">
-            <Progress value={repaidShare(row.original)} className="h-1.5" />
+            <Progress value={repaidShare(row.original)} className="h-1.5" aria-label={`نسبة سداد سلفة ${row.original.employee_name}`} />
             <span className="text-[11.5px] text-muted-foreground">
               سُدّد <Amount value={row.original.repaid} muted className="text-[11.5px]" />
             </span>
@@ -192,7 +192,7 @@ export function PayrollAdvancesPanel({
                 </div>
                 <Badge variant={STATUS_VARIANT[a.status]}>{ADVANCE_STATUS_LABEL[a.status]}</Badge>
               </div>
-              <Progress value={repaidShare(a)} className="h-1.5" />
+              <Progress value={repaidShare(a)} className="h-1.5" aria-label={`نسبة سداد سلفة ${a.employee_name}`} />
               <div className="flex justify-between text-[12px] text-muted-foreground">
                 <span>المبلغ <Amount value={a.amount} muted /></span>
                 <span>المتبقي <Amount value={a.remaining} /></span>

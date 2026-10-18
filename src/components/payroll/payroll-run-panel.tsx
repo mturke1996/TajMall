@@ -26,7 +26,7 @@ import {
   type PayrollRunLine,
 } from '@/lib/db/payroll-queries';
 import { Amount, PayrollLoadError, RunSteps, SectionHeading, StatStrip } from './payroll-ui';
-import { PayLineDialog, ReasonDialog } from './payroll-dialogs';
+import { PayAllDialog, PayLineDialog, ReasonDialog } from './payroll-dialogs';
 
 const num = (v: string | number | null | undefined) => Number(v) || 0;
 const additions = (l: PayrollRunLine) => num(l.bonuses) + num(l.overtime);
@@ -66,6 +66,7 @@ export function PayrollRunPanel({
   const [confirm, setConfirm] = useState<null | 'prepare' | 'approve' | 'post'>(null);
   const [reverseOpen, setReverseOpen] = useState(false);
   const [payLine, setPayLine] = useState<PayrollRunLine | null>(null);
+  const [payAllOpen, setPayAllOpen] = useState(false);
 
   const { data: staleCount = 0 } = usePayrollRunDifferences(
     run?.id ?? null,
@@ -88,6 +89,7 @@ export function PayrollRunPanel({
   );
   const previousTotalNet = sum(previousLines, (l) => num(l.net));
   const fullyPaid = run?.status === 'POSTED' && lines.length > 0 && totals.outstanding < 0.0005;
+  const partlyPaid = run?.status === 'POSTED' && !fullyPaid && totals.paid >= 0.0005;
   const status = run?.status ?? null;
 
   const columns = useMemo<ColumnDef<PayrollRunLine, any>[]>(
@@ -290,15 +292,24 @@ export function PayrollRunPanel({
           </Button>
         </>
       );
-    if (status === 'POSTED' && canApprove && totals.paid < 0.0005)
-      return (
-        <Button variant="ghost" onClick={() => setReverseOpen(true)}>
-          <Undo2 />
-          اعكس الترحيل
-        </Button>
-      );
     return null;
   })();
+
+  // Paying is a cashier's job too, so it sits outside the manager-only actions above.
+  const payAllAction =
+    canPay && status === 'POSTED' && totals.outstanding >= 0.0005 ? (
+      <Button onClick={() => setPayAllOpen(true)}>
+        <HandCoins />
+        اصرف كل المتبقي
+      </Button>
+    ) : null;
+  const reverseAction =
+    canManage && canApprove && status === 'POSTED' && totals.paid < 0.0005 ? (
+      <Button variant="ghost" onClick={() => setReverseOpen(true)}>
+        <Undo2 />
+        اعكس الترحيل
+      </Button>
+    ) : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -309,7 +320,7 @@ export function PayrollRunPanel({
               <h2 className="text-[15px] font-semibold">كشف رواتب {formatMonthKeyAr(month)}</h2>
               {status && (
                 <Badge variant={status === 'POSTED' ? (fullyPaid ? 'success' : 'info') : status === 'APPROVED' ? 'warning' : 'neutral'}>
-                  {fullyPaid ? 'مُرحَّل ومصروف' : RUN_STATUS_LABEL[status]}
+                  {fullyPaid ? 'مُرحَّل ومصروف' : partlyPaid ? 'مصروف جزئياً' : RUN_STATUS_LABEL[status]}
                 </Badge>
               )}
             </div>
@@ -329,6 +340,8 @@ export function PayrollRunPanel({
               />
             )}
             {nextAction}
+            {reverseAction}
+            {payAllAction}
           </div>
         </div>
         {stale && (
@@ -472,6 +485,7 @@ export function PayrollRunPanel({
       />
 
       <PayLineDialog line={payLine} open={Boolean(payLine)} onOpenChange={(o) => !o && setPayLine(null)} />
+      <PayAllDialog lines={lines} month={month} open={payAllOpen} onOpenChange={setPayAllOpen} />
     </div>
   );
 }

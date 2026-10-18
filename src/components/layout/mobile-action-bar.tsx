@@ -29,7 +29,7 @@ export function MobileActionBar() {
 
         {/* Add button */}
         <div className="flex w-[68px] shrink-0 items-center justify-center -mt-2">
-          <button
+          <button type="button" aria-label="معاملة جديدة"
             onClick={() => openTx('REVENUE')}
             className="grid h-[52px] w-[52px] place-items-center rounded-full bg-foreground text-background shadow-lg active:scale-95 transition-transform duration-150"
           >

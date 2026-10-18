@@ -328,7 +328,7 @@ export function ContactsDirectory({
                       <td className="py-3 px-4 text-end" onClick={(e) => e.stopPropagation()}>
                         {allowMutate && canWrite && (
                           <div className="flex items-center justify-end gap-1">
-                            <Button
+                            <Button aria-label={`تعديل ${contact.name}`}
                               size="icon"
                               variant="ghost"
                               className="h-7 w-7 text-muted-foreground hover:text-foreground"
@@ -336,7 +336,7 @@ export function ContactsDirectory({
                             >
                               <Edit2 className="h-3.5 w-3.5" />
                             </Button>
-                            <Button
+                            <Button aria-label={`حذف ${contact.name}`}
                               size="icon"
                               variant="ghost"
                               className="h-7 w-7 text-danger hover:bg-danger-soft"

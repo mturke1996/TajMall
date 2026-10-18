@@ -396,7 +396,7 @@ export default function EditReceiptPage() {
                   />
                 </div>
                 {canEdit && lines.length > 1 ? (
-                  <Button
+                  <Button aria-label="حذف السطر"
                     type="button"
                     variant="ghost"
                     size="icon"

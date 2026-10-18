@@ -100,20 +100,20 @@ export default function ProfilePage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5 text-[12.5px] text-ink-soft">
+            <Label htmlFor="profile-email" className="flex items-center gap-1.5 text-[12.5px] text-ink-soft">
               <Mail className="h-3.5 w-3.5 text-ink-mute" />
               البريد الإلكتروني
             </Label>
-            <Input value={user?.email || ''} disabled dir="ltr" className="min-h-11" />
+            <Input id="profile-email" value={user?.email || ''} disabled dir="ltr" className="min-h-11" />
             <p className="text-[11px] text-ink-mute">لا يمكن تغيير البريد الإلكتروني</p>
           </div>
 
           <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5 text-[12.5px] text-ink-soft">
+            <Label htmlFor="profile-role" className="flex items-center gap-1.5 text-[12.5px] text-ink-soft">
               <Building2 className="h-3.5 w-3.5 text-ink-mute" />
               الدور الوظيفي
             </Label>
-            <Input value={roleLabel} disabled className="min-h-11" />
+            <Input id="profile-role" value={roleLabel} disabled className="min-h-11" />
           </div>
 
           <Button

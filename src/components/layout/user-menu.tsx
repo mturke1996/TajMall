@@ -34,7 +34,7 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" className="rounded-full">
+        <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="قائمة الحساب" title="قائمة الحساب">
           <UserCircle className="h-5 w-5" />
         </Button>
       </DropdownMenuTrigger>
