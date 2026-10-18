@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCashboxes } from '@/lib/db/queries';
-import type { ContactRow } from '@/lib/db/types';
+import type { CashboxRow, ContactRow } from '@/lib/db/types';
 import {
   ADJUSTMENT_IS_ADDITION,
   ADJUSTMENT_KIND_LABEL,
@@ -25,6 +25,7 @@ import {
   useAddPayrollAdjustment,
   useIssuePayrollAdvance,
   usePayPayrollLine,
+  usePayPayrollLines,
   useSetSalaryStructure,
   type PayLineInput,
   type PayrollAdjustmentKind,
@@ -425,7 +426,7 @@ export function AdvanceDialog({
   employees: Employee[];
 }) {
   const issue = useIssuePayrollAdvance();
-  const { data: cashboxes = [] } = useCashboxes();
+  const { data: cashboxes = NO_CASHBOXES } = useCashboxes();
   const [employeeId, setEmployeeId] = useState('');
   const [amount, setAmount] = useState('');
   const [installments, setInstallments] = useState('3');
@@ -513,7 +514,7 @@ export function AdvanceDialog({
   );
 }
 
-// ── Pay a payroll line ───────────────────────────────────────────────────────
+// ── Paying salaries (one line, or every outstanding line) ───────────────────
 
 const METHOD_LABEL: Record<PayLineInput['method'], string> = {
   CASH: 'نقداً',
@@ -521,6 +522,75 @@ const METHOD_LABEL: Record<PayLineInput['method'], string> = {
   CHEQUE: 'صك',
   CARD: 'بطاقة',
 };
+
+/** A stable empty list: a fresh `[]` default on every render would re-run the reset effects forever. */
+const NO_CASHBOXES: CashboxRow[] = [];
+
+type PaymentValues = { cashboxId: string; paidOn: string; method: PayLineInput['method'] };
+
+function usePaymentValues(open: boolean) {
+  const { data: cashboxes = NO_CASHBOXES } = useCashboxes();
+  const [values, setValues] = useState<PaymentValues>({ cashboxId: '', paidOn: todayISODate(), method: 'CASH' });
+  useEffect(() => {
+    if (open) setValues({ cashboxId: preferredCashboxId(cashboxes), paidOn: todayISODate(), method: 'CASH' });
+  }, [open, cashboxes]);
+  return { cashboxes, values, setValues };
+}
+
+/** Cashbox, date and method — the same three fields for paying one salary or many. */
+function PaymentFields({
+  idPrefix,
+  cashboxes,
+  values,
+  onChange,
+}: {
+  idPrefix: string;
+  cashboxes: CashboxRow[];
+  values: PaymentValues;
+  onChange: (values: PaymentValues) => void;
+}) {
+  return (
+    <>
+      <FormField label="الخزينة" htmlFor={`${idPrefix}-cashbox`}>
+        <Select value={values.cashboxId} onValueChange={(cashboxId) => onChange({ ...values, cashboxId })}>
+          <SelectTrigger id={`${idPrefix}-cashbox`}>
+            <SelectValue placeholder="اختر الخزينة" />
+          </SelectTrigger>
+          <SelectContent>
+            {cashboxes.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name_ar}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormField>
+      <FormField label="تاريخ الصرف" htmlFor={`${idPrefix}-date`}>
+        <Input
+          id={`${idPrefix}-date`}
+          type="date"
+          dir="ltr"
+          value={values.paidOn}
+          onChange={(e) => onChange({ ...values, paidOn: e.target.value })}
+        />
+      </FormField>
+      <FormField label="طريقة الصرف" htmlFor={`${idPrefix}-method`}>
+        <Select value={values.method} onValueChange={(v) => onChange({ ...values, method: v as PayLineInput['method'] })}>
+          <SelectTrigger id={`${idPrefix}-method`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.keys(METHOD_LABEL) as PayLineInput['method'][]).map((m) => (
+              <SelectItem key={m} value={m}>
+                {METHOD_LABEL[m]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormField>
+    </>
+  );
+}
 
 export function PayLineDialog({
   line,
@@ -532,30 +602,22 @@ export function PayLineDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const pay = usePayPayrollLine();
-  const { data: cashboxes = [] } = useCashboxes();
+  const { cashboxes, values, setValues } = usePaymentValues(open && Boolean(line));
   const [amount, setAmount] = useState('');
-  const [cashboxId, setCashboxId] = useState('');
-  const [paidOn, setPaidOn] = useState(todayISODate());
-  const [method, setMethod] = useState<PayLineInput['method']>('CASH');
-
   const outstanding = Number(line?.outstanding) || 0;
 
   useEffect(() => {
-    if (!open || !line) return;
-    setAmount(String(round3(Number(line.outstanding) || 0)));
-    setCashboxId(preferredCashboxId(cashboxes));
-    setPaidOn(todayISODate());
-    setMethod('CASH');
-  }, [open, line, cashboxes]);
+    if (open && line) setAmount(String(round3(Number(line.outstanding) || 0)));
+  }, [open, line]);
 
   const amountValue = parseAmount(amount);
   const invalid =
-    !line || !cashboxId || !Number.isFinite(amountValue) || amountValue <= 0 || amountValue > outstanding + 0.0005;
+    !line || !values.cashboxId || !Number.isFinite(amountValue) || amountValue <= 0 || amountValue > outstanding + 0.0005;
 
   async function submit() {
     if (!line) return;
     try {
-      await pay.mutateAsync({ lineId: line.id, amount: amountValue, cashboxId, paidOn, method });
+      await pay.mutateAsync({ lineId: line.id, amount: amountValue, ...values });
       toast.success(`صُرف راتب ${line.employee_name}`);
       onOpenChange(false);
     } catch (e) {
@@ -591,38 +653,97 @@ export function PayLineDialog({
         >
           <MoneyInput id="pay-amount" value={amount} onChange={setAmount} autoFocus />
         </FormField>
-        <FormField label="تاريخ الصرف" htmlFor="pay-date">
-          <Input id="pay-date" type="date" dir="ltr" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} />
-        </FormField>
-        <FormField label="الخزينة" htmlFor="pay-cashbox">
-          <Select value={cashboxId} onValueChange={setCashboxId}>
-            <SelectTrigger id="pay-cashbox">
-              <SelectValue placeholder="اختر الخزينة" />
-            </SelectTrigger>
-            <SelectContent>
-              {cashboxes.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name_ar}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </FormField>
-        <FormField label="طريقة الصرف" htmlFor="pay-method">
-          <Select value={method} onValueChange={(v) => setMethod(v as PayLineInput['method'])}>
-            <SelectTrigger id="pay-method">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(METHOD_LABEL) as PayLineInput['method'][]).map((m) => (
-                <SelectItem key={m} value={m}>
-                  {METHOD_LABEL[m]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </FormField>
+        <PaymentFields idPrefix="pay" cashboxes={cashboxes} values={values} onChange={setValues} />
       </div>
+    </DialogShell>
+  );
+}
+
+/**
+ * Pays what is still owed on each line (one database call per employee, with the same checks as
+ * paying one line). Lines that fail are listed and stay unpaid; the others are saved, and the
+ * dialog can be submitted again — it only pays what is still outstanding.
+ */
+export function PayAllDialog({
+  lines,
+  month,
+  open,
+  onOpenChange,
+}: {
+  lines: PayrollRunLine[];
+  month: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const payMany = usePayPayrollLines();
+  const { cashboxes, values, setValues } = usePaymentValues(open);
+  const [done, setDone] = useState(0);
+  const [failures, setFailures] = useState<Array<{ lineId: string; name: string; message: string }>>([]);
+
+  const due = useMemo(() => lines.filter((l) => (Number(l.outstanding) || 0) >= 0.0005), [lines]);
+  const total = due.reduce((s, l) => s + (Number(l.outstanding) || 0), 0);
+
+  useEffect(() => {
+    if (!open) return;
+    setDone(0);
+    setFailures([]);
+  }, [open]);
+
+  async function submit() {
+    setDone(0);
+    setFailures([]);
+    const results = await payMany.mutateAsync({
+      lines: due.map((l) => ({ lineId: l.id, amount: round3(Number(l.outstanding)) })),
+      ...values,
+      onProgress: setDone,
+    });
+    const names = new Map(due.map((l) => [l.id, l.employee_name]));
+    const failed = results
+      .filter((r) => !r.ok)
+      .map((r) => ({ lineId: r.lineId, name: names.get(r.lineId) ?? '', message: r.message ?? '' }));
+    setFailures(failed);
+    if (failed.length === 0) {
+      toast.success(`صُرفت رواتب ${formatMonthKeyAr(month)}`, { description: `${results.length} موظف` });
+      onOpenChange(false);
+    } else {
+      toast.error(`لم يُصرف راتب ${failed.length} من ${results.length}`, { description: 'صُرفت البقية؛ صحّح السبب ثم أعد المحاولة' });
+    }
+  }
+
+  const busy = payMany.isPending;
+  return (
+    <DialogShell
+      open={open}
+      onOpenChange={onOpenChange}
+      busy={busy}
+      title="صرف كل الرواتب المتبقية"
+      description={`كشف ${formatMonthKeyAr(month)} — حركة صرف منفصلة لكل موظف من الخزينة المختارة.`}
+      wide
+      submitLabel={busy ? `جارٍ الصرف ${done}/${due.length}` : failures.length ? `أعد المحاولة (${due.length})` : `اصرف ${due.length} راتب`}
+      onSubmit={submit}
+      submitDisabled={!values.cashboxId || due.length === 0}
+    >
+      <Summary
+        rows={[
+          { label: 'عدد الموظفين', value: <span className="tabular-nums">{due.length}</span> },
+          { label: 'إجمالي المبلغ', value: <Amount value={total} />, strong: true },
+        ]}
+      />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <PaymentFields idPrefix="payall" cashboxes={cashboxes} values={values} onChange={setValues} />
+      </div>
+      {failures.length > 0 && (
+        <div className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-[12.5px] text-danger-ink" role="alert">
+          <p className="font-semibold">لم يُصرف:</p>
+          <ul className="mt-1 list-disc ps-5">
+            {failures.map((f) => (
+              <li key={f.lineId}>
+                {f.name} — {f.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </DialogShell>
   );
 }
@@ -678,132 +799,6 @@ export function ReasonDialog({
       <FormField label="السبب" htmlFor="reason-text" hint="يُحفظ في سجل الرقابة">
         <Textarea id="reason-text" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} autoFocus />
       </FormField>
-    </DialogShell>
-  );
-}
-
-// ── Pay every outstanding line of a posted run ──────────────────────────────
-
-/**
- * Pays what is still owed on each line, one database call per employee (the same checks as paying
- * one line). Lines that fail are listed and stay unpaid; the others are saved.
- */
-export function PayAllDialog({
-  lines,
-  month,
-  open,
-  onOpenChange,
-}: {
-  lines: PayrollRunLine[];
-  month: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const pay = usePayPayrollLine();
-  const { data: cashboxes = [] } = useCashboxes();
-  const [cashboxId, setCashboxId] = useState('');
-  const [paidOn, setPaidOn] = useState(todayISODate());
-  const [method, setMethod] = useState<PayLineInput['method']>('CASH');
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(0);
-  const [failures, setFailures] = useState<Array<{ name: string; message: string }>>([]);
-
-  const due = useMemo(() => lines.filter((l) => (Number(l.outstanding) || 0) >= 0.0005), [lines]);
-  const total = due.reduce((s, l) => s + (Number(l.outstanding) || 0), 0);
-
-  useEffect(() => {
-    if (!open) return;
-    setCashboxId(preferredCashboxId(cashboxes));
-    setPaidOn(todayISODate());
-    setMethod('CASH');
-    setDone(0);
-    setFailures([]);
-  }, [open, cashboxes]);
-
-  async function submit() {
-    setBusy(true);
-    setDone(0);
-    const failed: Array<{ name: string; message: string }> = [];
-    for (const line of due) {
-      try {
-        await pay.mutateAsync({ lineId: line.id, amount: round3(Number(line.outstanding)), cashboxId, paidOn, method });
-      } catch (e) {
-        failed.push({ name: line.employee_name, message: payrollErrorMessage(e) });
-      }
-      setDone((d) => d + 1);
-    }
-    setBusy(false);
-    setFailures(failed);
-    if (failed.length === 0) {
-      toast.success(`صُرفت رواتب ${formatMonthKeyAr(month)}`, { description: `${due.length} موظف` });
-      onOpenChange(false);
-    } else {
-      toast.error(`لم يُصرف راتب ${failed.length} من ${due.length}`, { description: 'صُرفت البقية؛ راجع القائمة' });
-    }
-  }
-
-  return (
-    <DialogShell
-      open={open}
-      onOpenChange={onOpenChange}
-      busy={busy}
-      title="صرف كل الرواتب المتبقية"
-      description={`كشف ${formatMonthKeyAr(month)} — حركة صرف منفصلة لكل موظف من الخزينة المختارة.`}
-      submitLabel={busy ? `جارٍ الصرف ${done}/${due.length}` : `اصرف ${due.length} راتب`}
-      onSubmit={submit}
-      submitDisabled={!cashboxId || due.length === 0 || failures.length > 0}
-    >
-      <Summary
-        rows={[
-          { label: 'عدد الموظفين', value: <span className="tabular-nums">{due.length}</span> },
-          { label: 'إجمالي المبلغ', value: <Amount value={total} />, strong: true },
-        ]}
-      />
-      <div className="grid gap-4 sm:grid-cols-3">
-        <FormField label="الخزينة" htmlFor="payall-cashbox">
-          <Select value={cashboxId} onValueChange={setCashboxId}>
-            <SelectTrigger id="payall-cashbox">
-              <SelectValue placeholder="اختر الخزينة" />
-            </SelectTrigger>
-            <SelectContent>
-              {cashboxes.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name_ar}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </FormField>
-        <FormField label="تاريخ الصرف" htmlFor="payall-date">
-          <Input id="payall-date" type="date" dir="ltr" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} />
-        </FormField>
-        <FormField label="طريقة الصرف" htmlFor="payall-method">
-          <Select value={method} onValueChange={(v) => setMethod(v as PayLineInput['method'])}>
-            <SelectTrigger id="payall-method">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(METHOD_LABEL) as PayLineInput['method'][]).map((m) => (
-                <SelectItem key={m} value={m}>
-                  {METHOD_LABEL[m]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </FormField>
-      </div>
-      {failures.length > 0 && (
-        <div className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-[12.5px] text-danger-ink" role="alert">
-          <p className="font-semibold">لم يُصرف:</p>
-          <ul className="mt-1 list-disc ps-5">
-            {failures.map((f) => (
-              <li key={f.name}>
-                {f.name} — {f.message}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </DialogShell>
   );
 }

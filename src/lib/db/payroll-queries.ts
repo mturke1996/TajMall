@@ -469,6 +469,44 @@ export function usePayPayrollLine() {
   }));
 }
 
+export type PayManyResult = { lineId: string; ok: boolean; message?: string };
+
+/**
+ * Pays several lines one after another (each through payroll_pay_line, with all its checks) and
+ * refreshes the cached data once at the end instead of after every employee.
+ */
+export function usePayPayrollLines() {
+  const qc = useQueryClient();
+  return useMutation<
+    PayManyResult[],
+    unknown,
+    { lines: Array<{ lineId: string; amount: number }>; cashboxId: string; paidOn: string; method: PayLineInput["method"]; onProgress?: (done: number) => void }
+  >({
+    mutationFn: async ({ lines, cashboxId, paidOn, method, onProgress }) => {
+      const supabase = createSupabaseBrowserClient();
+      const results: PayManyResult[] = [];
+      for (const line of lines) {
+        const { error } = await supabase.rpc("payroll_pay_line", {
+          p_line_id: line.lineId,
+          p_amount: line.amount,
+          p_cashbox_id: cashboxId,
+          p_paid_on: paidOn,
+          p_method: method,
+        });
+        results.push(error ? { lineId: line.lineId, ok: false, message: payrollErrorMessage(error) } : { lineId: line.lineId, ok: true });
+        onProgress?.(results.length);
+      }
+      return results;
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: pqk.all });
+      qc.invalidateQueries({ queryKey: qk.employeeSummary });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: qk.cashboxBalances });
+    },
+  });
+}
+
 /** The structure in force for a month: the latest one that starts on or before the month's end. */
 export function structureForMonth(
   structures: PayrollSalaryStructure[],

@@ -29,13 +29,18 @@ const DIR = 'docs/proposed-migrations';
 const MIGRATIONS = [
   {
     id: '078', up: '078_security_and_ledger_fixes.sql', down: '078_security_and_ledger_fixes.ROLLBACK.sql',
-    sha: 'bd7e9b838ab275f258c307fa86b7abd59183afa6dada6ce5d6210283ef75d798',
-    applied: `SELECT to_regprocedure('public.post_missing_charge_accrual(uuid)') IS NOT NULL AS done`,
+    sha: '2c2b593d8b9e7e43a777a51341a484e10a0b65cc3ecc4830c2aec0570cd25e38',
+    // Done = this version's last section is in place (ledger internals no longer callable through the API).
+    applied: `SELECT to_regprocedure('public.post_missing_charge_accrual(uuid)') IS NOT NULL
+      AND NOT has_function_privilege('authenticated', 'public.reverse_ledger_entry(text,uuid,uuid)', 'EXECUTE') AS done`,
+    // An earlier draft of this file left its first object behind but not the last one.
+    partial: `SELECT to_regprocedure('public.post_missing_charge_accrual(uuid)') IS NOT NULL AS found`,
   },
   {
     id: '080', up: '080_payroll.sql', down: '080_payroll.ROLLBACK.sql',
-    sha: 'b4254cc98a789ee661a2a9ed87313c914ef13c78cb917ec1e1604335f1f2b3aa',
-    applied: `SELECT to_regclass('public.payroll_runs') IS NOT NULL AS done`,
+    sha: '02fdbf4e258e7eecc41331c7e439945b3f3fecaec0d5a1f68723974663a098d0',
+    applied: `SELECT to_regprocedure('public.payroll_compute_run(text)') IS NOT NULL AS done`,
+    partial: `SELECT to_regclass('public.payroll_runs') IS NOT NULL AS found`,
   },
   {
     id: '081', up: '081_rent_safety.sql', down: '081_rent_safety.ROLLBACK.sql',
@@ -127,6 +132,9 @@ try {
     if ((await one(m.applied)).done) {
       console.log(`${m.id}: already applied — skipped`);
       continue;
+    }
+    if (m.partial && (await one(m.partial)).found) {
+      throw new Error(`${m.id}: an earlier draft of ${m.up} is applied on this database. Run ${m.down} first, then re-run this script.`);
     }
     console.log(`${m.id}: applying ${m.up} …`);
     await client.query(sql.toString('utf8')); // BEGIN … COMMIT inside the file: all or nothing

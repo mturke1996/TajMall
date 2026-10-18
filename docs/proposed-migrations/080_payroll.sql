@@ -10,8 +10,10 @@
 --   advance paid  Dr AST-ADV / Cr cashbox        (a POSTED transaction)
 -- Accounts are resolved through account_mappings so they can be re-pointed without code changes.
 -- Every write goes through a SECURITY DEFINER function with a role check; tables have no write
--- policies. Salary breakdowns are visible to owner/admin/accountant only; cashiers see each line's
--- net, paid and outstanding (to pay it) through payroll_run_lines_status; viewers see nothing.
+-- policies. Salary breakdowns (base, allowances, bonuses, deductions, advances) are visible to
+-- owner/admin/accountant only; cashiers see each line's net, paid and outstanding (to pay it) through
+-- payroll_run_lines_status; viewers see no payroll tables. Unchanged by this file: the monthly total on
+-- the employee card (contacts.salary, shown by employee_summary) stays readable by signed-in users.
 -- ============================================================================
 BEGIN;
 

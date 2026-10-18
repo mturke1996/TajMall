@@ -577,6 +577,10 @@ $function$;
 CREATE OR REPLACE FUNCTION public.process_transaction_posting()
  RETURNS trigger
  LANGUAGE plpgsql
+ -- Posts the row's journal through the internal ledger functions (see section 7); the transactions
+ -- table's RLS has already decided whether this user may write the row.
+ SECURITY DEFINER
+ SET search_path = public, pg_temp
 AS $function$
 DECLARE
   v_lines jsonb := '[]'::jsonb;
@@ -1035,8 +1039,9 @@ END $$;
 -- 7. The two low-level ledger functions are internal. Through the API any writer (a cashier) could
 --    call reverse_ledger_entry('PAYROLL_RUN' | 'TRANSACTION' | ..., id, ...) and cancel any posted
 --    entry, skipping every approval check that the real workflows enforce. Trigger functions that post
---    for the user run with definer rights instead (the table's RLS already decided who may write the
---    row); then the API roles lose EXECUTE. A user-callable function that still depends on them with
+--    for the user run with definer rights instead (process_transaction_posting is declared so above;
+--    the scan below catches any other trigger that exists only in production); then the API roles
+--    lose EXECUTE. A user-callable function that still depends on them with
 --    the caller's rights would break silently, so the migration stops and names it instead.
 DO $$
 DECLARE r record; v_blockers text := '';
@@ -1044,9 +1049,9 @@ BEGIN
   FOR r IN
     SELECT p.oid::regprocedure AS sig, p.prorettype = 'trigger'::regtype AS is_trigger
     FROM pg_proc p
-    WHERE p.pronamespace = 'public'::regnamespace AND NOT p.prosecdef
+    WHERE p.pronamespace = 'public'::regnamespace AND p.prokind = 'f' AND NOT p.prosecdef
       AND p.proname NOT IN ('post_to_ledger', 'reverse_ledger_entry')
-      AND pg_get_functiondef(p.oid) ~ '(post_to_ledger|reverse_ledger_entry)\('
+      AND p.prosrc ~* '(post_to_ledger|reverse_ledger_entry)"?\s*\('
   LOOP
     IF r.is_trigger THEN
       EXECUTE format('ALTER FUNCTION %s SECURITY DEFINER SET search_path = public, pg_temp', r.sig);

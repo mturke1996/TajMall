@@ -106,12 +106,16 @@ export function PayrollRunPanel({
         meta: { label: 'الموظف', alwaysVisible: true },
         cell: ({ row }) => (
           <div className="flex min-w-0 flex-col">
-            <Link
-              href={`/payroll/employees/${row.original.employee_id}`}
-              className="truncate font-medium hover:underline"
-            >
-              {row.original.employee_name}
-            </Link>
+            {canManage ? (
+              <Link
+                href={`/payroll/employees/${row.original.employee_id}`}
+                className="truncate font-medium hover:underline"
+              >
+                {row.original.employee_name}
+              </Link>
+            ) : (
+              <span className="truncate font-medium">{row.original.employee_name}</span>
+            )}
             {(row.original.job_title || row.original.department) && (
               <span className="truncate text-[11.5px] text-muted-foreground">
                 {[row.original.job_title, row.original.department].filter(Boolean).join(' · ')}
@@ -216,7 +220,7 @@ export function PayrollRunPanel({
           ) : null,
       },
     ],
-    [lines, previousNet, totals, status, canPay],
+    [lines, previousNet, totals, status, canPay, canManage],
   );
 
   async function runConfirmed() {

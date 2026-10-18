@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -116,6 +117,15 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     resolver.current = null;
     setOptions(null);
   };
+
+  // A confirmation belongs to the page that asked for it: leaving the page answers «no», so a
+  // destructive action can never be confirmed over a different screen.
+  const pathname = usePathname();
+  useEffect(() => {
+    resolver.current?.(false);
+    resolver.current = null;
+    setOptions(null);
+  }, [pathname]);
 
   return (
     <ConfirmContext.Provider value={confirm}>

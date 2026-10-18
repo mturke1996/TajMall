@@ -73,14 +73,18 @@ export default function EmployeePayrollPage() {
       },
       {
         id: 'gross',
-        accessorFn: (l) => num(l.base_salary) + num(l.allowances) + num(l.bonuses) + num(l.overtime),
+        // null when this role does not see the breakdown (cashier): shown as «—», never as 0.
+        accessorFn: (l) => (l.base_salary === null ? null : num(l.base_salary) + num(l.allowances) + num(l.bonuses) + num(l.overtime)),
         header: 'المستحقات',
         meta: { label: 'المستحقات', numeric: true },
         cell: ({ getValue }) => <Amount value={getValue()} />,
       },
       {
         id: 'deductions',
-        accessorFn: (l) => num(l.absence_deduction) + num(l.penalties) + num(l.other_deductions) + num(l.advance_repayment),
+        accessorFn: (l) =>
+          l.absence_deduction === null
+            ? null
+            : num(l.absence_deduction) + num(l.penalties) + num(l.other_deductions) + num(l.advance_repayment),
         header: 'الاستقطاعات',
         meta: { label: 'الاستقطاعات', numeric: true },
         cell: ({ getValue }) => <Amount value={getValue()} tone="negative" hideZero />,
@@ -114,7 +118,8 @@ export default function EmployeePayrollPage() {
         header: '',
         enableSorting: false,
         meta: { alwaysVisible: true, align: 'end' },
-        cell: ({ row }) => (
+        // A payslip needs the breakdown; roles that only see the net do not get one.
+        cell: ({ row }) => row.original.base_salary === null ? null : (
           <TajMallPdfToolbar
             fileName={`قسيمة-راتب-${row.original.employee_name}-${row.original.period_month}`}
             shareTitle={`قسيمة راتب ${row.original.employee_name} — ${formatMonthKeyAr(row.original.period_month)}`}

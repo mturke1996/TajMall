@@ -15,7 +15,7 @@ const ROOT = new URL('../src/', import.meta.url).pathname;
 // PDF documents (react-pdf style objects) and the dev-only gallery are not screen code; the PDF
 // toolbar and export dialogs under features/pdf are, so only files that render a PDF are skipped.
 const SKIP = ['app/ui-kit'];
-const isPdfDocument = (text) => text.includes('@react-pdf/renderer');
+const isPdfDocument = (text) => /^\s*import\b[^;]*from\s+['"]@react-pdf\/renderer['"]/m.test(text);
 
 const RULES = [
   {
