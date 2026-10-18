@@ -1,195 +1,86 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import {
-  CalendarDays,
-  CalendarOff,
-  CheckCircle2,
-  AlertCircle,
-  Link2,
-  Loader2,
-  Banknote,
-} from 'lucide-react';
+import { Banknote, CalendarOff, ChevronDown, Info, Link2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useTenantChargesForTenant } from '@/lib/db/mall-queries';
-import {
-  useTenantRentExemptMonths,
-  useTenantRentPriceBands,
-} from '@/lib/db/rent-queries';
-import { buildMergedTenantRentCalendar } from '@/lib/rent-calendar-from-charges';
-import {
-  filterVisibleCalendarMonths,
-  isCalendarMonthOutstanding,
-} from '@/lib/rent-exempt-months';
-import { deriveTenantRentYears } from '@/lib/rent-calendar-years';
 import { SetRentMonthStatusDialog } from '@/components/tenants/set-rent-month-status-dialog';
 import { SetRentExemptMonthsDialog } from '@/components/tenants/set-rent-exempt-months-dialog';
 import { SetRentPriceScheduleDialog } from '@/components/tenants/set-rent-price-schedule-dialog';
+import { RENT_ACCOUNT_KIND, RentAccountMonthCell } from '@/components/tenants/rent-account-month';
+import { useTenantRentAccount } from '@/components/tenants/use-tenant-rent-account';
 import { usePermission } from '@/lib/supabase/use-permission';
 import type { JournalEntryRow } from '@/lib/db/journal-queries';
-import { RentMonthLabel } from '@/components/rent/rent-month-label';
-import { resolveAmountFromBands } from '@/lib/rent-price-schedule';
 import {
-  currentYear,
-  formatMonthLabelAr,
-  formatRentMonthPartialProgress,
-  RENT_MONTH_CELL_FRAME,
-  RENT_MONTH_STATUS_CLASS,
-  RENT_MONTH_STATUS_LABEL,
-  type RentCalendarMonth,
-} from '@/lib/rent-months';
+  describeRentPrice,
+  formatMonthRangesAr,
+  type RentAccountMonthKind,
+  type RentAccountYear,
+} from '@/lib/tenant-rent-account';
+import { currentMonthKey, currentYear } from '@/lib/rent-months';
 import { cn, formatMoney } from '@/lib/utils';
 
-function monthPartialHint(m: RentCalendarMonth): string | null {
-  if (m.status !== 'partial' || m.amount <= 0) return null;
-  return formatRentMonthPartialProgress(m.paid, m.amount);
-}
+const LEGEND_ORDER: RentAccountMonthKind[] = ['paid', 'partial', 'due', 'uncharged', 'upcoming', 'exempt', 'no_price'];
+const COUNT_LABEL: Partial<Record<RentAccountMonthKind, string>> = {
+  paid: 'مدفوع',
+  partial: 'جزئي',
+  due: 'غير مدفوع',
+  uncharged: 'بلا مطالبة',
+  upcoming: 'قادم',
+};
 
-function MonthChip({ m }: { m: RentCalendarMonth }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-1',
-        RENT_MONTH_STATUS_CLASS[m.status],
-      )}
-    >
-      <RentMonthLabel
-        monthKey={m.month}
-        status={m.status}
-        journalNumber={m.status === 'paid' ? m.journal_number : null}
-        partialProgress={monthPartialHint(m)}
-        layout="inline"
-      />
-    </span>
-  );
-}
-
-function YearSection({
+function YearBlock({
   year,
-  months,
-  monthlyRent,
+  defaultOpen,
+  onCollect,
 }: {
-  year: number;
-  months: RentCalendarMonth[];
-  monthlyRent: number;
+  year: RentAccountYear;
+  defaultOpen: boolean;
+  onCollect?: (month: string) => void;
 }) {
-  const exemptCount = months.filter((m) => m.status === 'exempt').length;
-  const visibleMonths = filterVisibleCalendarMonths(months);
-  const paidMonths = visibleMonths.filter((m) => m.status === 'paid');
-  const unpaidMonths = visibleMonths.filter(isCalendarMonthOutstanding);
+  const [open, setOpen] = useState(defaultOpen);
+  const counts = (Object.keys(COUNT_LABEL) as RentAccountMonthKind[])
+    .filter((k) => year.counts[k] > 0)
+    .map((k) => `${COUNT_LABEL[k]} ${year.counts[k]}`)
+    .join(' · ');
+  const panelId = `rent-year-${year.year}`;
 
   return (
-    <div className="border-t border-border first:border-t-0">
-      <div className="bg-canvas-sunken/80 px-4 py-3 sm:px-5 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-bold text-foreground text-sm sm:text-base">
-          إيجار {year}
-        </h3>
-        <div className="flex gap-2 text-[11px]">
-          <span className="rounded-full bg-success/90 text-white px-2.5 py-0.5 font-semibold">
-            مدفوع {paidMonths.length}
-          </span>
-          <span className="rounded-full bg-danger/90 text-white px-2.5 py-0.5 font-semibold">
-            مستحق {unpaidMonths.length}
-          </span>
-        </div>
-      </div>
-
-      {exemptCount > 0 && (
-        <p className="px-4 sm:px-5 pt-3 text-[11px] text-ink-mute leading-relaxed">
-          تم استبعاد {exemptCount}{' '}
-          {exemptCount === 1 ? 'شهر بدون مطالبة' : 'أشهر بدون مطالبة'} من العرض
-          والإجماليات — لا تُحسب كمستحق.
+    <section className="border-t border-border first:border-t-0" aria-labelledby={`${panelId}-h`}>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 bg-canvas-sunken/60 px-4 py-2.5 sm:px-5">
+        <button
+          type="button"
+          className="-ms-1 flex min-h-9 items-center gap-1.5 rounded-md px-1 text-start touch-manipulation focus-visible:outline-2 focus-visible:outline-ring"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <ChevronDown className={cn('h-4 w-4 text-ink-mute transition-transform', !open && '-rotate-90 rtl:rotate-90')} aria-hidden />
+          <h3 id={`${panelId}-h`} className="text-[15px] font-semibold tabular-nums text-foreground">
+            {year.year}
+          </h3>
+          {counts && <span className="text-[12px] text-ink-mute">{counts}</span>}
+        </button>
+        <p className="text-[12.5px] text-ink-mute">
+          المحصّل <span className="font-semibold tabular-nums text-foreground">{formatMoney(year.collected, 'LYD')}</span>
+          {year.owedNow > 0 && (
+            <>
+              {' · '}المتبقي حتى الآن{' '}
+              <span className="font-semibold tabular-nums text-danger-ink">{formatMoney(year.owedNow, 'LYD')}</span>
+            </>
+          )}
         </p>
+      </div>
+      {open && (
+        <ol id={panelId} className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4 sm:p-4 md:grid-cols-6">
+          {year.months.map((m) => (
+            <li key={m.month} className="flex">
+              <RentAccountMonthCell m={m} onCollect={onCollect} />
+            </li>
+          ))}
+        </ol>
       )}
-
-      <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
-        <div className="rounded-xl border border-pastel-greenInk/20 bg-pastel-green p-4 min-h-24">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle2 className="h-4 w-4 text-success-ink" />
-            <h4 className="font-bold text-success-ink text-sm">
-              الشهور المدفوعة ({paidMonths.length})
-            </h4>
-          </div>
-          {paidMonths.length === 0 ? (
-            <p className="text-sm text-ink-mute">لا شهور مسدّدة بعد</p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {paidMonths.map((m) => (
-                <MonthChip key={m.month} m={m} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-xl border border-pastel-redInk/20 bg-pastel-red p-4 min-h-24">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertCircle className="h-4 w-4 text-danger-ink" />
-            <h4 className="font-bold text-danger-ink text-sm">
-              مستحق ({unpaidMonths.length})
-            </h4>
-          </div>
-          {unpaidMonths.length === 0 ? (
-            <p className="text-sm text-success-ink font-medium">لا مستحقات</p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {unpaidMonths.map((m) => (
-                <MonthChip key={m.month} m={m} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="border-t border-border bg-canvas-sunken/40 px-4 pb-4 pt-3 sm:px-5">
-        <p className="text-[11px] font-medium text-ink-mute mb-2">
-          نظرة سريعة — {year}
-          {monthlyRent > 0 && (
-            <span className="ms-1">
-              · شهرياً {formatMoney(monthlyRent, 'LYD')}
-            </span>
-          )}
-          {visibleMonths.length > 0 && (
-            <span className="ms-1">· {visibleMonths.length} شهر مطالَب</span>
-          )}
-        </p>
-        {visibleMonths.length === 0 ? (
-          <p className="text-sm text-ink-mute py-2">
-            لا أشهر مطالَبة في هذه السنة
-          </p>
-        ) : (
-          <div
-            className={cn(
-              'grid gap-1.5',
-              visibleMonths.length <= 4
-                ? 'grid-cols-4'
-                : visibleMonths.length <= 6
-                  ? 'grid-cols-3 sm:grid-cols-6'
-                  : 'grid-cols-4 sm:grid-cols-6 md:grid-cols-12',
-            )}
-          >
-            {visibleMonths.map((m) => (
-              <div
-                key={m.month}
-                title={`${formatMonthLabelAr(m.month)} — ${RENT_MONTH_STATUS_LABEL[m.status]}`}
-                className={cn(
-                  'rounded-lg px-1 py-2 text-center',
-                  RENT_MONTH_CELL_FRAME[m.status],
-                )}
-              >
-                <RentMonthLabel
-                  monthKey={m.month}
-                  status={m.status}
-                  statusLabel={RENT_MONTH_STATUS_LABEL[m.status]}
-                  journalNumber={m.status === 'paid' ? m.journal_number : null}
-                  partialProgress={monthPartialHint(m)}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+    </section>
   );
 }
 
@@ -201,6 +92,7 @@ export function TenantRentCalendarPanel({
   journalsLoading = false,
   contractStartYear,
   claimStart,
+  onCollect,
   className,
 }: {
   tenantId: string;
@@ -210,147 +102,118 @@ export function TenantRentCalendarPanel({
   journalsLoading?: boolean;
   contractStartYear?: number | null;
   claimStart?: string | null;
+  /** open rent collection with this month selected */
+  onCollect?: (month: string) => void;
   className?: string;
 }) {
   const { canWrite } = usePermission();
-  const { data: charges = [], isLoading } = useTenantChargesForTenant(tenantId);
-  const { data: exemptRows = [] } = useTenantRentExemptMonths(tenantId);
-  const { data: priceBandRows = [] } = useTenantRentPriceBands(tenantId);
+  const resolvedClaimStart = claimStart ?? null;
+  const { account, charges, years, manualExemptMonths, priceBands, pricing, loading } = useTenantRentAccount({
+    tenantId,
+    contactRent: monthlyRent,
+    claimStart: resolvedClaimStart,
+    contractStartYear,
+  });
   const [statusOpen, setStatusOpen] = useState(false);
   const [exemptOpen, setExemptOpen] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
 
-  const manualExemptMonths = useMemo(
-    () => exemptRows.map((r) => r.month_key),
-    [exemptRows],
-  );
+  const price = useMemo(() => describeRentPrice(currentMonthKey(), pricing), [pricing]);
+  const kindsShown = useMemo(() => {
+    const present = new Set(account.years.flatMap((y) => y.months.map((m) => m.kind)));
+    return LEGEND_ORDER.filter((k) => present.has(k));
+  }, [account.years]);
+  const dialogYears = years.length > 0 ? years : [currentYear()];
 
-  const priceBands = useMemo(
-    () =>
-      priceBandRows.map((b) => ({
-        from_month: b.from_month,
-        to_month: b.to_month,
-        amount: Number(b.amount),
-        notes: b.notes,
-      })),
-    [priceBandRows],
-  );
-
-  const amountForMonth = useMemo(
-    () => (mk: string) => resolveAmountFromBands(priceBands, mk, monthlyRent),
-    [priceBands, monthlyRent],
-  );
-
-  const resolvedClaimStart = claimStart ?? null;
-
-  const exemptOptions = useMemo(
-    () => ({
-      claimStart: resolvedClaimStart,
-      manualExemptMonths,
-    }),
-    [resolvedClaimStart, manualExemptMonths],
-  );
-
-  const years = useMemo(
-    () => deriveTenantRentYears(charges, contractStartYear),
-    [charges, contractStartYear],
-  );
-
-  const calendarsByYear = useMemo(() => {
-    return years.map((year) =>
-      buildMergedTenantRentCalendar({
-        tenantId,
-        year,
-        monthlyRent,
-        charges,
-        exemptOptions,
-        amountForMonth,
-      }),
-    );
-  }, [years, tenantId, monthlyRent, charges, exemptOptions, amountForMonth]);
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <Card className={cn('p-8 flex justify-center', className)}>
-        <Loader2 className="h-7 w-7 animate-spin text-ink-soft" />
+      <Card className={cn('flex justify-center p-8', className)}>
+        <Loader2 className="h-7 w-7 animate-spin text-ink-soft" aria-label="جارٍ تحميل تقويم الإيجار" />
       </Card>
     );
   }
 
+  const priceLine =
+    price.amount > 0
+      ? `الإيجار الحالي ${formatMoney(price.amount, 'LYD')} شهرياً${
+          price.source === 'bands'
+            ? ` · جدول أسعار (${priceBands.length} ${priceBands.length === 1 ? 'فترة' : 'فترات'})`
+            : price.source === 'lease'
+              ? ' · من عقد الإيجار'
+              : ''
+        }`
+      : 'لم يُحدَّد إيجار شهري — أضفه من «أسعار الشهور» أو من ملف المستأجر';
+
   return (
     <>
-      <Card
-        className={cn(
-          'overflow-hidden border-border/80 shadow-xs',
-          className,
-        )}
-      >
-        <div className="bg-foreground px-4 py-4 sm:px-5 text-background">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
-                <CalendarDays className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold sm:text-lg">تقويم الإيجار</h2>
-                <p className="text-[12px] text-white/85 mt-0.5">
-                  {tenantName}
-                  {priceBands.length > 0
-                    ? ` · ${priceBands.length} نطاق سعري`
-                    : monthlyRent > 0
-                      ? ` · ${formatMoney(monthlyRent, 'LYD')} شهرياً`
-                      : ''}
-                </p>
-              </div>
-            </div>
-            {canWrite && (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="h-9 gap-1.5 bg-white/15 text-white border-white/30 hover:bg-white/25 touch-manipulation"
-                  onClick={() => setPriceOpen(true)}
-                >
-                  <Banknote className="h-4 w-4 shrink-0" />
-                  أسعار الشهور
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="h-9 gap-1.5 bg-white/15 text-white border-white/30 hover:bg-white/25 touch-manipulation"
-                  onClick={() => setExemptOpen(true)}
-                >
-                  <CalendarOff className="h-4 w-4 shrink-0" />
-                  بدون مطالبة
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="h-9 gap-1.5 bg-white text-foreground border-0 hover:bg-white/90 touch-manipulation font-semibold"
-                  onClick={() => setStatusOpen(true)}
-                >
-                  <Link2 className="h-4 w-4 shrink-0" />
-                  ربط شهر / شهرين
-                </Button>
-              </div>
-            )}
+      <Card className={cn('overflow-hidden', className)}>
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3.5 sm:px-5">
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-semibold text-foreground">تقويم الإيجار</h2>
+            <p className="mt-0.5 text-[12.5px] text-ink-mute">{priceLine}</p>
           </div>
+          {canWrite && (
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" className="h-9 gap-1.5 touch-manipulation" onClick={() => setPriceOpen(true)}>
+                <Banknote className="h-4 w-4" aria-hidden />
+                أسعار الشهور
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-9 gap-1.5 touch-manipulation" onClick={() => setExemptOpen(true)}>
+                <CalendarOff className="h-4 w-4" aria-hidden />
+                أشهر بلا مطالبة
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-9 gap-1.5 touch-manipulation" onClick={() => setStatusOpen(true)}>
+                <Link2 className="h-4 w-4" aria-hidden />
+                ربط إيصال بشهر
+              </Button>
+            </div>
+          )}
         </div>
 
-        {calendarsByYear.length === 0 ? (
-          <p className="text-sm text-ink-mute py-8 text-center px-4">
-            لا توجد سنوات — حدّد الإيجار الشهري أو أنشئ عقداً
-          </p>
+        {kindsShown.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-border px-4 py-2.5 text-[12px] text-ink-mute sm:px-5">
+            {kindsShown.map((k) => (
+              <span key={k} className="inline-flex items-center gap-1.5">
+                <span className={cn('h-3 w-3 rounded-[4px] border', RENT_ACCOUNT_KIND[k].swatch)} aria-hidden />
+                {RENT_ACCOUNT_KIND[k].label}
+              </span>
+            ))}
+            {onCollect && account.owingMonths.length > 0 && (
+              <span className="basis-full text-[12px] sm:ms-auto sm:basis-auto">اضغط شهراً عليه متبقٍ لتحصيله.</span>
+            )}
+          </div>
+        )}
+
+        {account.unchargedMonths.length > 0 && (
+          <div className="flex flex-col gap-2 border-b border-border bg-info-soft/50 px-4 py-3 text-[12.5px] text-info-ink sm:flex-row sm:items-start sm:justify-between sm:px-5">
+            <p className="flex items-start gap-2">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <span>
+                {account.unchargedMonths.length === 1
+                  ? 'شهر بدأ دون مطالبة مسجّلة: '
+                  : `أشهر بدأت دون مطالبة مسجّلة (${account.unchargedMonths.length}): `}
+                {formatMonthRangesAr(account.unchargedMonths)}. تُحسب مستحقة بسعرها (
+                <span className="tabular-nums">{formatMoney(account.owedUncharged, 'LYD')}</span>) وتُنشأ مطالبتها عند
+                التحصيل. إن لم تكن مستحقة فاجعلها «بلا مطالبة».
+              </span>
+            </p>
+            {canWrite && (
+              <Button type="button" size="sm" variant="outline" className="h-8 shrink-0 bg-card text-xs" onClick={() => setExemptOpen(true)}>
+                مراجعة الأشهر
+              </Button>
+            )}
+          </div>
+        )}
+
+        {account.years.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-ink-mute">لا توجد سنوات — حدّد الإيجار الشهري أو أنشئ عقداً</p>
         ) : (
-          calendarsByYear.map((cal) => (
-            <YearSection
-              key={cal.year}
-              year={cal.year}
-              months={cal.months}
-              monthlyRent={monthlyRent}
+          account.years.map((y) => (
+            <YearBlock
+              key={y.year}
+              year={y}
+              defaultOpen={y.year >= currentYear() || y.owedNow > 0 || y.counts.partial > 0}
+              onCollect={onCollect}
             />
           ))
         )}
@@ -362,7 +225,7 @@ export function TenantRentCalendarPanel({
             tenantId={tenantId}
             tenantName={tenantName}
             monthlyRent={monthlyRent}
-            years={years.length > 0 ? years : [currentYear()]}
+            years={dialogYears}
             open={priceOpen}
             onOpenChange={setPriceOpen}
           />
@@ -370,7 +233,7 @@ export function TenantRentCalendarPanel({
             tenantId={tenantId}
             tenantName={tenantName}
             monthlyRent={monthlyRent}
-            years={years.length > 0 ? years : [currentYear()]}
+            years={dialogYears}
             charges={charges}
             claimStart={resolvedClaimStart}
             manualExemptMonths={manualExemptMonths}
@@ -381,7 +244,7 @@ export function TenantRentCalendarPanel({
             tenantId={tenantId}
             tenantName={tenantName}
             monthlyRent={monthlyRent}
-            years={years.length > 0 ? years : [currentYear()]}
+            years={dialogYears}
             charges={charges}
             journalEntries={journalEntries}
             journalsLoading={journalsLoading}

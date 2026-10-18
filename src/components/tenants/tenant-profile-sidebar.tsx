@@ -1,156 +1,123 @@
 'use client';
 
-import { Building2, Phone, Hash, Layers, Pencil } from 'lucide-react';
+import Link from 'next/link';
+import { Coins, FileText, Pencil } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatMoney } from '@/lib/utils';
-import type { ContactRow } from '@/lib/db/types';
-import type { TenantRentSummary } from '@/lib/db/queries';
-import { TenantCurrentMonthHeroBadge } from '@/components/tenants/tenant-current-month-banner';
-import {
-  getTenantCurrentMonthPresentation,
-} from '@/lib/tenant-current-month';
-import { cn } from '@/lib/utils';
-import { ContactRentLinks } from '@/components/contacts/contact-rent-links';
 import { TenantPortalLinkCard } from '@/components/tenants/tenant-portal-link-card';
+import { useTenantLeaseContracts } from '@/lib/db/mall-queries';
+import { mallTabHref } from '@/lib/mall/routes';
+import { formatDate, formatMoney } from '@/lib/utils';
+import type { ContactRow } from '@/lib/db/types';
 
+function Row({ label, children, ltr }: { label: string; children: React.ReactNode; ltr?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 py-2">
+      <dt className="shrink-0 text-[13px] text-ink-mute">{label}</dt>
+      <dd className="min-w-0 text-end text-[13.5px] font-medium text-foreground" dir={ltr ? 'ltr' : undefined}>
+        {children}
+      </dd>
+    </div>
+  );
+}
+
+/** Who the tenant is and what binds them: contact details, the lease, and the self-service portal. */
 export function TenantProfileSidebar({
   contact,
-  rent,
+  claimStart,
   onEdit,
-  onRecordPayment,
 }: {
   contact: ContactRow;
-  rent: TenantRentSummary;
+  claimStart: string | null;
   onEdit: () => void;
-  onRecordPayment?: () => void;
 }) {
-  const monthlyRent = Number(contact.monthly_rent) || 0;
-  const monthPres = getTenantCurrentMonthPresentation(rent, monthlyRent);
+  const { data: contracts = [], isLoading } = useTenantLeaseContracts(contact.id);
+  const active = contracts.find((c) => c.status === 'ACTIVE');
+  const shop = [contact.shop_number && `محل ${contact.shop_number}`, contact.floor && `الطابق ${contact.floor}`]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <div className="flex flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
-      <Card className="overflow-hidden border-border/60 shadow-xs">
-        <div className="bg-foreground px-4 py-5 text-background">
-          <div className="flex items-start gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
-              <Building2 className="h-6 w-6" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <Badge className="bg-white/20 text-white border-white/25 hover:bg-white/25 mb-2">
-                مستأجر
-              </Badge>
-              <h2 className="font-bold text-base leading-tight truncate">
-                {contact.name}
-              </h2>
-              {(contact.shop_number || contact.floor) && (
-                <p className="text-[12px] text-white/85 mt-1">
-                  {contact.shop_number && `محل ${contact.shop_number}`}
-                  {contact.shop_number && contact.floor && ' · '}
-                  {contact.floor && `طابق ${contact.floor}`}
-                </p>
-              )}
-            </div>
-          </div>
-          <TenantCurrentMonthHeroBadge rent={rent} monthlyRent={monthlyRent} />
+      <Card className="p-4">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-[14px] font-semibold text-foreground">بيانات المستأجر</h2>
+          <Button type="button" variant="ghost" size="sm" className="h-8 gap-1.5 px-2 text-[13px] touch-manipulation" onClick={onEdit}>
+            <Pencil className="h-3.5 w-3.5" aria-hidden />
+            تعديل
+          </Button>
         </div>
-
-        <dl className="px-4 py-4 space-y-3 text-sm">
+        <dl className="mt-1 divide-y divide-border">
+          {shop && <Row label="المحل">{shop}</Row>}
           {contact.phone && (
-            <div className="flex items-center justify-between gap-2">
-              <dt className="text-muted-foreground flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5" />
-                الهاتف
-              </dt>
-              <dd className="font-medium tabular-nums" dir="ltr">
+            <Row label="الهاتف" ltr>
+              <a href={`tel:${contact.phone}`} className="tabular-nums underline-offset-2 hover:underline">
                 {contact.phone}
-              </dd>
-            </div>
+              </a>
+              {contact.phone2 && <span className="block text-[12.5px] font-normal text-ink-mute tabular-nums">{contact.phone2}</span>}
+            </Row>
           )}
-          {contact.code && (
-            <div className="flex items-center justify-between gap-2">
-              <dt className="text-muted-foreground flex items-center gap-1.5">
-                <Hash className="h-3.5 w-3.5" />
-                الرمز
-              </dt>
-              <dd className="font-mono text-xs">{contact.code}</dd>
-            </div>
+          {contact.code && <Row label="الرمز">{contact.code}</Row>}
+          {claimStart && <Row label="بداية المطالبة">{formatDate(claimStart)}</Row>}
+          {contact.email && (
+            <Row label="البريد" ltr>
+              <span className="break-all">{contact.email}</span>
+            </Row>
           )}
-          {monthlyRent > 0 && (
-            <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
-              <dt className="text-muted-foreground flex items-center gap-1.5">
-                <Layers className="h-3.5 w-3.5" />
-                إيجار شهري
-              </dt>
-              <dd className="font-bold text-foreground tabular-nums">
-                {formatMoney(monthlyRent, 'LYD')}
-              </dd>
-            </div>
-          )}
-          {monthPres.amount > 0 && (
-            <>
-              <div className="flex items-center justify-between gap-2">
-                <dt className="text-muted-foreground">مستحق {monthPres.monthName}</dt>
-                <dd className="font-medium tabular-nums">
-                  {formatMoney(monthPres.amount, 'LYD')}
-                </dd>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <dt className="text-muted-foreground">المسدّد هذا الشهر</dt>
-                <dd
-                  className={cn(
-                    'font-semibold tabular-nums',
-                    monthPres.paid > 0 && 'text-success-ink',
-                  )}
-                >
-                  {formatMoney(monthPres.paid, 'LYD')}
-                </dd>
-              </div>
-              {monthPres.remaining > 0 && (
-                <div className="flex items-center justify-between gap-2">
-                  <dt className="text-muted-foreground">المتبقي</dt>
-                  <dd className="font-semibold tabular-nums text-warning-ink">
-                    {formatMoney(monthPres.remaining, 'LYD')}
-                  </dd>
-                </div>
-              )}
-            </>
-          )}
-          {Number(rent.total_rent_paid) > 0 && (
-            <div className="flex items-center justify-between gap-2">
-              <dt className="text-muted-foreground">إجمالي مسدّد</dt>
-              <dd className="font-medium tabular-nums text-success-ink">
-                {formatMoney(Number(rent.total_rent_paid), 'LYD', { compact: true })}
-              </dd>
-            </div>
-          )}
+          {contact.id_number && <Row label="رقم الهوية">{contact.id_number}</Row>}
         </dl>
+        {!contact.phone && !contact.shop_number && (
+          <p className="mt-2 text-[12.5px] text-ink-mute">بيانات ناقصة — أكملها من «تعديل».</p>
+        )}
+        {contact.notes && (
+          <p className="mt-3 whitespace-pre-line rounded-lg bg-canvas-sunken/70 px-3 py-2 text-[12.5px] leading-relaxed text-ink-mute">
+            {contact.notes}
+          </p>
+        )}
+      </Card>
 
-        <div className="px-4 pb-4 flex flex-col gap-2">
-          {onRecordPayment && (
-            <Button className="w-full h-10 touch-manipulation" onClick={onRecordPayment}>
-              تسجيل دفع إيجار
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            className="w-full h-10 gap-1.5 touch-manipulation"
-            onClick={onEdit}
-          >
-            <Pencil className="h-4 w-4" />
-            تعديل البيانات
+      <Card className="p-4">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-[14px] font-semibold text-foreground">عقد الإيجار</h2>
+          {active && <Badge variant="success">نشط</Badge>}
+        </div>
+        {isLoading ? (
+          <p className="mt-3 text-[13px] text-ink-mute">جارٍ تحميل العقود…</p>
+        ) : active ? (
+          <dl className="mt-1 divide-y divide-border">
+            <Row label="الوحدة">{active.unit?.unit_number ?? contact.shop_number ?? '—'}</Row>
+            <Row label="المدة">
+              <span className="tabular-nums">
+                {formatDate(active.start_date)} — {formatDate(active.end_date)}
+              </span>
+            </Row>
+            <Row label="إيجار العقد">
+              <span className="tabular-nums">{formatMoney(Number(active.monthly_rent), 'LYD')}</span>
+            </Row>
+          </dl>
+        ) : (
+          <p className="mt-2 text-[13px] leading-relaxed text-ink-mute">
+            لا يوجد عقد نشط مربوط بهذا المستأجر؛ يُحسب الإيجار من جدول الأسعار أو من ملفه.
+          </p>
+        )}
+        <div className="mt-3 flex gap-2">
+          <Button size="sm" variant="outline" className="h-9 flex-1 gap-1.5 touch-manipulation" asChild>
+            <Link href={mallTabHref('contracts')}>
+              <FileText className="h-4 w-4" aria-hidden />
+              العقود
+            </Link>
+          </Button>
+          <Button size="sm" variant="outline" className="h-9 flex-1 gap-1.5 touch-manipulation" asChild>
+            <Link href={mallTabHref('charges')}>
+              <Coins className="h-4 w-4" aria-hidden />
+              المطالبات
+            </Link>
           </Button>
         </div>
       </Card>
 
-      <ContactRentLinks contact={contact} onRecordPayment={onRecordPayment} />
-
-      <TenantPortalLinkCard
-        contactId={contact.id}
-        contactName={contact.name}
-        phone={contact.phone}
-      />
+      <TenantPortalLinkCard contactId={contact.id} contactName={contact.name} phone={contact.phone} />
     </div>
   );
 }

@@ -64,8 +64,17 @@ export function RentRevenueMonthsBlock({
   maxMonths,
   claimStart = null,
 }: Props) {
-  const defaultYear = yearsProp?.[0] ?? currentYear();
+  const firstSelected = selected.length ? [...selected].sort()[0] : null;
+  const selectedYear = firstSelected ? Number(firstSelected.slice(0, 4)) : null;
+  const defaultYear = selectedYear ?? yearsProp?.[0] ?? currentYear();
   const [year, setYear] = useState(defaultYear);
+  // A selection made elsewhere (a month tapped in the calendar) shows its own year; adjusting state while
+  // rendering, as React recommends, follows the selection without fighting manual year changes.
+  const [followedYear, setFollowedYear] = useState(selectedYear);
+  if (selectedYear !== followedYear) {
+    setFollowedYear(selectedYear);
+    if (selectedYear != null && selectedYear !== year) setYear(selectedYear);
+  }
   const { data: exemptRows = [] } = useTenantRentExemptMonths(tenantId);
   const { data: contactClaim } = useQuery({
     queryKey: ['tenant-claim-start', tenantId],
@@ -82,7 +91,11 @@ export function RentRevenueMonthsBlock({
     },
   });
   const resolvedClaimStart = claimStart ?? contactClaim ?? null;
-  const years = yearsProp ?? [currentYear(), currentYear() - 1];
+  const years = useMemo(() => {
+    const ys = new Set(yearsProp ?? [currentYear(), currentYear() - 1]);
+    ys.add(year);
+    return [...ys].sort((a, b) => b - a);
+  }, [yearsProp, year]);
 
   const calendarMonths: RentCalendarMonth[] = useMemo(
     () =>
@@ -151,7 +164,12 @@ export function RentRevenueMonthsBlock({
   const last = sorted[sorted.length - 1];
   const lastBasis = basis.find((b) => b.month === last);
   const owedBeforeLast = roundLyd(basis.filter((b) => b.month !== last).reduce((s, b) => s + b.remaining, 0));
-  const halfOfLast = lastBasis && lastBasis.remaining > 0 ? roundLyd(owedBeforeLast + lastBasis.remaining / 2) : null;
+  // Half a month is half the month's rent. Offered only while more than half is still owed; otherwise
+  // paying "half" would settle the month, which the full-amount button already does.
+  const halfOfLast =
+    lastBasis && lastBasis.remaining > lastBasis.amount / 2 + 0.0005
+      ? roundLyd(owedBeforeLast + lastBasis.amount / 2)
+      : null;
 
   return (
     <div className="space-y-3">

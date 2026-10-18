@@ -1,17 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo } from 'react';
 import { Loader2, Receipt, BookOpen, Banknote } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MobileTransactionList } from '@/components/data/mobile-transaction-list';
 import { TransactionsTable } from '@/components/data/transactions-table';
-import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 
-import { TenantCurrentMonthBanner } from '@/components/tenants/tenant-current-month-banner';
-import { TenantProfileStats } from '@/components/tenants/tenant-profile-stats';
+import { TenantRentOverview } from '@/components/tenants/tenant-rent-overview';
 import { TenantProfileSidebar } from '@/components/tenants/tenant-profile-sidebar';
 import { TenantRentCalendarPanel } from '@/components/tenants/tenant-rent-calendar-panel';
 import { TenantProfileCharges } from '@/components/tenants/tenant-profile-charges';
@@ -22,7 +18,9 @@ import type { JournalEntryRow } from '@/lib/db/journal-queries';
 import type { ContactRow } from '@/lib/db/types';
 import type { TenantRentSummary } from '@/lib/db/queries';
 import type { TransactionWithRelations } from '@/lib/db/types';
-import { cn, formatDate, formatMoney } from '@/lib/utils';
+
+const TAB_TRIGGER =
+  'shrink-0 gap-1.5 rounded-lg px-3 py-2 text-[13px] data-[state=active]:bg-card data-[state=active]:shadow-xs touch-manipulation sm:text-sm';
 
 export function TenantContactDetail({
   contact,
@@ -35,8 +33,7 @@ export function TenantContactDetail({
   jeLoading,
   rentPaymentsCount,
   onEdit,
-  onRecordPayment,
-  canRecordPayment,
+  onCollect,
 }: {
   contact: ContactRow;
   rent: TenantRentSummary;
@@ -48,12 +45,15 @@ export function TenantContactDetail({
   jeLoading: boolean;
   rentPaymentsCount: number;
   onEdit: () => void;
-  onRecordPayment: () => void;
-  canRecordPayment: boolean;
+  /** open rent collection, optionally with months selected; absent when the user may not collect */
+  onCollect?: (months?: string[]) => void;
 }) {
-  const totalsRevenue = transactions
-    .filter((t) => t.kind === 'REVENUE')
-    .reduce((s, t) => s + Number(t.amount || 0), 0);
+  const claimStart = rent.rent_claim_start ?? contact.contract_start ?? null;
+  const contractStartYear = contact.contract_start
+    ? new Date(contact.contract_start).getFullYear()
+    : rent.rent_claim_start
+      ? new Date(rent.rent_claim_start).getFullYear()
+      : null;
 
   const { activeJournalEntries, voidedJournalEntries } = useMemo(() => {
     const voided: JournalEntryRow[] = [];
@@ -67,53 +67,53 @@ export function TenantContactDetail({
 
   return (
     <>
-      <TenantCurrentMonthBanner rent={rent} monthlyRent={monthlyRent} />
-
-      <TenantProfileStats
-        rent={rent}
+      <TenantRentOverview
+        contact={contact}
         monthlyRent={monthlyRent}
-        totalsRevenue={totalsRevenue}
-        transactionCount={transactions.length}
-        journalCount={journalEntries.length}
+        claimStart={claimStart}
+        contractStartYear={contractStartYear}
+        transactions={transactions}
+        journalEntries={journalEntries}
+        onCollect={onCollect}
       />
 
       <div className="grid gap-5 lg:grid-cols-12 lg:gap-6">
         <div className="lg:col-span-8 min-w-0 order-1">
-          <Card className="overflow-hidden border-border/80 shadow-xs min-w-0">
+          <Card className="min-w-0 overflow-hidden">
             <Tabs defaultValue="rent-calendar" dir="rtl">
               <div className="border-b border-border/60 bg-canvas-sunken/40 px-3 pt-3 sm:px-4">
                 <TabsList className="mb-0 flex h-auto w-full justify-start gap-1 overflow-x-auto p-1 no-scrollbar flex-nowrap bg-transparent">
                   <TabsTrigger
                     value="rent-calendar"
-                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-xs touch-manipulation sm:text-sm"
+                    className={TAB_TRIGGER}
                   >
                     <Banknote className="h-4 w-4 shrink-0" />
                     تقويم الإيجار
                   </TabsTrigger>
                   <TabsTrigger
                     value="charges"
-                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-xs touch-manipulation sm:text-sm"
+                    className={TAB_TRIGGER}
                   >
                     <Receipt className="h-4 w-4 shrink-0" />
                     المطالبات
                   </TabsTrigger>
                   <TabsTrigger
                     value="rent"
-                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-xs touch-manipulation sm:text-sm"
+                    className={TAB_TRIGGER}
                   >
                     <Receipt className="h-4 w-4 shrink-0" />
                     مدفوعات ({rentPaymentsCount})
                   </TabsTrigger>
                   <TabsTrigger
                     value="transactions"
-                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-xs touch-manipulation sm:text-sm"
+                    className={TAB_TRIGGER}
                   >
                     <Receipt className="h-4 w-4 shrink-0" />
                     معاملات ({transactions.length})
                   </TabsTrigger>
                   <TabsTrigger
                     value="journals"
-                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-xs touch-manipulation sm:text-sm"
+                    className={TAB_TRIGGER}
                   >
                     <BookOpen className="h-4 w-4 shrink-0" />
                     قيود ({journalEntries.length})
@@ -128,15 +128,10 @@ export function TenantContactDetail({
                   monthlyRent={monthlyRent}
                   journalEntries={journalEntries}
                   journalsLoading={jeLoading}
-                  contractStartYear={
-                    contact.contract_start
-                      ? new Date(contact.contract_start).getFullYear()
-                      : rent.rent_claim_start
-                        ? new Date(rent.rent_claim_start).getFullYear()
-                        : null
-                  }
-                  claimStart={rent.rent_claim_start ?? contact.contract_start ?? null}
-                  className="border-0 shadow-none rounded-none"
+                  contractStartYear={contractStartYear}
+                  claimStart={claimStart}
+                  onCollect={onCollect ? (month) => onCollect([month]) : undefined}
+                  className="rounded-none border-0 shadow-none"
                 />
               </TabsContent>
 
@@ -156,7 +151,6 @@ export function TenantContactDetail({
                   <MobileTransactionList rows={transactions} />
                 </div>
               </TabsContent>
-
 
               <TabsContent value="journals" className="mt-0 p-4 sm:p-5">
                 {jeLoading ? (
@@ -194,12 +188,7 @@ export function TenantContactDetail({
         </div>
 
         <div className="lg:col-span-4 order-2">
-          <TenantProfileSidebar
-            contact={contact}
-            rent={rent}
-            onEdit={onEdit}
-            onRecordPayment={canRecordPayment ? onRecordPayment : undefined}
-          />
+          <TenantProfileSidebar contact={contact} claimStart={claimStart} onEdit={onEdit} />
         </div>
       </div>
     </>

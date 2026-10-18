@@ -13,6 +13,7 @@ import {
   Edit2,
   Plus,
   AlertTriangle,
+  Banknote,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import {
@@ -83,6 +84,7 @@ export default function ContactDetailPage() {
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isPayOpen, setIsPayOpen] = useState(false);
+  const [payMonths, setPayMonths] = useState<string[] | undefined>(undefined);
   const [formData, setFormData] = useState<ContactFormState>(defaultContactFormState());
   const role = useMemo(() => extractContactBusinessRole(contact), [contact]);
 
@@ -119,6 +121,11 @@ export default function ContactDetailPage() {
       .reduce((s, t) => s + Number(t.amount || 0), 0);
     return { revenue, expense, net: revenue - expense };
   }, [postedTransactions]);
+
+  function openCollect(months?: string[]) {
+    setPayMonths(months);
+    setIsPayOpen(true);
+  }
 
   function openEdit() {
     if (!contact) return;
@@ -184,13 +191,14 @@ export default function ContactDetailPage() {
   const Icon = KIND_ICON[contact.kind] ?? User;
   const isTenant = contact.kind === 'TENANT';
   const monthlyRent = Number(contact.monthly_rent) || 0;
-  const canRecordRent = isTenant && !!rentSummary;
   const transactionPermission =
     suggestedTxKindForContact(contact.kind) === 'REVENUE' ? 'revenue.create' : 'expense.create';
   const mayCreateTransaction = canCreateContactTransaction(
     contact.is_active,
     can(transactionPermission),
   );
+  // collecting rent posts revenue: same rule as any new transaction (active file, revenue permission)
+  const canRecordRent = isTenant && !!rentSummary && mayCreateTransaction;
   const contactRecord = contact;
   const pdfFileName = `ملف-${contactRecord.name}-${new Date().toISOString().slice(0, 10)}`;
 
@@ -230,6 +238,10 @@ export default function ContactDetailPage() {
             </Button>
             <div className="hidden flex-wrap items-center gap-2 sm:flex">
               <TajMallPdfToolbar fileName={pdfFileName} render={renderContactPdf} />
+              <Button size="sm" variant="outline" onClick={openEdit}>
+                <Edit2 className="h-4 w-4 me-1" />
+                تعديل
+              </Button>
               {!isTenant && mayCreateTransaction ? (
                 <Button
                   size="sm"
@@ -246,15 +258,11 @@ export default function ContactDetailPage() {
                 </Button>
               ) : null}
               {canRecordRent && (
-                <Button size="sm" onClick={() => setIsPayOpen(true)}>
-                  <Plus className="h-4 w-4 me-1" />
-                  تسجيل دفع
+                <Button size="sm" onClick={() => openCollect()}>
+                  <Banknote className="h-4 w-4 me-1" />
+                  تحصيل إيجار
                 </Button>
               )}
-              <Button size="sm" variant="outline" onClick={openEdit}>
-                <Edit2 className="h-4 w-4 me-1" />
-                تعديل
-              </Button>
             </div>
           </div>
         }
@@ -286,8 +294,7 @@ export default function ContactDetailPage() {
             jeLoading={jeLoading}
             rentPaymentsCount={rentPaymentsCount}
             onEdit={openEdit}
-            onRecordPayment={() => setIsPayOpen(true)}
-            canRecordPayment={canRecordRent}
+            onCollect={canRecordRent ? openCollect : undefined}
           />
         ) : isLandlord ? (
           <LandlordProfilePanel
@@ -345,6 +352,7 @@ export default function ContactDetailPage() {
           tenant={rentSummary}
           open={isPayOpen}
           onOpenChange={setIsPayOpen}
+          initialMonths={payMonths}
         />
       )}
 
@@ -367,21 +375,18 @@ export default function ContactDetailPage() {
           ) : null}
           {canRecordRent && (
             <Button
-              className="h-11 flex-1 gap-1.5 touch-manipulation"
-              onClick={() => setIsPayOpen(true)}
+              className="h-11 flex-2 gap-1.5 touch-manipulation"
+              onClick={() => openCollect()}
             >
-              <Plus className="h-4 w-4" />
-              دفع
+              <Banknote className="h-4 w-4" />
+              تحصيل إيجار
             </Button>
           )}
           <TajMallPdfToolbar
             fileName={pdfFileName}
             render={renderContactPdf}
             showDownload={false}
-            className={cn(
-              'min-w-0 flex-1 [&>button]:h-11 [&>button]:w-full [&>button]:flex-1 [&>button]:px-2 [&>button]:text-[13px]',
-              !canRecordRent && isTenant && 'flex-2',
-            )}
+            className="min-w-0 flex-1 [&>button]:h-11 [&>button]:w-full [&>button]:flex-1 [&>button]:px-2 [&>button]:text-[13px]"
           />
           <Button
             variant="outline"

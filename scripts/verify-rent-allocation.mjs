@@ -109,6 +109,140 @@ test('three-decimal amounts stay exact', () => {
   assert.ok(a.lines.every((l) => l.status === 'paid'));
 });
 
+// ── 1b. Tenant account (profile summary and calendar) ──────────────────────
+const { buildTenantRentAccount, formatMonthRangesAr, monthsCountAr, describeRentPrice, unlinkedRentReceipts } = await import(
+  '../src/lib/tenant-rent-account.ts'
+);
+const cal = (year, cells = {}) => ({
+  year,
+  tenant_id: 't',
+  monthly_rent: 0,
+  contract_id: null,
+  months: Array.from({ length: 12 }, (_, i) => {
+    const month = `${year}-${String(i + 1).padStart(2, '0')}`;
+    return { month, status: 'no_charge', amount: 0, paid: 0, charge_id: null, description: null, ...(cells[month] ?? {}) };
+  }),
+});
+const charged = (amount, paid, extra = {}) => ({
+  status: paid >= amount ? 'paid' : paid > 0 ? 'partial' : 'unpaid',
+  amount,
+  paid,
+  charge_id: 'c',
+  ...extra,
+});
+const kindsOf = (acc) => Object.fromEntries(acc.years.flatMap((y) => y.months).map((m) => [m.month, m.kind]));
+
+test('account: months before the claim start are excluded, started months without a charge are owed', () => {
+  const acc = buildTenantRentAccount({
+    calendars: [cal(2025, { '2025-01': { status: 'exempt' }, '2025-02': { status: 'exempt' } })],
+    pricing: P(1000),
+    claimStart: '2025-03-01',
+    now: '2025-05',
+  });
+  const k = kindsOf(acc);
+  assert.equal(k['2025-01'], 'exempt');
+  assert.equal(k['2025-03'], 'uncharged');
+  assert.equal(k['2025-05'], 'uncharged');
+  assert.equal(k['2025-06'], 'upcoming');
+  assert.equal(acc.owedNow, 3000);
+  assert.equal(acc.owedUncharged, 3000);
+  assert.deepEqual(acc.owingMonths, ['2025-03', '2025-04', '2025-05']);
+});
+
+test('account: half-paid current month is owed now, a half-paid future month is not', () => {
+  const acc = buildTenantRentAccount({
+    calendars: [cal(2026, { '2026-09': charged(2500, 2500), '2026-10': charged(2500, 1250), '2026-11': charged(2500, 1000) })],
+    pricing: P(2500),
+    claimStart: '2026-09-01',
+    now: '2026-10',
+  });
+  const k = kindsOf(acc);
+  assert.equal(k['2026-10'], 'partial');
+  assert.equal(k['2026-11'], 'partial');
+  assert.equal(acc.owedNow, 1250);
+  assert.equal(acc.currentMonth.remaining, 1250);
+  assert.equal(acc.paidThrough, '2026-09');
+});
+
+test('account: an untouched unpaid charge is valued at the price it will be collected at', () => {
+  const pricing = P(2000, [{ from_month: '2026-06', to_month: '2026-12', amount: 3200 }]);
+  const acc = buildTenantRentAccount({
+    calendars: [cal(2026, { '2026-06': charged(2850, 0) })],
+    pricing,
+    claimStart: '2026-06-01',
+    now: '2026-06',
+  });
+  assert.equal(acc.currentMonth.kind, 'due');
+  assert.equal(acc.currentMonth.amount, 3200);
+  assert.equal(acc.owedNow, 3200);
+  assert.equal(acc.owedOnCharges, 3200);
+});
+
+test('account: without a claim start, uncharged months count only from the first charged month', () => {
+  const acc = buildTenantRentAccount({
+    calendars: [cal(2026, { '2026-04': charged(1000, 1000) })],
+    pricing: P(1000),
+    claimStart: null,
+    now: '2026-06',
+  });
+  const k = kindsOf(acc);
+  assert.equal(k['2026-02'], 'exempt');
+  assert.equal(k['2026-04'], 'paid');
+  assert.equal(k['2026-05'], 'uncharged');
+  assert.equal(acc.owedNow, 2000);
+  assert.equal(acc.paidThrough, '2026-04');
+});
+
+test('account: manual exemptions are kept apart from the claim start; no price is never owed', () => {
+  const acc = buildTenantRentAccount({
+    calendars: [cal(2026, { '2026-02': { status: 'exempt' } })],
+    pricing: P(0),
+    claimStart: '2026-01-01',
+    manualExemptMonths: ['2026-02'],
+    now: '2026-03',
+  });
+  const m = acc.years[0].months;
+  assert.equal(m[1].exemptReason, 'manual');
+  assert.equal(m[0].kind, 'no_price');
+  assert.equal(acc.owedNow, 0);
+});
+
+test('account: totals across years, newest year first, prepaid months raise collected not owed', () => {
+  const acc = buildTenantRentAccount({
+    calendars: [cal(2025, { '2025-12': charged(1000, 500) }), cal(2026, { '2026-01': charged(1000, 1000), '2026-03': charged(1000, 1000) })],
+    pricing: P(1000),
+    claimStart: '2025-12-01',
+    now: '2026-02',
+  });
+  assert.deepEqual(acc.years.map((y) => y.year), [2026, 2025]);
+  assert.equal(acc.owedNow, 1500);
+  assert.deepEqual(acc.owingMonths, ['2025-12', '2026-02']);
+  assert.equal(acc.years[0].collected, 2000);
+  assert.equal(acc.paidThrough, null);
+});
+
+test('unlinked receipts: what each posted rent receipt has not yet linked to months', () => {
+  const rx = (id, amount, extra = {}) => ({ id, amount, status: 'POSTED', kind: 'REVENUE', category: { code: 'REV-RNT' }, ...extra });
+  const je = (id, source_id, status = 'POSTED') => ({ id, status, source_type: 'TRANSACTION', source_id });
+  const res = unlinkedRentReceipts({
+    receipts: [rx('t1', 2500), rx('t2', 3744), rx('t3', 1000, { status: 'VOID' }), rx('t4', 500, { category: { code: 'REV-OTH' } }), rx('t5', 900)],
+    journalEntries: [je('j1', 't1'), je('j2', 't2'), je('j3', 't3'), je('j4', 't4'), je('j5', 't5', 'REVERSED')],
+    charges: [
+      { type: 'RENT', rent_journal_links: [{ amount: 1250, journal_entry_id: 'j1' }, { amount: 1250, journal_entry_id: 'j1' }] },
+      { type: 'RENT', rent_journal_links: [{ amount: 3744, journal_entry_id: 'j2', journal: { status: 'REVERSED' } }] },
+    ],
+  });
+  assert.deepEqual(res, { total: 3744, count: 1 });
+});
+
+test('labels: month ranges, Arabic counts, price source and next change', () => {
+  assert.equal(formatMonthRangesAr(['2025-03', '2025-01', '2025-02', '2025-12', '2026-01', '2026-05']), 'يناير–مارس 2025، ديسمبر 2025–يناير 2026، مايو 2026');
+  assert.deepEqual([1, 2, 3, 10, 11, 24].map(monthsCountAr), ['شهر واحد', 'شهران', '3 أشهر', '10 أشهر', '11 شهراً', '24 شهراً']);
+  const pr = describeRentPrice('2026-10', P(1000, [{ from_month: '2026-01', to_month: '2026-12', amount: 2500 }, { from_month: '2027-01', to_month: '2027-12', amount: 2750 }], 1800));
+  assert.deepEqual(pr, { amount: 2500, source: 'bands', nextChange: { month: '2027-01', amount: 2750 } });
+  assert.equal(describeRentPrice('2026-10', P(1000, [], 1800)).source, 'lease');
+});
+
 // ── 2. Against the database functions ───────────────────────────────────────
 const { createReplica, actAs } = await import('./lib/pglite-replica.mjs');
 const { db } = await createReplica();

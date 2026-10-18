@@ -40,6 +40,8 @@ type RecordRentPaymentDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  /** months to start with (e.g. the month tapped in the calendar); otherwise the oldest owing month */
+  initialMonths?: string[];
 };
 
 /** Default description: names the months, and says when the last one is only partly paid. */
@@ -59,10 +61,12 @@ export function RecordRentPaymentDialog({
   open,
   onOpenChange,
   onSuccess,
+  initialMonths,
 }: RecordRentPaymentDialogProps) {
   const { data: cashboxes = [] } = useCashboxes();
   const recordPayment = useRecordRentPayment();
-  const chargesQuery = useTenantChargesForTenant(tenant?.id ?? '');
+  const tenantId = tenant?.id ?? '';
+  const chargesQuery = useTenantChargesForTenant(tenantId);
   const charges = useMemo(() => chargesQuery.data ?? [], [chargesQuery.data]);
 
   const [amountText, setAmountText] = useState('');
@@ -83,21 +87,23 @@ export function RecordRentPaymentDialog({
   });
   const ready = Boolean(tenant) && !pricingLoading && chargesQuery.isFetched;
   const thisMonthRent = resolveRentAmount(currentMonthKey(), pricing);
-  const selectedCashbox = cashboxes.find((c) => c.id === cashboxId);
+  // No choice yet means the preferred box (cash first); a bank box switches the method to transfer below.
+  const effectiveCashboxId = cashboxId || preferredCashboxId(cashboxes);
+  const selectedCashbox = cashboxes.find((c) => c.id === effectiveCashboxId);
   const lastPartial = plan.lines.length > 0 && plan.lines[plan.lines.length - 1].status === 'partial';
 
+  // Fresh form each time the dialog opens (not when cashboxes or the tenant row refetch mid-entry).
+  const initialKey = (initialMonths ?? []).join(',');
   useEffect(() => {
-    if (!open || !tenant) return;
-    setRentMonths([]);
+    if (!open || !tenantId) return;
+    setRentMonths(initialKey ? initialKey.split(',') : []);
     setAmountText('');
     setPaymentDate(todayISODate());
     setDescription('');
     setDescriptionEdited(false);
-    const preferred = preferredCashboxId(cashboxes);
-    const box = cashboxes.find((c) => c.id === preferred);
-    setCashboxId(preferred);
-    setMethod(box?.kind === 'BANK' ? 'TRANSFER' : 'CASH');
-  }, [open, tenant, cashboxes]);
+    setCashboxId('');
+    setMethod('CASH');
+  }, [open, tenantId, initialKey]);
 
   useEffect(() => {
     if (selectedCashbox?.kind === 'BANK') setMethod('TRANSFER');
@@ -120,7 +126,7 @@ export function RecordRentPaymentDialog({
         tenant_id: tenant.id,
         amount,
         payment_date: paymentDate,
-        cashbox_id: cashboxId || undefined,
+        cashbox_id: effectiveCashboxId || undefined,
         description: description.trim() || describePayment(rentMonths, lastPartial),
         rent_months: [...rentMonths].sort(),
         payment_method: method,
@@ -211,7 +217,7 @@ export function RecordRentPaymentDialog({
             {cashboxes.length > 0 && (
               <div>
                 <Label>الخزينة</Label>
-                <Select value={cashboxId} onValueChange={setCashboxId}>
+                <Select value={effectiveCashboxId} onValueChange={setCashboxId}>
                   <SelectTrigger className="mt-1.5 h-11">
                     <SelectValue placeholder="اختر الخزينة" />
                   </SelectTrigger>
