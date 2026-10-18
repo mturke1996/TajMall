@@ -29,6 +29,7 @@
     "verify:contacts": "npx tsx scripts/verify-contact-form-preserves-profile-data.mjs",
     "verify:audit-safe": "node scripts/verify-audit-is-read-only.mjs",
     "verify:lists": "npx tsx scripts/verify-list-utilities.mjs",
+    "verify:payroll-pdf": "npx tsx scripts/verify-payroll-pdf.mjs",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",

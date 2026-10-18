@@ -36,6 +36,13 @@ export function formatDate(d: Date | string | number, locale: 'ar' | 'en' = 'ar'
   }).format(date);
 }
 
+/** "2026-10" → "أكتوبر 2026" */
+export function formatMonthKeyAr(monthKey: string) {
+  const [y, m] = monthKey.split('-').map(Number);
+  if (!y || !m || m < 1 || m > 12) return monthKey;
+  return `${arabicMonths[m - 1]} ${y}`;
+}
+
 export function formatShortDate(d: Date | string | number) {
   const date = new Date(d);
   if (Number.isNaN(date.getTime())) return '—';

@@ -28,6 +28,7 @@ import {
   Stamp,
   LayoutGrid,
   ScrollText,
+  BadgeDollarSign,
   type LucideIcon,
 } from 'lucide-react';
 import type { PermissionKey } from '@/lib/constants';
@@ -90,6 +91,7 @@ export const NAV: NavSection[] = [
     items: [
       { href: '/mall?tab=people', labelAr: 'الدليل الشامل', label: 'Directory', icon: Users, permission: 'revenue.view' },
       { href: '/mall?tab=people&segment=EMPLOYEE', labelAr: 'الموظفون', label: 'Employees', icon: Briefcase, permission: 'expense.view' },
+      { href: '/payroll', labelAr: 'الرواتب', label: 'Payroll', icon: BadgeDollarSign, permission: 'expense.view' },
       { href: '/mall?tab=people&segment=VENDOR', labelAr: 'الموردون', label: 'Vendors', icon: Landmark, permission: 'expense.view' },
       { href: '/mall?tab=people&segment=CUSTOMER', labelAr: 'العملاء', label: 'Customers', icon: Store, permission: 'revenue.view' },
     ],
