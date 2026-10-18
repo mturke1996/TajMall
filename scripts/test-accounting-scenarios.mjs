@@ -360,6 +360,22 @@ let t2Partial;
   check('rent', 'قائمة أشهر الإيجار المستحقة بلا مطالبة متاحة للمراجعة', preview.ok && has(T1, '2026-04') && !has(T3, '2026-02'),
     preview.ok ? `rows=${preview.value.length}` : preview.error);
 
+  // A tenant with a second active lease is still listed once per missing month.
+  await actAs(db, 'superuser');
+  const secondLease = await attempt(async () => {
+    const unit = await val(`INSERT INTO mall_units (unit_number, floor, area_sqm) VALUES ('اختبار-عقد-ثان', '1', 10) RETURNING id`);
+    return val(`INSERT INTO lease_contracts
+      SELECT (jsonb_populate_record(NULL::lease_contracts, to_jsonb(lc) || jsonb_build_object('id', gen_random_uuid(), 'unit_id', $2::uuid))).*
+      FROM lease_contracts lc WHERE lc.tenant_id = $1 AND lc.status = 'ACTIVE' LIMIT 1 RETURNING id`, [T1, unit]);
+  });
+  await actAs(db, 'authenticated', OWNER);
+  const preview2 = await attempt(() => rows(`SELECT tenant_id, month_key, count(*) n FROM rent_missing_charges(to_char(CURRENT_DATE, 'YYYY-MM'))
+    GROUP BY tenant_id, month_key HAVING count(*) > 1`));
+  check('rent', 'مستأجر بعقدين نشطين يظهر مرة واحدة لكل شهر ناقص', secondLease.ok && preview2.ok && preview2.value.length === 0,
+    secondLease.error ?? preview2.error ?? `duplicates=${preview2.value?.length}`);
+  await actAs(db, 'superuser');
+  if (secondLease.ok) await db.query(`DELETE FROM lease_contracts WHERE id = $1`, [secondLease.value]);
+
   await actAs(db, 'service_role');
   const job = await attempt(() => val(`SELECT generate_monthly_charges('2026-05')`));
   check('rent', 'مهمة الخادم المجدولة (service_role) تستطيع توليد المطالبات الشهرية', job.ok, job.error ?? '');

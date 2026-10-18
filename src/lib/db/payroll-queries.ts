@@ -55,6 +55,8 @@ export type PayrollRunLine = {
   penalties: string;
   other_deductions: string;
   advance_repayment: string;
+  /** The approved adjustments this line counted. */
+  adjustment_ids: string[];
   gross: string;
   net: string;
   paid: string;
@@ -135,7 +137,11 @@ export const pqk = {
   runLines: (runId: string | null) => ["payroll", "run_lines", runId ?? "none"] as const,
   employeeLines: (employeeId: string) => ["payroll", "employee_lines", employeeId] as const,
   adjustments: (month: string | null) => ["payroll", "adjustments", month ?? "ALL"] as const,
+  employeeAdjustments: (employeeId: string) => ["payroll", "adjustments", "employee", employeeId] as const,
+  employeeStructures: (employeeId: string) => ["payroll", "structures", "employee", employeeId] as const,
+  employeeAdvances: (employeeId: string) => ["payroll", "advances", "employee", employeeId] as const,
   advances: ["payroll", "advances"] as const,
+  runDifferences: (runId: string | null) => ["payroll", "run_differences", runId ?? "none"] as const,
 };
 
 type PgError = { code?: string; message?: string };
@@ -256,6 +262,58 @@ export function usePayrollAdvances() {
         .order("issued_on", { ascending: false });
       if (error) throw error;
       return (data as PayrollAdvance[]) ?? [];
+    },
+  });
+}
+
+/** One employee's rows only — the pay file never downloads the whole company's payroll. */
+function useEmployeeRows<T>(table: string, employeeId: string | null, key: readonly unknown[], order: string) {
+  return useQuery<T[]>({
+    queryKey: key,
+    enabled: Boolean(employeeId),
+    retry: noRetryWhenMissing,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .eq("employee_id", employeeId!)
+        .order(order, { ascending: false });
+      if (error) throw error;
+      return (data as T[]) ?? [];
+    },
+  });
+}
+
+export function useEmployeeSalaryStructures(employeeId: string | null) {
+  return useEmployeeRows<PayrollSalaryStructure>(
+    "payroll_salary_structures", employeeId, pqk.employeeStructures(employeeId ?? "none"), "effective_from");
+}
+
+export function useEmployeeAdjustments(employeeId: string | null) {
+  return useEmployeeRows<PayrollAdjustment>(
+    "payroll_adjustments", employeeId, pqk.employeeAdjustments(employeeId ?? "none"), "created_at");
+}
+
+export function useEmployeeAdvances(employeeId: string | null) {
+  return useEmployeeRows<PayrollAdvance>(
+    "payroll_advances_status", employeeId, pqk.employeeAdvances(employeeId ?? "none"), "issued_on");
+}
+
+/**
+ * How many employees' lines no longer match the data (0 = current). The database refuses to approve
+ * or post a run that is not current; this lets the screen say so before anyone clicks.
+ */
+export function usePayrollRunDifferences(runId: string | null, enabled: boolean) {
+  return useQuery<number>({
+    queryKey: pqk.runDifferences(runId),
+    enabled: Boolean(runId) && enabled,
+    retry: noRetryWhenMissing,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc("payroll_run_differences", { p_run_id: runId });
+      if (error) throw error;
+      return Number(data) || 0;
     },
   });
 }

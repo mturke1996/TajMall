@@ -8,10 +8,12 @@
  *        # also closed months, accrued on today's date so closed periods stay untouched
  *
  * Everything runs in one transaction and is checked before COMMIT. Every entry it creates is a
- * CHARGE journal created in this run; the summary prints how to reverse them if needed.
+ * CHARGE journal created in this run; it saves their list and an exact undo script in ~/Fluxen-Backups.
  */
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { readLocalEnv } from './lib/pglite-replica.mjs';
 
 const args = process.argv.slice(2);
@@ -56,11 +58,14 @@ try {
   } else {
     const ready = await client.query(`SELECT to_regprocedure('public.post_missing_charge_accrual(uuid)') IS NOT NULL AS ok`);
     if (!ready.rows[0].ok) throw new Error('078 is not applied (post_missing_charge_accrual missing) — run npm run db:apply-proposed first');
-    const startedAt = (await client.query(`SELECT clock_timestamp() AS t`)).rows[0].t;
     let posted = 0;
+    const postedCharges = [];
     for (const r of scope) {
       const res = await client.query(`SELECT public.post_missing_charge_accrual($1) AS je`, [r.id]);
-      if (res.rows[0].je) posted += 1;
+      if (res.rows[0].je) {
+        posted += 1;
+        postedCharges.push({ charge_id: r.id, journal_entry_id: res.rows[0].je, month: r.month, amount: Number(r.amount) });
+      }
     }
     const left = (await client.query(`${MISSING} AND tc.id = ANY($1::uuid[])`, [scope.map((r) => r.id)])).rows.length;
     const unbalanced = Number((await client.query(`SELECT count(*) n FROM (SELECT je.id FROM journal_entries je JOIN journal_lines jl ON jl.journal_id = je.id
@@ -71,8 +76,25 @@ try {
     }
     await client.query('COMMIT');
     console.log(`\nPosted ${posted} accruals (${total.toLocaleString('en-US', { maximumFractionDigits: 3 })} LYD).`);
-    console.log(`To reverse this run: UPDATE journal_entries SET status = 'REVERSED', reversed_at = now()`);
-    console.log(`  WHERE source_type = 'CHARGE' AND status = 'POSTED' AND created_at >= '${new Date(startedAt).toISOString()}';`);
+    // The undo targets exactly the entries this run created (never a time window, which would also
+    // catch accruals other people posted meanwhile) and uses the ledger's own reversal, which writes
+    // an opposite entry instead of editing history.
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    // Next to the database snapshots, outside the repository: these files hold financial data.
+    const outDir = join(homedir(), 'Fluxen-Backups');
+    const logFile = join(outDir, `backfill-rent-accruals-${stamp}.json`);
+    const undoFile = join(outDir, `backfill-rent-accruals-${stamp}.UNDO.sql`);
+    mkdirSync(outDir, { recursive: true });
+    writeFileSync(logFile, JSON.stringify({ posted_at: new Date().toISOString(), total, entries: postedCharges }, null, 2));
+    writeFileSync(undoFile, [
+      `-- Reverses the ${posted} rent accruals posted by scripts/backfill-rent-accruals.mjs at ${new Date().toISOString()}.`,
+      'BEGIN;',
+      ...postedCharges.map((c) => `SELECT public.reverse_ledger_entry('CHARGE', '${c.charge_id}', NULL); -- ${c.month} ${c.amount} LYD`),
+      'COMMIT;',
+      '',
+    ].join('\n'));
+    console.log(`Saved the list of entries to ${logFile}`);
+    console.log(`To reverse exactly this run: psql "$DATABASE_URL" -f ${undoFile}`);
   }
 } catch (error) {
   try { await client.query('ROLLBACK'); } catch {}

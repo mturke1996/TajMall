@@ -265,16 +265,20 @@ BEGIN
     RAISE EXCEPTION 'صيغة الشهر غير صحيحة';
   END IF;
   RETURN QUERY
+  -- One row per tenant, however many active leases they have (a second lease must not list each
+  -- month twice); the tenant is due until the latest end date of their active leases.
   WITH leases AS (
-    SELECT c.id, c.name, c.shop_number, date_trunc('month', public.tenant_rent_claim_start(c.id))::date AS start_m, lc.end_date
+    SELECT c.id, c.name, c.shop_number, date_trunc('month', public.tenant_rent_claim_start(c.id))::date AS start_m,
+           max(COALESCE(lc.end_date, '2999-12-31'::date)) AS end_date
     FROM public.contacts c
     JOIN public.lease_contracts lc ON lc.tenant_id = c.id AND lc.status = 'ACTIVE'
     WHERE c.kind = 'TENANT' AND c.is_active
+    GROUP BY c.id, c.name, c.shop_number
   ),
   months AS (
     SELECT l.*, gs::date AS mon
     FROM leases l, generate_series(l.start_m, (p_through_month || '-01')::date, interval '1 month') gs
-    WHERE l.start_m IS NOT NULL AND gs::date <= COALESCE(l.end_date, '2999-12-31')
+    WHERE l.start_m IS NOT NULL AND gs::date <= l.end_date
   )
   SELECT m.id, m.name, m.shop_number, to_char(m.mon, 'YYYY-MM'),
          public.resolve_tenant_rent_amount(m.id, to_char(m.mon, 'YYYY-MM')),

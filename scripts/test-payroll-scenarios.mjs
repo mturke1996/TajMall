@@ -193,6 +193,81 @@ await as('cashier');
   check('security', 'لا كتابة مباشرة على جداول الرواتب', !w.ok || w.value.affectedRows === 0, w.ok ? `affected=${w.value.affectedRows}` : '');
 }
 
+// ── a run only posts what is still true (review findings) ───────────────────
+const runOf = async (month) => val(`SELECT id FROM payroll_runs WHERE period_month = $1`, [month]);
+const lineOf = (emp, month) => one(`SELECT l.* FROM payroll_run_lines l JOIN payroll_runs r ON r.id = l.run_id WHERE r.period_month = $1 AND l.employee_id = $2`, [month, emp]);
+const prepareAs = async (month) => { await as('accountant'); return (await val(`SELECT payroll_prepare_run($1)`, [month])).run_id; };
+const approveAs = async (runId) => { await as('owner'); return attempt(() => val(`SELECT payroll_approve_run($1)`, [runId])); };
+const postAs = async (runId) => { await as('accountant'); return attempt(() => val(`SELECT payroll_post_run($1)`, [runId])); };
+const decideAs = async (id, ok = true) => { await as('owner'); await val(`SELECT payroll_decide_adjustment($1, $2)`, [id, ok]); };
+
+await as('owner');
+const E3 = await mk('موظف اختبار 3', '2025-01-01');
+const E4 = await mk('موظف اختبار 4', '2025-01-01');
+await val(`SELECT payroll_set_salary($1, '2026-09-01', 1000, 0, 0, 0, NULL)`, [E3]);
+await val(`SELECT payroll_set_salary($1, '2026-09-01', 1200, 0, 0, 0, NULL)`, [E4]);
+await as('accountant');
+const advRound = await val(`SELECT payroll_issue_advance($1, 100, 3, $2, '2026-08-20', 'سلفة بأقساط غير متساوية')`, [E4, CASH]);
+
+// A bonus approved after the run was prepared must not be swallowed by posting.
+let runSep = await prepareAs('2026-09');
+await as('accountant');
+const lateBonus = await val(`SELECT payroll_add_adjustment($1, '2026-09', 'BONUS', 250, 'مكافأة بعد إعداد الكشف')`, [E3]);
+await decideAs(lateBonus);
+const diffSep = await (async () => { await as('accountant'); return attempt(() => val(`SELECT payroll_run_differences($1)`, [runSep])); })();
+check('freshness', 'الكشف يكشف أن حركة اعتُمدت بعد إعداده', diffSep.ok && n(diffSep.value) === 1, diffSep.error ?? `differences=${diffSep.value}`);
+check('freshness', 'لا يُعتمد كشف تغيّرت حركاته بعد إعداده', !(await approveAs(runSep)).ok);
+runSep = await prepareAs('2026-09');
+check('freshness', 'إعادة الإعداد تُدخل المكافأة المتأخرة', near((await lineOf(E3, '2026-09'))?.bonuses, 250));
+await approveAs(runSep);
+await as('accountant');
+const latePenalty = await val(`SELECT payroll_add_adjustment($1, '2026-09', 'PENALTY', 20, 'جزاء بعد الاعتماد')`, [E3]);
+await decideAs(latePenalty);
+check('freshness', 'لا يُرحَّل كشف اعتُمدت بعده حركة جديدة', !(await postAs(runSep)).ok);
+runSep = await prepareAs('2026-09');
+await approveAs(runSep);
+const postedSep = await postAs(runSep);
+check('freshness', 'بعد إعادة الإعداد: صافي 1000 + 250 − 20 = 1230 والحركتان مربوطتان بالكشف', postedSep.ok
+  && near((await lineOf(E3, '2026-09'))?.net, 1230)
+  && n(await val(`SELECT count(*) FROM payroll_adjustments WHERE id IN ($1, $2) AND run_id = $3`, [lateBonus, latePenalty, runSep])) === 2, postedSep.error);
+
+// An advance cancelled after the run was prepared must not be repaid.
+await as('accountant');
+const advCancel = await val(`SELECT payroll_issue_advance($1, 300, 3, $2, '2026-10-01', 'سلفة ستُلغى')`, [E3, CASH]);
+let runOct = await prepareAs('2026-10');
+check('freshness', 'الكشف يخطط قسط السلفة', near((await lineOf(E3, '2026-10'))?.advance_repayment, 100));
+await as('owner');
+await val(`SELECT payroll_cancel_advance($1, 'أُلغيت قبل الترحيل')`, [advCancel]);
+check('freshness', 'لا يُعتمد كشف فيه قسط لسلفة أُلغيت', !(await approveAs(runOct)).ok);
+runOct = await prepareAs('2026-10');
+check('freshness', 'إعادة الإعداد تُسقط قسط السلفة الملغاة', near((await lineOf(E3, '2026-10'))?.advance_repayment, 0));
+await approveAs(runOct);
+check('freshness', 'ترحيل أكتوبر بعد إعادة الإعداد', (await postAs(runOct)).ok);
+
+// Two draft months planning the same instalment must never repay it twice.
+await as('accountant');
+const advOnce = await val(`SELECT payroll_issue_advance($1, 100, 1, $2, '2026-11-01', 'سلفة بقسط واحد')`, [E3, CASH]);
+const runNov = await prepareAs('2026-11');
+let runDec = await prepareAs('2026-12');
+check('freshness', 'شهران مسودّان يخططان القسط نفسه', near((await lineOf(E3, '2026-11'))?.advance_repayment, 100) && near((await lineOf(E3, '2026-12'))?.advance_repayment, 100));
+await approveAs(runNov);
+await postAs(runNov);
+check('freshness', 'لا يُعتمد ديسمبر بعد أن سُدّدت السلفة في نوفمبر', !(await approveAs(runDec)).ok);
+runDec = await prepareAs('2026-12');
+check('freshness', 'إعادة إعداد ديسمبر بلا قسط', near((await lineOf(E3, '2026-12'))?.advance_repayment, 0));
+await actAs(db, 'superuser');
+check('freshness', 'السلفة سُدّدت مرة واحدة فقط', near(await val(`SELECT repaid FROM payroll_advances_status WHERE id = $1`, [advOnce]), 100)
+  && (await val(`SELECT status FROM payroll_advances WHERE id = $1`, [advOnce])) === 'SETTLED');
+
+// 100 over 3 instalments: the last instalment absorbs the rounding, nothing is left over.
+const round = await one(`SELECT status, remaining FROM payroll_advances_status WHERE id = $1`, [advRound]);
+check('advances', 'سلفة 100 على 3 أقساط تُغلق بلا باقٍ (القسط الأخير يأخذ فرق التقريب)',
+  round?.status === 'SETTLED' && near(round?.remaining, 0)
+  && near((await lineOf(E4, '2026-11'))?.advance_repayment, 33.334) && near((await lineOf(E4, '2026-12'))?.advance_repayment, 0),
+  `${round?.status} remaining=${round?.remaining}`);
+check('ledger', 'رصيد سلف الموظفين في الدفتر = المتبقي على السلف القائمة',
+  near(await glBalance('AST-ADV'), await val(`SELECT coalesce(sum(remaining), 0) FROM payroll_advances_status WHERE status = 'OPEN'`)));
+
 // ── history and integrity ───────────────────────────────────────────────────
 await actAs(db, 'superuser');
 const history = n(await val(`SELECT count(*) FROM audit_log WHERE entity_type = 'employee' AND entity_id = $1`, [E2]));

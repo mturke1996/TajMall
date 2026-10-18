@@ -23,10 +23,10 @@ import {
   RUN_STATUS_LABEL,
   isPayrollSchemaMissing,
   structureTotal,
+  useEmployeeAdjustments,
+  useEmployeeAdvances,
   useEmployeePayrollLines,
-  usePayrollAdjustments,
-  usePayrollAdvances,
-  usePayrollStructures,
+  useEmployeeSalaryStructures,
   currentMonthKey,
   type PayrollRunLine,
 } from '@/lib/db/payroll-queries';
@@ -41,19 +41,13 @@ export default function EmployeePayrollPage() {
   const canManage = role === 'owner' || role === 'admin' || role === 'accountant';
 
   const { data: employee, isLoading: employeeLoading } = useContact(id);
-  const { data: allStructures = [], error: structuresError } = usePayrollStructures();
+  const { data: structures = [], error: structuresError } = useEmployeeSalaryStructures(id);
   const { data: lines = [], isLoading: linesLoading } = useEmployeePayrollLines(id);
-  const { data: allAdjustments = [] } = usePayrollAdjustments(null);
-  const { data: allAdvances = [] } = usePayrollAdvances();
+  const { data: adjustments = [] } = useEmployeeAdjustments(id);
+  const { data: advances = [] } = useEmployeeAdvances(id);
   const [structureOpen, setStructureOpen] = useState(false);
   const [adjustmentOpen, setAdjustmentOpen] = useState(false);
 
-  const structures = useMemo(
-    () => allStructures.filter((s) => s.employee_id === id).sort((a, b) => b.effective_from.localeCompare(a.effective_from)),
-    [allStructures, id],
-  );
-  const adjustments = useMemo(() => allAdjustments.filter((a) => a.employee_id === id), [allAdjustments, id]);
-  const advances = useMemo(() => allAdvances.filter((a) => a.employee_id === id), [allAdvances, id]);
   const current = structures[0] ?? null;
 
   const yearAgo = currentMonthKey(new Date(new Date().getFullYear() - 1, new Date().getMonth() + 1, 1));
@@ -132,7 +126,8 @@ export default function EmployeePayrollPage() {
               return (
                 <PayslipPDF
                   line={row.original}
-                  adjustments={adjustments.filter((a) => a.period_month === row.original.period_month)}
+                  // Only the adjustments this line counted, never later ones of the same month.
+                  adjustments={adjustments.filter((a) => (row.original.adjustment_ids ?? []).includes(a.id))}
                 />
               );
             }}
@@ -336,14 +331,14 @@ export default function EmployeePayrollPage() {
         open={structureOpen}
         onOpenChange={setStructureOpen}
         employees={employeeForDialogs}
-        structures={allStructures}
+        structures={structures}
         employeeId={employee.id}
       />
       <AdjustmentDialog
         open={adjustmentOpen}
         onOpenChange={setAdjustmentOpen}
         employees={employeeForDialogs}
-        structures={allStructures}
+        structures={structures}
         month={currentMonthKey()}
         employeeId={employee.id}
       />

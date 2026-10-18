@@ -1014,11 +1014,23 @@ END;
 $function$;
 
 -- 6. Pin search_path on SECURITY DEFINER functions that lacked it (after the bodies above are replaced).
-ALTER FUNCTION public.apply_charge_allocations(uuid,jsonb) SET search_path = public, pg_temp;
-ALTER FUNCTION public.backfill_existing_transactions_to_ledger() SET search_path = public, pg_temp;
-ALTER FUNCTION public.get_tenant_rent_status(uuid,date) SET search_path = public, pg_temp;
-ALTER FUNCTION public.get_trial_balance(integer) SET search_path = public, pg_temp;
-ALTER FUNCTION public.sync_overdue_charge_notifications() SET search_path = public, pg_temp;
+--    Each one is pinned only if it exists, so the file also applies to a database built from the
+--    repository migrations (where some of these were later replaced) — the result on production is the same.
+DO $$
+DECLARE f text;
+BEGIN
+  FOREACH f IN ARRAY ARRAY[
+    'public.apply_charge_allocations(uuid,jsonb)',
+    'public.backfill_existing_transactions_to_ledger()',
+    'public.get_tenant_rent_status(uuid,date)',
+    'public.get_trial_balance(integer)',
+    'public.sync_overdue_charge_notifications()'
+  ] LOOP
+    IF to_regprocedure(f) IS NOT NULL THEN
+      EXECUTE format('ALTER FUNCTION %s SET search_path = public, pg_temp', f);
+    END IF;
+  END LOOP;
+END $$;
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;

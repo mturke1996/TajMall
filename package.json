@@ -20,6 +20,8 @@
     "db:apply-proposed": "node scripts/apply-proposed-migrations.mjs --confirm",
     "db:backfill-accruals": "node scripts/backfill-rent-accruals.mjs",
     "test:payroll": "node scripts/test-payroll-scenarios.mjs --prod-functions",
+    "test:payroll:local": "node scripts/test-payroll-scenarios.mjs",
+    "test:rollback": "node scripts/test-migration-rollback.mjs",
     "test:scenarios": "node scripts/test-accounting-scenarios.mjs",
     "test:scenarios:prod": "node scripts/test-accounting-scenarios.mjs --prod-functions",
     "test:scenarios:proposed": "node scripts/test-accounting-scenarios.mjs --prod-functions --apply docs/proposed-migrations/078_security_and_ledger_fixes.sql --apply docs/proposed-migrations/080_payroll.sql --apply docs/proposed-migrations/081_rent_safety.sql",
@@ -84,6 +86,7 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.4.1",
     "@tauri-apps/cli": "^2.0.0",
     "@types/node": "^22.7.4",
     "@types/react": "^18.3.11",

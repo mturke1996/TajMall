@@ -49,14 +49,16 @@ jobs:
           npm run verify:payroll-pdf
           npm run verify:audit-safe
 
+      - name: Database replica tests (proposed migrations, no live database)
+        run: |
+          npm run test:payroll:local
+          npm run test:rollback
+
       - name: Build (next build)
         run: npm run build
         env:
-          # لا حاجة لأسرار حقيقية — البناء يتسامح مع غياب متغيرات Supabase
-          # (راجع isBuildTime() في src/lib/supabase/env.ts) وهذا يتحقق فقط
-          # من أن الكود يُبنى بلا أخطاء، لا من الاتصال الفعلي بقاعدة البيانات.
-          # Static pages create a Supabase browser client while prerendering, which throws on an
-          # empty URL; placeholder values let the build finish without contacting anything.
+          # لا حاجة لأسرار حقيقية: الصفحات الثابتة تنشئ عميل Supabase أثناء التوليد المسبق
+          # ويفشل مع رابط فارغ، فتكفي قيم وهمية — البناء لا يتصل بأي قاعدة بيانات.
           NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
           NEXT_PUBLIC_APP_NAME: "Fluxen"

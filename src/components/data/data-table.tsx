@@ -44,6 +44,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { usePersistedState } from '@/lib/hooks/use-persisted-state';
+import { useMediaQuery } from '@/lib/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 
 declare module '@tanstack/react-table' {
@@ -123,6 +124,11 @@ export function DataTable<T>({
   const [density, setDensity] = usePersistedState<Density>(`table:${tableId}:density`, 'comfortable');
   const [pageSize, setPageSize] = usePersistedState<number>(`table:${tableId}:pageSize`, defaultPageSize);
   const [pageIndex, setPageIndex] = useState(0);
+  // Both layouts are rendered and CSS shows one (lg = 1024px). A row's DOM id goes only on the
+  // visible layout, so ids stay unique and deep links (?highlight=) scroll to the row people see.
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const mobileRowId = (row: T) => (renderMobileRow && !isDesktop ? rowDomId?.(row) : undefined);
+  const desktopRowId = (row: T) => (!renderMobileRow || isDesktop ? rowDomId?.(row) : undefined);
 
   const table = useReactTable({
     data,
@@ -235,7 +241,7 @@ export function DataTable<T>({
           {visibleRows.map((row) => (
             <li
               key={row.id}
-              id={rowDomId?.(row.original)}
+              id={mobileRowId(row.original)}
               className={cn(
                 'scroll-mt-24',
                 highlightId === row.id && 'rounded-xl ring-2 ring-foreground/70',
@@ -306,7 +312,7 @@ export function DataTable<T>({
             {visibleRows.map((row) => (
               <tr
                 key={row.id}
-                id={rowDomId?.(row.original)}
+                id={desktopRowId(row.original)}
                 className={cn(
                   'scroll-mt-24 border-b border-border/70 last:border-0 transition-colors duration-100 hover:bg-canvas-sunken/60',
                   highlightId === row.id && 'bg-canvas-sunken ring-2 ring-inset ring-foreground/60',

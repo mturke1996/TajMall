@@ -29,17 +29,17 @@ const DIR = 'docs/proposed-migrations';
 const MIGRATIONS = [
   {
     id: '078', up: '078_security_and_ledger_fixes.sql', down: '078_security_and_ledger_fixes.ROLLBACK.sql',
-    sha: '14d1c79473a635ca84ed0c08421edb65bfeea0540ef9134586d91fa2a26a2b71',
+    sha: 'c22edbb9f5546aa387caa722d5fe0dd8ed8daad3d854c78ac2692539d3256ef7',
     applied: `SELECT to_regprocedure('public.post_missing_charge_accrual(uuid)') IS NOT NULL AS done`,
   },
   {
     id: '080', up: '080_payroll.sql', down: '080_payroll.ROLLBACK.sql',
-    sha: '2c66462f4964c1c34d20471a02e8969438809875dd7daef326fc33568508ea5f',
+    sha: '3ec45737173536a83d26640ffa9bcf84f624cff5e2855dfb732affa504b372e5',
     applied: `SELECT to_regclass('public.payroll_runs') IS NOT NULL AS done`,
   },
   {
     id: '081', up: '081_rent_safety.sql', down: '081_rent_safety.ROLLBACK.sql',
-    sha: 'eb93ebf468194a5019c090c5518c6561127937636c01eb134275273f39a18987',
+    sha: 'f37ae9ca536571acae33b7a728d9b15a4528cb3e2f47557e93c327ae4abfd5c5',
     applied: `SELECT to_regprocedure('public.rent_missing_charges(text)') IS NOT NULL AS done`,
   },
 ];
@@ -92,6 +92,8 @@ const VERIFY = {
     check('anon cannot touch payroll', !(await asRole('anon', { role: 'anon' }, `SELECT count(*) FROM payroll_runs`)).ok);
     check('owner reads payroll views', (await asRole('authenticated', ownerClaims, `SELECT count(*) FROM payroll_run_lines_status`)).ok);
     check('employee summary still readable', (await asRole('authenticated', ownerClaims, `SELECT count(*) FROM employee_summary`)).ok);
+    check('runs are re-checked before approval and posting', Number((await one(`SELECT count(*) n FROM pg_proc
+      WHERE pronamespace = 'public'::regnamespace AND proname IN ('payroll_compute_run', 'payroll_run_differences', 'payroll_assert_run_current')`)).n) === 3);
   },
   '081': async () => {
     const preview = await asRole('authenticated', ownerClaims, `SELECT count(*) n, coalesce(sum(amount), 0) a FROM rent_missing_charges(to_char(CURRENT_DATE, 'YYYY-MM'))`);
@@ -138,16 +140,31 @@ try {
     failed = failures.length > 0;
   }
 } catch (error) {
+  // Any error is a failure, including one in the first file. A file that failed half-way leaves the
+  // session inside its aborted BEGIN; end it first or every following statement (the rollbacks) fails.
   console.log(`error: ${error.message}`);
-  failed = appliedNow.length > 0;
+  try { await client.query('ROLLBACK'); } catch {}
+  failed = true;
 }
 
 if (failed) {
-  console.log('\nA check failed — rolling back what this run applied, newest first.');
+  if (appliedNow.length) console.log('\nA check failed — rolling back what this run applied, newest first.');
+  const notRolledBack = [];
   for (const m of [...appliedNow].reverse()) {
-    await client.query(readFileSync(`${DIR}/${m.down}`, 'utf8'));
-    console.log(`  rolled back ${m.id}`);
+    try {
+      await client.query(readFileSync(`${DIR}/${m.down}`, 'utf8'));
+      console.log(`  rolled back ${m.id}`);
+    } catch (error) {
+      try { await client.query('ROLLBACK'); } catch {}
+      notRolledBack.push(m.id);
+      console.log(`  ROLLBACK OF ${m.id} FAILED: ${error.message}`);
+    }
   }
+  if (notRolledBack.length) {
+    console.log(`\n${notRolledBack.join(', ')} could not be rolled back automatically and is still applied.`);
+    console.log('Restore from the snapshot taken before this run (npm run backup:restore-cold) or run the ROLLBACK file by hand.');
+  }
+  console.log('\nFAILED — see the messages above.');
   process.exitCode = 1;
 } else {
   console.log(appliedNow.length ? `\nApplied ${appliedNow.map((m) => m.id).join(', ')}; all ${checks.length} checks passed.` : '\nNothing to apply.');

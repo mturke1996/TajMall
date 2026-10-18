@@ -17,6 +17,7 @@ import {
   payrollErrorMessage,
   shiftMonth,
   useApprovePayrollRun,
+  usePayrollRunDifferences,
   usePayrollRunLines,
   usePostPayrollRun,
   usePreparePayrollRun,
@@ -65,6 +66,12 @@ export function PayrollRunPanel({
   const [confirm, setConfirm] = useState<null | 'prepare' | 'approve' | 'post'>(null);
   const [reverseOpen, setReverseOpen] = useState(false);
   const [payLine, setPayLine] = useState<PayrollRunLine | null>(null);
+
+  const { data: staleCount = 0 } = usePayrollRunDifferences(
+    run?.id ?? null,
+    canManage && (run?.status === 'DRAFT' || run?.status === 'APPROVED'),
+  );
+  const stale = staleCount > 0;
 
   const previousNet = useMemo(() => new Map(previousLines.map((l) => [l.employee_id, num(l.net)])), [previousLines]);
 
@@ -219,6 +226,7 @@ export function PayrollRunPanel({
       }
     } catch (e) {
       toast.error('لم تكتمل العملية', { description: payrollErrorMessage(e) });
+      throw e; // keeps the confirmation open
     }
   }
 
@@ -260,7 +268,7 @@ export function PayrollRunPanel({
             أعد الإعداد
           </Button>
           {canApprove ? (
-            <Button onClick={() => setConfirm('approve')} disabled={lines.length === 0}>
+            <Button onClick={() => setConfirm('approve')} disabled={lines.length === 0 || stale}>
               <ClipboardCheck />
               اعتمد الكشف
             </Button>
@@ -276,7 +284,7 @@ export function PayrollRunPanel({
             <RefreshCw />
             أعد الإعداد
           </Button>
-          <Button onClick={() => setConfirm('post')}>
+          <Button onClick={() => setConfirm('post')} disabled={stale}>
             <BookCheck />
             رحّل إلى الدفاتر
           </Button>
@@ -323,6 +331,18 @@ export function PayrollRunPanel({
             {nextAction}
           </div>
         </div>
+        {stale && (
+          <div className="flex flex-col gap-2 rounded-lg border border-warning-line bg-warning-soft px-3 py-2.5 text-[12.5px] text-warning-ink sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              تغيّرت بيانات {staleCount === 1 ? 'موظف واحد' : `${staleCount} موظفين`} بعد إعداد الكشف (حركة اعتُمدت أو أُلغيت،
+              سلفة، أو تعديل راتب). أعد إعداد الكشف ليعكس البيانات الحالية قبل الاعتماد أو الترحيل.
+            </p>
+            <Button size="sm" variant="outline" className="shrink-0" onClick={() => setConfirm('prepare')}>
+              <RefreshCw />
+              أعد الإعداد
+            </Button>
+          </div>
+        )}
         {employeesWithoutStructure > 0 && canManage && (!run || status === 'DRAFT') && (
           <p className="rounded-lg border border-pastel-yellowInk/20 bg-pastel-yellow px-3 py-2 text-[12.5px] text-pastel-yellowInk">
             {employeesWithoutStructure === 1 ? 'موظف واحد نشط' : `${employeesWithoutStructure} موظفين نشطين`} بلا هيكل راتب لن

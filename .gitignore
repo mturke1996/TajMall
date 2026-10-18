@@ -47,3 +47,6 @@ src-tauri/Cargo.lock
 
 # agents / skills
 .agents/
+
+# audit script outputs (contain production data — never commit)
+tmp-*.json

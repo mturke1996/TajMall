@@ -119,6 +119,8 @@ CREATE TABLE IF NOT EXISTS public.payroll_run_lines (
   other_deductions numeric(14,3) NOT NULL DEFAULT 0,
   advance_repayment numeric(14,3) NOT NULL DEFAULT 0,
   advance_plan jsonb NOT NULL DEFAULT '[]'::jsonb,
+  -- The approved adjustments this line counted; posting links exactly these to the run.
+  adjustment_ids uuid[] NOT NULL DEFAULT '{}',
   gross numeric(14,3) GENERATED ALWAYS AS (base_salary + allowances + bonuses + overtime - absence_deduction) STORED,
   net numeric(14,3) GENERATED ALWAYS AS (
     base_salary + allowances + bonuses + overtime - absence_deduction - penalties - other_deductions - advance_repayment
@@ -385,21 +387,127 @@ END;
 $function$;
 
 -- ── Monthly payroll run ─────────────────────────────────────────────────────
+-- One computation, used to prepare a run and again before approving and posting it: a run is
+-- approved and posted only while its stored lines still equal what the data says now. Any change
+-- after preparing (an adjustment approved or cancelled, an advance issued or cancelled, a salary
+-- change, an earlier month posted that repaid an advance) makes the run stale until it is prepared again.
+CREATE OR REPLACE FUNCTION public.payroll_compute_run(p_month text)
+ RETURNS TABLE (employee_id uuid, structure_id uuid, base_salary numeric, allowances numeric, bonuses numeric,
+                overtime numeric, absence_deduction numeric, penalties numeric, other_deductions numeric,
+                advance_repayment numeric, advance_plan jsonb, adjustment_ids uuid[])
+ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_end date := public.payroll_month_end(p_month);
+  e record;
+  a record;
+  v_bonus numeric; v_overtime numeric; v_absence numeric; v_penalty numeric; v_other numeric; v_ids uuid[];
+  v_available numeric; v_take numeric; v_repay numeric; v_plan jsonb;
+BEGIN
+  FOR e IN
+    SELECT c.id AS emp_id, s.id AS struct_id, s.base_salary AS base,
+           s.housing_allowance + s.transport_allowance + s.other_allowance AS allow
+    FROM public.contacts c
+    JOIN LATERAL (
+      SELECT * FROM public.payroll_salary_structures ss
+      WHERE ss.employee_id = c.id AND ss.effective_from <= v_end
+      ORDER BY ss.effective_from DESC LIMIT 1
+    ) s ON true
+    WHERE c.kind = 'EMPLOYEE' AND c.is_active AND (c.hire_date IS NULL OR c.hire_date <= v_end)
+    ORDER BY c.name, c.id
+  LOOP
+    SELECT COALESCE(sum(pa.amount) FILTER (WHERE pa.kind = 'BONUS'), 0),
+           COALESCE(sum(pa.amount) FILTER (WHERE pa.kind = 'OVERTIME'), 0),
+           COALESCE(sum(pa.amount) FILTER (WHERE pa.kind = 'ABSENCE'), 0),
+           COALESCE(sum(pa.amount) FILTER (WHERE pa.kind = 'PENALTY'), 0),
+           COALESCE(sum(pa.amount) FILTER (WHERE pa.kind = 'OTHER_DEDUCTION'), 0),
+           COALESCE(array_agg(pa.id ORDER BY pa.id), '{}')
+    INTO v_bonus, v_overtime, v_absence, v_penalty, v_other, v_ids
+    FROM public.payroll_adjustments pa
+    WHERE pa.employee_id = e.emp_id AND pa.period_month = p_month AND pa.status = 'APPROVED' AND pa.run_id IS NULL;
+
+    IF v_absence > e.base + e.allow + v_overtime THEN
+      RAISE EXCEPTION 'خصم الغياب (%) أكبر من راتب الموظف % لشهر %', v_absence,
+        public.payroll_employee_name(e.emp_id), p_month;
+    END IF;
+    v_available := e.base + e.allow + v_bonus + v_overtime - v_absence - v_penalty - v_other;
+    IF v_available < 0 THEN
+      RAISE EXCEPTION 'الخصومات أكبر من مستحقات الموظف % لشهر %', public.payroll_employee_name(e.emp_id), p_month;
+    END IF;
+
+    -- Advance instalments, oldest first, never pushing the net below zero. Only posted runs count
+    -- as repaid. When what is left is within rounding of one instalment, the instalment takes it
+    -- all (100 over 3 → 33.333, 33.333, 33.334) so no tiny extra instalment follows.
+    v_repay := 0;
+    v_plan := '[]'::jsonb;
+    FOR a IN
+      SELECT pv.id, pv.installment_amount,
+             pv.amount - COALESCE((SELECT sum(r.amount) FROM public.payroll_advance_repayments r WHERE r.advance_id = pv.id), 0) AS remaining
+      FROM public.payroll_advances pv
+      WHERE pv.employee_id = e.emp_id AND pv.status = 'OPEN' AND pv.issued_on <= v_end
+      ORDER BY pv.issued_on, pv.created_at, pv.id
+    LOOP
+      v_take := CASE WHEN a.remaining - a.installment_amount < 0.05 THEN a.remaining ELSE a.installment_amount END;
+      v_take := LEAST(v_take, v_available - v_repay);
+      IF v_take > 0 THEN
+        v_repay := v_repay + v_take;
+        v_plan := v_plan || jsonb_build_object('advance_id', a.id, 'amount', v_take);
+      END IF;
+    END LOOP;
+
+    employee_id := e.emp_id; structure_id := e.struct_id; base_salary := e.base; allowances := e.allow;
+    bonuses := v_bonus; overtime := v_overtime; absence_deduction := v_absence; penalties := v_penalty;
+    other_deductions := v_other; advance_repayment := v_repay; advance_plan := v_plan; adjustment_ids := v_ids;
+    RETURN NEXT;
+  END LOOP;
+END;
+$function$;
+
+-- Number of employees whose stored line no longer matches the data (0 = the run is current).
+CREATE OR REPLACE FUNCTION public.payroll_run_differences(p_run_id uuid)
+ RETURNS integer LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp
+AS $function$
+DECLARE v_month text; v_count integer;
+BEGIN
+  PERFORM public.payroll_require('manage');
+  SELECT period_month INTO v_month FROM public.payroll_runs WHERE id = p_run_id;
+  IF v_month IS NULL THEN RAISE EXCEPTION 'كشف الرواتب غير موجود'; END IF;
+  SELECT count(*) INTO v_count
+  FROM (SELECT * FROM public.payroll_run_lines WHERE run_id = p_run_id) s
+  FULL JOIN public.payroll_compute_run(v_month) c ON c.employee_id = s.employee_id
+  WHERE s.employee_id IS NULL OR c.employee_id IS NULL
+     OR s.structure_id IS DISTINCT FROM c.structure_id
+     OR s.base_salary <> c.base_salary OR s.allowances <> c.allowances
+     OR s.bonuses <> c.bonuses OR s.overtime <> c.overtime OR s.absence_deduction <> c.absence_deduction
+     OR s.penalties <> c.penalties OR s.other_deductions <> c.other_deductions
+     OR s.advance_repayment <> c.advance_repayment OR s.advance_plan <> c.advance_plan
+     OR s.adjustment_ids <> c.adjustment_ids;
+  RETURN v_count;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.payroll_assert_run_current(p_run_id uuid)
+ RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp
+AS $function$
+DECLARE v_diff integer := public.payroll_run_differences(p_run_id);
+BEGIN
+  IF v_diff > 0 THEN
+    RAISE EXCEPTION 'تغيّرت بيانات % بعد إعداد الكشف (حركات أو سلف أو رواتب). أعد إعداد الكشف ثم اعتمده.',
+      CASE WHEN v_diff = 1 THEN 'موظف واحد' ELSE v_diff || ' موظفين' END
+      USING ERRCODE = '55000';
+  END IF;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.payroll_prepare_run(p_month text)
  RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp
 AS $function$
 DECLARE
   v_run uuid;
-  v_end date;
-  e record;
-  a record;
-  v_bonus numeric; v_overtime numeric; v_absence numeric; v_penalty numeric; v_other numeric;
-  v_available numeric; v_take numeric; v_repay numeric; v_plan jsonb; v_remaining numeric;
-  v_count int := 0;
+  v_count int;
 BEGIN
   PERFORM public.payroll_require('manage');
   PERFORM public.payroll_assert_month(p_month);
-  v_end := public.payroll_month_end(p_month);
 
   INSERT INTO public.payroll_runs (period_month, status, prepared_by, prepared_at)
   VALUES (p_month, 'DRAFT', auth.uid(), now())
@@ -408,63 +516,16 @@ BEGIN
   RETURNING id INTO v_run;
   DELETE FROM public.payroll_run_lines WHERE run_id = v_run;
 
-  FOR e IN
-    SELECT c.id AS employee_id, s.id AS structure_id, s.base_salary,
-           s.housing_allowance + s.transport_allowance + s.other_allowance AS allowances
-    FROM public.contacts c
-    JOIN LATERAL (
-      SELECT * FROM public.payroll_salary_structures ss
-      WHERE ss.employee_id = c.id AND ss.effective_from <= v_end
-      ORDER BY ss.effective_from DESC LIMIT 1
-    ) s ON true
-    WHERE c.kind = 'EMPLOYEE' AND c.is_active AND (c.hire_date IS NULL OR c.hire_date <= v_end)
-    ORDER BY c.name
-  LOOP
-    SELECT COALESCE(sum(amount) FILTER (WHERE kind = 'BONUS'), 0),
-           COALESCE(sum(amount) FILTER (WHERE kind = 'OVERTIME'), 0),
-           COALESCE(sum(amount) FILTER (WHERE kind = 'ABSENCE'), 0),
-           COALESCE(sum(amount) FILTER (WHERE kind = 'PENALTY'), 0),
-           COALESCE(sum(amount) FILTER (WHERE kind = 'OTHER_DEDUCTION'), 0)
-    INTO v_bonus, v_overtime, v_absence, v_penalty, v_other
-    FROM public.payroll_adjustments
-    WHERE employee_id = e.employee_id AND period_month = p_month AND status = 'APPROVED' AND run_id IS NULL;
-
-    IF v_absence > e.base_salary + e.allowances + v_overtime THEN
-      RAISE EXCEPTION 'خصم الغياب (%) أكبر من راتب الموظف % لشهر %', v_absence,
-        public.payroll_employee_name(e.employee_id), p_month;
-    END IF;
-    v_available := e.base_salary + e.allowances + v_bonus + v_overtime - v_absence - v_penalty - v_other;
-    IF v_available < 0 THEN
-      RAISE EXCEPTION 'الخصومات أكبر من مستحقات الموظف % لشهر %', public.payroll_employee_name(e.employee_id), p_month;
-    END IF;
-
-    -- Advance instalments, oldest first, never pushing the net below zero.
-    v_repay := 0;
-    v_plan := '[]'::jsonb;
-    FOR a IN
-      SELECT pa.id, pa.installment_amount,
-             pa.amount - COALESCE((SELECT sum(r.amount) FROM public.payroll_advance_repayments r WHERE r.advance_id = pa.id), 0) AS remaining
-      FROM public.payroll_advances pa
-      WHERE pa.employee_id = e.employee_id AND pa.status = 'OPEN' AND pa.issued_on <= v_end
-      ORDER BY pa.issued_on, pa.created_at
-    LOOP
-      v_remaining := a.remaining;
-      v_take := LEAST(a.installment_amount, v_remaining, v_available - v_repay);
-      IF v_take > 0 THEN
-        v_repay := v_repay + v_take;
-        v_plan := v_plan || jsonb_build_object('advance_id', a.id, 'amount', v_take);
-      END IF;
-    END LOOP;
-
-    INSERT INTO public.payroll_run_lines (run_id, employee_id, structure_id, base_salary, allowances, bonuses, overtime,
-                                          absence_deduction, penalties, other_deductions, advance_repayment, advance_plan)
-    VALUES (v_run, e.employee_id, e.structure_id, e.base_salary, e.allowances, v_bonus, v_overtime,
-            v_absence, v_penalty, v_other, v_repay, v_plan);
-    v_count := v_count + 1;
-  END LOOP;
+  INSERT INTO public.payroll_run_lines (run_id, employee_id, structure_id, base_salary, allowances, bonuses, overtime,
+                                        absence_deduction, penalties, other_deductions, advance_repayment, advance_plan,
+                                        adjustment_ids)
+  SELECT v_run, c.employee_id, c.structure_id, c.base_salary, c.allowances, c.bonuses, c.overtime,
+         c.absence_deduction, c.penalties, c.other_deductions, c.advance_repayment, c.advance_plan, c.adjustment_ids
+  FROM public.payroll_compute_run(p_month) c;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
 
   PERFORM public.write_audit_log('UPDATE', 'payroll_run', v_run, 'رواتب ' || p_month,
-    format('إعداد كشف رواتب %s — %s موظف', p_month, v_count), v_end, NULL, NULL, 'info',
+    format('إعداد كشف رواتب %s — %s موظف', p_month, v_count), public.payroll_month_end(p_month), NULL, NULL, 'info',
     jsonb_build_object('event', 'run_prepared', 'employees', v_count));
 
   RETURN (SELECT jsonb_build_object('run_id', v_run, 'month', p_month, 'employees', count(*),
@@ -486,6 +547,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.payroll_run_lines WHERE run_id = p_run_id) THEN
     RAISE EXCEPTION 'الكشف فارغ — أعدّه أولاً';
   END IF;
+  PERFORM public.payroll_assert_run_current(p_run_id);
   UPDATE public.payroll_runs SET status = 'APPROVED', approved_by = auth.uid(), approved_at = now() WHERE id = p_run_id;
   PERFORM public.write_audit_log('UPDATE', 'payroll_run', p_run_id, 'رواتب ' || v_run.period_month,
     'اعتماد كشف رواتب ' || v_run.period_month, public.payroll_month_end(v_run.period_month), NULL, NULL, 'success',
@@ -512,6 +574,7 @@ BEGIN
   SELECT * INTO v_run FROM public.payroll_runs WHERE id = p_run_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'كشف الرواتب غير موجود'; END IF;
   IF v_run.status <> 'APPROVED' THEN RAISE EXCEPTION 'يُرحَّل الكشف بعد اعتماده فقط (الحالة: %)', v_run.status; END IF;
+  PERFORM public.payroll_assert_run_current(p_run_id);
   v_desc := 'رواتب شهر ' || v_run.period_month;
 
   FOR v_line IN SELECT * FROM public.payroll_run_lines WHERE run_id = p_run_id ORDER BY employee_id LOOP
@@ -534,8 +597,7 @@ BEGIN
 
   UPDATE public.payroll_adjustments a SET run_id = p_run_id
   FROM public.payroll_run_lines l
-  WHERE l.run_id = p_run_id AND a.employee_id = l.employee_id AND a.period_month = v_run.period_month
-    AND a.status = 'APPROVED' AND a.run_id IS NULL;
+  WHERE l.run_id = p_run_id AND a.id = ANY (l.adjustment_ids);
 
   INSERT INTO public.payroll_advance_repayments (advance_id, run_id, amount)
   SELECT (p->>'advance_id')::uuid, p_run_id, (p->>'amount')::numeric
@@ -692,7 +754,8 @@ GRANT ALL ON public.payroll_salary_structures, public.payroll_adjustments, publi
 
 REVOKE EXECUTE ON FUNCTION
   public.payroll_require(text), public.payroll_account(text, text), public.payroll_employee_name(uuid),
-  public.payroll_month_end(text), public.payroll_month_posted(text), public.payroll_assert_month(text)
+  public.payroll_month_end(text), public.payroll_month_posted(text), public.payroll_assert_month(text),
+  public.payroll_compute_run(text), public.payroll_assert_run_current(uuid)
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION
   public.payroll_set_salary(uuid, date, numeric, numeric, numeric, numeric, text),
@@ -700,7 +763,8 @@ REVOKE EXECUTE ON FUNCTION
   public.payroll_decide_adjustment(uuid, boolean, text),
   public.payroll_issue_advance(uuid, numeric, integer, uuid, date, text), public.payroll_cancel_advance(uuid, text),
   public.payroll_prepare_run(text), public.payroll_approve_run(uuid), public.payroll_post_run(uuid),
-  public.payroll_reverse_run(uuid, text), public.payroll_pay_line(uuid, numeric, uuid, date, text)
+  public.payroll_reverse_run(uuid, text), public.payroll_pay_line(uuid, numeric, uuid, date, text),
+  public.payroll_run_differences(uuid)
   FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION
   public.payroll_set_salary(uuid, date, numeric, numeric, numeric, numeric, text),
@@ -708,7 +772,8 @@ GRANT EXECUTE ON FUNCTION
   public.payroll_decide_adjustment(uuid, boolean, text),
   public.payroll_issue_advance(uuid, numeric, integer, uuid, date, text), public.payroll_cancel_advance(uuid, text),
   public.payroll_prepare_run(text), public.payroll_approve_run(uuid), public.payroll_post_run(uuid),
-  public.payroll_reverse_run(uuid, text), public.payroll_pay_line(uuid, numeric, uuid, date, text)
+  public.payroll_reverse_run(uuid, text), public.payroll_pay_line(uuid, numeric, uuid, date, text),
+  public.payroll_run_differences(uuid)
   TO authenticated;
 
 NOTIFY pgrst, 'reload schema';

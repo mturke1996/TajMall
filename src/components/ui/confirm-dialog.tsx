@@ -44,6 +44,8 @@ export function ConfirmDialog({
     try {
       await onConfirm();
       onOpenChange(false);
+    } catch {
+      // The caller reports the error (toast); the dialog stays open so the user can retry or cancel.
     } finally {
       setBusy(false);
     }
