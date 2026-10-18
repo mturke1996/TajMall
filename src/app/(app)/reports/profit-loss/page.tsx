@@ -315,7 +315,8 @@ function ProfitLossContent() {
                       netIncome >= 0 ? 'text-success-ink' : 'text-danger-ink',
                     )}
                   >
-                    {formatMoney(netIncome, 'LYD')}
+                    {/* the label already says profit or loss */}
+                    {formatMoney(Math.abs(netIncome), 'LYD')}
                   </p>
                 </div>
                 <div

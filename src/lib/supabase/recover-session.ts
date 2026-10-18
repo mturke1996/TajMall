@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { RECOVERY_COOKIE, RESET_PATH } from '@/lib/supabase/recovery-cookie';
 
 export type RecoveryExchangeResult =
   | { ok: true }
@@ -16,8 +17,9 @@ export async function exchangePasswordRecoverySession(
   }
 
   const search = new URLSearchParams(window.location.search);
-  // arriving from /auth/confirm, which has just exchanged an emailed token for this session
-  if (search.get('recovery') === '1') {
+  // arriving from /auth/confirm or /auth/callback, which have just exchanged an emailed token for this
+  // session and left a short-lived cookie that only they set
+  if (takeRecoveryCookie()) {
     markRecovery();
     stripRecoveryParamsFromUrl();
     return { ok: true };
@@ -66,6 +68,18 @@ export async function exchangePasswordRecoverySession(
 }
 
 const RECOVERY_KEY = 'pw-recovery-at';
+
+/** Reads the cookie the confirm routes set (15 minutes) and removes it: it is good for one arrival. */
+function takeRecoveryCookie() {
+  const raw = document.cookie
+    .split('; ')
+    .find((c) => c.startsWith(`${RECOVERY_COOKIE}=`))
+    ?.slice(RECOVERY_COOKIE.length + 1);
+  if (!raw) return false;
+  document.cookie = `${RECOVERY_COOKIE}=; Max-Age=0; Path=${RESET_PATH}; SameSite=Lax`;
+  const at = Number(raw);
+  return Number.isFinite(at) && Date.now() - at < 15 * 60_000;
+}
 
 function markRecovery() {
   try {

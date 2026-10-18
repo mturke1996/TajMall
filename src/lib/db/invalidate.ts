@@ -39,8 +39,13 @@ const MONEY_ROOTS = new Set([
   'app_notifications',
 ]);
 
-export function invalidateMoneyQueries(qc: QueryClient) {
-  return qc.invalidateQueries({
+/**
+ * Marks them stale and refetches the ones on screen in the background. Returns nothing on purpose:
+ * a mutation's onSuccess that returned the promise would keep its dialog spinning until every list
+ * and report had reloaded.
+ */
+export function invalidateMoneyQueries(qc: QueryClient): void {
+  void qc.invalidateQueries({
     predicate: (q) => MONEY_ROOTS.has(String(q.queryKey[0])),
   });
 }

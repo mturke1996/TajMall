@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { useTxDialog, type TxKind } from '@/stores/transaction-dialog';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { cn, parseAmountInput, preferredCashboxId, todayISODate } from '@/lib/utils';
-import { useQueryClient } from '@tanstack/react-query';
 import { useCategories, useCashboxes, useCreateTransaction, useContacts, useCreateContact, useTransactionFormDrafts, useSaveTransactionFormDraft, useDeleteTransactionFormDraft, useRecordRentPayment } from '@/lib/db/queries';
 import type { TransactionFormDraftRow, PaymentMethod } from '@/lib/db/types';
 import { RentRevenueMonthsBlock } from '@/components/rent/rent-revenue-months-block';
@@ -25,7 +24,6 @@ import {
 } from '@/lib/party-contacts';
 import { useTenantChargesForTenant } from '@/lib/db/mall-queries';
 import { formatMonthLabelAr, formatMonthsLabelAr } from '@/lib/rent-months';
-import { invalidateRentCalendarQueries } from '@/lib/db/rent-queries';
 import { toast } from 'sonner';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { formatContactSaveError } from '@/lib/contacts/form-utils';
@@ -46,6 +44,7 @@ function extractSaveError(err: unknown): string {
 export function NewTransactionDialog() {
   const {
     isOpen,
+    openedAt,
     defaultKind,
     prefillContactId,
     prefillContactKind,
@@ -71,7 +70,6 @@ export function NewTransactionDialog() {
   const [rentMonths, setRentMonths] = useState<string[]>([]);
   // the whole save, including removing a used draft: the button stays disabled until it ends
   const [submitting, setSubmitting] = useState(false);
-  const qc = useQueryClient();
 
   const { data: drafts = [], isLoading: draftsLoading } = useTransactionFormDrafts(kind, isOpen);
   const saveDraft = useSaveTransactionFormDraft();
@@ -96,13 +94,14 @@ export function NewTransactionDialog() {
     return contactsAll.filter(c => c.kind === contactKind);
   }, [contactsAll, contactKind]);
 
-  // Reset the form each time the dialog opens — not on every re-render, or typing would be wiped while
-  // the cashboxes load.
-  const wasOpen = useRef(false);
+  // Reset the form each time the dialog is opened (also when a new request arrives while it is open,
+  // e.g. "new expense" from the command palette) — not on every re-render, or typing would be wiped
+  // while the cashboxes load.
+  const resetFor = useRef(0);
   useEffect(() => {
-    const opening = isOpen && !wasOpen.current;
-    wasOpen.current = isOpen;
+    const opening = isOpen && resetFor.current !== openedAt;
     if (opening) {
+      resetFor.current = openedAt;
       setKind(defaultKind);
       setAmount(prefillAmount ? String(prefillAmount) : '');
       setCategoryId('');
@@ -128,7 +127,7 @@ export function NewTransactionDialog() {
       setRentMonths([]);
       setSubmitting(false);
     }
-  }, [isOpen, defaultKind, cashboxes, prefillContactId, prefillContactKind, prefillDescription, prefillAmount]);
+  }, [isOpen, openedAt, defaultKind, cashboxes, prefillContactId, prefillContactKind, prefillDescription, prefillAmount]);
 
   // no choice yet means the preferred box, also when the cashboxes arrive after the dialog opened
   const effectiveCashboxId = cashboxId || preferredCashboxId(cashboxes);
@@ -145,11 +144,13 @@ export function NewTransactionDialog() {
     if (can(other === 'REVENUE' ? 'revenue.create' : 'expense.create')) {
       setKind(other);
       setCategoryId('');
+      // the party filter followed the kind it was opened for (customers for a revenue)
+      if (!prefillContactKind) setContactKind(suggestedContactKindForTx(other, null));
       return;
     }
     close();
     toast.error('صلاحية القراءة فقط — لا يمكن إضافة معاملات');
-  }, [isOpen, permLoading, createPerm, can, close, kind]);
+  }, [isOpen, permLoading, createPerm, can, close, kind, prefillContactKind]);
 
   // Escape closes it like every other dialog in the app.
   useEffect(() => {
@@ -243,7 +244,7 @@ export function NewTransactionDialog() {
           rent_months: [...rentMonths].sort(),
           payment_method: method,
         });
-        invalidateRentCalendarQueries(qc, contactId, rentMonths);
+        // the mutation already refreshes every money query, the tenant's rent calendar included
       } else {
         await createTx.mutateAsync({
           kind,

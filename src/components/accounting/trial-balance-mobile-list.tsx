@@ -54,8 +54,14 @@ export function TrialBalanceMobileList({
                 {row.code} · {accountTypeLabelAr(row.type)}
               </p>
             </div>
-            <p className="shrink-0 font-mono text-sm font-bold tabular-nums">
-              {formatMoney(row.balance, 'LYD')}
+            {/* closing balance is debit − credit: show the amount with its side, like the desktop columns */}
+            <p className="shrink-0 text-end font-mono text-sm font-bold tabular-nums">
+              {Math.abs(row.balance) < 0.0005 ? '—' : formatMoney(Math.abs(row.balance), 'LYD')}
+              {Math.abs(row.balance) >= 0.0005 && (
+                <span className="block text-[11px] font-normal text-muted-foreground">
+                  {row.balance > 0 ? 'مدين' : 'دائن'}
+                </span>
+              )}
             </p>
           </div>
           <div className="mt-2 grid grid-cols-3 gap-2 text-[11.5px] font-mono">

@@ -21,6 +21,8 @@ export type TxDialogPrefill = {
 
 type State = {
   isOpen: boolean;
+  /** increases on every open(), also when already open, so the form resets for the new request */
+  openedAt: number;
   defaultKind: TxKind;
   prefillContactId: string | null;
   prefillContactKind: ContactKind | 'ALL' | null;
@@ -30,7 +32,7 @@ type State = {
   close: () => void;
 };
 
-function resolveOpen(arg?: TxKind | TxDialogPrefill): Omit<State, 'open' | 'close'> {
+function resolveOpen(arg?: TxKind | TxDialogPrefill): Omit<State, 'open' | 'close' | 'openedAt'> {
   if (!arg || typeof arg === 'string') {
     return {
       isOpen: true,
@@ -47,18 +49,20 @@ function resolveOpen(arg?: TxKind | TxDialogPrefill): Omit<State, 'open' | 'clos
     prefillContactId: arg.contactId ?? null,
     prefillContactKind: arg.contactKind ?? null,
     prefillDescription: arg.description ?? null,
-    prefillAmount: arg.amount != null && arg.amount > 0 ? arg.amount : null,
+    // amounts computed by subtraction carry float noise (1249.5500000000002); the field takes 3 decimals
+    prefillAmount: arg.amount != null && arg.amount > 0 ? Math.round(arg.amount * 1000) / 1000 : null,
   };
 }
 
 export const useTxDialog = create<State>((set) => ({
   isOpen: false,
+  openedAt: 0,
   defaultKind: 'REVENUE',
   prefillContactId: null,
   prefillContactKind: null,
   prefillDescription: null,
   prefillAmount: null,
-  open: (kindOrPrefill) => set(resolveOpen(kindOrPrefill)),
+  open: (kindOrPrefill) => set((st) => ({ ...resolveOpen(kindOrPrefill), openedAt: st.openedAt + 1 })),
   close: () =>
     set({
       isOpen: false,
