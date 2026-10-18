@@ -1,15 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  CalendarRange,
-  Plus,
-  Lock,
-  Unlock,
-  Loader2,
-  RefreshCw,
-  SearchCheck,
-} from 'lucide-react';
+import { CalendarRange, Plus, Lock, Unlock, Loader2, RefreshCw, SearchCheck, ListChecks } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,6 +26,7 @@ import {
   AccountingError,
   AccountingLoading,
 } from '@/components/accounting/accounting-states';
+import { PeriodReviewPanel } from '@/components/accounting/period-review-panel';
 
 export default function FiscalPeriodsPage() {
   const { data: periods = [], isLoading, isError, error } = useFiscalPeriods();
@@ -52,6 +45,8 @@ export default function FiscalPeriodsPage() {
   );
   const [yearPreview, setYearPreview] = useState<YearClosePreview | null>(null);
   const [alsoClosePeriods, setAlsoClosePeriods] = useState(false);
+  // the open period whose pre-close checklist is shown
+  const [reviewId, setReviewId] = useState<string | null>(null);
 
   const handleCreatePeriod = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,7 +74,7 @@ export default function FiscalPeriodsPage() {
       title: currentlyClosed ? 'فتح الفترة المالية' : 'إغلاق الفترة المالية',
       description: currentlyClosed
         ? 'تصبح الفترة قابلة للتعديل: يمكن تسجيل أو حذف حركات بتواريخها.'
-        : 'لا تُسجَّل بعدها حركة ولا يُحذف قيد بتاريخ داخل الفترة؛ التحصيل المتأخر يُسجَّل بتاريخ اليوم.',
+        : 'لا تُسجَّل بعدها حركة ولا يُحذف قيد بتاريخ داخل الفترة؛ التحصيل المتأخر يُسجَّل بتاريخ اليوم. راجع «مراجعة قبل الإقفال» أولاً.',
       confirmLabel: currentlyClosed ? 'افتح الفترة' : 'أغلق الفترة',
       tone: currentlyClosed ? 'danger' : 'default',
     });
@@ -369,7 +364,7 @@ export default function FiscalPeriodsPage() {
                     {periods.map((period) => (
                       <li
                         key={period.id}
-                        className="flex flex-col gap-3 py-4 first:pt-0 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex flex-col gap-3 py-4 first:pt-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
                       >
                         <div className="min-w-0 space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
@@ -396,6 +391,19 @@ export default function FiscalPeriodsPage() {
                             </p>
                           )}
                         </div>
+                        <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
+                        {!period.is_closed && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full sm:w-auto gap-1.5 min-h-10 touch-manipulation"
+                            aria-expanded={reviewId === period.id}
+                            onClick={() => setReviewId((id) => (id === period.id ? null : period.id))}
+                          >
+                            <ListChecks className="h-3.5 w-3.5" />
+                            {reviewId === period.id ? 'إخفاء المراجعة' : 'مراجعة قبل الإقفال'}
+                          </Button>
+                        )}
                         <Button
                           variant={period.is_closed ? 'outline' : 'destructive'}
                           size="sm"
@@ -415,6 +423,12 @@ export default function FiscalPeriodsPage() {
                             </>
                           )}
                         </Button>
+                        </div>
+                        {reviewId === period.id && !period.is_closed && (
+                          <div className="w-full sm:basis-full">
+                            <PeriodReviewPanel startDate={period.start_date} endDate={period.end_date} />
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>

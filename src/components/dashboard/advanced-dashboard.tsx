@@ -7,6 +7,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip as RechartsT
 import { keepSeriesOrder } from '@/lib/chart-order';
 import { PageHeader } from '@/components/layout/page-header';
 import { useDashboardStats, useMonthlySummary, useRecentTransactions, useCashboxBalances } from '@/lib/db/queries';
+import { useProfitLoss } from '@/lib/db/mall-queries';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/ui/card';
 import { cn, formatDate, formatMoney } from '@/lib/utils';
@@ -78,11 +79,22 @@ export function AdvancedDashboard() {
   const { data: monthlyData = [], isLoading: monthlyLoading } = useMonthlySummary();
   const { data: recentTransactions = [], isLoading: txLoading } = useRecentTransactions(8);
   const { data: cashboxes = [], isLoading: cashboxLoading } = useCashboxBalances();
+  const now = new Date();
+  const year = now.getFullYear();
+  // the income statement (accrual: rent counted in the month it is due) beside the cash figures
+  const { data: pnl, isLoading: pnlLoading, isError: pnlError } = useProfitLoss(year, 'year');
+  const accrual = useMemo(() => {
+    const summary = (pnl as { summary?: Record<string, unknown> } | null | undefined)?.summary;
+    if (!summary) return null;
+    return {
+      revenue: Number(summary.total_revenue || 0),
+      expense: Number(summary.total_expense || 0),
+      net: Number(summary.net_profit || 0),
+    };
+  }, [pnl]);
 
   const s = stats ?? { totalRevenue: 0, totalExpense: 0, netProfit: 0, totalCashboxBalance: 0, topExpenseCategories: [] };
   const currentMonth = monthlyData[0];
-  const now = new Date();
-  const year = now.getFullYear();
 
   const barData = useMemo<MonthRow[]>(
     () =>
@@ -106,16 +118,16 @@ export function AdvancedDashboard() {
           <div className="grid grid-cols-2 gap-px bg-border lg:grid-cols-4">
             {[
               {
-                label: `إيرادات ${year}`,
+                label: `المحصّل ${year}`,
                 value: s.totalRevenue,
                 sub: currentMonth ? `هذا الشهر ${formatMoney(Number(currentMonth.revenue_total), 'LYD')}` : undefined,
               },
               {
-                label: `مصروفات ${year}`,
+                label: `المدفوع ${year}`,
                 value: s.totalExpense,
                 sub: currentMonth ? `هذا الشهر ${formatMoney(Number(currentMonth.expense_total), 'LYD')}` : undefined,
               },
-              { label: `صافي ${year}`, value: s.netProfit, sub: s.netProfit >= 0 ? 'الإيرادات أكبر من المصروفات' : 'المصروفات أكبر من الإيرادات' },
+              { label: `صافي النقد ${year}`, value: s.netProfit, sub: s.netProfit >= 0 ? 'دخل أكثر مما خرج' : 'خرج أكثر مما دخل' },
               { label: 'النقد في الخزائن', value: s.totalCashboxBalance, sub: `${cashboxes.length} خزينة ومصرف` },
             ].map((k) => (
               <div key={k.label} className="bg-card p-4">
@@ -131,12 +143,31 @@ export function AdvancedDashboard() {
               </div>
             ))}
           </div>
+          {/* Two bases, labelled: cash above (what moved through the boxes), accrual here (what was earned) */}
+          <div className="flex flex-col gap-1 border-t border-border bg-canvas-sunken/40 px-4 py-2.5 text-[12.5px] sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-ink-mute">
+              الأرقام أعلاه نقدية: ما دخل الخزائن وخرج منها، ويشمل التأمينات المستلمة.
+            </p>
+            {pnlLoading ? (
+              <Skeleton className="h-4 w-56" />
+            ) : accrual && !pnlError ? (
+              <Link href={`/reports/profit-loss?year=${year}&mode=year`} className="inline-flex flex-wrap items-center gap-x-2 text-foreground hover:underline">
+                <span className="text-ink-mute">قائمة الدخل (استحقاق):</span>
+                <span className="tabular-nums">الإيراد {formatMoney(accrual.revenue, 'LYD')}</span>
+                <span className="text-ink-mute" aria-hidden>·</span>
+                <span className={cn('tabular-nums', accrual.net < 0 && 'text-danger-ink')}>
+                  {accrual.net < 0 ? 'صافي الخسارة' : 'صافي الربح'} {formatMoney(Math.abs(accrual.net), 'LYD')}
+                </span>
+                <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
+              </Link>
+            ) : null}
+          </div>
         </Card>
 
         <MallRentCollectionSection />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <SectionCard title="الإيرادات والمصروفات" link={{ href: '/transactions', label: 'المعاملات' }} className="lg:col-span-2">
+          <SectionCard title="المحصّل والمدفوع شهرياً" link={{ href: '/transactions', label: 'المعاملات' }} className="lg:col-span-2">
             <div className="p-4">
               <div className="mb-2 flex items-center justify-between gap-2 text-[12.5px] text-ink-mute">
                 <span>آخر 6 أشهر</span>

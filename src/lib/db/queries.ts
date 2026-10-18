@@ -1208,16 +1208,20 @@ export function useDashboardStats() {
       const supabase = createSupabaseBrowserClient();
       const year = new Date().getFullYear();
 
-      // Pull this year's posted transactions with category info for breakdown.
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("amount, kind, tx_date, category:categories(name_ar, color)")
-        .eq("status", "POSTED")
-        .gte("tx_date", `${year}-01-01`)
-        .lt("tx_date", `${year + 1}-01-01`);
-      if (error) throw error;
+      // This year's posted transactions with category info for breakdown — every row, not the first 1,000.
+      const data = await fetchAllPages<unknown>(
+        (from, to) =>
+          supabase
+            .from("transactions")
+            .select("id, amount, kind, tx_date, category:categories(name_ar, color)")
+            .eq("status", "POSTED")
+            .gte("tx_date", `${year}-01-01`)
+            .lt("tx_date", `${year + 1}-01-01`)
+            .order("id")
+            .range(from, to) as unknown as PromiseLike<{ data: unknown[] | null; error: unknown }>,
+      );
 
-      const rows = (data ?? []) as unknown as Array<{
+      const rows = data as unknown as Array<{
         amount: string;
         kind: "REVENUE" | "EXPENSE" | string;
         tx_date: string;
@@ -1238,7 +1242,7 @@ export function useDashboardStats() {
 
       for (const r of rows) {
         const n = Number(r.amount);
-        const m = new Date(r.tx_date).getMonth();
+        const m = Number(String(r.tx_date).slice(5, 7)) - 1;
         if (r.kind === "REVENUE") {
           totalRevenue += n;
           monthlyR[m] += n;
