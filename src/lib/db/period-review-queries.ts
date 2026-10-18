@@ -2,21 +2,10 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
-import { fetchAllPages } from '@/lib/db/fetch-all';
+import { fetchAllPages, fetchInChunks } from '@/lib/db/fetch-all';
 import { buildPeriodReview, type ReviewTx } from '@/lib/period-review';
 
 type Rows<T> = PromiseLike<{ data: T[] | null; error: unknown }>;
-
-/** `in (…)` lists are split so a long period never builds a request URL too long for the server. */
-async function inChunks<T>(ids: string[], read: (chunk: string[]) => Rows<T>, size = 150): Promise<T[]> {
-  const out: T[] = [];
-  for (let i = 0; i < ids.length; i += size) {
-    const { data, error } = await read(ids.slice(i, i + size));
-    if (error) throw error;
-    out.push(...(data ?? []));
-  }
-  return out;
-}
 
 /** Everything the pre-close review needs for one period, read once when the review is opened. */
 export function usePeriodReview(startDate: string, endDate: string, enabled: boolean) {
@@ -43,7 +32,7 @@ export function usePeriodReview(startDate: string, endDate: string, enabled: boo
       const receipts = transactions.filter(
         (t) => (t.status === 'POSTED' || t.status === 'RECONCILED') && t.kind === 'REVENUE' && t.category?.code === 'REV-RNT',
       );
-      const entries = await inChunks<{ id: string; source_id: string }>(receipts.map((r) => r.id), (chunk) =>
+      const entries = await fetchInChunks<{ id: string; source_id: string }>(receipts.map((r) => r.id), (chunk) =>
         supabase
           .from('journal_entries')
           .select('id, source_id')
@@ -51,7 +40,7 @@ export function usePeriodReview(startDate: string, endDate: string, enabled: boo
           .neq('status', 'REVERSED')
           .in('source_id', chunk) as unknown as Rows<{ id: string; source_id: string }>,
       );
-      const links = await inChunks<{ journal_entry_id: string; amount: number | string }>(
+      const links = await fetchInChunks<{ journal_entry_id: string; amount: number | string }>(
         entries.map((e) => e.id),
         (chunk) =>
           supabase

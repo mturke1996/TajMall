@@ -1,7 +1,8 @@
 // @ts-nocheck
 import React from 'react';
-import { Text, View } from '@react-pdf/renderer';
-import { ReportShell } from './ReportShell';
+import { Document, Text, View } from '@react-pdf/renderer';
+import { ReportPage } from './ReportShell';
+import { BRAND } from '@/lib/brand';
 import { ar } from './arabicPDF';
 import { PDF } from './pdfBase';
 import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTable';
@@ -36,13 +37,21 @@ export type TenantStatementPdfProps = {
 };
 
 /** كشف حساب الإيجار: مستحق كل شهر، كل دفعة، والرصيد بعد كل حركة. */
-export function TenantStatementPDF({ tenantName, shopNumber, phone, periodLabel, issuedOn, statement }: TenantStatementPdfProps) {
+export function TenantStatementPDF(props: TenantStatementPdfProps) {
+  return (
+    <Document title={`كشف حساب الإيجار - ${props.tenantName} - ${props.periodLabel}`} author={BRAND.fullName}>
+      <TenantStatementPage {...props} />
+    </Document>
+  );
+}
+
+/** صفحات كشف مستأجر واحد — تُطبع وحدها أو ضمن كشوف كل المستأجرين. */
+export function TenantStatementPage({ tenantName, shopNumber, phone, periodLabel, issuedOn, statement }: TenantStatementPdfProps) {
   const { rows, opening, totalDebit, totalCredit, closing, reconciliation: rec, year } = statement;
   return (
-    <ReportShell
+    <ReportPage
       title="كشف حساب الإيجار"
       subtitle={`${tenantName}${shopNumber ? ` · محل ${shopNumber}` : ''} · ${periodLabel}`}
-      documentTitle={`كشف حساب الإيجار - ${tenantName} - ${periodLabel}`}
       summaryPrimaryDateIso={issuedOn}
       summaryPrimaryDateLabel="تاريخ الكشف"
       metaCells={[
@@ -161,6 +170,6 @@ export function TenantStatementPDF({ tenantName, shopNumber, phone, periodLabel,
         {ar('يُحتسب إيجار كل شهر في أول يوم منه. هذا الكشف لا يشمل التأمين ولا رسوم الخدمات.')}
       </Text>
       <PdfReportCaption />
-    </ReportShell>
+    </ReportPage>
   );
 }

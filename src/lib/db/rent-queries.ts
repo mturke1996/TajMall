@@ -14,6 +14,7 @@ import { setTenantRentMonthStatus } from '@/lib/db/set-rent-month-status';
 import { useTenantChargesForTenant, useTenantLeaseContracts } from '@/lib/db/mall-queries';
 import type { RentPricing } from '@/lib/rent-allocation';
 import type { ChargeAllocationInput, TransactionWithRelations } from '@/lib/db/types';
+import { activeLeaseRent } from '@/lib/tenant-rent-account-from-data';
 
 export const rentQk = {
   calendar: (tenantId: string, year: number) =>
@@ -359,15 +360,13 @@ export async function resolveTenantRentAmountClient(
 export function useTenantRentPricing(tenantId: string, contactRent: number | null | undefined) {
   const bands = useTenantRentPriceBands(tenantId);
   const leases = useTenantLeaseContracts(tenantId || undefined);
-  const pricing = useMemo<RentPricing>(() => {
-    const active = (leases.data ?? [])
-      .filter((l) => l.status === 'ACTIVE')
-      .sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0];
-    return {
+  const pricing = useMemo<RentPricing>(
+    () => ({
       bands: (bands.data ?? []).map((b) => ({ from_month: b.from_month, to_month: b.to_month, amount: Number(b.amount) })),
-      leaseRent: active ? Number(active.monthly_rent) || 0 : null,
+      leaseRent: activeLeaseRent(leases.data ?? []),
       contactRent: Number(contactRent) || 0,
-    };
-  }, [bands.data, leases.data, contactRent]);
+    }),
+    [bands.data, leases.data, contactRent],
+  );
   return { pricing, loading: bands.isLoading || leases.isLoading, error: bands.error ?? leases.error };
 }

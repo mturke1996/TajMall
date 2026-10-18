@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { FileSpreadsheet, Plus } from 'lucide-react';
 import {
   useTenantRentSummaryForMonth,
   useTenantRentSummaryForPeriod,
@@ -195,6 +196,12 @@ export function MallTenantsPanel() {
             );
           }}
         />
+        <Button variant="outline" size="sm" asChild className="h-9 touch-manipulation">
+          <Link href="/reports/tenant-statements">
+            <FileSpreadsheet className="h-4 w-4 me-1" aria-hidden />
+            كشوف الحساب
+          </Link>
+        </Button>
         <WriteGuard permission="document.create">
           <Button
             size="sm"

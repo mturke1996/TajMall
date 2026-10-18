@@ -113,6 +113,13 @@ const REPORT_CARDS: ReportCard[] = [
     icon: Users,
   },
   {
+    href: '/reports/tenant-statements',
+    group: 'analysis',
+    titleAr: 'كشوف حساب المستأجرين',
+    description: 'رصيد كل مستأجر وكشفه في ملف واحد',
+    icon: FileSpreadsheet,
+  },
+  {
     href: '/reports/vendor-spend',
     group: 'analysis',
     titleAr: 'إنفاق الموردين',

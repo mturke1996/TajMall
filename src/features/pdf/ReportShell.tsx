@@ -36,7 +36,8 @@ export type ReportShellPeriodSummary = {
  * - paddingBottom للصفحة = footerReserve فقط (بدون فراغ زائد فوق التذييل).
  */
 
-export function ReportShell({
+/** صفحة تقرير واحدة (تتمدد لعدة صفحات) — تُستخدم داخل Document؛ ReportShell يغلّفها بوثيقة. */
+export function ReportPage({
   title,
   subtitle,
   metaCells = [],
@@ -48,9 +49,6 @@ export function ReportShell({
   showHeader = true,
   showSummary = true,
   headerProps,
-
-  /** عنوان ملف PDF الداخلي (يظهر في قارئ PDF والمشاركة) */
-  documentTitle,
 }: {
   title: string;
   subtitle?: string;
@@ -68,7 +66,6 @@ export function ReportShell({
     refLine?: string;
     companyInfo?: any;
   };
-  documentTitle?: string;
 }) {
   const summaryDate =
     summaryPrimaryDateIso != null && summaryPrimaryDateIso.trim() !== ''
@@ -83,128 +80,140 @@ export function ReportShell({
   );
   const luxeBigDateLabel = summaryPrimaryDateLabel ?? 'تاريخ إصدار الوثيقة';
   return (
-    <Document title={documentTitle ?? `${BRAND.name} - ${title}`} author={BRAND.fullName}>
-      <Page
-        size="A4"
-        style={[
-          pdfBase.page,
-          !showHeader && { paddingTop: PDF_PAGINATION.headerCompact },
-        ]}
-        wrap
-      >
-        <View style={pdfBase.pageAccentBar} fixed />
-        <View style={pdfBase.pageFlow}>
-          {showHeader ? (
-            <PdfReportHeaderFlow title={title} subtitle={subtitle} titleEn="REPORT" />
-          ) : null}
-          {headerProps ? (
-            <TajMallPdfHeader
-              titleEn={headerProps.titleEn || title}
-              subtitleAr={headerProps.subtitleAr || subtitle || ''}
-              refLine={headerProps.refLine}
-              companyInfo={headerProps.companyInfo}
-            />
-          ) : null}
-          {showSummary && metaCells.length > 0 ? (
-            <View style={pdfBase.luxe} wrap={false}>
-              <View style={pdfBase.luxeRibbon}>
-                <Text style={pdfBase.luxeRibbonText}>{ar('ملخّص الوثيقة')}</Text>
-                <Text style={pdfBase.luxeRibbonHint}>{ar(BRAND.fullName)}</Text>
-              </View>
-              <View style={pdfBase.luxeRow}>
-                <View style={pdfBase.luxeDateCell}>
-                  {periodSummary ? (
-                    <>
-                      <Text style={pdfBase.luxeEyebrow}>{ar(periodSummary.eyebrow)}</Text>
-                      {periodSummary.badge ? (
-                        <View
+    <Page
+      size="A4"
+      style={[
+        pdfBase.page,
+        !showHeader && { paddingTop: PDF_PAGINATION.headerCompact },
+      ]}
+      wrap
+    >
+      <View style={pdfBase.pageAccentBar} fixed />
+      <View style={pdfBase.pageFlow}>
+        {showHeader ? (
+          <PdfReportHeaderFlow title={title} subtitle={subtitle} titleEn="REPORT" />
+        ) : null}
+        {headerProps ? (
+          <TajMallPdfHeader
+            titleEn={headerProps.titleEn || title}
+            subtitleAr={headerProps.subtitleAr || subtitle || ''}
+            refLine={headerProps.refLine}
+            companyInfo={headerProps.companyInfo}
+          />
+        ) : null}
+        {showSummary && metaCells.length > 0 ? (
+          <View style={pdfBase.luxe} wrap={false}>
+            <View style={pdfBase.luxeRibbon}>
+              <Text style={pdfBase.luxeRibbonText}>{ar('ملخّص الوثيقة')}</Text>
+              <Text style={pdfBase.luxeRibbonHint}>{ar(BRAND.fullName)}</Text>
+            </View>
+            <View style={pdfBase.luxeRow}>
+              <View style={pdfBase.luxeDateCell}>
+                {periodSummary ? (
+                  <>
+                    <Text style={pdfBase.luxeEyebrow}>{ar(periodSummary.eyebrow)}</Text>
+                    {periodSummary.badge ? (
+                      <View
+                        style={{
+                          alignSelf: 'flex-end',
+                          backgroundColor: PDF.logoGreen,
+                          paddingVertical: 3,
+                          paddingHorizontal: 8,
+                          borderRadius: 3,
+                          marginBottom: 8,
+                        }}
+                      >
+                        <Text
                           style={{
-                            alignSelf: 'flex-end',
-                            backgroundColor: PDF.logoGreen,
-                            paddingVertical: 3,
-                            paddingHorizontal: 8,
-                            borderRadius: 3,
-                            marginBottom: 8,
+                            fontSize: 7.5,
+                            fontWeight: 'bold',
+                            color: '#fff',
+                            textAlign: 'right',
                           }}
                         >
-                          <Text
-                            style={{
-                              fontSize: 7.5,
-                              fontWeight: 'bold',
-                              color: '#fff',
-                              textAlign: 'right',
-                            }}
-                          >
-                            {ar(periodSummary.badge)}
-                          </Text>
-                        </View>
-                      ) : null}
-                      <Text style={pdfBase.luxeMonthYear}>{ar(periodSummary.title)}</Text>
-                      <Text style={[pdfBase.luxeWeekday, { marginTop: 4 }]}>
-                        {ar(periodSummary.subtitle)}
-                      </Text>
-                      <Text style={pdfBase.luxeGregorian}>{ar(periodSummary.hint)}</Text>
-                    </>
-                  ) : (
-                    <>
-                      <Text style={pdfBase.luxeEyebrow}>{ar(luxeBigDateLabel)}</Text>
-                      <View style={pdfBase.luxeDateBlock}>
-                        <Text style={pdfBase.luxeDay}>{dateParts.day}</Text>
-                        <View style={pdfBase.luxeDateTexts}>
-                          <Text style={pdfBase.luxeMonthYear}>{ar(dateParts.monthYear)}</Text>
-                          <Text style={pdfBase.luxeWeekday}>{ar(dateParts.weekday)}</Text>
-                        </View>
+                          {ar(periodSummary.badge)}
+                        </Text>
                       </View>
-                      <Text style={pdfBase.luxeGregorian}>
-                        {ar(`ميلادي · ${dateParts.gregorian}`)}
-                      </Text>
-                    </>
-                  )}
-                </View>
-                {metaCells.flatMap((c, i) => [
-                  <View key={`luxe-div-${i}`} style={pdfBase.luxeDivider} />,
-                  <View key={`luxe-cell-${i}`} style={pdfBase.luxeCell}>
-                    <Text style={pdfBase.luxeEyebrow}>{ar(c.label)}</Text>
-                    {c.moneyAmount != null && Number.isFinite(c.moneyAmount) ? (
-                      <PdfMoneyText
-                        amount={c.moneyAmount}
-                        currency={c.currency ?? 'د.ل'}
-                        align="right"
-                        adaptive={c.adaptiveMoney !== false}
-                        adaptiveBase={15}
-                        style={pdfBase.luxeValue}
-                        currStyle={pdfBase.luxeMoneyCurrency}
-                        containerStyle={{ justifyContent: 'flex-start', maxWidth: '100%' }}
-                      />
-                    ) : (
-                      <Text
-                        style={[
-                          pdfBase.luxeValue,
-                          c.valueDirection === 'ltr' && {
-                            direction: 'ltr',
-                            textAlign: 'left',
-                          },
-                        ]}
-                      >
-                        {ar(c.value ?? '')}
-                      </Text>
-                    )}
-                  </View>,
-                ])}
+                    ) : null}
+                    <Text style={pdfBase.luxeMonthYear}>{ar(periodSummary.title)}</Text>
+                    <Text style={[pdfBase.luxeWeekday, { marginTop: 4 }]}>
+                      {ar(periodSummary.subtitle)}
+                    </Text>
+                    <Text style={pdfBase.luxeGregorian}>{ar(periodSummary.hint)}</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={pdfBase.luxeEyebrow}>{ar(luxeBigDateLabel)}</Text>
+                    <View style={pdfBase.luxeDateBlock}>
+                      <Text style={pdfBase.luxeDay}>{dateParts.day}</Text>
+                      <View style={pdfBase.luxeDateTexts}>
+                        <Text style={pdfBase.luxeMonthYear}>{ar(dateParts.monthYear)}</Text>
+                        <Text style={pdfBase.luxeWeekday}>{ar(dateParts.weekday)}</Text>
+                      </View>
+                    </View>
+                    <Text style={pdfBase.luxeGregorian}>
+                      {ar(`ميلادي · ${dateParts.gregorian}`)}
+                    </Text>
+                  </>
+                )}
               </View>
+              {metaCells.flatMap((c, i) => [
+                <View key={`luxe-div-${i}`} style={pdfBase.luxeDivider} />,
+                <View key={`luxe-cell-${i}`} style={pdfBase.luxeCell}>
+                  <Text style={pdfBase.luxeEyebrow}>{ar(c.label)}</Text>
+                  {c.moneyAmount != null && Number.isFinite(c.moneyAmount) ? (
+                    <PdfMoneyText
+                      amount={c.moneyAmount}
+                      currency={c.currency ?? 'د.ل'}
+                      align="right"
+                      adaptive={c.adaptiveMoney !== false}
+                      adaptiveBase={15}
+                      style={pdfBase.luxeValue}
+                      currStyle={pdfBase.luxeMoneyCurrency}
+                      containerStyle={{ justifyContent: 'flex-start', maxWidth: '100%' }}
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        pdfBase.luxeValue,
+                        c.valueDirection === 'ltr' && {
+                          direction: 'ltr',
+                          textAlign: 'left',
+                        },
+                      ]}
+                    >
+                      {ar(c.value ?? '')}
+                    </Text>
+                  )}
+                </View>,
+              ])}
             </View>
-          ) : null}
-          {children}
-        </View>
-        {showFooter && <TajMallPdfFooter fixed />}
-        <Text
-          style={pdfBase.pageNumber}
-          render={({ pageNumber, totalPages }) =>
-            ar(`صفحة ${pageNumber ?? 1} من ${totalPages ?? 1}`)
-          }
-          fixed
-        />
-      </Page>
+          </View>
+        ) : null}
+        {children}
+      </View>
+      {showFooter && <TajMallPdfFooter fixed />}
+      <Text
+        style={pdfBase.pageNumber}
+        render={({ pageNumber, totalPages }) =>
+          ar(`صفحة ${pageNumber ?? 1} من ${totalPages ?? 1}`)
+        }
+        fixed
+      />
+    </Page>
+  );
+}
+
+export function ReportShell({
+  documentTitle,
+  ...page
+}: React.ComponentProps<typeof ReportPage> & {
+  /** عنوان ملف PDF الداخلي (يظهر في قارئ PDF والمشاركة) */
+  documentTitle?: string;
+}) {
+  return (
+    <Document title={documentTitle ?? `${BRAND.name} - ${page.title}`} author={BRAND.fullName}>
+      <ReportPage {...page} />
     </Document>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import {
   ArrowRight,
   Building2,
@@ -69,6 +69,8 @@ const KIND_ICON: Record<ContactKind, typeof Building2> = {
 
 export default function ContactDetailPage() {
   const params = useParams();
+  // e.g. ?tab=statement from the all-tenants statements report
+  const initialTab = useSearchParams().get('tab');
   const id = typeof params?.id === 'string' ? params.id : '';
   const openTx = useTxDialog((s) => s.open);
   const { can, canWrite } = usePermission();
@@ -286,6 +288,7 @@ export default function ContactDetailPage() {
             rentPaymentsCount={rentPaymentsCount}
             onEdit={canWrite ? openEdit : undefined}
             onCollect={canRecordRent ? openCollect : undefined}
+            initialTab={initialTab}
           />
         ) : isLandlord ? (
           <LandlordProfilePanel

@@ -516,23 +516,28 @@ const TENANT_CHARGE_SELECT = `
   )
 `;
 
+/** Every charge (or one contract's), newest first, with its lease and month links. */
+export function fetchTenantCharges(
+  supabase: ReturnType<typeof createSupabaseBrowserClient>,
+  contractId?: string,
+): Promise<TenantChargeWithRelations[]> {
+  // every charge, not the first 1,000: 68 tenants × two years already pass that
+  return fetchAllPages<TenantChargeWithRelations>((from, to) => {
+    let q = supabase
+      .from('tenant_charges')
+      .select(TENANT_CHARGE_SELECT)
+      .order('due_date', { ascending: false })
+      .order('id')
+      .range(from, to);
+    if (contractId) q = q.eq('contract_id', contractId);
+    return q as unknown as PromiseLike<{ data: TenantChargeWithRelations[] | null; error: unknown }>;
+  });
+}
+
 export function useTenantCharges(contractId?: string) {
   return useQuery<TenantChargeWithRelations[]>({
     queryKey: mqk.tenantCharges(contractId),
-    queryFn: async () => {
-      const supabase = createSupabaseBrowserClient();
-      // every charge, not the first 1,000: 68 tenants × two years already pass that
-      return fetchAllPages<TenantChargeWithRelations>((from, to) => {
-        let q = supabase
-          .from('tenant_charges')
-          .select(TENANT_CHARGE_SELECT)
-          .order('due_date', { ascending: false })
-          .order('id')
-          .range(from, to);
-        if (contractId) q = q.eq('contract_id', contractId);
-        return q as unknown as PromiseLike<{ data: TenantChargeWithRelations[] | null; error: unknown }>;
-      });
-    },
+    queryFn: () => fetchTenantCharges(createSupabaseBrowserClient(), contractId),
   });
 }
 

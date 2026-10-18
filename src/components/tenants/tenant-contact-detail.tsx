@@ -20,6 +20,8 @@ import type { ContactRow } from '@/lib/db/types';
 import type { TenantRentSummary } from '@/lib/db/queries';
 import type { TransactionWithRelations } from '@/lib/db/types';
 
+const TABS = ['rent-calendar', 'statement', 'charges', 'rent', 'transactions', 'journals'] as const;
+
 const TAB_TRIGGER =
   'shrink-0 gap-1.5 rounded-lg px-3 py-2 text-[13px] data-[state=active]:bg-card data-[state=active]:shadow-xs touch-manipulation sm:text-sm';
 
@@ -35,6 +37,7 @@ export function TenantContactDetail({
   rentPaymentsCount,
   onEdit,
   onCollect,
+  initialTab,
 }: {
   contact: ContactRow;
   rent: TenantRentSummary;
@@ -49,6 +52,8 @@ export function TenantContactDetail({
   onEdit?: () => void;
   /** open rent collection, optionally with months selected; absent when the user may not collect */
   onCollect?: (months?: string[]) => void;
+  /** tab to open first (from a link); unknown values fall back to the rent calendar */
+  initialTab?: string | null;
 }) {
   const claimStart = rent.rent_claim_start ?? contact.contract_start ?? null;
   const startDate = contact.contract_start || rent.rent_claim_start;
@@ -79,7 +84,10 @@ export function TenantContactDetail({
       <div className="grid gap-5 lg:grid-cols-12 lg:gap-6">
         <div className="lg:col-span-8 min-w-0 order-1">
           <Card className="min-w-0 overflow-hidden">
-            <Tabs defaultValue="rent-calendar" dir="rtl">
+            <Tabs
+              defaultValue={TABS.includes(initialTab as (typeof TABS)[number]) ? (initialTab as string) : 'rent-calendar'}
+              dir="rtl"
+            >
               <div className="border-b border-border/60 bg-canvas-sunken/40 px-3 pt-3 sm:px-4">
                 <TabsList className="mb-0 flex h-auto w-full justify-start gap-1 overflow-x-auto p-1 no-scrollbar flex-nowrap bg-transparent">
                   <TabsTrigger

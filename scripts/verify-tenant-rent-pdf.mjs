@@ -106,6 +106,50 @@ for (const year of [null, 2026]) {
   if (sblob.size < 2000) throw new Error(`statement PDF too small: ${sblob.size} bytes`);
 }
 
+// All tenants at once: built from raw tenant data by the same functions as the screen, then one PDF
+const { buildTenantStatementsReport } = await import('../src/lib/tenant-statements-report.ts');
+const { TenantStatementsBatchPDF } = await import('../src/features/pdf/TenantStatementsBatchPDF.tsx');
+const { currentMonthKey } = await import('../src/lib/rent-months.ts');
+const nowKey = currentMonthKey();
+const monthsThisYear = Number(nowKey.slice(5, 7));
+const source = (id, name, shop, rent, claimStart, receipts) => ({
+  tenant: { id, name, shop_number: shop, phone: null, is_active: true },
+  claimStart,
+  contractStartYear: claimStart ? Number(claimStart.slice(0, 4)) : null,
+  monthlyRent: rent,
+  charges: [],
+  manualExemptMonths: [],
+  pricing: { bands: [], leaseRent: null, contactRent: rent },
+  receipts,
+  journalEntries: receipts.map((r) => ({ id: `je-${r.id}`, status: 'POSTED', source_type: 'TRANSACTION', source_id: r.id })),
+});
+const year = Number(nowKey.slice(0, 4));
+const batch = buildTenantStatementsReport(
+  [
+    source('b2', 'مستأجر ب', '10', 1000, `${year}-01-01`, [
+      { id: 'p1', number: 7, tx_date: `${year}-01-05`, amount: 2500, status: 'POSTED', kind: 'REVENUE', category: { code: 'REV-RNT' } },
+    ]),
+    source('b1', 'مستأجر أ', '2', 500, `${year}-01-01`, []),
+    source('b3', 'مستأجر بلا نشاط', '30', 0, null, []),
+  ],
+  year,
+);
+// sorted by shop (2 before 10), the idle tenant left out, and each balance = months due − paid
+if (batch.lines.map((l) => l.tenant.shop_number).join(',') !== '2,10') throw new Error(`batch order ${batch.lines.map((l) => l.tenant.shop_number)}`);
+if (batch.skipped !== 1) throw new Error(`batch skipped ${batch.skipped} ≠ 1`);
+const expectB = monthsThisYear * 1000 - 2500;
+const expectA = monthsThisYear * 500;
+if (batch.lines[1].statement.closing !== expectB) throw new Error(`tenant B closing ${batch.lines[1].statement.closing} ≠ ${expectB}`);
+if (batch.totals.closing !== expectA + expectB) throw new Error(`batch closing ${batch.totals.closing} ≠ ${expectA + expectB}`);
+if (batch.totals.debit !== monthsThisYear * 1500 || batch.totals.credit !== 2500) throw new Error(`batch totals ${JSON.stringify(batch.totals)}`);
+const single = await renderPdfBlob(async () =>
+  React.createElement(TenantStatementPDF, { tenantName: 'مستأجر ب', shopNumber: '10', periodLabel: `سنة ${year}`, issuedOn: '2026-03-15', statement: batch.lines[1].statement }),
+);
+const bblob = await renderPdfBlob(async () =>
+  React.createElement(TenantStatementsBatchPDF, { report: batch, periodLabel: `سنة ${year}`, issuedOn: '2026-03-15' }),
+);
+if (bblob.size <= single.size) throw new Error(`batch PDF (${bblob.size} bytes) not larger than one statement (${single.size})`);
+
 console.log(
   JSON.stringify({
     periodExpected: tenantPeriodExpectedRent(t),
@@ -114,4 +158,4 @@ console.log(
     pdfBytes: blob.size,
   }),
 );
-console.log('✓ verify-tenant-rent-pdf: PDF matches UI totals; statement PDF renders');
+console.log('✓ verify-tenant-rent-pdf: PDF matches UI totals; statement PDF and all-tenants statements render');
