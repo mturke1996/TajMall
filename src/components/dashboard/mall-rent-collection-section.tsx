@@ -24,6 +24,7 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
+import { keepSeriesOrder } from '@/lib/chart-order';
 import { motion, type Variants } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -379,8 +380,9 @@ export function MallRentCollectionSection({
                           }
                         />
                         <YAxis yAxisId="rate" orientation="right" domain={[0, 100]} />
-                        <Tooltip content={<RentTooltip />} />
+                        <Tooltip content={<RentTooltip />} itemSorter={keepSeriesOrder} />
                         <Legend
+                          itemSorter={null}
                           iconType="circle"
                           iconSize={8}
                           wrapperStyle={{ fontSize: '11px' }}
@@ -453,7 +455,7 @@ export function MallRentCollectionSection({
                         tickLine={false}
                         tickFormatter={(v) => `${v}%`}
                       />
-                      <Tooltip content={<RentTooltip />} />
+                      <Tooltip content={<RentTooltip />} itemSorter={keepSeriesOrder} />
                       <Area
                         type="monotone"
                         dataKey="rate"

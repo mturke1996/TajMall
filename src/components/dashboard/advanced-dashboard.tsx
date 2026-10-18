@@ -28,6 +28,7 @@ import {
   Cell,
   Legend,
 } from 'recharts';
+import { keepSeriesOrder } from '@/lib/chart-order';
 import { PageHeader } from '@/components/layout/page-header';
 import {
   useDashboardStats,
@@ -334,7 +335,7 @@ export function AdvancedDashboard() {
                         tickLine={false}
                         tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}
                       />
-                      <RechartsTooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--muted))', radius: 4 }} />
+                      <RechartsTooltip content={<ChartTooltip />} itemSorter={keepSeriesOrder} cursor={{ fill: 'hsl(var(--muted))', radius: 4 }} />
                       <Bar dataKey="إيرادات" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} maxBarSize={36} />
                       <Bar dataKey="مصروفات" fill="hsl(var(--danger))" radius={[4, 4, 0, 0]} maxBarSize={36} />
                     </BarChart>
@@ -439,6 +440,7 @@ export function AdvancedDashboard() {
                       </Pie>
                       <RechartsTooltip content={<PieTooltipContent />} />
                       <Legend
+                        itemSorter={null}
                         iconType="circle"
                         iconSize={8}
                         wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }}

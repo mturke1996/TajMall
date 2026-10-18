@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { keepSeriesOrder } from '@/lib/chart-order';
 import { formatMoney } from '@/lib/utils';
 
 const MONTHS = [
@@ -81,6 +82,7 @@ export function RevenueExpenseChart({
           />
           {!isEmpty && (
             <Tooltip
+              itemSorter={keepSeriesOrder}
               cursor={{ stroke: 'hsl(var(--success))', strokeWidth: 1, strokeDasharray: '3 3' }}
               contentStyle={{
                 background: 'hsl(var(--popover))',
@@ -91,8 +93,8 @@ export function RevenueExpenseChart({
                 padding: '8px 12px',
               }}
               labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600, fontSize: 12 }}
-              formatter={(value: number, name: string) => [
-                formatMoney(value, currency, { compact: true }),
+              formatter={(value, name) => [
+                formatMoney(Number(value ?? 0), currency, { compact: true }),
                 name === 'revenue' ? 'الإيرادات' : 'المصروفات',
               ]}
             />
