@@ -29,12 +29,12 @@ const DIR = 'docs/proposed-migrations';
 const MIGRATIONS = [
   {
     id: '078', up: '078_security_and_ledger_fixes.sql', down: '078_security_and_ledger_fixes.ROLLBACK.sql',
-    sha: 'c22edbb9f5546aa387caa722d5fe0dd8ed8daad3d854c78ac2692539d3256ef7',
+    sha: 'bd7e9b838ab275f258c307fa86b7abd59183afa6dada6ce5d6210283ef75d798',
     applied: `SELECT to_regprocedure('public.post_missing_charge_accrual(uuid)') IS NOT NULL AS done`,
   },
   {
     id: '080', up: '080_payroll.sql', down: '080_payroll.ROLLBACK.sql',
-    sha: '3ec45737173536a83d26640ffa9bcf84f624cff5e2855dfb732affa504b372e5',
+    sha: 'b4254cc98a789ee661a2a9ed87313c914ef13c78cb917ec1e1604335f1f2b3aa',
     applied: `SELECT to_regclass('public.payroll_runs') IS NOT NULL AS done`,
   },
   {
@@ -80,6 +80,9 @@ const VERIFY = {
     check('no open write policies remain', Number((await one(`SELECT count(*) n FROM pg_policies WHERE schemaname = 'public'
       AND cmd <> 'SELECT' AND (lower(coalesce(qual, '')) IN ('true', '(true)') OR lower(coalesce(with_check, '')) IN ('true', '(true)'))
       AND tablename <> 'app_notifications'`)).n) === 0);
+    check('ledger internals are not callable through the API', Number((await one(`SELECT count(*) n FROM pg_proc p
+      WHERE p.pronamespace = 'public'::regnamespace AND p.proname IN ('post_to_ledger', 'reverse_ledger_entry')
+      AND has_function_privilege('authenticated', p.oid, 'EXECUTE')`)).n) === 0);
     const anon = await asRole('anon', { role: 'anon' }, `SELECT count(*) FROM tenants_rent_status`);
     check('anon blocked from tenant data', !anon.ok);
     const bs = await asRole('authenticated', ownerClaims, `SELECT get_balance_sheet(CURRENT_DATE)->'summary' s`);
@@ -91,6 +94,8 @@ const VERIFY = {
       AND relname IN ('payroll_salary_structures','payroll_adjustments','payroll_advances','payroll_runs','payroll_run_lines','payroll_advance_repayments','payroll_payments')`)).n) === 7);
     check('anon cannot touch payroll', !(await asRole('anon', { role: 'anon' }, `SELECT count(*) FROM payroll_runs`)).ok);
     check('owner reads payroll views', (await asRole('authenticated', ownerClaims, `SELECT count(*) FROM payroll_run_lines_status`)).ok);
+    check('salary breakdown hidden from non-managers', Number((await one(`SELECT count(*) n FROM pg_policies
+      WHERE tablename = 'payroll_run_lines' AND qual LIKE '%auth_may_manage_journals%'`)).n) === 1);
     check('employee summary still readable', (await asRole('authenticated', ownerClaims, `SELECT count(*) FROM employee_summary`)).ok);
     check('runs are re-checked before approval and posting', Number((await one(`SELECT count(*) n FROM pg_proc
       WHERE pronamespace = 'public'::regnamespace AND proname IN ('payroll_compute_run', 'payroll_run_differences', 'payroll_assert_run_current')`)).n) === 3);

@@ -1032,5 +1032,35 @@ BEGIN
   END LOOP;
 END $$;
 
+-- 7. The two low-level ledger functions are internal. Through the API any writer (a cashier) could
+--    call reverse_ledger_entry('PAYROLL_RUN' | 'TRANSACTION' | ..., id, ...) and cancel any posted
+--    entry, skipping every approval check that the real workflows enforce. Trigger functions that post
+--    for the user run with definer rights instead (the table's RLS already decided who may write the
+--    row); then the API roles lose EXECUTE. A user-callable function that still depends on them with
+--    the caller's rights would break silently, so the migration stops and names it instead.
+DO $$
+DECLARE r record; v_blockers text := '';
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig, p.prorettype = 'trigger'::regtype AS is_trigger
+    FROM pg_proc p
+    WHERE p.pronamespace = 'public'::regnamespace AND NOT p.prosecdef
+      AND p.proname NOT IN ('post_to_ledger', 'reverse_ledger_entry')
+      AND pg_get_functiondef(p.oid) ~ '(post_to_ledger|reverse_ledger_entry)\('
+  LOOP
+    IF r.is_trigger THEN
+      EXECUTE format('ALTER FUNCTION %s SECURITY DEFINER SET search_path = public, pg_temp', r.sig);
+    ELSE
+      v_blockers := v_blockers || ' ' || r.sig::text;
+    END IF;
+  END LOOP;
+  IF v_blockers <> '' THEN
+    RAISE EXCEPTION 'These functions call the ledger with the caller''s rights; give them a role check and SECURITY DEFINER first:%', v_blockers;
+  END IF;
+END $$;
+REVOKE EXECUTE ON FUNCTION public.post_to_ledger(text,uuid,date,text,text,uuid,jsonb),
+  public.reverse_ledger_entry(text,uuid,uuid)
+  FROM PUBLIC, anon, authenticated;
+
 NOTIFY pgrst, 'reload schema';
 COMMIT;

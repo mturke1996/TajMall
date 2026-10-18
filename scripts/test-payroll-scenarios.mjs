@@ -184,6 +184,22 @@ check('locks', 'لا يُرحَّل كشف في فترة مالية مقفلة',
 await as('cashier');
 check('security', 'أمين الخزينة لا يرى هياكل الرواتب', n(await val(`SELECT count(*) FROM payroll_salary_structures`)) === 0);
 check('security', 'أمين الخزينة يرى سطور الكشف ليصرفها', n(await val(`SELECT count(*) FROM payroll_run_lines_status`)) > 0);
+{
+  const cashierLine = await one(`SELECT net, outstanding, base_salary, allowances, bonuses, advance_plan FROM payroll_run_lines_status LIMIT 1`);
+  check('security', 'أمين الخزينة يرى الصافي والمتبقي فقط، لا تفاصيل الراتب',
+    cashierLine && cashierLine.net !== null && cashierLine.outstanding !== null
+    && cashierLine.base_salary === null && cashierLine.allowances === null && cashierLine.bonuses === null && cashierLine.advance_plan === null,
+    JSON.stringify(cashierLine));
+  check('security', 'أمين الخزينة لا يقرأ جدول سطور الكشف مباشرة', n(await val(`SELECT count(*) FROM payroll_run_lines`)) === 0);
+  const directReverse = await attempt(() => val(`SELECT reverse_ledger_entry('PAYROLL_RUN', $1, $2)`, [runMar, U.cashier]));
+  check('security', 'أمين الخزينة لا يعكس قيد الرواتب مباشرة (دوال الدفتر داخلية)', !directReverse.ok, directReverse.ok ? 'reversed!' : '');
+  const directPost = await attempt(() => val(`SELECT post_to_ledger('MANUAL', gen_random_uuid(), CURRENT_DATE, 'x', NULL, $1, '[]'::jsonb)`, [U.cashier]));
+  check('security', 'لا قيد يدوي عبر post_to_ledger من الواجهة', !directPost.ok);
+  await as('accountant');
+  const accountantLine = await one(`SELECT base_salary FROM payroll_run_lines_status LIMIT 1`);
+  check('security', 'المحاسب يرى تفاصيل الراتب', accountantLine && accountantLine.base_salary !== null);
+  await as('cashier');
+}
 await as('viewer');
 check('security', 'المشاهد لا يرى أي بيانات رواتب',
   n(await val(`SELECT count(*) FROM payroll_run_lines_status`)) === 0 && n(await val(`SELECT count(*) FROM payroll_salary_structures`)) === 0);
@@ -274,7 +290,9 @@ const history = n(await val(`SELECT count(*) FROM audit_log WHERE entity_type = 
 check('history', 'سجل الموظف يحفظ كل حدث (راتب، حركات، اعتماد، سلفة)', history >= 5, `events=${history}`);
 check('ledger', 'كل القيود المرحّلة متوازنة', n(await val(`SELECT count(*) FROM (SELECT je.id FROM journal_entries je JOIN journal_lines jl ON jl.journal_id = je.id
   WHERE je.status = 'POSTED' GROUP BY je.id HAVING sum(jl.debit) <> sum(jl.credit)) x`)) === 0);
-const outstanding = n(await val(`SELECT coalesce(sum(outstanding), 0) FROM payroll_run_lines_status WHERE run_status = 'POSTED'`));
+// From the base tables: the status view answers only to app roles (it refuses a bare database session).
+const outstanding = n(await val(`SELECT coalesce(sum(l.net - coalesce((SELECT sum(p.amount) FROM payroll_payments p WHERE p.run_line_id = l.id), 0)), 0)
+  FROM payroll_run_lines l JOIN payroll_runs r ON r.id = l.run_id WHERE r.status = 'POSTED'`));
 check('ledger', 'رصيد الرواتب المستحقة في الدفتر = المتبقي غير المصروف في الكشوف', near(-n(await glBalance('LIA-SAL')), outstanding),
   `gl=${-n(await glBalance('LIA-SAL'))} runs=${outstanding}`);
 const summary = await one(`SELECT last_12_months_salary_paid FROM employee_summary WHERE id = $1`, [E2]);

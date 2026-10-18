@@ -29,8 +29,13 @@ import { Amount, PayrollLoadError, RunSteps, SectionHeading, StatStrip } from '.
 import { PayAllDialog, PayLineDialog, ReasonDialog } from './payroll-dialogs';
 
 const num = (v: string | number | null | undefined) => Number(v) || 0;
-const additions = (l: PayrollRunLine) => num(l.bonuses) + num(l.overtime);
-const deductions = (l: PayrollRunLine) => num(l.absence_deduction) + num(l.penalties) + num(l.other_deductions);
+/** Keeps null (a figure this role may not see) instead of turning it into 0. */
+const opt = (v: string | null | undefined) => (v === null || v === undefined ? null : Number(v) || 0);
+const additions = (l: PayrollRunLine) => (l.bonuses === null ? null : num(l.bonuses) + num(l.overtime));
+const deductions = (l: PayrollRunLine) =>
+  l.absence_deduction === null ? null : num(l.absence_deduction) + num(l.penalties) + num(l.other_deductions);
+/** The salary breakdown is hidden from roles that only pay (cashier). */
+const hasBreakdown = (lines: PayrollRunLine[]) => lines.length > 0 && lines[0].base_salary !== null;
 
 function sum(lines: PayrollRunLine[], pick: (l: PayrollRunLine) => number) {
   return lines.reduce((s, l) => s + pick(l), 0);
@@ -118,19 +123,19 @@ export function PayrollRunPanel({
       },
       {
         id: 'base',
-        accessorFn: (l) => num(l.base_salary),
+        accessorFn: (l) => opt(l.base_salary),
         header: 'الأساسي',
         meta: { label: 'الأساسي', numeric: true },
         cell: ({ getValue }) => <Amount value={getValue()} />,
-        footer: () => <Amount value={sum(lines, (l) => num(l.base_salary))} />,
+        footer: () => <Amount value={hasBreakdown(lines) ? sum(lines, (l) => num(l.base_salary)) : null} />,
       },
       {
         id: 'allowances',
-        accessorFn: (l) => num(l.allowances),
+        accessorFn: (l) => opt(l.allowances),
         header: 'البدلات',
         meta: { label: 'البدلات', numeric: true },
         cell: ({ getValue }) => <Amount value={getValue()} hideZero />,
-        footer: () => <Amount value={sum(lines, (l) => num(l.allowances))} hideZero />,
+        footer: () => <Amount value={hasBreakdown(lines) ? sum(lines, (l) => num(l.allowances)) : null} hideZero />,
       },
       {
         id: 'additions',
@@ -138,7 +143,7 @@ export function PayrollRunPanel({
         header: 'مكافآت وإضافي',
         meta: { label: 'مكافآت وإضافي', numeric: true },
         cell: ({ getValue }) => <Amount value={getValue()} tone="positive" hideZero />,
-        footer: () => <Amount value={sum(lines, additions)} tone="positive" hideZero />,
+        footer: () => <Amount value={hasBreakdown(lines) ? sum(lines, (l) => additions(l) ?? 0) : null} tone="positive" hideZero />,
       },
       {
         id: 'deductions',
@@ -146,15 +151,15 @@ export function PayrollRunPanel({
         header: 'خصومات وغياب',
         meta: { label: 'خصومات وغياب', numeric: true },
         cell: ({ getValue }) => <Amount value={getValue()} tone="negative" hideZero />,
-        footer: () => <Amount value={sum(lines, deductions)} tone="negative" hideZero />,
+        footer: () => <Amount value={hasBreakdown(lines) ? sum(lines, (l) => deductions(l) ?? 0) : null} tone="negative" hideZero />,
       },
       {
         id: 'advance',
-        accessorFn: (l) => num(l.advance_repayment),
+        accessorFn: (l) => opt(l.advance_repayment),
         header: 'قسط سلفة',
         meta: { label: 'قسط سلفة', numeric: true },
         cell: ({ getValue }) => <Amount value={getValue()} tone="negative" hideZero />,
-        footer: () => <Amount value={totals.advances} tone="negative" hideZero />,
+        footer: () => <Amount value={hasBreakdown(lines) ? totals.advances : null} tone="negative" hideZero />,
       },
       {
         id: 'net',
@@ -327,7 +332,7 @@ export function PayrollRunPanel({
             <RunSteps status={status} fullyPaid={fullyPaid} />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {lines.length > 0 && (
+            {hasBreakdown(lines) && (
               <TajMallPdfToolbar
                 fileName={`كشف-رواتب-${month}`}
                 shareTitle={`كشف رواتب ${formatMonthKeyAr(month)}`}
@@ -376,8 +381,8 @@ export function PayrollRunPanel({
         <StatStrip
           items={[
             { label: 'الموظفون في الكشف', value: <span className="tabular-nums">{lines.length}</span> },
-            { label: 'إجمالي المستحق', value: <Amount value={totals.gross} /> },
-            { label: 'جزاءات وأقساط', value: <Amount value={totals.deductions + totals.advances} tone="negative" /> },
+            { label: 'إجمالي المستحق', value: <Amount value={hasBreakdown(lines) ? totals.gross : null} /> },
+            { label: 'جزاءات وأقساط', value: <Amount value={hasBreakdown(lines) ? totals.deductions + totals.advances : null} tone="negative" /> },
             {
               label: 'صافي الرواتب',
               value: <Amount value={totals.net} />,
@@ -431,13 +436,15 @@ export function PayrollRunPanel({
                   </div>
                   <Amount value={l.net} className="font-semibold" />
                 </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
-                  <span>أساسي وبدلات <Amount value={num(l.base_salary) + num(l.allowances)} muted /></span>
-                  {additions(l) > 0 && <span>إضافات <Amount value={additions(l)} tone="positive" /></span>}
-                  {deductions(l) + num(l.advance_repayment) > 0 && (
-                    <span>استقطاعات <Amount value={deductions(l) + num(l.advance_repayment)} tone="negative" /></span>
-                  )}
-                </div>
+                {l.base_salary !== null && (
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
+                    <span>أساسي وبدلات <Amount value={num(l.base_salary) + num(l.allowances)} muted /></span>
+                    {(additions(l) ?? 0) > 0 && <span>إضافات <Amount value={additions(l)} tone="positive" /></span>}
+                    {(deductions(l) ?? 0) + num(l.advance_repayment) > 0 && (
+                      <span>استقطاعات <Amount value={(deductions(l) ?? 0) + num(l.advance_repayment)} tone="negative" /></span>
+                    )}
+                  </div>
+                )}
                 {canPay && l.run_status === 'POSTED' && num(l.outstanding) >= 0.0005 && (
                   <Button size="sm" variant="outline" className="self-start" onClick={() => setPayLine(l)}>
                     <HandCoins />

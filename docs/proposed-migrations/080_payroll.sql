@@ -10,7 +10,8 @@
 --   advance paid  Dr AST-ADV / Cr cashbox        (a POSTED transaction)
 -- Accounts are resolved through account_mappings so they can be re-pointed without code changes.
 -- Every write goes through a SECURITY DEFINER function with a role check; tables have no write
--- policies. Salaries are visible to owner/admin/accountant only; runs/payments to non-viewers.
+-- policies. Salary breakdowns are visible to owner/admin/accountant only; cashiers see each line's
+-- net, paid and outstanding (to pay it) through payroll_run_lines_status; viewers see nothing.
 -- ============================================================================
 BEGIN;
 
@@ -694,14 +695,33 @@ BEGIN
 END;
 $function$;
 
--- ── Read models (RLS applies through security_invoker) ──────────────────────
-CREATE OR REPLACE VIEW public.payroll_run_lines_status WITH (security_invoker = true) AS
-SELECT l.*, r.period_month, r.status AS run_status, c.name AS employee_name, c.job_title, c.department,
+-- ── Read models ─────────────────────────────────────────────────────────────
+-- Cashiers pay salaries, so they need each line's net, paid and outstanding — not how the salary is
+-- made up. This view runs as its owner on purpose (no security_invoker): it is the only way a cashier
+-- reads run lines (the table itself is accountant-and-above), its WHERE refuses viewers and anonymous
+-- callers, and the salary breakdown is NULL unless the caller may manage payroll.
+CREATE OR REPLACE VIEW public.payroll_run_lines_status AS
+SELECT l.id, l.run_id, l.employee_id,
+       CASE WHEN m.ok THEN l.structure_id END AS structure_id,
+       CASE WHEN m.ok THEN l.base_salary END AS base_salary,
+       CASE WHEN m.ok THEN l.allowances END AS allowances,
+       CASE WHEN m.ok THEN l.bonuses END AS bonuses,
+       CASE WHEN m.ok THEN l.overtime END AS overtime,
+       CASE WHEN m.ok THEN l.absence_deduction END AS absence_deduction,
+       CASE WHEN m.ok THEN l.penalties END AS penalties,
+       CASE WHEN m.ok THEN l.other_deductions END AS other_deductions,
+       CASE WHEN m.ok THEN l.advance_repayment END AS advance_repayment,
+       CASE WHEN m.ok THEN l.advance_plan END AS advance_plan,
+       CASE WHEN m.ok THEN l.adjustment_ids END AS adjustment_ids,
+       CASE WHEN m.ok THEN l.gross END AS gross,
+       l.net, r.period_month, r.status AS run_status, c.name AS employee_name, c.job_title, c.department,
        COALESCE(p.paid, 0) AS paid, l.net - COALESCE(p.paid, 0) AS outstanding
 FROM public.payroll_run_lines l
 JOIN public.payroll_runs r ON r.id = l.run_id
 JOIN public.contacts c ON c.id = l.employee_id
-LEFT JOIN LATERAL (SELECT sum(amount) AS paid FROM public.payroll_payments WHERE run_line_id = l.id) p ON true;
+CROSS JOIN LATERAL (SELECT public.auth_may_manage_journals() AS ok) m
+LEFT JOIN LATERAL (SELECT sum(amount) AS paid FROM public.payroll_payments WHERE run_line_id = l.id) p ON true
+WHERE public.auth_role_may_write();
 
 CREATE OR REPLACE VIEW public.payroll_advances_status WITH (security_invoker = true) AS
 SELECT a.*, c.name AS employee_name,
@@ -740,7 +760,7 @@ CREATE POLICY payroll_adjustments_select ON public.payroll_adjustments FOR SELEC
 CREATE POLICY payroll_advances_select ON public.payroll_advances FOR SELECT TO authenticated USING (public.auth_may_manage_journals());
 CREATE POLICY payroll_repayments_select ON public.payroll_advance_repayments FOR SELECT TO authenticated USING (public.auth_may_manage_journals());
 CREATE POLICY payroll_runs_select ON public.payroll_runs FOR SELECT TO authenticated USING (public.auth_role_may_write());
-CREATE POLICY payroll_run_lines_select ON public.payroll_run_lines FOR SELECT TO authenticated USING (public.auth_role_may_write());
+CREATE POLICY payroll_run_lines_select ON public.payroll_run_lines FOR SELECT TO authenticated USING (public.auth_may_manage_journals());
 CREATE POLICY payroll_payments_select ON public.payroll_payments FOR SELECT TO authenticated USING (public.auth_role_may_write());
 
 REVOKE ALL ON public.payroll_salary_structures, public.payroll_adjustments, public.payroll_advances, public.payroll_runs,

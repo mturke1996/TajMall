@@ -27,6 +27,10 @@ export function Amount({
   /** Shows a dash instead of 0, so columns with few values stay readable. */
   hideZero?: boolean;
 }) {
+  // null = not shown to this role (a cashier sees net and outstanding, not the salary breakdown).
+  if (value === null || value === undefined) {
+    return <span className={cn('text-ink-mute', className)} aria-label="غير متاح">—</span>;
+  }
   const n = Number(value) || 0;
   if (hideZero && Math.abs(n) < 0.0005) {
     return <span className={cn('text-ink-mute', className)}>—</span>;

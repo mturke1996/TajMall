@@ -1159,5 +1159,14 @@ SELECT public.refresh_contacts_api_grants();
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO PUBLIC, anon;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon;
+-- Undo section 7 of 078: the transaction trigger runs with the caller's rights again (grants to the
+-- ledger functions are restored with the other function grants above).
+DO $$ BEGIN
+  IF to_regprocedure('public.process_transaction_posting()') IS NOT NULL THEN
+    ALTER FUNCTION public.process_transaction_posting() SECURITY INVOKER;
+    ALTER FUNCTION public.process_transaction_posting() RESET search_path;
+  END IF;
+END $$;
+
 NOTIFY pgrst, 'reload schema';
 COMMIT;

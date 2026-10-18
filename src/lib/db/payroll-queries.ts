@@ -38,6 +38,11 @@ export type PayrollRun = {
   notes: string | null;
 };
 
+/**
+ * A run line as the status view returns it. The salary breakdown (and the plan and adjustment ids)
+ * is null for roles that may pay but not manage payroll (cashier); net, paid and outstanding are
+ * always present.
+ */
 export type PayrollRunLine = {
   id: string;
   run_id: string;
@@ -47,17 +52,17 @@ export type PayrollRunLine = {
   department: string | null;
   period_month: string;
   run_status: PayrollRunStatus;
-  base_salary: string;
-  allowances: string;
-  bonuses: string;
-  overtime: string;
-  absence_deduction: string;
-  penalties: string;
-  other_deductions: string;
-  advance_repayment: string;
+  base_salary: string | null;
+  allowances: string | null;
+  bonuses: string | null;
+  overtime: string | null;
+  absence_deduction: string | null;
+  penalties: string | null;
+  other_deductions: string | null;
+  advance_repayment: string | null;
   /** The approved adjustments this line counted. */
-  adjustment_ids: string[];
-  gross: string;
+  adjustment_ids: string[] | null;
+  gross: string | null;
   net: string;
   paid: string;
   outstanding: string;
