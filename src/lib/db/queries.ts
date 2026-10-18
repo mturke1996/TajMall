@@ -1047,6 +1047,24 @@ export function useDisbursementVouchers() {
   });
 }
 
+/** Vouchers waiting for an approver. A count only, so the dashboard does not load every voucher. */
+export function usePendingVoucherCount(enabled: boolean) {
+  return useQuery<number>({
+    // under the vouchers key: submitting, approving or deleting one refreshes it
+    queryKey: [...qk.disbursementVouchers, "pending_count"],
+    enabled,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { count, error } = await supabase
+        .from("disbursement_vouchers")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "PENDING_APPROVAL");
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+}
+
 export function useCreateDisbursementVoucher() {
   const qc = useQueryClient();
   return useMutation({

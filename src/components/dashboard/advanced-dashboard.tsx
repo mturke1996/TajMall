@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/card';
 import { cn, formatDate, formatMoney } from '@/lib/utils';
 import { monthNameAr } from '@/lib/rent-months';
 import { DashboardNewFeatures } from '@/components/dashboard/dashboard-new-features';
+import { FollowUpCard } from '@/components/dashboard/follow-up-card';
 import { MallRentCollectionSection } from '@/components/dashboard/mall-rent-collection-section';
 
 const AR_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
@@ -163,6 +164,8 @@ export function AdvancedDashboard() {
             ) : null}
           </div>
         </Card>
+
+        <FollowUpCard />
 
         <MallRentCollectionSection />
 

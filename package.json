@@ -37,6 +37,7 @@
     "verify:period-review": "npx tsx scripts/verify-period-review.mjs",
     "verify:occupancy": "npx tsx scripts/verify-mall-occupancy.mjs",
     "verify:monthly-report": "npx tsx scripts/verify-monthly-report.mjs",
+    "verify:follow-up": "npx tsx scripts/verify-follow-up.mjs",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
