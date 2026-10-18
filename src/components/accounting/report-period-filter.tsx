@@ -58,7 +58,7 @@ export function ReportPeriodFilter({
                   onChange({ year: value.year, month: m.value, mode: 'month' })
                 }
                 className={cn(
-                  'min-h-10 min-w-[4.5rem] touch-manipulation',
+                  'min-h-10 min-w-18 touch-manipulation',
                   active && 'bg-foreground hover:bg-foreground text-background border-foreground',
                 )}
               >

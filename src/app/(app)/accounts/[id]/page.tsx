@@ -311,7 +311,7 @@ export default function CategoryDetailPage() {
                 type="button"
                 onClick={() => setSelectedMonth(m.monthIndex)}
                 className={cn(
-                  'inline-flex shrink-0 snap-center items-center justify-center rounded-lg border px-3 py-2 text-[12.5px] font-semibold touch-manipulation min-w-[3.5rem]',
+                  'inline-flex shrink-0 snap-center items-center justify-center rounded-lg border px-3 py-2 text-[12.5px] font-semibold touch-manipulation min-w-14',
                   active
                     ? 'border-foreground bg-foreground text-background'
                     : 'border-border bg-card text-ink hover:bg-secondary',

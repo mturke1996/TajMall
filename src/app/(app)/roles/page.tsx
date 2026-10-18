@@ -160,7 +160,7 @@ export default function RolesPage() {
                             access === 'none' && 'bg-canvas-sunken text-ink-mute',
                           )}
                         >
-                          {access === 'full' && <Check className="h-3 w-3 stroke-[2]" />}
+                          {access === 'full' && <Check className="h-3 w-3 stroke-2" />}
                           {access === 'full' ? 'كامل' : access === 'view' ? 'عرض' : '—'}
                         </span>
                       </td>

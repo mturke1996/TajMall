@@ -151,7 +151,7 @@ export function PeriodJournalPdfDialog({
 
   // Period label
   const periodLabel = useMemo(() => {
-    if (dateRangeMode === 'ALL') return 'كامل المدة المسجلة';
+    if (dateRangeMode === 'ALL') return'كامل المدة المسجلة';
     if (dateRangeMode === 'MONTHS') {
       if (selectedMonths.length === 12) return `كامل عام ${selectedYear}`;
       const monthsStr = selectedMonths
@@ -175,13 +175,13 @@ export function PeriodJournalPdfDialog({
   }, [categories, selectedCategoryId]);
 
   const categoryLabel = useMemo(() => {
-    if (selectedCategoryId === 'ALL') return 'كافة البنود المحاسبية';
+    if (selectedCategoryId === 'ALL') return'كافة البنود المحاسبية';
     return selectedCategory ? `${selectedCategory.name_ar} (${selectedCategory.code})` : 'بند محدد';
   }, [selectedCategoryId, selectedCategory]);
 
   const basisLabel = useMemo(() => {
-    if (basisMode === 'CASH_COLLECTED_IN_MONTH') return 'التحصيل والتسجيل الفعلي بالدفاتر';
-    if (basisMode === 'RENT_MONTH_TARGET') return 'شهر الاستحقاق والإيجار المستهدف';
+    if (basisMode === 'CASH_COLLECTED_IN_MONTH') return'التحصيل والتسجيل الفعلي بالدفاتر';
+    if (basisMode === 'RENT_MONTH_TARGET') return'شهر الاستحقاق والإيجار المستهدف';
     return 'قيد اليومية المحاسبي المزدوج';
   }, [basisMode]);
 
@@ -527,7 +527,7 @@ export function PeriodJournalPdfDialog({
                     className={cn(
                       'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                       viewLevel === 'SUMMARY_ONLY'
-                        ? 'bg-card text-foreground shadow-xs font-bold text-success-ink'
+                        ? 'bg-card text-foreground font-bold text-success-ink'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -539,7 +539,7 @@ export function PeriodJournalPdfDialog({
                     className={cn(
                       'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                       viewLevel === 'DETAILED'
-                        ? 'bg-card text-foreground shadow-xs font-bold text-success-ink'
+                        ? 'bg-card text-foreground font-bold text-success-ink'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -569,7 +569,7 @@ export function PeriodJournalPdfDialog({
                   className={cn(
                     'p-3 rounded-lg border text-start space-y-1 transition-all',
                     basisMode === 'CASH_COLLECTED_IN_MONTH'
-                      ? 'bg-success-soft border-success text-success-ink shadow-xs'
+                      ? 'bg-success-soft border-success text-success-ink'
                       : 'bg-card border-border hover:bg-canvas-sunken text-muted-foreground'
                   )}
                 >
@@ -592,7 +592,7 @@ export function PeriodJournalPdfDialog({
                   className={cn(
                     'p-3 rounded-lg border text-start space-y-1 transition-all',
                     basisMode === 'RENT_MONTH_TARGET'
-                      ? 'bg-success-soft border-success text-success-ink shadow-xs'
+                      ? 'bg-success-soft border-success text-success-ink'
                       : 'bg-card border-border hover:bg-canvas-sunken text-muted-foreground'
                   )}
                 >
@@ -615,7 +615,7 @@ export function PeriodJournalPdfDialog({
                   className={cn(
                     'p-3 rounded-lg border text-start space-y-1 transition-all',
                     basisMode === 'GENERAL_ACCRUAL'
-                      ? 'bg-success-soft border-success text-success-ink shadow-xs'
+                      ? 'bg-success-soft border-success text-success-ink'
                       : 'bg-card border-border hover:bg-canvas-sunken text-muted-foreground'
                   )}
                 >
@@ -655,7 +655,7 @@ export function PeriodJournalPdfDialog({
                   <select
                     value={selectedCategoryId}
                     onChange={(e) => setSelectedCategoryId(e.target.value)}
-                    className="h-9 w-full rounded-md border border-border bg-card px-2.5 text-xs font-semibold outline-none"
+                    className="h-9 w-full rounded-md border border-border bg-card px-2.5 text-xs font-semibold outline-hidden"
                   >
                     <option value="ALL">جميع البنود المحاسبية</option>
                     {categories.map((c) => (
@@ -741,7 +741,7 @@ export function PeriodJournalPdfDialog({
                       className={cn(
                         'py-1.5 px-2 rounded-md text-xs font-medium border text-center transition-all',
                         isSelected
-                          ? 'bg-success text-white border-success shadow-xs'
+                          ? 'bg-success text-white border-success'
                           : 'bg-card text-muted-foreground border-border hover:bg-canvas-sunken hover:text-foreground'
                       )}
                     >

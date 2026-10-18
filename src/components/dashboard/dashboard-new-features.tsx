@@ -63,7 +63,7 @@ export function DashboardNewFeatures() {
               <Link
                 href={item.href}
                 prefetch
-                className="group flex h-full items-center gap-3 px-4 py-3.5 transition-colors duration-100 hover:bg-canvas-sunken focus-visible:bg-canvas-sunken focus-visible:outline-none"
+                className="group flex h-full items-center gap-3 px-4 py-3.5 transition-colors duration-100 hover:bg-canvas-sunken focus-visible:bg-canvas-sunken focus-visible:outline-hidden"
               >
                 <item.icon className="h-[18px] w-[18px] shrink-0 stroke-[1.5] text-muted-foreground group-hover:text-foreground" />
                 <span className="min-w-0 flex-1">

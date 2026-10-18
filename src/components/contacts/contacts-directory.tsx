@@ -200,7 +200,7 @@ export function ContactsDirectory({
       {/* 1. Header Toolbar with Search & Add */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border">
         <div className="relative flex-1">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute inset-s-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -212,7 +212,7 @@ export function ContactsDirectory({
         {allowMutate && canWrite && (
           <Button
             onClick={() => onAdd(roleFilter !== 'ALL' ? roleFilter : undefined)}
-            className="gap-1.5 h-9 text-xs font-bold shadow-xs shrink-0"
+            className="gap-1.5 h-9 text-xs font-bold shrink-0"
           >
             <Plus className="h-4 w-4" />
             إضافة جهة جديدة
@@ -234,7 +234,7 @@ export function ContactsDirectory({
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap transition-all',
                   isSelected
-                    ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                    ? 'bg-primary text-primary-foreground border-primary'
                     : 'bg-card text-muted-foreground border-border hover:bg-muted/40 hover:text-foreground'
                 )}
               >
@@ -265,7 +265,7 @@ export function ContactsDirectory({
           <p className="text-xs text-muted-foreground mt-1">جرّب تغيير عبارة البحث أو الفلتر المحدد.</p>
         </Card>
       ) : (
-        <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-start" dir="rtl">
               <thead>

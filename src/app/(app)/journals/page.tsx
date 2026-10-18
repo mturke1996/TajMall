@@ -396,7 +396,7 @@ function JournalsPageInner() {
         {/* Search + status chips (always visible on mobile) */}
         <div className="flex flex-col gap-3">
           <div className="relative">
-            <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+            <Search className="absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
             <Input
               placeholder="بحث: رقم، مرجع، وصف..."
               value={searchQuery}
@@ -835,7 +835,7 @@ function JournalsPageInner() {
         <Button
           size="lg"
           onClick={() => setIsCreateOpen(true)}
-          className="fixed z-40 h-14 w-14 rounded-full shadow-lg bg-foreground hover:bg-foreground text-background sm:hidden p-0 touch-manipulation end-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))]"
+          className="fixed z-40 h-14 w-14 rounded-full shadow-lg bg-foreground hover:bg-foreground text-background sm:hidden p-0 touch-manipulation inset-e-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))]"
           aria-label="قيد جديد"
         >
           <Plus className="h-6 w-6" />

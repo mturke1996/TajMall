@@ -28,7 +28,7 @@ export function MobileNav({
       <DialogContent
         id="mobile-navigation"
         dir="rtl"
-        className="inset-y-0 end-0 left-auto top-0 flex h-[100dvh] w-[min(88vw,340px)] max-h-none max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-y-0 border-e-0 p-0 shadow-lift md:hidden"
+        className="inset-y-0 inset-e-0 left-auto top-0 flex h-dvh w-[min(88vw,340px)] max-h-none max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-y-0 border-e-0 p-0 shadow-lift md:hidden"
         aria-label="قائمة التنقل الرئيسية"
       >
         {/* Header */}

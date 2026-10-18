@@ -180,7 +180,7 @@ export function TenantsDirectory({
                 type="button"
                 onClick={() => onStatusFilterChange(chip.key)}
                 className={cn(
-                  'flex min-w-[9.5rem] shrink-0 snap-center flex-col gap-1 rounded-xl border p-3 text-start sm:min-w-0 sm:flex-row sm:items-center sm:gap-3',
+                  'flex min-w-38 shrink-0 snap-center flex-col gap-1 rounded-xl border p-3 text-start sm:min-w-0 sm:flex-row sm:items-center sm:gap-3',
                   statusFilter === chip.key
                     ? 'border-ink-soft bg-canvas-sunken ring-1 ring-ink-soft/20'
                     : 'border-border bg-card',
@@ -203,7 +203,7 @@ export function TenantsDirectory({
               </button>
             );
           })}
-          <div className="flex min-w-[10rem] shrink-0 snap-center flex-col justify-center rounded-xl border border-border bg-canvas-sunken p-3 sm:min-w-0">
+          <div className="flex min-w-40 shrink-0 snap-center flex-col justify-center rounded-xl border border-border bg-canvas-sunken p-3 sm:min-w-0">
             <p className="text-[11px] text-ink-mute">تحصيل {periodShort}</p>
             <p className="text-sm font-bold text-foreground leading-snug tabular-nums">
               {formatMoney(stats.collectedTotal, 'LYD')}
@@ -217,7 +217,7 @@ export function TenantsDirectory({
 
       <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-border bg-canvas px-4 py-3 md:static md:mx-0 md:z-auto md:border-0 md:bg-transparent md:px-0 md:py-0">
         <div className="relative">
-          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+          <Search className="pointer-events-none absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
           <Input
             placeholder="بحث: الاسم، المحل، الهاتف…"
             value={searchQuery}
@@ -245,7 +245,7 @@ export function TenantsDirectory({
                 onClick={() => onStatusFilterChange(chip.key)}
               >
                 {Icon && <Icon className="h-3.5 w-3.5" />}
-                <span className="max-w-[10rem] truncate sm:max-w-none">
+                <span className="max-w-40 truncate sm:max-w-none">
                   {chipLabel}
                 </span>
                 <span
@@ -348,7 +348,7 @@ export function TenantsDirectory({
       {onAddTenant && (
         <MobilePageActionBar>
           <Button
-            className="h-12 w-full gap-2 text-base font-semibold shadow-sm touch-manipulation"
+            className="h-12 w-full gap-2 text-base font-semibold shadow-xs touch-manipulation"
             onClick={onAddTenant}
           >
             <Plus className="h-5 w-5" />

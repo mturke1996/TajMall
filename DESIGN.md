@@ -6,8 +6,8 @@ where it carries meaning (money in, money out, overdue, pending). Everything bel
 
 ## Colour
 
-All colours are CSS variables in `src/app/globals.css` (light and dark) exposed as Tailwind colours in
-`tailwind.config.ts`. Screen code never uses raw palette classes (`bg-emerald-50`, `text-rose-700`,
+All colours are CSS variables in `src/app/globals.css` (light and dark) exposed as Tailwind colours by
+its `@theme inline` block (Tailwind 4 has no `tailwind.config.ts`). Screen code never uses raw palette classes (`bg-emerald-50`, `text-rose-700`,
 `sage-*`): they ignore dark mode.
 
 ### Neutrals

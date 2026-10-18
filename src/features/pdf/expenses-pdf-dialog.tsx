@@ -259,7 +259,7 @@ export function ExpensesPdfDialog({
 
   // Period label for report subtitle
   const periodLabel = useMemo(() => {
-    if (dateMode === 'ALL') return 'كامل المدة المسجلة';
+    if (dateMode === 'ALL') return'كامل المدة المسجلة';
     if (dateMode === 'MONTHS') {
       if (selectedMonths.length === 12) return `كامل عام ${selectedYear}`;
       const monthsStr = selectedMonths
@@ -278,7 +278,7 @@ export function ExpensesPdfDialog({
 
   // Categories label for report subtitle
   const categoriesLabel = useMemo(() => {
-    if (categoryMode === 'ALL') return 'كافة البنود';
+    if (categoryMode === 'ALL') return'كافة البنود';
     if (selectedCategoryIds.length === 1) {
       const cat = categories.find((c) => c.id === selectedCategoryIds[0]);
       return cat?.name_ar || 'بند محدد';
@@ -443,7 +443,7 @@ export function ExpensesPdfDialog({
                     className={cn(
                       'px-2.5 py-1 text-xs font-medium rounded-md transition-colors',
                       categoryMode === 'ALL'
-                        ? 'bg-card text-foreground shadow-xs font-semibold'
+                        ? 'bg-card text-foreground font-semibold'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -455,7 +455,7 @@ export function ExpensesPdfDialog({
                     className={cn(
                       'px-2.5 py-1 text-xs font-medium rounded-md transition-colors',
                       categoryMode === 'CUSTOM'
-                        ? 'bg-card text-foreground shadow-xs font-semibold'
+                        ? 'bg-card text-foreground font-semibold'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -468,7 +468,7 @@ export function ExpensesPdfDialog({
                 <div className="mt-2 space-y-2 pt-1 border-t border-border/60">
                   <div className="flex items-center justify-between gap-2">
                     <div className="relative flex-1">
-                      <Search className="absolute end-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                      <Search className="absolute inset-e-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                       <Input
                         value={categorySearch}
                         onChange={(e) => setCategorySearch(e.target.value)}
@@ -535,7 +535,7 @@ export function ExpensesPdfDialog({
                                   : 'border-muted-foreground/40 bg-card'
                               )}
                             >
-                              {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
+                              {isSelected && <Check className="h-3 w-3 stroke-3" />}
                             </div>
                           </button>
                         );
@@ -565,7 +565,7 @@ export function ExpensesPdfDialog({
                     className={cn(
                       'px-2 py-1 text-xs font-medium rounded-md transition-colors',
                       dateMode === 'ALL'
-                        ? 'bg-card text-foreground shadow-xs font-semibold'
+                        ? 'bg-card text-foreground font-semibold'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -577,7 +577,7 @@ export function ExpensesPdfDialog({
                     className={cn(
                       'px-2 py-1 text-xs font-medium rounded-md transition-colors',
                       dateMode === 'MONTHS'
-                        ? 'bg-card text-foreground shadow-xs font-semibold'
+                        ? 'bg-card text-foreground font-semibold'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -589,7 +589,7 @@ export function ExpensesPdfDialog({
                     className={cn(
                       'px-2 py-1 text-xs font-medium rounded-md transition-colors',
                       dateMode === 'RANGE'
-                        ? 'bg-card text-foreground shadow-xs font-semibold'
+                        ? 'bg-card text-foreground font-semibold'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -607,7 +607,7 @@ export function ExpensesPdfDialog({
                       <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(Number(e.target.value))}
-                        className="h-8 rounded-md border border-border bg-card px-2 text-xs font-semibold outline-none"
+                        className="h-8 rounded-md border border-border bg-card px-2 text-xs font-semibold outline-hidden"
                       >
                         {availableYears.map((y) => (
                           <option key={y} value={y}>
@@ -678,7 +678,7 @@ export function ExpensesPdfDialog({
                           className={cn(
                             'py-1.5 px-2 rounded-md text-xs font-medium border text-center transition-all',
                             isSelected
-                              ? 'bg-foreground text-background border-foreground shadow-xs'
+                              ? 'bg-foreground text-background border-foreground'
                               : 'bg-card text-muted-foreground border-border hover:bg-canvas-sunken hover:text-foreground'
                           )}
                         >

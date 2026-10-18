@@ -8,7 +8,7 @@ const buttonVariants = cva(
     "group/btn relative inline-flex items-center justify-center gap-2 whitespace-nowrap select-none",
     "rounded-md text-sm font-medium",
     "transition-[transform,background-color,border-color,color,box-shadow] duration-100 ease-out",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+    "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40",
     "disabled:pointer-events-none disabled:opacity-50",
     "active:scale-[0.97]",
     "[&_svg]:size-[15px] [&_svg]:shrink-0 [&_svg]:stroke-[1.5]",

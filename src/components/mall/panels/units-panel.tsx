@@ -189,7 +189,7 @@ export function MallUnitsPanel() {
                 </div>
                 {unit.notes && (
                   <div className="text-xs text-muted-foreground bg-canvas-sunken p-2 rounded flex gap-1.5 items-start">
-                    <Info className="h-3.5 w-3.5 mt-0.5 text-muted-foreground flex-shrink-0" />
+                    <Info className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
                     <p className="line-clamp-2">{unit.notes}</p>
                   </div>
                 )}

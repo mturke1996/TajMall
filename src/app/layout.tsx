@@ -26,7 +26,7 @@ const latin = Plus_Jakarta_Sans({
 
 const serif = Instrument_Serif({
   subsets: ['latin'],
-  variable: '--font-serif',
+  variable: '--font-serif-face',
   weight: ['400'],
   display: 'swap',
 });
@@ -106,7 +106,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/TajMall-Icon.jpg" />
       </head>
       <body
-        className="min-h-[100dvh] bg-background font-sans text-foreground"
+        className="min-h-dvh bg-background font-sans text-foreground"
         suppressHydrationWarning
         data-grammarly-disable="true"
       >

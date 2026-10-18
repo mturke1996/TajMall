@@ -64,7 +64,7 @@ export function InstallHint() {
           className="
             pointer-events-auto fixed inset-x-3 bottom-3 z-40
             flex items-start gap-3 rounded-2xl border border-border bg-card p-3.5
-            shadow-lift sm:bottom-5 sm:end-5 sm:start-auto sm:max-w-sm
+            shadow-lift sm:bottom-5 sm:inset-e-5 sm:inset-s-auto sm:max-w-sm
           "
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 14px)' }}
           dir="rtl"

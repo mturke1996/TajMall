@@ -79,41 +79,41 @@ export function TenantContactDetail({
 
       <div className="grid gap-5 lg:grid-cols-12 lg:gap-6">
         <div className="lg:col-span-8 min-w-0 order-1">
-          <Card className="overflow-hidden border-border/80 shadow-sm min-w-0">
+          <Card className="overflow-hidden border-border/80 shadow-xs min-w-0">
             <Tabs defaultValue="rent-calendar" dir="rtl">
               <div className="border-b border-border/60 bg-canvas-sunken/40 px-3 pt-3 sm:px-4">
                 <TabsList className="mb-0 flex h-auto w-full justify-start gap-1 overflow-x-auto p-1 no-scrollbar flex-nowrap bg-transparent">
                   <TabsTrigger
                     value="rent-calendar"
-                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm touch-manipulation sm:text-sm"
+                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-xs touch-manipulation sm:text-sm"
                   >
                     <Banknote className="h-4 w-4 shrink-0" />
                     تقويم الإيجار
                   </TabsTrigger>
                   <TabsTrigger
                     value="charges"
-                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm touch-manipulation sm:text-sm"
+                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-xs touch-manipulation sm:text-sm"
                   >
                     <Receipt className="h-4 w-4 shrink-0" />
                     المطالبات
                   </TabsTrigger>
                   <TabsTrigger
                     value="rent"
-                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm touch-manipulation sm:text-sm"
+                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-xs touch-manipulation sm:text-sm"
                   >
                     <Receipt className="h-4 w-4 shrink-0" />
                     مدفوعات ({rentPaymentsCount})
                   </TabsTrigger>
                   <TabsTrigger
                     value="transactions"
-                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm touch-manipulation sm:text-sm"
+                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-xs touch-manipulation sm:text-sm"
                   >
                     <Receipt className="h-4 w-4 shrink-0" />
                     معاملات ({transactions.length})
                   </TabsTrigger>
                   <TabsTrigger
                     value="journals"
-                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm touch-manipulation sm:text-sm"
+                    className="shrink-0 gap-1.5 rounded-lg px-3 py-2 text-xs data-[state=active]:bg-card data-[state=active]:shadow-xs touch-manipulation sm:text-sm"
                   >
                     <BookOpen className="h-4 w-4 shrink-0" />
                     قيود ({journalEntries.length})

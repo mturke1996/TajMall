@@ -21,7 +21,7 @@ import { toast } from 'sonner';
 export default function LoginPage() {
   return (
     <div
-      className="relative flex min-h-[100dvh] items-center justify-center p-6 paper"
+      className="relative flex min-h-dvh items-center justify-center p-6 paper"
       dir="rtl"
     >
       <Suspense fallback={<LoginCardSkeleton />}>
@@ -136,7 +136,7 @@ function LoginCard() {
               <button
                 type="button"
                 onClick={() => setShowPwd((s) => !s)}
-                className="absolute end-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-ink-mute transition-colors duration-150 hover:bg-secondary hover:text-foreground"
+                className="absolute inset-e-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-ink-mute transition-colors duration-150 hover:bg-secondary hover:text-foreground"
                 aria-label="إظهار كلمة المرور"
               >
                 {showPwd ? (

@@ -230,7 +230,7 @@ function ReportsHubContent() {
                 <Card
                   className={cn(
                     'h-full transition-colors hover:border-ink-soft/40 hover:bg-canvas-sunken/40',
-                    card.featured && 'border-ink-soft/50 bg-canvas-sunken/30 shadow-sm',
+                    card.featured && 'border-ink-soft/50 bg-canvas-sunken/30 shadow-xs',
                   )}
                 >
                   <CardHeader className="pb-2">

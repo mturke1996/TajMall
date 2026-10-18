@@ -104,7 +104,7 @@ function YearSection({
       )}
 
       <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
-        <div className="rounded-xl border border-pastel-greenInk/20 bg-pastel-green p-4 min-h-[6rem]">
+        <div className="rounded-xl border border-pastel-greenInk/20 bg-pastel-green p-4 min-h-24">
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 className="h-4 w-4 text-success-ink" />
             <h4 className="font-bold text-success-ink text-sm">
@@ -122,7 +122,7 @@ function YearSection({
           )}
         </div>
 
-        <div className="rounded-xl border border-pastel-redInk/20 bg-pastel-red p-4 min-h-[6rem]">
+        <div className="rounded-xl border border-pastel-redInk/20 bg-pastel-red p-4 min-h-24">
           <div className="flex items-center gap-2 mb-2">
             <AlertCircle className="h-4 w-4 text-danger-ink" />
             <h4 className="font-bold text-danger-ink text-sm">
@@ -281,7 +281,7 @@ export function TenantRentCalendarPanel({
     <>
       <Card
         className={cn(
-          'overflow-hidden border-border/80 shadow-sm',
+          'overflow-hidden border-border/80 shadow-xs',
           className,
         )}
       >

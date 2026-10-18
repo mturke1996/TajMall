@@ -49,7 +49,7 @@ function PasswordInput({
         <button
           type="button"
           onClick={() => setShow((s) => !s)}
-          className="absolute end-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-ink-mute hover:bg-secondary hover:text-foreground"
+          className="absolute inset-e-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-ink-mute hover:bg-secondary hover:text-foreground"
           aria-label={show ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
         >
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

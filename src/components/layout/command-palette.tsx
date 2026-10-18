@@ -56,7 +56,7 @@ export function CommandPalette({
             <Search className="h-4 w-4 stroke-[1.5] text-ink-mute" />
             <Command.Input
               placeholder="ابحث، نفذ أمراً، اقفز إلى صفحة…"
-              className="flex h-12 w-full bg-transparent text-[14px] outline-none placeholder:text-ink-mute"
+              className="flex h-12 w-full bg-transparent text-[14px] outline-hidden placeholder:text-ink-mute"
             />
             <kbd className="kbd">esc</kbd>
           </div>
@@ -69,7 +69,7 @@ export function CommandPalette({
             {(can('revenue.create') || can('expense.create') || can('voucher.create')) && (
             <Command.Group
               heading="إجراءات سريعة"
-              className="px-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11.5px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-ink-mute"
+              className="px-1 **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-[11.5px] **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:text-ink-mute"
             >
               {can('revenue.create') && (
                 <Item
@@ -108,7 +108,7 @@ export function CommandPalette({
               <Command.Group
                 key={section.titleAr}
                 heading={section.titleAr}
-                className="px-1 mt-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11.5px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-ink-mute"
+                className="px-1 mt-2 **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-[11.5px] **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:text-ink-mute"
               >
                 {section.items.map((item) => {
                   if (item.permission && !can(item.permission)) return null;
@@ -146,7 +146,7 @@ function Item({
   return (
     <Command.Item
       onSelect={onSelect}
-      className="flex cursor-pointer select-none items-center gap-3 rounded-md px-2.5 py-2 text-[13px] outline-none transition-colors duration-150 data-[selected=true]:bg-canvas-sunken data-[selected=true]:text-foreground"
+      className="flex cursor-pointer select-none items-center gap-3 rounded-md px-2.5 py-2 text-[13px] outline-hidden transition-colors duration-150 data-[selected=true]:bg-canvas-sunken data-[selected=true]:text-foreground"
     >
       <span className="grid h-7 w-7 place-items-center rounded-md border border-border bg-card [&_svg]:size-[14px] [&_svg]:stroke-[1.5] [&_svg]:text-ink-mute">
         {icon}

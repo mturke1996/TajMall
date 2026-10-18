@@ -199,7 +199,7 @@ export default function UsersPage() {
 
       <div className="flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-7 md:px-8 md:py-10">
         <div className="relative">
-          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+          <Search className="absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
           <Input
             placeholder="البحث بالاسم أو المعرّف..."
             value={searchQuery}
@@ -404,7 +404,7 @@ export default function UsersPage() {
               onClick={() => { setCreateType('DIRECT'); setInvitePassword(''); }}
               className={cn(
                 "flex-1 py-1.5 font-medium rounded-md transition-all text-center",
-                createType === 'DIRECT' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                createType === 'DIRECT' ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
               )}
             >
               إنشاء حساب مباشر
@@ -414,7 +414,7 @@ export default function UsersPage() {
               onClick={() => { setCreateType('INVITE'); setInvitePassword(''); }}
               className={cn(
                 "flex-1 py-1.5 font-medium rounded-md transition-all text-center",
-                createType === 'INVITE' ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                createType === 'INVITE' ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
               )}
             >
               إرسال دعوة بالبريد

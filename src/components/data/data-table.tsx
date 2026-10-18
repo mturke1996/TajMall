@@ -215,7 +215,7 @@ export function DataTable<T>({
                   الأعمدة
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[12rem]">
+              <DropdownMenuContent align="end" className="min-w-48">
                 <DropdownMenuLabel>الأعمدة الظاهرة</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {hideableColumns.map((column) => (
@@ -262,7 +262,7 @@ export function DataTable<T>({
       >
         <table className="w-full border-collapse text-[13px]">
           {caption && <caption className="sr-only">{caption}</caption>}
-          <thead className="sticky top-0 z-[1] bg-canvas-sunken">
+          <thead className="sticky top-0 z-1 bg-canvas-sunken">
             {table.getHeaderGroups().map((group) => (
               <tr key={group.id} className="border-b border-border">
                 {group.headers.map((header) => {
@@ -286,7 +286,7 @@ export function DataTable<T>({
                           onClick={header.column.getToggleSortingHandler()}
                           className={cn(
                             'inline-flex items-center gap-1 rounded px-1 -mx-1 transition-colors duration-100',
-                            'hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
+                            'hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40',
                             sorted && 'text-foreground',
                           )}
                         >
@@ -376,7 +376,7 @@ export function DataTable<T>({
             <label className="flex items-center gap-1.5">
               <span>لكل صفحة</span>
               <select
-                className="h-8 rounded-md border border-border bg-card px-2 text-[12.5px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="h-8 rounded-md border border-border bg-card px-2 text-[12.5px] text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40"
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
@@ -399,7 +399,7 @@ export function DataTable<T>({
             <Button variant="ghost" size="icon-sm" onClick={() => setPageIndex(pageIndex - 1)} disabled={pageIndex === 0} aria-label="الصفحة السابقة">
               <ChevronRight />
             </Button>
-            <span className="min-w-[5.5rem] text-center text-[12.5px] tabular-nums text-foreground">
+            <span className="min-w-22 text-center text-[12.5px] tabular-nums text-foreground">
               صفحة {pageIndex + 1} من {pageCount}
             </span>
             <Button variant="ghost" size="icon-sm" onClick={() => setPageIndex(pageIndex + 1)} disabled={pageIndex >= pageCount - 1} aria-label="الصفحة التالية">

@@ -380,7 +380,7 @@ export default function ContactDetailPage() {
             showDownload={false}
             className={cn(
               'min-w-0 flex-1 [&>button]:h-11 [&>button]:w-full [&>button]:flex-1 [&>button]:px-2 [&>button]:text-[13px]',
-              !canRecordRent && isTenant && 'flex-[2]',
+              !canRecordRent && isTenant && 'flex-2',
             )}
           />
           <Button

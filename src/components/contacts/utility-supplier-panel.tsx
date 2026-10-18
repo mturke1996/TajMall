@@ -80,7 +80,7 @@ export function UtilitySupplierPanel({
       <div className={cn('rounded-2xl border p-5', meta.borderColor, meta.bgColor)}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className={cn('flex h-12 w-12 items-center justify-center rounded-xl bg-card shadow-xs', meta.color)}>
+            <div className={cn('flex h-12 w-12 items-center justify-center rounded-xl bg-card', meta.color)}>
               <RoleIcon className="h-6 w-6 stroke-[1.8]" />
             </div>
             <div>
@@ -102,7 +102,7 @@ export function UtilitySupplierPanel({
             {mayRecordPayment && (
               <Button
                 onClick={handleRecordPayment}
-                className="gap-1.5 font-semibold text-xs h-9 bg-primary text-primary-foreground shadow-xs"
+                className="gap-1.5 font-semibold text-xs h-9 bg-primary text-primary-foreground"
               >
                 <Plus className="h-4 w-4" />
                 تسجيل سند صرف / سداد

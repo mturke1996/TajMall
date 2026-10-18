@@ -38,7 +38,7 @@ export function AccountingSubNav() {
                 className={cn(
                   'snap-center shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium touch-manipulation transition-colors min-h-11',
                   active
-                    ? 'bg-foreground text-background border-foreground shadow-sm'
+                    ? 'bg-foreground text-background border-foreground shadow-xs'
                     : 'bg-card text-muted-foreground border-border hover:bg-secondary active:bg-secondary',
                 )}
               >
@@ -49,11 +49,11 @@ export function AccountingSubNav() {
           })}
         </div>
         <div
-          className="pointer-events-none absolute inset-y-0 end-0 w-6 bg-gradient-to-r from-canvas/95 to-transparent md:hidden"
+          className="pointer-events-none absolute inset-y-0 inset-e-0 w-6 bg-linear-to-r from-canvas/95 to-transparent md:hidden"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute inset-y-0 start-0 w-6 bg-gradient-to-l from-canvas/95 to-transparent md:hidden"
+          className="pointer-events-none absolute inset-y-0 inset-s-0 w-6 bg-linear-to-l from-canvas/95 to-transparent md:hidden"
           aria-hidden
         />
       </div>

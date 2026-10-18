@@ -21,7 +21,7 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-[110] min-w-[10rem] overflow-hidden rounded-xl border border-border bg-card p-1 text-card-foreground shadow-lift",
+        "z-110 min-w-40 overflow-hidden rounded-xl border border-border bg-card p-1 text-card-foreground shadow-lift",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-100",
         className,
       )}
@@ -40,10 +40,10 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] outline-none",
+      "relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] outline-hidden",
       "transition-colors duration-100",
       "focus:bg-canvas-sunken focus:text-foreground",
-      "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "data-disabled:pointer-events-none data-disabled:opacity-50",
       "[&_svg]:size-[14px] [&_svg]:stroke-[1.6] [&_svg]:text-muted-foreground",
       inset && "ps-8",
       className,
@@ -60,15 +60,15 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      "group relative flex cursor-pointer select-none items-center gap-2 rounded-md py-1.5 pe-2.5 ps-8 text-[13px] outline-none",
+      "group relative flex cursor-pointer select-none items-center gap-2 rounded-md py-1.5 pe-2.5 ps-8 text-[13px] outline-hidden",
       "transition-colors duration-100",
       "focus:bg-canvas-sunken focus:text-foreground",
-      "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "data-disabled:pointer-events-none data-disabled:opacity-50",
       className,
     )}
     {...props}
   >
-    <span className="absolute start-2.5 flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border border-border bg-card group-data-[state=checked]:border-foreground group-data-[state=checked]:bg-foreground">
+    <span className="absolute inset-s-2.5 flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border border-border bg-card group-data-[state=checked]:border-foreground group-data-[state=checked]:bg-foreground">
       <DropdownMenuPrimitive.ItemIndicator>
         <Check className="h-3 w-3 stroke-[2.2] text-background" />
       </DropdownMenuPrimitive.ItemIndicator>

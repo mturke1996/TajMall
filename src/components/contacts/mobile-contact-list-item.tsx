@@ -73,7 +73,7 @@ export function MobileContactListItem({
         </div>
         <ChevronLeft className="h-5 w-5 shrink-0 text-ink-mute" aria-hidden />
       </Link>
-      <div className="flex border-t border-border divide-x divide-border rtl:divide-x-reverse">
+      <div className="flex border-t border-border divide-x divide-border">
         <Button
           variant="ghost"
           className={cn('h-11 rounded-none gap-1.5 text-[13px] touch-manipulation', allowMutate ? 'flex-1' : 'w-full')}

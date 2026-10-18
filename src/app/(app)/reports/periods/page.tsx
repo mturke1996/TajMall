@@ -160,7 +160,7 @@ export default function FiscalPeriodsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="space-y-2 w-full sm:max-w-[10rem]">
+              <div className="space-y-2 w-full sm:max-w-40">
                 <Label htmlFor="close-year">السنة</Label>
                 <Input
                   id="close-year"
@@ -280,7 +280,7 @@ export default function FiscalPeriodsPage() {
         </Card>
 
         <div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
-          <Card className="h-fit lg:sticky lg:top-[3.5rem]">
+          <Card className="h-fit lg:sticky lg:top-14">
             <CardHeader>
               <CardTitle className="text-base font-bold sm:text-lg">
                 فترة مالية جديدة
@@ -352,7 +352,7 @@ export default function FiscalPeriodsPage() {
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <AccountingLoading className="min-h-[8rem]" />
+                  <AccountingLoading className="min-h-32" />
                 ) : isError ? (
                   <AccountingError
                     title="فشل تحميل الفترات"

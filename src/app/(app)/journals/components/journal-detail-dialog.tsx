@@ -63,7 +63,7 @@ export function JournalDetailDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60]" dir="rtl">
+    <div className="fixed inset-0 z-60" dir="rtl">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
       <div
         className={cn(

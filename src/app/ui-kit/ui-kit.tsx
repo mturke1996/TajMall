@@ -64,7 +64,7 @@ export function UiKit() {
   );
 
   return (
-    <div className="flex min-h-[100dvh] bg-background" dir="rtl">
+    <div className="flex min-h-dvh bg-background" dir="rtl">
       <Sidebar previewAllItems />
       <main className="min-w-0 flex-1 space-y-10 px-4 py-8 sm:px-8">
         <header className="space-y-1">

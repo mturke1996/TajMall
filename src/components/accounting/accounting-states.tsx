@@ -7,7 +7,7 @@ export function AccountingLoading({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'flex min-h-[12rem] flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card',
+        'flex min-h-48 flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card',
         className,
       )}
     >
@@ -31,13 +31,13 @@ export function AccountingError({
   return (
     <div
       className={cn(
-        'flex min-h-[12rem] flex-col items-center justify-center gap-2 rounded-xl border border-danger-line bg-danger-soft/80 p-4 text-center',
+        'flex min-h-48 flex-col items-center justify-center gap-2 rounded-xl border border-danger-line bg-danger-soft/80 p-4 text-center',
         className,
       )}
     >
       <AlertTriangle className="h-8 w-8 text-danger" />
       <p className="font-semibold text-danger-ink">{title}</p>
-      {message && <p className="text-sm text-danger-ink break-words max-w-md">{message}</p>}
+      {message && <p className="text-sm text-danger-ink wrap-break-word max-w-md">{message}</p>}
       {hint && <p className="text-xs text-danger/90 mt-1 max-w-md leading-relaxed">{hint}</p>}
     </div>
   );
@@ -59,7 +59,7 @@ export function AccountingEmpty({
   return (
     <div
       className={cn(
-        'flex min-h-[12rem] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-card/50 p-6 text-center',
+        'flex min-h-48 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-card/50 p-6 text-center',
         className,
       )}
     >

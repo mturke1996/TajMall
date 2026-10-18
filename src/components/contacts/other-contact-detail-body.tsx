@@ -79,27 +79,27 @@ export function OtherContactDetailBody({
       <div className="-mx-4 px-4 md:mx-0 md:px-0">
         <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar snap-x snap-mandatory md:grid md:grid-cols-2 md:gap-3 md:overflow-visible lg:grid-cols-4">
           {isTenant && rent && (
-            <Card className="min-w-[9.5rem] shrink-0 snap-center p-4 border-border bg-canvas-sunken/50 md:min-w-0">
+            <Card className="min-w-38 shrink-0 snap-center p-4 border-border bg-canvas-sunken/50 md:min-w-0">
               <p className="text-xs text-ink-mute">إيجارات 12 شهر</p>
               <p className="text-lg font-bold text-foreground sm:text-xl">
                 {formatMoney(Number(rent.last_12_months_revenue), 'LYD')}
               </p>
             </Card>
           )}
-          <Card className="min-w-[9.5rem] shrink-0 snap-center p-4 md:min-w-0">
+          <Card className="min-w-38 shrink-0 snap-center p-4 md:min-w-0">
             <p className="text-xs text-ink-mute">إجمالي الإيرادات</p>
             <p className="text-lg font-bold text-success sm:text-xl">
               {formatMoney(totals.revenue, 'LYD')}
             </p>
           </Card>
-          <Card className="min-w-[9.5rem] shrink-0 snap-center p-4 md:min-w-0">
+          <Card className="min-w-38 shrink-0 snap-center p-4 md:min-w-0">
             <p className="text-xs text-ink-mute">إجمالي المصروفات</p>
             <p className="text-lg font-bold text-danger sm:text-xl">
               {formatMoney(totals.expense, 'LYD')}
             </p>
           </Card>
           {!isTenant ? (
-            <Card className="min-w-[9.5rem] shrink-0 snap-center p-4 md:min-w-0">
+            <Card className="min-w-38 shrink-0 snap-center p-4 md:min-w-0">
               <p className="text-xs text-ink-mute">صافي الحركة</p>
               <p
                 className={cn(
@@ -128,11 +128,11 @@ export function OtherContactDetailBody({
               </div>
             </Card>
           ) : null}
-          <Card className="min-w-[9.5rem] shrink-0 snap-center p-4 md:min-w-0">
+          <Card className="min-w-38 shrink-0 snap-center p-4 md:min-w-0">
             <p className="text-xs text-ink-mute">عدد المعاملات</p>
             <p className="text-lg font-bold sm:text-xl">{transactions.length}</p>
           </Card>
-          <Card className="min-w-[9.5rem] shrink-0 snap-center p-4 md:min-w-0">
+          <Card className="min-w-38 shrink-0 snap-center p-4 md:min-w-0">
             <p className="text-xs text-ink-mute">قيود اليومية</p>
             <p className="text-lg font-bold sm:text-xl">{journalEntries.length}</p>
           </Card>
@@ -140,7 +140,7 @@ export function OtherContactDetailBody({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="flex flex-col gap-4 order-2 lg:order-none">
+        <div className="flex flex-col gap-4 order-2 lg:order-0">
           <Card className="p-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">

@@ -196,7 +196,7 @@ export default async function TenantPortalPage({ params }: { params: Promise<{ t
           </div>
         </header>
 
-        <div className="rounded-2xl border border-[#ECEAE3] bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-[#ECEAE3] bg-white p-5 shadow-xs">
           <p className="text-[12px] text-[#6b6f68]">مستأجر</p>
           <h1 className="mt-0.5 text-xl font-bold text-[#15171A]">{contact.name}</h1>
           {(contact.shop_number || contact.floor) && (
@@ -231,7 +231,7 @@ export default async function TenantPortalPage({ params }: { params: Promise<{ t
         </div>
 
         {calendarMonths.length > 0 && (
-          <div className="rounded-2xl border border-[#ECEAE3] bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-[#ECEAE3] bg-white p-5 shadow-xs">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[14px] font-semibold text-[#15171A]">
                 تقويم الإيجار {year}
@@ -266,7 +266,7 @@ export default async function TenantPortalPage({ params }: { params: Promise<{ t
         )}
 
         {hasVariablePrices && (
-          <div className="rounded-2xl border border-[#ECEAE3] bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-[#ECEAE3] bg-white p-5 shadow-xs">
             <h2 className="mb-3 text-[14px] font-semibold text-[#15171A]">
               جدول أسعار الإيجار
             </h2>
@@ -290,7 +290,7 @@ export default async function TenantPortalPage({ params }: { params: Promise<{ t
           </div>
         )}
 
-        <div className="rounded-2xl border border-[#ECEAE3] bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-[#ECEAE3] bg-white p-5 shadow-xs">
           <h2 className="mb-3 text-[14px] font-semibold text-[#15171A]">سجل المطالبات والسداد</h2>
           {charges.length === 0 ? (
             <p className="py-6 text-center text-[13px] text-[#6b6f68]">لا توجد مطالبات مسجَّلة</p>

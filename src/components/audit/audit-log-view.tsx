@@ -344,14 +344,14 @@ export function AuditLogView() {
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
             <Search
-              className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute"
+              className="pointer-events-none absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute"
               aria-hidden
             />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="بحث…"
-              className="h-10 border-0 bg-canvas-sunken ps-9 shadow-none focus-visible:ring-1"
+              className="h-10 border-0 bg-canvas-sunken ps-9 shadow-none focus-visible:ring-1 focus-visible:ring-ring/40"
             />
           </div>
           <Button
@@ -369,7 +369,7 @@ export function AuditLogView() {
 
         <div>
           <p className="mb-1.5 text-[11px] font-medium text-ink-mute">النوع</p>
-          <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 scrollbar-none [&::-webkit-scrollbar]:hidden">
             <div className="flex w-max gap-1.5">
               {ENTITY_FILTERS.map((f) => (
                 <FilterChip

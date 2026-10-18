@@ -43,7 +43,7 @@ export function DataToolbar({
       {/* Row 1: Search + actions */}
       <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 stroke-[1.5] text-muted-foreground" />
+          <Search className="pointer-events-none absolute inset-e-3 top-1/2 h-4 w-4 -translate-y-1/2 stroke-[1.5] text-muted-foreground" />
           <Input
             placeholder={searchPlaceholder}
             className="pe-9 bg-canvas-sunken border-transparent focus:border-ring focus:bg-card transition-colors w-full"
@@ -77,7 +77,7 @@ export function DataToolbar({
               className={cn(
                 'shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-all duration-150',
                 datePreset === p.value || (!datePreset && p.value === 'all')
-                  ? 'bg-foreground text-background shadow-sm'
+                  ? 'bg-foreground text-background shadow-xs'
                   : 'bg-canvas-sunken text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
             >

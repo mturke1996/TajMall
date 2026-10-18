@@ -45,7 +45,7 @@ Organization
 - **App Router** with route groups: `(auth)` for login/signup, `(app)` for authed shell.
 - **Server Components by default**. Client Components only when needed (forms, charts with Recharts, framer-motion, command palette).
 - **Streaming-ready**: `loading.tsx` boundaries planned per route segment.
-- **Editorial design tokens** centralised in `tailwind.config.ts` and `globals.css`.
+- **Editorial design tokens** centralised in `globals.css` (CSS variables + Tailwind 4 `@theme inline`).
 - **Component library** built locally (not pulled from `npx shadcn`) so it stays light and on-brand.
 
 ## 4. Data access

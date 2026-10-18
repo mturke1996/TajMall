@@ -51,7 +51,7 @@ export function Stat({
 
   const classes = cn(
     'surface flex flex-col gap-2 p-4',
-    interactive && 'cursor-pointer text-start transition-all duration-200 hover:shadow-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40',
+    interactive && 'cursor-pointer text-start transition-all duration-200 hover:shadow-lift focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-foreground/40',
     active && 'ring-2 ring-foreground/40 shadow-lift',
     className,
   );

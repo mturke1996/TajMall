@@ -82,7 +82,7 @@ export function MallTabNav({
               className={cn(
                 'inline-flex shrink-0 snap-center items-center gap-1.5 rounded-lg px-3 py-2.5 text-[13px] font-medium touch-manipulation transition-colors',
                 isActive
-                  ? 'bg-foreground text-background shadow-sm'
+                  ? 'bg-foreground text-background shadow-xs'
                   : 'text-ink-mute hover:bg-secondary hover:text-ink',
               )}
             >

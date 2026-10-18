@@ -468,7 +468,7 @@ export function JournalEntryDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60]" dir="rtl">
+    <div className="fixed inset-0 z-60" dir="rtl">
       <div
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
@@ -668,7 +668,7 @@ export function JournalEntryDialog({
 
             {/* بحث البنود — مهم على الهاتف مع قوائم طويلة */}
             <div className="relative">
-              <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={categorySearch}
                 onChange={(e) => setCategorySearch(e.target.value)}
@@ -678,7 +678,7 @@ export function JournalEntryDialog({
             </div>
 
             {lines.map((line, index) => (
-              <Card key={line.id} className="p-3.5 space-y-3 border-border/80 shadow-sm">
+              <Card key={line.id} className="p-3.5 space-y-3 border-border/80 shadow-xs">
                 <div className="flex items-center justify-between gap-2">
                   <Badge variant="outline" className="text-[11px]">
                     بند {index + 1}
@@ -712,7 +712,7 @@ export function JournalEntryDialog({
                       className={cn(
                         'rounded-lg py-3 text-sm font-semibold touch-manipulation active:scale-[0.98]',
                         line.side === 'debit'
-                          ? 'bg-success text-white shadow-sm'
+                          ? 'bg-success text-white shadow-xs'
                           : 'text-muted-foreground',
                       )}
                     >
@@ -724,7 +724,7 @@ export function JournalEntryDialog({
                       className={cn(
                         'rounded-lg py-3 text-sm font-semibold touch-manipulation active:scale-[0.98]',
                         line.side === 'credit'
-                          ? 'bg-danger text-white shadow-sm'
+                          ? 'bg-danger text-white shadow-xs'
                           : 'text-muted-foreground',
                       )}
                     >

@@ -369,7 +369,7 @@ export function MallContractsPanel() {
                   className="ps-8"
                   required
                 />
-                <DollarSign className="absolute start-3 top-2.5 h-4.5 w-4.5 text-muted-foreground" />
+                <DollarSign className="absolute inset-s-3 top-2.5 h-4.5 w-4.5 text-muted-foreground" />
               </div>
             </div>
 

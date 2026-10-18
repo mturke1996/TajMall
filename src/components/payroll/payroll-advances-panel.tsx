@@ -99,7 +99,7 @@ export function PayrollAdvancesPanel({
         header: 'السداد',
         meta: { label: 'السداد' },
         cell: ({ row }) => (
-          <div className="flex min-w-[8rem] flex-col gap-1">
+          <div className="flex min-w-32 flex-col gap-1">
             <Progress value={repaidShare(row.original)} className="h-1.5" aria-label={`نسبة سداد سلفة ${row.original.employee_name}`} />
             <span className="text-[11.5px] text-muted-foreground">
               سُدّد <Amount value={row.original.repaid} muted className="text-[11.5px]" />

@@ -101,7 +101,7 @@ export function ResetPasswordForm() {
 
   if (checking) {
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center" dir="rtl">
+      <div className="flex min-h-dvh items-center justify-center" dir="rtl">
         <Loader2 className="h-6 w-6 animate-spin text-ink-mute" />
       </div>
     );
@@ -109,7 +109,7 @@ export function ResetPasswordForm() {
 
   if (!ready) {
     return (
-      <div className="relative flex min-h-[100dvh] items-center justify-center p-6 paper" dir="rtl">
+      <div className="relative flex min-h-dvh items-center justify-center p-6 paper" dir="rtl">
         <div className="surface w-full max-w-md space-y-4 p-7 text-center">
           <AlertCircle className="mx-auto h-8 w-8 text-pastel-redInk" />
           <h1 className="text-lg font-semibold">رابط غير صالح أو منتهٍ</h1>
@@ -125,7 +125,7 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <div className="relative flex min-h-[100dvh] items-center justify-center p-6 paper" dir="rtl">
+    <div className="relative flex min-h-dvh items-center justify-center p-6 paper" dir="rtl">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <div className="surface flex flex-col gap-6 p-7 sm:p-8">
           <div className="flex flex-col items-center gap-4 text-center">
@@ -152,7 +152,7 @@ export function ResetPasswordForm() {
                 <button aria-label={showPwd ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
                   type="button"
                   onClick={() => setShowPwd((s) => !s)}
-                  className="absolute end-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-ink-mute hover:bg-secondary"
+                  className="absolute inset-e-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-ink-mute hover:bg-secondary"
                 >
                   {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>

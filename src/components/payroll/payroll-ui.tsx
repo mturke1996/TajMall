@@ -109,7 +109,7 @@ export function MonthSwitcher({ month, onChange }: { month: string; onChange: (m
       >
         <ChevronRight />
       </Button>
-      <span className="min-w-[7.5rem] text-center text-[13.5px] font-semibold tabular-nums">{formatMonthKeyAr(month)}</span>
+      <span className="min-w-30 text-center text-[13.5px] font-semibold tabular-nums">{formatMonthKeyAr(month)}</span>
       <Button
         type="button"
         variant="ghost"

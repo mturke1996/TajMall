@@ -231,7 +231,7 @@ export function SetRentExemptMonthsDialog({
             </div>
 
             <div className="flex flex-wrap items-end gap-2">
-              <div className="space-y-1.5 min-w-[9rem] flex-1">
+              <div className="space-y-1.5 min-w-36 flex-1">
                 <Label htmlFor="claim-month" className="text-xs text-ink-mute">
                   الشهر
                 </Label>
@@ -286,7 +286,7 @@ export function SetRentExemptMonthsDialog({
                 value={String(year)}
                 onValueChange={(v) => handleYearChange(Number(v))}
               >
-                <SelectTrigger className="h-9 w-[6.5rem]" aria-label="السنة">
+                <SelectTrigger className="h-9 w-26" aria-label="السنة">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -332,7 +332,7 @@ export function SetRentExemptMonthsDialog({
                     }}
                     className={cn(
                       'rounded-xl px-2 py-2.5 text-center touch-manipulation transition-all border-2',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-soft/40',
+                      'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ink-soft/40',
                       isPaid && 'opacity-45 cursor-not-allowed',
                       isExempt
                         ? 'border-dashed border-ink-mute/50 bg-canvas-sunken text-ink-soft shadow-none'
@@ -364,7 +364,7 @@ export function SetRentExemptMonthsDialog({
           </Button>
           <Button
             type="button"
-            className="h-10 touch-manipulation min-w-[7rem]"
+            className="h-10 touch-manipulation min-w-28"
             onClick={save}
             disabled={setExempt.isPending}
           >

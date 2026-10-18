@@ -395,7 +395,7 @@ export function MallChargesPanel() {
                   className="ps-8"
                   required
                 />
-                <DollarSign className="absolute start-3 top-2.5 h-4.5 w-4.5 text-muted-foreground" />
+                <DollarSign className="absolute inset-s-3 top-2.5 h-4.5 w-4.5 text-muted-foreground" />
               </div>
             </div>
 
@@ -446,7 +446,7 @@ export function MallChargesPanel() {
                   onChange={(e) => setTargetMonth(e.target.value)}
                   required
                 />
-                <Calendar className="absolute end-3 top-2.5 h-4.5 w-4.5 text-muted-foreground pointer-events-none" />
+                <Calendar className="absolute inset-e-3 top-2.5 h-4.5 w-4.5 text-muted-foreground pointer-events-none" />
               </div>
             </div>
 

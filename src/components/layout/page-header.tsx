@@ -28,17 +28,17 @@ export function PageHeader({
       <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {eyebrow && (
-            <span className="text-[11.5px] font-semibold text-muted-foreground break-words">
+            <span className="text-[11.5px] font-semibold text-muted-foreground wrap-break-word">
               {eyebrow}
             </span>
           )}
           {title && (
-            <h1 className={cn('text-[18px] font-bold tracking-tight leading-snug break-words', titleClassName)}>
+            <h1 className={cn('text-[18px] font-bold tracking-tight leading-snug wrap-break-word', titleClassName)}>
               {title}
             </h1>
           )}
           {description && (
-            <p className="text-[13px] text-muted-foreground leading-snug mt-0.5 break-words">{description}</p>
+            <p className="text-[13px] text-muted-foreground leading-snug mt-0.5 wrap-break-word">{description}</p>
           )}
         </div>
         {actions && (

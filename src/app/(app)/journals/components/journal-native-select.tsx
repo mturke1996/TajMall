@@ -37,7 +37,7 @@ export function JournalNativeSelect({
           required={required}
           className={cn(
             'flex h-12 w-full appearance-none rounded-lg border border-border bg-card px-3 pe-10 text-sm',
-            'touch-manipulation focus:outline-none focus-visible:border-ring focus-visible:shadow-focus',
+            'touch-manipulation focus:outline-hidden focus-visible:border-ring focus-visible:shadow-focus',
           )}
         >
           {placeholder && (
@@ -51,7 +51,7 @@ export function JournalNativeSelect({
             </option>
           ))}
         </select>
-        <ChevronDown className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" />
+        <ChevronDown className="pointer-events-none absolute inset-e-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" />
       </div>
     </div>
   );

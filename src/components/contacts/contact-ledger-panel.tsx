@@ -63,7 +63,7 @@ function JournalEntryRowItem({ entry }: { entry: JournalEntryRow }) {
     Number(entry.total_debit || 0) === Number(entry.total_credit || 0);
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden transition-all shadow-2xs">
+    <div className="rounded-xl border border-border bg-card overflow-hidden transition-all">
       <div
         className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-muted/30"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -324,7 +324,7 @@ export function ContactLedgerPanel({
       </div>
 
       {/* 2. Main Ledger Tabs & Toolbar */}
-      <Card className="border-border shadow-xs overflow-hidden">
+      <Card className="border-border overflow-hidden">
         <div className="border-b border-border bg-canvas-sunken/40 px-4 py-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             {/* Tabs Header */}
@@ -335,7 +335,7 @@ export function ContactLedgerPanel({
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all',
                   activeTab === 'transactions'
-                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
@@ -355,7 +355,7 @@ export function ContactLedgerPanel({
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all',
                   activeTab === 'journals'
-                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
@@ -373,7 +373,7 @@ export function ContactLedgerPanel({
             {/* Quick Actions & Search */}
             <div className="flex items-center gap-2">
               <div className="relative">
-                <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Search className="absolute inset-s-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -392,7 +392,7 @@ export function ContactLedgerPanel({
                       contactKind: contact.kind,
                     })
                   }
-                  className="gap-1 text-xs h-8 bg-danger hover:bg-danger/90 text-white font-semibold shadow-xs"
+                  className="gap-1 text-xs h-8 bg-danger hover:bg-danger/90 text-white font-semibold"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   سند صرف
@@ -409,7 +409,7 @@ export function ContactLedgerPanel({
                       contactKind: contact.kind,
                     })
                   }
-                  className="gap-1 text-xs h-8 font-semibold shadow-xs"
+                  className="gap-1 text-xs h-8 font-semibold"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   سند قبض

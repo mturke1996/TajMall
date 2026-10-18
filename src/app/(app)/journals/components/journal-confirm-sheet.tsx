@@ -30,7 +30,7 @@ export function JournalConfirmSheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[70]" dir="rtl">
+    <div className="fixed inset-0 z-70" dir="rtl">
       <div className="absolute inset-0 bg-black/45" onClick={onCancel} aria-hidden />
       <div
         className={cn(

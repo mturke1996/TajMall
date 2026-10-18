@@ -142,7 +142,7 @@ export function TransactionsTable({
           row.original.contact?.id ? (
             <Link
               href={`/contacts/${row.original.contact.id}`}
-              className="inline-flex max-w-[14rem] items-center gap-1 text-foreground/80 underline-offset-4 hover:text-foreground hover:underline"
+              className="inline-flex max-w-56 items-center gap-1 text-foreground/80 underline-offset-4 hover:text-foreground hover:underline"
             >
               <ContactIcon kind={row.original.contact.kind} />
               <span className="truncate">{contactLabel(row.original)}</span>

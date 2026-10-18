@@ -31,10 +31,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="flex min-h-[100dvh] w-full bg-background" dir="rtl">
+    <div className="flex min-h-dvh w-full bg-background" dir="rtl">
       <a
         href="#main-content"
-        className="sr-only rounded-md bg-background px-4 py-3 text-sm font-semibold shadow-lg ring-2 ring-ring focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-[100]"
+        className="sr-only rounded-md bg-background px-4 py-3 text-sm font-semibold shadow-lg ring-2 ring-ring focus:not-sr-only focus:fixed focus:inset-s-3 focus:top-3 focus:z-100"
       >
         تجاوز إلى المحتوى
       </a>

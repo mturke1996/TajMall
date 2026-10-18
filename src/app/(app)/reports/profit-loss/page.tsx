@@ -55,8 +55,8 @@ function PnLLineList({
           className="flex items-start justify-between gap-3 py-3 first:pt-0"
         >
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-sm leading-snug break-words">{item.name_ar}</p>
-            <p className="text-[11px] text-muted-foreground font-mono mt-0.5 break-words">{item.code}</p>
+            <p className="font-semibold text-sm leading-snug wrap-break-word">{item.name_ar}</p>
+            <p className="text-[11px] text-muted-foreground font-mono mt-0.5 wrap-break-word">{item.code}</p>
           </div>
           <span
             className={cn(

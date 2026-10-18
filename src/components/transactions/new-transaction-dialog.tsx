@@ -144,6 +144,16 @@ export function NewTransactionDialog() {
     }
   }, [isOpen, permLoading, createPerm, can, close]);
 
+  // Escape closes it like every other dialog in the app.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, close]);
+
   const selectedCategory = categoriesAll.find((c) => c.id === categoryId);
   const selectedContact = contactsAll.find((c) => c.id === contactId);
   const showRentAllocation =
@@ -393,7 +403,12 @@ export function NewTransactionDialog() {
   return (
     <div className="fixed inset-0 z-50" dir="rtl">
       <div className="absolute inset-0 bg-black/30" onClick={close} />
-      <div className="absolute bottom-0 end-0 start-0 mx-auto max-w-lg rounded-t-2xl bg-card sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl border shadow-xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-tx-title"
+        className="absolute bottom-0 inset-e-0 inset-s-0 mx-auto max-w-lg rounded-t-2xl bg-card sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl border shadow-xl"
+      >
         {/* Header */}
         <div className="flex items-center gap-3 border-b p-4">
           <div className={cn(
@@ -402,7 +417,7 @@ export function NewTransactionDialog() {
           )}>
             {isRevenue ? <ArrowDownToLine className="h-4 w-4" /> : <ArrowUpFromLine className="h-4 w-4" />}
           </div>
-          <h2 className="font-semibold">{isRevenue ? 'إيراد جديد' : 'مصروف جديد'}</h2>
+          <h2 id="new-tx-title" className="font-semibold">{isRevenue ? 'إيراد جديد' : 'مصروف جديد'}</h2>
           {editingDraftId ? (
             <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground">
               مسودة محفوظة

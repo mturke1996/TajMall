@@ -94,7 +94,7 @@ export function EmployeesDirectory({
             return (
               <Card
                 key={card.key}
-                className="min-w-[10rem] shrink-0 snap-center p-3 md:min-w-0"
+                className="min-w-40 shrink-0 snap-center p-3 md:min-w-0"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-canvas-sunken text-muted-foreground">
@@ -115,7 +115,7 @@ export function EmployeesDirectory({
 
       <div className="sticky top-0 z-20 -mx-4 space-y-2 border-b border-border bg-canvas px-4 py-3 md:static md:mx-0 md:z-auto md:space-y-3 md:border-0 md:bg-transparent md:px-0 md:py-0">
         <div className="relative">
-          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+          <Search className="pointer-events-none absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
           <Input
             placeholder="بحث: الاسم، المسمى، القسم، الهاتف…"
             value={searchQuery}
@@ -221,7 +221,7 @@ export function EmployeesDirectory({
                     ) : null}
                     <Button
                       variant="ghost"
-                      className="h-10 flex-1 min-w-[5rem] gap-1.5 text-[13px] touch-manipulation"
+                      className="h-10 flex-1 min-w-20 gap-1.5 text-[13px] touch-manipulation"
                       disabled={salary === 0}
                       onClick={() => onRecordSalary(emp)}
                     >
@@ -230,7 +230,7 @@ export function EmployeesDirectory({
                     </Button>
                     <Button
                       variant="ghost"
-                      className="h-10 flex-1 min-w-[5rem] gap-1.5 text-[13px] touch-manipulation"
+                      className="h-10 flex-1 min-w-20 gap-1.5 text-[13px] touch-manipulation"
                       onClick={() =>
                         useTxDialog.getState().open({
                           kind: 'EXPENSE',
@@ -244,7 +244,7 @@ export function EmployeesDirectory({
                     </Button>
                     <Button
                       variant="ghost"
-                      className="h-10 flex-1 min-w-[5rem] gap-1.5 text-[13px] touch-manipulation"
+                      className="h-10 flex-1 min-w-20 gap-1.5 text-[13px] touch-manipulation"
                       asChild
                     >
                       <Link href={`/payroll/employees/${emp.id}`}>ملف الراتب</Link>
@@ -259,7 +259,7 @@ export function EmployeesDirectory({
 
       <MobilePageActionBar>
         <Button
-          className="h-12 w-full gap-2 text-base font-semibold shadow-sm touch-manipulation"
+          className="h-12 w-full gap-2 text-base font-semibold shadow-xs touch-manipulation"
           onClick={onAddEmployee}
         >
           <Plus className="h-5 w-5" />

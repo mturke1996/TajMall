@@ -102,7 +102,7 @@ export function LandlordProfilePanel({
             {mayRecordPayment && (
               <Button
                 onClick={() => handleRecordLandlordPayment()}
-                className="gap-1.5 font-semibold text-xs h-9 shadow-xs"
+                className="gap-1.5 font-semibold text-xs h-9"
               >
                 <Plus className="h-4 w-4" />
                 تسجيل سداد إيجار للمؤجر
@@ -158,7 +158,7 @@ export function LandlordProfilePanel({
       </div>
 
       {/* 3. Landlord Month-by-Month Rent Schedule (مثل كشف إيجارات المستأجرين) */}
-      <Card className="border-border shadow-xs overflow-hidden">
+      <Card className="border-border overflow-hidden">
         <CardHeader className="bg-canvas-sunken/40 border-b border-border py-3.5 px-4 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-warning-ink" />

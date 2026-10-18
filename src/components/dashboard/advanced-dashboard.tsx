@@ -277,7 +277,7 @@ export function AdvancedDashboard() {
                   key={action.label}
                   type="button"
                   onClick={action.onClick}
-                  className="focus:outline-none block w-full text-start h-full"
+                  className="focus:outline-hidden block w-full text-start h-full"
                 >
                   {cardContent}
                 </button>

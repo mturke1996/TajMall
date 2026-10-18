@@ -198,7 +198,7 @@ function TrialBalanceContent() {
                 ) : (
                   <>
                     <XCircle className="h-4 w-4 shrink-0" />
-                    <span className="break-words">
+                    <span className="wrap-break-word">
                       غير متوازن — فارق {formatMoney(difference, 'LYD')}
                     </span>
                   </>

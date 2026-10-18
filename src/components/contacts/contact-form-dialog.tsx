@@ -224,7 +224,7 @@ export function ContactFormDialog({
                     className={cn(
                       'flex items-center gap-2.5 p-2.5 rounded-lg border text-start transition-all cursor-pointer',
                       isSelected
-                        ? cn('border-2 font-bold shadow-xs ring-1 ring-primary/20', r.border, r.bg, r.color)
+                        ? cn('border-2 font-bold ring-1 ring-primary/20', r.border, r.bg, r.color)
                         : 'border-border bg-card hover:bg-muted/40 text-muted-foreground'
                     )}
                   >
@@ -270,7 +270,7 @@ export function ContactFormDialog({
           {isLandlord && (
             <div className="rounded-xl border border-warning-line bg-warning-soft/60 p-4 space-y-3">
               <div className="flex items-center gap-2 text-warning-ink">
-                <Building className="h-4 w-4 stroke-[2]" />
+                <Building className="h-4 w-4 stroke-2" />
                 <span className="text-xs font-bold">بيانات عقد الإيجار للمؤجر المستحق</span>
               </div>
 
@@ -331,7 +331,7 @@ export function ContactFormDialog({
           {isTenant && (
             <div className="rounded-xl border border-success-line bg-success-soft/60 p-4 space-y-3">
               <div className="flex items-center gap-2 text-success-ink">
-                <Building2 className="h-4 w-4 stroke-[2]" />
+                <Building2 className="h-4 w-4 stroke-2" />
                 <span className="text-xs font-bold">بيانات المحل المستأجر بالمول</span>
               </div>
 
@@ -428,7 +428,7 @@ export function ContactFormDialog({
           {isEmployee && (
             <div className="rounded-xl border border-plum-line bg-plum-soft/50 p-4 space-y-3">
               <div className="flex items-center gap-2 text-plum-ink">
-                <Briefcase className="h-4 w-4 stroke-[2]" />
+                <Briefcase className="h-4 w-4 stroke-2" />
                 <span className="text-xs font-bold">بيانات الموظف والمرتب</span>
               </div>
 

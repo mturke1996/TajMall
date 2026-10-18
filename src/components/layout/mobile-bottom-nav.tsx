@@ -35,7 +35,7 @@ export function MobileBottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 end-0 start-0 z-50 border-t border-border bg-canvas md:hidden"
+      className="fixed bottom-0 inset-e-0 inset-s-0 z-50 border-t border-border bg-canvas md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="flex h-16 items-stretch justify-around">

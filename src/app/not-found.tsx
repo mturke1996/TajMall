@@ -11,7 +11,7 @@ export default function NotFound() {
       <div className="flex w-full max-w-md flex-col items-center gap-5 text-center">
         <div className="relative">
           <BrandGlyph size={56} className="border border-border/80" />
-          <span className="absolute -bottom-1 -start-1 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card">
+          <span className="absolute -bottom-1 -inset-s-1 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card">
             <Compass className="h-3.5 w-3.5 text-ink-mute" strokeWidth={2} />
           </span>
         </div>

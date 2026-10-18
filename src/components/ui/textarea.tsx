@@ -12,7 +12,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         'border border-border bg-card text-foreground',
         'placeholder:text-muted-foreground/60',
         'transition-[border-color,box-shadow,background-color] duration-150 ease-out',
-        'focus-visible:outline-none focus-visible:border-ring/60 focus-visible:shadow-focus focus-visible:bg-card',
+        'focus-visible:outline-hidden focus-visible:border-ring/60 focus-visible:shadow-focus focus-visible:bg-card',
         'hover:border-border/80',
         'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-canvas-sunken',
         className,

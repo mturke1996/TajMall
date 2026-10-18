@@ -36,7 +36,7 @@ export function Sidebar({
     return (
       <aside
         className={cn(
-          "sticky top-0 z-20 hidden h-[100dvh] shrink-0 flex-col border-e border-border bg-canvas md:flex",
+          "sticky top-0 z-20 hidden h-dvh shrink-0 flex-col border-e border-border bg-canvas md:flex",
           collapsed ? "w-[72px]" : "w-[260px]",
           className,
         )}
@@ -48,7 +48,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "sticky top-0 z-20 hidden h-[100dvh] shrink-0 flex-col border-e border-border bg-canvas md:flex",
+        "sticky top-0 z-20 hidden h-dvh shrink-0 flex-col border-e border-border bg-canvas md:flex",
         "transition-[width] duration-200 ease-out-quart",
         collapsed ? "w-[72px]" : "w-[260px]",
         className,
@@ -112,7 +112,7 @@ export function Sidebar({
                     active
                       ? [
                           "bg-canvas-sunken text-foreground shadow-whisper",
-                          "before:absolute before:inset-y-1.5 before:start-0 before:w-[3px] before:rounded-full before:bg-primary dark:before:bg-primary",
+                          "before:absolute before:inset-y-1.5 before:inset-s-0 before:w-[3px] before:rounded-full before:bg-primary dark:before:bg-primary",
                         ]
                       : "text-muted-foreground hover:bg-canvas-sunken/70 hover:text-foreground",
                   )}

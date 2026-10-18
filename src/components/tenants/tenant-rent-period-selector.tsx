@@ -42,9 +42,9 @@ function PeriodChip({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        'inline-flex shrink-0 snap-center flex-col items-center justify-center rounded-lg border px-3 py-2 touch-manipulation min-w-[4.5rem]',
+        'inline-flex shrink-0 snap-center flex-col items-center justify-center rounded-lg border px-3 py-2 touch-manipulation min-w-18',
         active
-          ? 'border-foreground bg-foreground text-background shadow-sm'
+          ? 'border-foreground bg-foreground text-background shadow-xs'
           : 'border-border bg-card text-ink hover:bg-secondary',
         className,
       )}
@@ -81,7 +81,7 @@ function ModeTab({
       className={cn(
         'inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-[12px] font-semibold touch-manipulation transition-colors',
         active
-          ? 'bg-foreground text-background shadow-sm'
+          ? 'bg-foreground text-background shadow-xs'
           : 'text-ink-mute hover:bg-secondary hover:text-ink',
       )}
     >
@@ -170,7 +170,7 @@ export function TenantRentPeriodSelector({
             />
           ))}
         </div>
-        <p className="hidden sm:block text-[11px] text-ink-mute truncate max-w-[14rem]">
+        <p className="hidden sm:block text-[11px] text-ink-mute truncate max-w-56">
           {formatPeriodRangeHintAr(selection)}
         </p>
       </div>
@@ -195,7 +195,7 @@ export function TenantRentPeriodSelector({
               onClick={() => onChange(withYear(selection, y))}
               label={String(y)}
               hint={ytdHint}
-              className="min-w-[4.25rem]"
+              className="min-w-17"
             />
           );
         })}
@@ -232,7 +232,7 @@ export function TenantRentPeriodSelector({
                   quarter: q,
                 })}
                 hint={QUARTER_HINTS[q - 1]}
-                className="min-w-[5.5rem]"
+                className="min-w-22"
               />
             ))}
 
@@ -248,7 +248,7 @@ export function TenantRentPeriodSelector({
                   half: h,
                 })}
                 hint={HALF_HINTS[h - 1]}
-                className="min-w-[6.5rem]"
+                className="min-w-26"
               />
             ))}
         </div>

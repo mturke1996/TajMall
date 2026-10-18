@@ -20,7 +20,7 @@ function NotificationBell() {
       <Link href="/notifications" prefetch aria-label="الإشعارات">
         <Bell className="h-4 w-4" />
         {unread > 0 && (
-          <span className="absolute start-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-semibold leading-none text-white">
+          <span className="absolute inset-s-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-semibold leading-none text-white">
             {unread > 9 ? '9+' : unread}
           </span>
         )}

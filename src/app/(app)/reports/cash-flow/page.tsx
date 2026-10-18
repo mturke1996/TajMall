@@ -52,9 +52,9 @@ function ActivityCard({
             items.map((item, idx) => (
               <li key={idx} className="flex justify-between items-start gap-3 text-sm">
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold leading-snug break-words">{item.category}</p>
+                  <p className="font-semibold leading-snug wrap-break-word">{item.category}</p>
                   {item.description && (
-                    <p className="text-xs text-muted-foreground mt-0.5 break-words">{item.description}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 wrap-break-word">{item.description}</p>
                   )}
                 </div>
                 <span

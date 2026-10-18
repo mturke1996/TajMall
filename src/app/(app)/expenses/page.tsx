@@ -29,7 +29,7 @@ const CategoryBreakdown = dynamic(
         aria-label="جارٍ تحميل توزيع المصروفات"
         className="grid min-h-[180px] grid-cols-1 items-center gap-6 sm:grid-cols-[160px_1fr]"
       >
-        <div className="mx-auto h-40 w-40 animate-pulse rounded-full border-[18px] border-canvas-sunken" />
+        <div className="mx-auto h-40 w-40 animate-pulse rounded-full border-18 border-canvas-sunken" />
         <div className="flex flex-col gap-3">
           {[0, 1, 2, 3].map((item) => (
             <div key={item} className="h-3 animate-pulse rounded bg-canvas-sunken" />
@@ -216,7 +216,7 @@ export default function ExpensesPage() {
             aria-label="تصفية حسب بند المصروف"
             value={selectedCategoryId}
             onChange={(e) => setSelectedCategoryId(e.target.value)}
-            className="h-9 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-semibold focus:ring-1 focus:ring-foreground outline-none select-none max-w-[180px] cursor-pointer"
+            className="h-9 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-semibold focus:ring-1 focus:ring-foreground outline-hidden select-none max-w-[180px] cursor-pointer"
           >
             <option value="ALL">جميع بنود المصروفات</option>
             {categories.map((cat) => (

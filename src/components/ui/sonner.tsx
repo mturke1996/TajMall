@@ -11,7 +11,7 @@ export function Toaster(props: ToasterProps) {
       position="top-center"
       richColors={false}
       closeButton
-      className="!z-[200]"
+      className="z-200!"
       toastOptions={{
         classNames: {
           toast:

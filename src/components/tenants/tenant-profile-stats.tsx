@@ -42,7 +42,7 @@ function StatTile({
   return (
     <div
       className={cn(
-        'rounded-2xl border p-4 min-w-[10.5rem] shrink-0 snap-center md:min-w-0',
+        'rounded-2xl border p-4 min-w-42 shrink-0 snap-center md:min-w-0',
         styles[tone],
       )}
     >

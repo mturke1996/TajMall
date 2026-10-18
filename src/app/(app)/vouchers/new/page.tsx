@@ -289,7 +289,7 @@ export default function NewVoucherPage() {
             <Button
               type="button"
               size="sm"
-              className="min-h-11 flex-1 gap-1.5 touch-manipulation shadow-sm sm:min-h-9 sm:flex-none"
+              className="min-h-11 flex-1 gap-1.5 touch-manipulation shadow-xs sm:min-h-9 sm:flex-none"
               disabled={createDisbursementVoucher.isPending}
               onClick={handlePersistVoucher}
             >
@@ -590,7 +590,7 @@ export default function NewVoucherPage() {
               <Button
                 type="button"
                 size="default"
-                className="min-h-11 flex-1 touch-manipulation gap-1.5 shadow-sm sm:min-h-10 sm:flex-none"
+                className="min-h-11 flex-1 touch-manipulation gap-1.5 shadow-xs sm:min-h-10 sm:flex-none"
                 disabled={createDisbursementVoucher.isPending}
                 onClick={handlePersistVoucher}
               >

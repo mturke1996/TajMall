@@ -95,7 +95,7 @@ export function PayrollAdjustmentsPanel({
         id: 'reason',
         accessorKey: 'reason',
         header: 'السبب',
-        meta: { label: 'السبب', cellClassName: 'max-w-[22rem]' },
+        meta: { label: 'السبب', cellClassName: 'max-w-88' },
         cell: ({ row }) => (
           <div className="flex flex-col">
             <span className="line-clamp-2">{row.original.reason}</span>

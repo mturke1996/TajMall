@@ -885,9 +885,9 @@ function JournalMonthContent() {
             </div>
 
             {/* Filter & Search Bar for Table */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 bg-card border rounded-xl p-3 shadow-xs">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 bg-card border rounded-xl p-3">
               <div className="relative w-full sm:w-72">
-                <Search className="absolute end-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Search className="absolute inset-e-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   value={collectionSearch}
                   onChange={(e) => setCollectionSearch(e.target.value)}
@@ -904,7 +904,7 @@ function JournalMonthContent() {
                     className={cn(
                       'px-2.5 py-1 text-xs rounded-md font-medium transition-colors',
                       collectionStatusFilter === 'ALL'
-                        ? 'bg-card text-foreground shadow-xs font-semibold'
+                        ? 'bg-card text-foreground font-semibold'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >

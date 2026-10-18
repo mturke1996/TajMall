@@ -40,7 +40,7 @@ export function PdfPreviewDialog({
       <DialogContent
         className={cn(
           'flex flex-col gap-0 overflow-hidden p-0',
-          'max-w-[100vw] w-[100vw] h-[100dvh] max-h-[100dvh] rounded-none border-0',
+          'max-w-[100vw] w-screen h-dvh max-h-dvh rounded-none border-0',
           'sm:max-w-4xl sm:w-[min(100vw-2rem,56rem)] sm:h-[min(92dvh,900px)] sm:max-h-[92dvh] sm:rounded-2xl sm:border',
         )}
         dir="rtl"

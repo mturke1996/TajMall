@@ -147,7 +147,7 @@ export function PayrollPreview({ initialTab = 'run' }: { initialTab?: string }) 
 
   return (
     <QueryClientProvider client={client}>
-      <div className="flex min-h-[100dvh] bg-background" dir="rtl">
+      <div className="flex min-h-dvh bg-background" dir="rtl">
         <Sidebar previewAllItems />
         <main className="min-w-0 flex-1">
           <PageHeader
