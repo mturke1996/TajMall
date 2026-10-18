@@ -220,7 +220,7 @@ export default function CashboxesPage() {
                             وارد الشهر
                           </span>
                           <span className="num font-semibold text-pastel-greenInk tabular-nums">
-                            {formatMoney(Math.abs(inflow), c.currency || 'LYD', { compact: true, signed: true })}
+                            {formatMoney(Math.abs(inflow), c.currency || 'LYD', { signed: true })}
                           </span>
                         </div>
                         <div className="flex flex-col gap-0.5">
@@ -228,7 +228,7 @@ export default function CashboxesPage() {
                             صادر الشهر
                           </span>
                           <span className="num font-semibold text-pastel-redInk tabular-nums">
-                            {formatMoney(-Math.abs(outflow), c.currency || 'LYD', { compact: true, signed: true })}
+                            {formatMoney(-Math.abs(outflow), c.currency || 'LYD', { signed: true })}
                           </span>
                         </div>
                       </div>
@@ -244,7 +244,7 @@ export default function CashboxesPage() {
                             net >= 0 ? 'text-pastel-greenInk' : 'text-pastel-redInk',
                           )}
                         >
-                          صافي الشهر {formatMoney(net, c.currency || 'LYD', { compact: true, signed: true })}
+                          صافي الشهر {formatMoney(net, c.currency || 'LYD', { signed: true })}
                         </span>
                       </footer>
                     </Link>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Coins,
@@ -15,7 +15,8 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Search,
 } from 'lucide-react';
 import { MallPanelToolbar } from '@/components/mall/panel-toolbar';
 import { Button } from '@/components/ui/button';
@@ -49,9 +50,45 @@ import { chargeToInvoiceModel } from '@/lib/charge-invoice';
 import { useSyncOverdueChargeReminders } from '@/lib/db/notification-queries';
 import { WriteGuard } from '@/components/auth/write-guard';
 import { useHighlightScroll, isHighlighted } from '@/lib/hooks/use-highlight-scroll';
+import { matchesSearch } from '@/lib/arabic-search';
+import { friendlyError } from '@/lib/user-messages';
+import { formatMonthLabelAr } from '@/lib/rent-months';
+import type { TenantChargeWithRelations } from '@/lib/db/types';
 
 function chargeHighlightDomId(id: string) {
   return `tenant-charge-${id}`;
+}
+
+const STATUS_FILTERS = [
+  { value: 'ALL', label: 'الكل' },
+  { value: 'OPEN', label: 'غير مسدّدة' },
+  { value: 'PARTIAL', label: 'جزئية' },
+  { value: 'PAID', label: 'مسدّدة' },
+] as const;
+
+/** "إيجار شهر 2026-01" → "إيجار شهر يناير 2026" */
+function readableDescription(text: string | null | undefined) {
+  return (text ?? '').replace(/(20\d{2})-(0[1-9]|1[0-2])(?!-)/g, (m) => formatMonthLabelAr(m));
+}
+
+function unitLabel(charge: TenantChargeWithRelations) {
+  const unit = charge.contract?.unit?.unit_number;
+  return unit ? `محل ${unit}` : 'بلا وحدة';
+}
+
+function ChargePdfButton({ charge }: { charge: TenantChargeWithRelations }) {
+  return (
+    <TajMallPdfToolbar
+      className="inline-flex shrink-0"
+      showDownload={false}
+      openLabel="الفاتورة"
+      fileName={`فاتورة-${charge.id.slice(0, 8)}`}
+      render={async () => {
+        const { TenantChargeInvoicePDF } = await import('@/features/pdf/TenantChargeInvoicePDF');
+        return <TenantChargeInvoicePDF charge={chargeToInvoiceModel(charge)} />;
+      }}
+    />
+  );
 }
 
 export function MallChargesPanel() {
@@ -83,6 +120,31 @@ export function MallChargesPanel() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   useHighlightScroll(highlightId, chargeHighlightDomId, [charges.length]);
+
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]['value']>('ALL');
+  const [monthFilter, setMonthFilter] = useState('ALL');
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const monthOptions = useMemo(
+    () => [...new Set(charges.map((c) => c.due_date?.slice(0, 7)).filter(Boolean))].sort().reverse() as string[],
+    [charges],
+  );
+  const visible = useMemo(
+    () =>
+      charges.filter(
+        (c) =>
+          (statusFilter === 'ALL' || (statusFilter === 'OPEN' ? c.status !== 'PAID' : c.status === statusFilter)) &&
+          (monthFilter === 'ALL' || c.due_date?.startsWith(monthFilter)) &&
+          (typeFilter === 'ALL' || c.type === typeFilter) &&
+          matchesSearch(query, [c.contract?.tenant?.name, c.contract?.unit?.unit_number, c.description]),
+      ),
+    [charges, statusFilter, monthFilter, typeFilter, query],
+  );
+  const totals = useMemo(() => {
+    const amount = visible.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+    const paid = visible.reduce((s, c) => s + (Number(c.total_paid) || 0), 0);
+    return { amount, paid, remaining: Math.max(amount - paid, 0) };
+  }, [visible]);
 
   const handleOpenCreate = () => {
     setContractId('');
@@ -190,147 +252,182 @@ export function MallChargesPanel() {
         </WriteGuard>
       </MallPanelToolbar>
 
-      {/* Charges Table */}
-      <Card>
-        <CardContent className="pt-6">
-          {isLoading ? (
-            <div className="flex h-64 items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : isError ? (
-            <div className="flex h-64 flex-col items-center justify-center gap-2 text-danger bg-danger-soft rounded-lg p-4">
-              <AlertTriangle className="h-8 w-8" />
-              <p className="font-semibold">فشل تحميل المطالبات المالية</p>
-              <p className="text-sm text-danger">{(error as any)?.message}</p>
-            </div>
-          ) : charges.length === 0 ? (
-            <div className="flex h-64 flex-col items-center justify-center text-muted-foreground">
-              <Coins className="h-12 w-12 mb-2 opacity-50 text-muted-foreground" />
-              <p className="font-medium text-ink-soft">لا توجد مطالبات أو رسوم مستحقة بعد</p>
-              <div className="flex gap-2 mt-4">
-                <Button onClick={handleOpenGenerate} variant="outline" className="text-success-ink font-bold border-success-line hover:bg-success-soft">
-                  توليد المطالبات لشهر جاري
-                </Button>
+      {/* Charges list */}
+      {isLoading ? (
+        <Card className="flex h-48 items-center justify-center">
+          <Loader2 className="h-7 w-7 animate-spin text-ink-soft" aria-label="جارٍ التحميل" />
+        </Card>
+      ) : isError ? (
+        <Card className="flex flex-col items-center gap-2 border-danger-line bg-danger-soft p-8 text-center text-danger-ink">
+          <AlertTriangle className="h-7 w-7" aria-hidden />
+          <p className="font-semibold">تعذّر تحميل المطالبات</p>
+          <p className="text-[13px]">{friendlyError(error)}</p>
+        </Card>
+      ) : charges.length === 0 ? (
+        <Card className="flex flex-col items-center gap-3 p-10 text-center">
+          <Coins className="h-9 w-9 text-ink-mute" aria-hidden />
+          <p className="font-medium text-ink-soft">لا توجد مطالبات بعد</p>
+          <WriteGuard permission="revenue.create">
+            <Button onClick={handleOpenGenerate} variant="outline" size="sm">
+              توليد مطالبات الشهر الحالي
+            </Button>
+          </WriteGuard>
+        </Card>
+      ) : (
+        <>
+          <Card className="flex flex-col gap-3 p-3 sm:p-4">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" aria-hidden />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="بحث باسم المستأجر أو المحل أو البيان…"
+                  aria-label="بحث في المطالبات"
+                  className="h-10 ps-9"
+                />
               </div>
-            </div>
-          ) : (
-            <>
-            <ul className="divide-y divide-border rounded-xl border border-border overflow-hidden sm:hidden">
-              {charges.map((charge) => (
-                <li
-                  key={charge.id}
-                  id={chargeHighlightDomId(charge.id)}
-                  className={cn(
-                    'px-3 py-3.5 bg-card scroll-mt-28',
-                    isHighlighted(highlightId, charge.id) && 'ring-2 ring-inset ring-ink-soft bg-canvas-sunken/40',
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-[15px] truncate">
-                        {charge.contract?.tenant?.name || 'مستأجر'}
-                      </p>
-                      <p className="text-[13px] text-ink-mute">
-                        محل {charge.contract?.unit?.unit_number || '—'} · {getTypeLabel(charge.type)}
-                      </p>
-                    </div>
-                    {getStatusBadge(charge.status)}
-                  </div>
-                  <p className="text-[12px] text-ink-mute mt-1 line-clamp-2">{charge.description}</p>
-                  <div className="mt-2 flex items-center justify-between gap-2">
-                    <span className="font-bold text-sm tabular-nums">{formatMoney(Number(charge.amount), 'LYD')}</span>
-                    <TajMallPdfToolbar
-                      className="shrink-0"
-                      fileName={`فاتورة-${charge.id.slice(0, 8)}`}
-                      render={async () => {
-                        const { TenantChargeInvoicePDF } = await import(
-                          '@/features/pdf/TenantChargeInvoicePDF'
-                        );
-                        return <TenantChargeInvoicePDF charge={chargeToInvoiceModel(charge)} />;
-                      }}
-                    />
-                  </div>
-                  <p className="text-[11px] text-ink-mute mt-1">{formatDate(charge.due_date)}</p>
-                </li>
-              ))}
-            </ul>
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-start text-sm">
-                <thead>
-                  <tr className="border-b border-border pb-3 text-muted-foreground font-medium">
-                    <th className="pb-3 ps-2 text-start">المستأجر</th>
-                    <th className="pb-3 text-start">المحل</th>
-                    <th className="pb-3 text-start">نوع الرسوم</th>
-                    <th className="pb-3 text-start">البيان</th>
-                    <th className="pb-3 text-start">تاريخ الاستحقاق</th>
-                    <th className="pb-3 text-end">قيمة المطالبة</th>
-                    <th className="pb-3 text-end">المبلغ المدفوع</th>
-                    <th className="pb-3 text-start">الحالة</th>
-                    <th className="pb-3 pe-2 text-end">فاتورة PDF</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {charges.map((charge) => (
-                    <tr
-                      key={charge.id}
-                      id={chargeHighlightDomId(charge.id)}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex rounded-lg border border-border bg-canvas-sunken p-0.5" role="group" aria-label="حالة المطالبة">
+                  {STATUS_FILTERS.map((f) => (
+                    <button
+                      key={f.value}
+                      type="button"
+                      aria-pressed={statusFilter === f.value}
+                      onClick={() => setStatusFilter(f.value)}
                       className={cn(
-                        'hover:bg-canvas-sunken/50 scroll-mt-28',
-                        isHighlighted(highlightId, charge.id) && 'bg-canvas-sunken/80 ring-2 ring-inset ring-ink-soft',
+                        'h-8 rounded-md px-3 text-[13px] font-medium transition-colors',
+                        statusFilter === f.value ? 'bg-card text-foreground shadow-xs' : 'text-ink-mute hover:text-foreground',
                       )}
                     >
-                      <td className="py-4 ps-2">
-                        <div className="flex items-center gap-2">
-                          <User className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="font-bold text-foreground">
-                            {charge.contract?.tenant?.name || 'مستأجر غير معروف'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-4">
-                        <span className="font-medium text-ink-soft">محل {charge.contract?.unit?.unit_number || '-'}</span>
-                      </td>
-                      <td className="py-4">
-                        <Badge variant="outline" className="font-medium text-ink-soft bg-canvas-sunken">
-                          {getTypeLabel(charge.type)}
-                        </Badge>
-                      </td>
-                      <td className="py-4 text-ink-soft max-w-xs truncate" title={charge.description}>
-                        {charge.description}
-                      </td>
-                      <td className="py-4 text-xs text-ink-soft font-mono">
-                        {formatDate(charge.due_date)}
-                      </td>
-                      <td className="py-4 text-end font-mono font-bold text-foreground">
-                        {formatMoney(Number(charge.amount), 'LYD')}
-                      </td>
-                      <td className="py-4 text-end font-mono text-success-ink">
-                        {Number(charge.total_paid) > 0 ? formatMoney(Number(charge.total_paid), 'LYD') : '-'}
-                      </td>
-                      <td className="py-4">{getStatusBadge(charge.status)}</td>
-                      <td className="py-4 pe-2 text-end">
-                        <TajMallPdfToolbar
-                          className="inline-flex"
-                          fileName={`فاتورة-${charge.id.slice(0, 8)}`}
-                          render={async () => {
-                            const { TenantChargeInvoicePDF } = await import(
-                              '@/features/pdf/TenantChargeInvoicePDF'
-                            );
-                            return (
-                              <TenantChargeInvoicePDF charge={chargeToInvoiceModel(charge)} />
-                            );
-                          }}
-                        />
-                      </td>
-                    </tr>
+                      {f.label}
+                    </button>
                   ))}
-                </tbody>
-              </table>
+                </div>
+                <Select value={monthFilter} onValueChange={setMonthFilter}>
+                  <SelectTrigger className="h-9 w-40" aria-label="شهر الاستحقاق">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">كل الأشهر</SelectItem>
+                    {monthOptions.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {formatMonthLabelAr(m)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="h-9 w-36" aria-label="نوع الرسم">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">كل الأنواع</SelectItem>
+                    {(['RENT', 'SERVICE', 'FINE', 'OTHER'] as const).map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {getTypeLabel(t)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            <p className="text-[12.5px] text-ink-mute tabular-nums">
+              {visible.length} مطالبة · القيمة {formatMoney(totals.amount, 'LYD')} · المسدّد {formatMoney(totals.paid, 'LYD')} ·{' '}
+              <span className={cn(totals.remaining > 0 && 'font-medium text-danger-ink')}>المتبقي {formatMoney(totals.remaining, 'LYD')}</span>
+            </p>
+          </Card>
+
+          {visible.length === 0 ? (
+            <Card className="p-8 text-center text-[13px] text-ink-mute">لا توجد مطالبات تطابق التصفية.</Card>
+          ) : (
+            <>
+              <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border md:hidden">
+                {visible.map((charge) => {
+                  const remaining = Math.max(Number(charge.amount) - Number(charge.total_paid), 0);
+                  return (
+                    <li
+                      key={charge.id}
+                      id={chargeHighlightDomId(charge.id)}
+                      className={cn('scroll-mt-28 bg-card px-3 py-3', isHighlighted(highlightId, charge.id) && 'ring-2 ring-inset ring-ink-soft')}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-[14px] font-semibold">{charge.contract?.tenant?.name || 'مستأجر'}</p>
+                          <p className="text-[12.5px] text-ink-mute">
+                            {unitLabel(charge)} · {readableDescription(charge.description)}
+                          </p>
+                        </div>
+                        {getStatusBadge(charge.status)}
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <span className="text-[12.5px] text-ink-mute">
+                          <span className="font-semibold tabular-nums text-foreground">{formatMoney(Number(charge.amount), 'LYD')}</span>
+                          {remaining > 0 && Number(charge.total_paid) > 0 && <> · متبقٍ {formatMoney(remaining, 'LYD')}</>}
+                          {' · '}
+                          {formatDate(charge.due_date)}
+                        </span>
+                        <ChargePdfButton charge={charge} />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="border-b border-border bg-canvas-sunken text-[12.5px] text-ink-mute">
+                      <th scope="col" className="px-4 py-2.5 text-start font-medium">المستأجر</th>
+                      <th scope="col" className="px-4 py-2.5 text-start font-medium">البيان</th>
+                      <th scope="col" className="px-4 py-2.5 text-start font-medium">الاستحقاق</th>
+                      <th scope="col" className="px-4 py-2.5 text-end font-medium">القيمة</th>
+                      <th scope="col" className="px-4 py-2.5 text-end font-medium">المسدّد</th>
+                      <th scope="col" className="px-4 py-2.5 text-end font-medium">المتبقي</th>
+                      <th scope="col" className="px-4 py-2.5 text-start font-medium">الحالة</th>
+                      <th scope="col" className="px-4 py-2.5 text-end font-medium">
+                        <span className="sr-only">فاتورة</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {visible.map((charge) => {
+                      const paid = Number(charge.total_paid) || 0;
+                      const remaining = Math.max(Number(charge.amount) - paid, 0);
+                      return (
+                        <tr
+                          key={charge.id}
+                          id={chargeHighlightDomId(charge.id)}
+                          className={cn('scroll-mt-28 hover:bg-canvas-sunken/50', isHighlighted(highlightId, charge.id) && 'bg-canvas-sunken ring-2 ring-inset ring-ink-soft')}
+                        >
+                          <td className="px-4 py-2.5">
+                            <span className="block font-medium text-foreground">{charge.contract?.tenant?.name || 'مستأجر غير معروف'}</span>
+                            <span className="block text-[12px] text-ink-mute">{unitLabel(charge)}</span>
+                          </td>
+                          <td className="max-w-xs px-4 py-2.5" title={charge.description}>
+                            <span className="block truncate text-foreground">{readableDescription(charge.description)}</span>
+                            <span className="block text-[12px] text-ink-mute">{getTypeLabel(charge.type)}</span>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-2.5 text-ink-soft">{formatDate(charge.due_date)}</td>
+                          <td className="whitespace-nowrap px-4 py-2.5 text-end font-medium tabular-nums">{formatMoney(Number(charge.amount), 'LYD')}</td>
+                          <td className="whitespace-nowrap px-4 py-2.5 text-end tabular-nums text-ink-soft">{paid > 0 ? formatMoney(paid, 'LYD') : '—'}</td>
+                          <td className={cn('whitespace-nowrap px-4 py-2.5 text-end tabular-nums', remaining > 0 ? 'font-medium text-danger-ink' : 'text-ink-mute')}>
+                            {remaining > 0 ? formatMoney(remaining, 'LYD') : '—'}
+                          </td>
+                          <td className="px-4 py-2.5">{getStatusBadge(charge.status)}</td>
+                          <td className="px-4 py-2.5 text-end">
+                            <ChargePdfButton charge={charge} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
-        </CardContent>
-      </Card>
+        </>
+      )}
 
       {/* Manual Single Charge Dialog */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>

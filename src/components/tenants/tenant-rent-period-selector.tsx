@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   PERIOD_MODE_OPTIONS,
   availableYears,
@@ -23,66 +24,15 @@ const QUARTER_HINTS = [
 
 const HALF_HINTS = ['يناير – يونيو', 'يوليو – ديسمبر'] as const;
 
-function PeriodChip({
-  active,
-  onClick,
-  label,
-  hint,
-  className,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  hint?: string;
-  className?: string;
-}) {
+function ModeTab({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        'inline-flex shrink-0 snap-center flex-col items-center justify-center rounded-lg border px-3 py-2 touch-manipulation min-w-18',
-        active
-          ? 'border-foreground bg-foreground text-background shadow-xs'
-          : 'border-border bg-card text-ink hover:bg-secondary',
-        className,
-      )}
-    >
-      <span className="text-[12px] font-bold leading-tight">{label}</span>
-      {hint && (
-        <span
-          className={cn(
-            'text-[11px] font-medium leading-tight mt-0.5',
-            active ? 'text-background/75' : 'text-ink-mute',
-          )}
-        >
-          {hint}
-        </span>
-      )}
-    </button>
-  );
-}
-
-function ModeTab({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        'inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-[12px] font-semibold touch-manipulation transition-colors',
-        active
-          ? 'bg-foreground text-background shadow-xs'
-          : 'text-ink-mute hover:bg-secondary hover:text-ink',
+        'h-8 shrink-0 rounded-md px-3 text-[13px] font-medium touch-manipulation transition-colors',
+        active ? 'bg-card text-foreground shadow-xs' : 'text-ink-mute hover:text-foreground',
       )}
     >
       {label}
@@ -150,109 +100,78 @@ export function TenantRentPeriodSelector({
     }
   };
 
-  const hideSubPeriodRow =
-    selection.mode === 'year' || selection.mode === 'ytd';
+  const subValue =
+    selection.mode === 'month'
+      ? selection.monthKey
+      : selection.mode === 'quarter'
+        ? String(selection.quarter)
+        : selection.mode === 'half'
+          ? String(selection.half)
+          : '';
+
+  const onSubChange = (v: string) => {
+    if (selection.mode === 'month') onChange({ mode: 'month', monthKey: v });
+    else if (selection.mode === 'quarter') onChange({ mode: 'quarter', year, quarter: Number(v) as 1 | 2 | 3 | 4 });
+    else if (selection.mode === 'half') onChange({ mode: 'half', year, half: Number(v) as 1 | 2 });
+  };
 
   return (
-    <div className={cn('space-y-2.5', className)}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div
-          className="inline-flex items-center gap-0.5 rounded-full border border-border bg-canvas-sunken/60 p-0.5"
-          role="group"
-          aria-label="نوع الفترة"
-        >
-          {PERIOD_MODE_OPTIONS.map((opt) => (
-            <ModeTab
-              key={opt.mode}
-              active={selection.mode === opt.mode}
-              onClick={() => setMode(opt.mode)}
-              label={opt.shortLabel}
-            />
-          ))}
-        </div>
-        <p className="hidden sm:block text-[11px] text-ink-mute truncate max-w-56">
-          {formatPeriodRangeHintAr(selection)}
-        </p>
-      </div>
-
-      {/* اختيار السنة متاح دائماً مع كل الأنماط */}
+    <div className={cn('flex flex-wrap items-center gap-2', className)}>
       <div
-        className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1"
+        className="flex max-w-full overflow-x-auto rounded-lg border border-border bg-canvas-sunken p-0.5 scrollbar-none"
         role="group"
-        aria-label="اختيار السنة"
+        aria-label="نوع الفترة"
       >
-        {years.map((y) => {
-          const ytdHint =
-            selection.mode === 'ytd'
-              ? `${getPeriodMonthKeys({ mode: 'ytd', year: y }).length} أشهر`
-              : selection.mode === 'year'
-                ? '12 شهر'
-                : 'سنة';
-          return (
-            <PeriodChip
-              key={y}
-              active={year === y}
-              onClick={() => onChange(withYear(selection, y))}
-              label={String(y)}
-              hint={ytdHint}
-              className="min-w-17"
-            />
-          );
-        })}
+        {PERIOD_MODE_OPTIONS.map((opt) => (
+          <ModeTab key={opt.mode} active={selection.mode === opt.mode} onClick={() => setMode(opt.mode)} label={opt.shortLabel} />
+        ))}
       </div>
 
-      {!hideSubPeriodRow && (
-        <div
-          className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1"
-          role="group"
-          aria-label="اختيار الفترة"
-        >
-          {selection.mode === 'month' &&
-            Array.from({ length: 12 }, (_, i) => {
-              const key = monthKey(year, i + 1);
-              return (
-                <PeriodChip
-                  key={key}
-                  active={selection.monthKey === key}
-                  onClick={() => onChange({ mode: 'month', monthKey: key })}
-                  label={monthNameAr(key)}
-                />
-              );
-            })}
+      <Select value={String(year)} onValueChange={(v) => onChange(withYear(selection, Number(v)))}>
+        <SelectTrigger className="h-9 w-24" aria-label="السنة">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {years.map((y) => (
+            <SelectItem key={y} value={String(y)}>
+              {y}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-          {selection.mode === 'quarter' &&
-            ([1, 2, 3, 4] as const).map((q) => (
-              <PeriodChip
-                key={q}
-                active={selection.quarter === q}
-                onClick={() => onChange({ mode: 'quarter', year, quarter: q })}
-                label={formatPeriodShortLabelAr({
-                  mode: 'quarter',
-                  year,
-                  quarter: q,
-                })}
-                hint={QUARTER_HINTS[q - 1]}
-                className="min-w-22"
-              />
-            ))}
+      {selection.mode === 'month' || selection.mode === 'quarter' || selection.mode === 'half' ? (
+        <Select value={subValue} onValueChange={onSubChange}>
+          <SelectTrigger className="h-9 w-44" aria-label="الفترة">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {selection.mode === 'month' &&
+              Array.from({ length: 12 }, (_, i) => {
+                const key = monthKey(year, i + 1);
+                return (
+                  <SelectItem key={key} value={key}>
+                    {monthNameAr(key)}
+                  </SelectItem>
+                );
+              })}
+            {selection.mode === 'quarter' &&
+              ([1, 2, 3, 4] as const).map((q) => (
+                <SelectItem key={q} value={String(q)}>
+                  {formatPeriodShortLabelAr({ mode: 'quarter', year, quarter: q })} · {QUARTER_HINTS[q - 1]}
+                </SelectItem>
+              ))}
+            {selection.mode === 'half' &&
+              ([1, 2] as const).map((h) => (
+                <SelectItem key={h} value={String(h)}>
+                  {formatPeriodShortLabelAr({ mode: 'half', year, half: h })} · {HALF_HINTS[h - 1]}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      ) : null}
 
-          {selection.mode === 'half' &&
-            ([1, 2] as const).map((h) => (
-              <PeriodChip
-                key={h}
-                active={selection.half === h}
-                onClick={() => onChange({ mode: 'half', year, half: h })}
-                label={formatPeriodShortLabelAr({
-                  mode: 'half',
-                  year,
-                  half: h,
-                })}
-                hint={HALF_HINTS[h - 1]}
-                className="min-w-26"
-              />
-            ))}
-        </div>
-      )}
+      <p className="text-[12.5px] text-ink-mute">{formatPeriodRangeHintAr(selection)}</p>
     </div>
   );
 }

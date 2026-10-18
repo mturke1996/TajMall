@@ -15,7 +15,7 @@ import {
 import { SYSTEM_ROLES } from '@/lib/constants';
 import { getAuditEntityLink } from '@/lib/audit-navigation';
 import { matchesSearch } from '@/lib/arabic-search';
-import { cn, formatDate, formatMoney } from '@/lib/utils';
+import { arabicCount, cn, formatDate, formatMoney } from '@/lib/utils';
 
 const ENTITY_FILTERS = [
   { value: '', label: 'الكل' },
@@ -424,7 +424,7 @@ export function AuditLogView() {
                 >
                   <span className="text-[14px] font-semibold text-foreground">{label.title}</span>
                   {label.sub && <span className="text-[12.5px] text-ink-mute">{label.sub}</span>}
-                  <span className="ms-auto text-[12px] text-ink-mute tabular-nums">{day.rows.length} حركة</span>
+                  <span className="ms-auto text-[12px] text-ink-mute tabular-nums">{arabicCount(day.rows.length, ['حركة واحدة', 'حركتان', 'حركات', 'حركة'])}</span>
                 </h3>
                 <ul className="surface divide-y divide-border overflow-hidden">
                   {day.rows.map((row) => (

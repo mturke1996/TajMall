@@ -197,7 +197,7 @@ export default function CashboxLedgerPage() {
               <ArrowDownToLine className="h-3 w-3" /> وارد
             </p>
             <p className="num mt-1 text-[16px] font-semibold text-pastel-greenInk">
-              {formatMoney(Math.abs(totalIn), currency, { compact: true, signed: true })}
+              {formatMoney(Math.abs(totalIn), currency, { signed: true })}
             </p>
           </div>
           <div className="surface p-4">
@@ -205,7 +205,7 @@ export default function CashboxLedgerPage() {
               <ArrowUpFromLine className="h-3 w-3" /> صادر
             </p>
             <p className="num mt-1 text-[16px] font-semibold text-pastel-redInk">
-              {formatMoney(-Math.abs(totalOut), currency, { compact: true, signed: true })}
+              {formatMoney(-Math.abs(totalOut), currency, { signed: true })}
             </p>
           </div>
         </div>

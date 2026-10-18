@@ -60,7 +60,7 @@ export const NAV: NavSection[] = [
     title: 'Overview',
     items: [
       { href: '/dashboard', labelAr: 'لوحة التحكم', label: 'Dashboard', icon: LayoutDashboard, shortcut: '⌘D', permission: 'dashboard.view' },
-      { href: '/activity', labelAr: 'النشاط المباشر', label: 'Activity', icon: Activity, permission: 'dashboard.view' },
+      { href: '/activity', labelAr: 'النشاط', label: 'Activity', icon: Activity, permission: 'dashboard.view' },
       { href: '/notifications', labelAr: 'التنبيهات', label: 'Notifications', icon: Bell, permission: 'dashboard.view' },
     ],
   },

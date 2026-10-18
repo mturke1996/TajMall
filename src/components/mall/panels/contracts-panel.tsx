@@ -9,8 +9,6 @@ import {
   AlertTriangle,
   Calendar,
   DollarSign,
-  User,
-  Store
 } from 'lucide-react';
 import { MallPanelToolbar } from '@/components/mall/panel-toolbar';
 import { WriteGuard } from '@/components/auth/write-guard';
@@ -123,9 +121,9 @@ export function MallContractsPanel() {
 
   const getStatusBadge = (s: string) => {
     const configs: Record<string, { label: string; className: string }> = {
-      ACTIVE: { label: 'ساري وموثق', className: 'border-success-line bg-success-soft text-success-ink' },
-      EXPIRED: { label: 'منتهي الصلاحية', className: 'border-border bg-canvas-sunken text-ink-soft' },
-      TERMINATED: { label: 'مفسوخ / ملغي', className: 'border-danger-line bg-danger-soft text-danger-ink' },
+      ACTIVE: { label: 'نشط', className: 'border-success-line bg-success-soft text-success-ink' },
+      EXPIRED: { label: 'منتهٍ', className: 'border-border bg-canvas-sunken text-ink-soft' },
+      TERMINATED: { label: 'مُنهى', className: 'border-danger-line bg-danger-soft text-danger-ink' },
     };
     const c = configs[s] || { label: s, className: 'border-border bg-canvas-sunken text-ink-soft' };
     return (
@@ -167,7 +165,7 @@ export function MallContractsPanel() {
               <FileText className="h-12 w-12 mb-2 opacity-50 text-muted-foreground" />
               <p className="font-medium text-ink-soft">لا توجد عقود إيجار موثقة بعد</p>
               <Button onClick={handleOpenCreate} variant="link" className="text-success-ink font-bold">
-                اضغط هنا لتوثيق أول عقد إيجار
+                توثيق أول عقد
               </Button>
             </div>
           ) : (
@@ -203,90 +201,85 @@ export function MallContractsPanel() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="mt-3 h-9 w-full text-danger touch-manipulation"
+                      className="mt-3 h-9 w-full text-ink-soft touch-manipulation"
                       onClick={() => handleTerminate(contract.id, contract.unit_id)}
                       disabled={terminateContract.isPending}
                     >
                       <Ban className="h-3.5 w-3.5 me-1" />
-                      فسخ العقد
+                      إنهاء العقد
                     </Button>
                   )}
                 </li>
               ))}
             </ul>
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-start text-sm">
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="border-b border-border pb-3 text-muted-foreground font-medium">
-                    <th className="pb-3 ps-2 text-start">رقم العقد</th>
-                    <th className="pb-3 text-start">المستأجر</th>
-                    <th className="pb-3 text-start">المحل</th>
-                    <th className="pb-3 text-start">فترة التعاقد</th>
-                    <th className="pb-3 text-end">الإيجار الشهري</th>
-                    <th className="pb-3 text-end">الصيانة والخدمات</th>
-                    <th className="pb-3 text-end">مبلغ التأمين</th>
-                    <th className="pb-3 text-start">الحالة</th>
-                    <th className="pb-3 pe-2 text-end">الإجراءات</th>
+                  <tr className="border-b border-border text-[12.5px] text-ink-mute">
+                    <th scope="col" className="px-3 pb-2.5 text-start font-medium">المستأجر</th>
+                    <th scope="col" className="px-3 pb-2.5 text-start font-medium">المدة</th>
+                    <th scope="col" className="px-3 pb-2.5 text-end font-medium">الإيجار الشهري</th>
+                    <th scope="col" className="px-3 pb-2.5 text-end font-medium">الخدمات</th>
+                    <th scope="col" className="px-3 pb-2.5 text-end font-medium">التأمين</th>
+                    <th scope="col" className="px-3 pb-2.5 text-start font-medium">الحالة</th>
+                    <th scope="col" className="px-3 pb-2.5 text-end font-medium">
+                      <span className="sr-only">إجراءات</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {contracts.map((contract) => (
-                    <tr key={contract.id} className="hover:bg-canvas-sunken/50">
-                      <td className="py-4 ps-2 font-mono text-xs text-muted-foreground" title={contract.id}>
-                        {contract.id.slice(0, 8)}...
-                      </td>
-                      <td className="py-4">
-                        <div className="flex items-center gap-2">
-                          <User className="h-3.5 w-3.5 text-muted-foreground" />
+                  {contracts.map((contract) => {
+                    const daysLeft = contract.end_date ? Math.ceil((new Date(contract.end_date).getTime() - Date.now()) / 86_400_000) : null;
+                    const endingSoon = contract.status === 'ACTIVE' && daysLeft != null && daysLeft >= 0 && daysLeft <= 60;
+                    return (
+                      <tr key={contract.id} className="hover:bg-canvas-sunken/50">
+                        <td className="px-3 py-2.5">
                           {contract.tenant_id ? (
-                            <Link
-                              href={`/contacts/${contract.tenant_id}`}
-                              className="font-bold text-foreground hover:text-foreground hover:underline"
-                            >
+                            <Link href={`/contacts/${contract.tenant_id}`} className="font-medium text-foreground hover:underline">
                               {contract.tenant?.name || 'مستأجر'}
                             </Link>
                           ) : (
-                            <span className="font-bold text-foreground">
-                              {contract.tenant?.name || 'مستأجر غير معروف'}
+                            <span className="font-medium text-foreground">{contract.tenant?.name || 'مستأجر غير معروف'}</span>
+                          )}
+                          <span className="block text-[12px] text-ink-mute">
+                            {contract.unit?.unit_number ? `محل ${contract.unit.unit_number}` : 'بلا وحدة'}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-ink-soft">
+                          {formatDate(contract.start_date)} — {formatDate(contract.end_date)}
+                          {endingSoon && (
+                            <span className="block text-[12px] text-warning-ink">
+                              {daysLeft === 0 ? 'ينتهي اليوم' : `ينتهي بعد ${daysLeft} يوماً`}
                             </span>
                           )}
-                        </div>
-                      </td>
-                      <td className="py-4">
-                        <div className="flex items-center gap-2">
-                          <Store className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="font-medium text-ink-soft">محل {contract.unit?.unit_number || '-'}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 text-xs text-ink-soft font-mono">
-                        من {formatDate(contract.start_date)} إلى {formatDate(contract.end_date)}
-                      </td>
-                      <td className="py-4 text-end font-mono font-bold text-foreground">
-                        {formatMoney(Number(contract.monthly_rent), 'LYD')}
-                      </td>
-                      <td className="py-4 text-end font-mono text-ink-soft">
-                        {Number(contract.services_amount) > 0 ? formatMoney(Number(contract.services_amount), 'LYD') : '-'}
-                      </td>
-                      <td className="py-4 text-end font-mono text-success-ink font-medium">
-                        {Number(contract.deposit_amount) > 0 ? formatMoney(Number(contract.deposit_amount), 'LYD') : '-'}
-                      </td>
-                      <td className="py-4">{getStatusBadge(contract.status)}</td>
-                      <td className="py-4 pe-2 text-end">
-                        {contract.status === 'ACTIVE' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-danger hover:text-danger-ink hover:bg-danger-soft gap-1"
-                            onClick={() => handleTerminate(contract.id, contract.unit_id)}
-                            disabled={terminateContract.isPending}
-                          >
-                            <Ban className="h-3.5 w-3.5" />
-                            فسخ العقد
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-end font-medium tabular-nums">
+                          {formatMoney(Number(contract.monthly_rent), 'LYD')}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-end tabular-nums text-ink-soft">
+                          {Number(contract.services_amount) > 0 ? formatMoney(Number(contract.services_amount), 'LYD') : '—'}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-end tabular-nums text-ink-soft">
+                          {Number(contract.deposit_amount) > 0 ? formatMoney(Number(contract.deposit_amount), 'LYD') : '—'}
+                        </td>
+                        <td className="px-3 py-2.5">{getStatusBadge(contract.status)}</td>
+                        <td className="px-3 py-2.5 text-end">
+                          {contract.status === 'ACTIVE' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 text-[12.5px] text-ink-mute hover:bg-danger-soft hover:text-danger-ink"
+                              onClick={() => handleTerminate(contract.id, contract.unit_id)}
+                              disabled={terminateContract.isPending}
+                            >
+                              <Ban className="h-3.5 w-3.5" aria-hidden />
+                              إنهاء العقد
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

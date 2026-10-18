@@ -166,7 +166,7 @@ export function MallUnitsPanel() {
           <Store className="h-12 w-12 mb-2 opacity-50 text-muted-foreground" />
           <p className="font-medium text-ink-soft">لا توجد محلات تجارية مسجلة بعد</p>
           <Button onClick={handleOpenCreate} variant="link" className="text-success-ink font-bold">
-            اضغط هنا لإضافة أول محل
+            إضافة أول محل
           </Button>
         </div>
       ) : (

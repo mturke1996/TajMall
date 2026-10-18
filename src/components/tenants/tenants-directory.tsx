@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { reportMonthNameAr } from '@/lib/report-period';
 import { cn, formatMoney } from '@/lib/utils';
 import type { TenantRentSummary } from '@/lib/db/queries';
 import {
@@ -107,10 +108,13 @@ export function TenantsDirectory({
   const isMultiMonth = periodSelection.mode !== 'month';
   const periodMonthCount = getPeriodMonthKeys(periodSelection).length;
 
+  // One month: the column header names it, so the badge shows the status only. Several months: which
+  // of them match the filter, by name.
   const badgeLabelFor = (tenantId: string) => {
+    if (!isMultiMonth) return '';
     const months = matchingMonthsByTenantId?.[tenantId];
     if (months && months.length > 0) {
-      return `${periodShort} · ${months.join('، ')}`;
+      return months.map((m) => (typeof m === 'number' ? reportMonthNameAr(m) : m)).join('، ');
     }
     return periodShort;
   };
@@ -168,52 +172,34 @@ export function TenantsDirectory({
 
   return (
     <div className={cn('flex flex-col gap-4 md:gap-6', MOBILE_PAGE_ACTION_PADDING)}>
-      <div className="-mx-4 px-4 md:mx-0 md:px-0">
-        <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-4 md:overflow-visible">
+      <Card className="overflow-hidden">
+        <div className="grid grid-cols-3 gap-px bg-border md:grid-cols-4">
           {filterChips.slice(1, 4).map((chip) => {
-            const cfg =
-              TENANT_STATUS_CONFIG[chip.key as TenantRentStatusKey];
-            const Icon = cfg.icon;
+            const cfg = TENANT_STATUS_CONFIG[chip.key as TenantRentStatusKey];
+            const active = statusFilter === chip.key;
             return (
               <button
                 key={chip.key}
                 type="button"
-                onClick={() => onStatusFilterChange(chip.key)}
+                aria-pressed={active}
+                onClick={() => onStatusFilterChange(active ? 'ALL' : chip.key)}
                 className={cn(
-                  'flex min-w-38 shrink-0 snap-center flex-col gap-1 rounded-xl border p-3 text-start sm:min-w-0 sm:flex-row sm:items-center sm:gap-3',
-                  statusFilter === chip.key
-                    ? 'border-ink-soft bg-canvas-sunken ring-1 ring-ink-soft/20'
-                    : 'border-border bg-card',
-                  cfg.bg,
-                  cfg.border,
+                  'flex flex-col items-start gap-0.5 p-3 text-start touch-manipulation transition-colors sm:p-4',
+                  active ? 'bg-canvas-sunken shadow-[inset_0_-2px_0_hsl(var(--foreground))]' : 'bg-card hover:bg-canvas-sunken/60',
                 )}
               >
-                <Icon className={cn('h-5 w-5', cfg.color)} />
-                <div>
-                  <p className="text-[11px] text-ink-mute leading-tight">
-                    {periodShort}
-                  </p>
-                  <p className={cn('text-sm font-bold', cfg.color)}>
-                    {cfg.shortLabel}
-                  </p>
-                  <p className={cn('text-lg font-bold tabular-nums', cfg.color)}>
-                    {chip.count}
-                  </p>
-                </div>
+                <span className="text-[12.5px] text-ink-mute">{cfg.shortLabel}</span>
+                <span className={cn('text-[20px] font-semibold tabular-nums', chip.count > 0 ? cfg.color : 'text-foreground')}>{chip.count}</span>
               </button>
             );
           })}
-          <div className="flex min-w-40 shrink-0 snap-center flex-col justify-center rounded-xl border border-border bg-canvas-sunken p-3 sm:min-w-0">
-            <p className="text-[11px] text-ink-mute">تحصيل {periodShort}</p>
-            <p className="text-sm font-bold text-foreground leading-snug tabular-nums">
-              {formatMoney(stats.collectedTotal, 'LYD')}
-            </p>
-            <p className="text-[11px] text-ink-mute tabular-nums">
-              من {formatMoney(stats.expectedTotal, 'LYD')}
-            </p>
+          <div className="col-span-3 bg-card p-3 sm:p-4 md:col-span-1">
+            <p className="text-[12.5px] text-ink-mute">المحصّل · {periodShort}</p>
+            <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-foreground">{formatMoney(stats.collectedTotal, 'LYD')}</p>
+            <p className="text-[12px] text-ink-mute tabular-nums">من {formatMoney(stats.expectedTotal, 'LYD')}</p>
           </div>
         </div>
-      </div>
+      </Card>
 
       <div className="sticky top-16 z-20 -mx-4 space-y-3 border-b border-border bg-canvas px-4 py-3 md:static md:mx-0 md:z-auto md:border-0 md:bg-transparent md:px-0 md:py-0">
         <div className="relative">
@@ -234,10 +220,7 @@ export function TenantsDirectory({
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar -mx-1 px-1">
           {filterChips.map((chip) => {
             const Icon = 'icon' in chip ? chip.icon : null;
-            const isAll = chip.key === 'ALL';
-            const chipLabel = isAll
-              ? chip.label
-              : `${periodShort} · ${chip.label}`;
+            const chipLabel = chip.label;
             return (
               <StatusFilterChip
                 key={chip.key}

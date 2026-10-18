@@ -37,9 +37,13 @@ export function TenantCurrentMonthBadge({
         className,
       )}
     >
-      <Icon className="h-3.5 w-3.5 shrink-0" />
-      <span>{label}</span>
-      <span className="opacity-60">·</span>
+      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      {label && (
+        <>
+          <span>{label}</span>
+          <span className="opacity-60">·</span>
+        </>
+      )}
       <span>{pres.shortLabel}</span>
     </span>
   );

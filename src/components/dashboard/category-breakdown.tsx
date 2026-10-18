@@ -57,7 +57,7 @@ export function CategoryBreakdown({
                 الإجمالي
               </span>
               <span className="num text-[14px] font-semibold tabular-nums text-foreground">
-                {formatMoney(total, currency, { compact: true })}
+                {formatMoney(total, currency)}
               </span>
             </div>
           </>
@@ -89,7 +89,7 @@ export function CategoryBreakdown({
                   {pct.toFixed(1)}%
                 </span>
                 <span className="num w-24 text-end text-[13px] tabular-nums">
-                  {formatMoney(s.value, currency, { compact: true })}
+                  {formatMoney(s.value, currency)}
                 </span>
               </li>
             );

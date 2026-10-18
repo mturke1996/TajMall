@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, CheckCircle2, Plus, Save, Trash2 } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +31,7 @@ import {
   useContacts,
 } from '@/lib/db/queries';
 import { toast } from 'sonner';
-import { preferredCashboxId, todayISODate } from '@/lib/utils';
+import { formatMoney, preferredCashboxId, todayISODate } from '@/lib/utils';
 import { usePermission } from '@/lib/supabase/use-permission';
 
 const METHODS: VoucherPdfModel['method'][] = ['نقدي', 'صك', 'حوالة'];
@@ -86,26 +86,6 @@ export default function NewVoucherPage() {
     if (expenseCategories.length && !categoryId) setCategoryId(expenseCategories[0]!.id);
   }, [cashboxes, expenseCategories, cashboxId, categoryId]);
 
-  const datePreview = useMemo(() => {
-    if (!voucherDate) return null;
-    const d = new Date(`${voucherDate}T12:00:00`);
-    if (Number.isNaN(d.getTime())) return null;
-    try {
-      const day = new Intl.DateTimeFormat('ar-LY-u-ca-gregory-nu-latn', {
-        day: 'numeric',
-      }).format(d);
-      const weekday = new Intl.DateTimeFormat('ar-LY-u-ca-gregory', {
-        weekday: 'long',
-      }).format(d);
-      const monthYear = new Intl.DateTimeFormat('ar-LY-u-ca-gregory-nu-latn', {
-        month: 'long',
-        year: 'numeric',
-      }).format(d);
-      return { day, weekday, monthYear, iso: voucherDate };
-    } catch {
-      return null;
-    }
-  }, [voucherDate]);
 
   const totalAmount = useMemo(
     () =>
@@ -264,7 +244,6 @@ export default function NewVoucherPage() {
     setLines((prev) => (prev.length <= 1 ? prev : prev.filter((_, idx) => idx !== i)));
   }
 
-  const moneyFmt = useMemo(() => new Intl.NumberFormat('en-US'), []);
 
   if (!permLoading && !can('voucher.create')) {
     return (
@@ -286,16 +265,6 @@ export default function NewVoucherPage() {
         description="عبّئ البيانات ثم احفظ الإذن في قاعدة البيانات أو صدّره PDF. تُحمَّل آخر مسودة محلية من المتصفح تلقائياً عند فتح الصفحة."
         actions={
           <div className="flex w-full flex-wrap items-stretch gap-2 sm:w-auto sm:items-center">
-            <Button
-              type="button"
-              size="sm"
-              className="min-h-11 flex-1 gap-1.5 touch-manipulation shadow-xs sm:min-h-9 sm:flex-none"
-              disabled={createDisbursementVoucher.isPending}
-              onClick={handlePersistVoucher}
-            >
-              <Save className="h-4 w-4 shrink-0 stroke-[1.8]" />
-              {createDisbursementVoucher.isPending ? 'جاري الحفظ…' : 'حفظ في النظام'}
-            </Button>
             <TajMallPdfToolbar
               className="flex w-full basis-full flex-wrap gap-2 sm:w-auto sm:basis-auto"
               fileName={`إذن-صرف-${voucherModel.number}-${voucherDate}`}
@@ -344,29 +313,6 @@ export default function NewVoucherPage() {
             </div>
           </div>
 
-          {datePreview ? (
-            <div className="rounded-2xl border border-border bg-canvas-sunken p-5">
-              <p className="mb-3 text-[11.5px] font-semibold text-success-ink/90">
-                تاريخ الإذن — معاينة الوثيقة
-              </p>
-              <div className="flex items-end gap-4" dir="rtl">
-                <span className="text-4xl font-bold leading-none tabular-nums text-ink sm:text-5xl">
-                  {datePreview.day}
-                </span>
-                <div className="pb-1">
-                  <p className="text-base font-semibold leading-snug text-ink">
-                    {datePreview.monthYear}
-                  </p>
-                  <p className="mt-0.5 text-xs font-semibold text-success-ink">
-                    {datePreview.weekday}
-                  </p>
-                </div>
-              </div>
-              <p className="mt-3 border-t border-success-line/60 pt-2 text-[11px] font-medium text-ink-mute">
-                ميلادي · <span dir="ltr">{datePreview.iso}</span>
-              </p>
-            </div>
-          ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -557,16 +503,13 @@ export default function NewVoucherPage() {
             />
           </div>
 
-          {/* شريط الإجمالي + زر الحفظ كنداء فعل أساسي داخل الكرت */}
+          {/* total and the one save action */}
           <div className="-mx-4 -mb-4 mt-2 flex flex-col gap-3 border-t border-border bg-muted/30 px-4 py-4 sm:-mx-5 sm:-mb-5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex items-baseline gap-3">
               <span className="text-xs font-medium text-ink-mute">
                 إجمالي الإذن
               </span>
-              <span className="text-2xl font-bold tabular-nums text-ink">
-                {moneyFmt.format(Math.round(totalAmount))}
-              </span>
-              <span className="text-sm font-semibold text-ink-mute">د.ل</span>
+              <span className="text-2xl font-bold tabular-nums text-ink">{formatMoney(totalAmount, 'LYD')}</span>
             </div>
             <div className="flex w-full flex-wrap items-stretch gap-2 sm:w-auto sm:flex-nowrap sm:items-center">
               <Button
@@ -576,7 +519,7 @@ export default function NewVoucherPage() {
                 onClick={handleClearDraft}
                 className="min-h-11 touch-manipulation text-ink-mute hover:text-danger sm:min-h-9"
               >
-                مسح المحفوظ محلياً
+                امسح المسودة
               </Button>
               <Button
                 type="button"
@@ -585,7 +528,7 @@ export default function NewVoucherPage() {
                 className="min-h-11 touch-manipulation sm:min-h-9"
                 onClick={handleSaveLocalDraft}
               >
-                مسودة محلية
+                احفظ المسودة
               </Button>
               <Button
                 type="button"

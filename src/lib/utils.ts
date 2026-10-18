@@ -145,7 +145,7 @@ export function clamp(n: number, min: number, max: number) {
 }
 
 /** Arabic count with the right noun form: 1 → "شهر"، 2 → "شهرين"، 3–10 → "3 أشهر"، 11+ → "11 شهراً". */
-function arabicCount(n: number, forms: [one: string, two: string, few: string, many: string]): string {
+export function arabicCount(n: number, forms: [one: string, two: string, few: string, many: string]): string {
   if (n === 1) return forms[0];
   if (n === 2) return forms[1];
   if (n >= 3 && n <= 10) return `${n} ${forms[2]}`;

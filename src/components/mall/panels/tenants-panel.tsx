@@ -198,7 +198,7 @@ export function MallTenantsPanel() {
         <WriteGuard permission="document.create">
           <Button
             size="sm"
-            className="h-11 w-full sm:w-auto touch-manipulation"
+            className="hidden h-9 touch-manipulation md:inline-flex"
             onClick={() => router.push(peopleSegmentHref('TENANT', { add: 'TENANT' }))}
           >
             <Plus className="h-4 w-4 me-1" />

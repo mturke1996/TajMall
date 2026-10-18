@@ -341,7 +341,7 @@ function TransactionCard({
           )}
           dir="ltr"
         >
-          {formatMoney(positive ? Number(r.amount) : -Number(r.amount), currency, { compact: true, signed: true })}
+          {formatMoney(positive ? Number(r.amount) : -Number(r.amount), currency, { signed: true })}
         </span>
       </div>
       <div className="flex min-w-0 items-center justify-between gap-2 border-t border-border/50 pt-2 text-xs text-muted-foreground">

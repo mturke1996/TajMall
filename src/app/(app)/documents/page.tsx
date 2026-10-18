@@ -11,10 +11,8 @@ import {
   Plus,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
-import { cn } from '@/lib/utils';
 import { useCorrespondenceLetters, useReceiptVouchers } from '@/lib/db/document-queries';
 import { useDisbursementVouchers } from '@/lib/db/queries';
 import { useTenantCharges } from '@/lib/db/mall-queries';
@@ -26,8 +24,6 @@ type DocCard = {
   description: string;
   icon: typeof FileText;
   count?: number;
-  featured?: boolean;
-  tone?: 'default' | 'green';
 };
 
 export default function DocumentsHubPage() {
@@ -47,8 +43,6 @@ export default function DocumentsHubPage() {
       description: 'خطابات رسمية بالختم والتوقيع للجهات والمؤسسات',
       icon: Stamp,
       count: officialCount,
-      featured: true,
-      tone: 'green',
     },
     {
       href: '/documents/correspondence?type=routine',
@@ -92,59 +86,31 @@ export default function DocumentsHubPage() {
       />
 
       <AccountingPageBody>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="surface mx-auto w-full max-w-3xl divide-y divide-border overflow-hidden">
           {cards.map((card) => {
             const Icon = card.icon;
             return (
-              <Card
-                key={card.href}
-                className={cn(
-                  'group relative overflow-hidden transition-colors hover:border-foreground/25',
-                  card.featured && 'border-foreground/15 bg-canvas-sunken',
-                )}
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div
-                      className={cn(
-                        'flex h-11 w-11 items-center justify-center rounded-xl border',
-                        card.tone === 'green'
-                          ? 'border-border bg-muted text-foreground'
-                          : 'border-border bg-muted/50 text-foreground',
-                      )}
-                    >
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    {typeof card.count === 'number' ? (
-                      <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold tabular-nums">
-                        {card.count}
-                      </span>
-                    ) : null}
-                  </div>
-                  <CardTitle className="text-base font-bold leading-snug pt-2">
-                    {card.titleAr}
-                  </CardTitle>
-                  <CardDescription className="text-xs leading-relaxed">
-                    {card.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-wrap gap-2 pt-0">
-                  <Button asChild size="sm" className="touch-manipulation">
-                    <Link href={card.href}>عرض الكل</Link>
+              <li key={card.href} className="flex items-center gap-3 px-4 py-3.5">
+                <Icon className="h-5 w-5 shrink-0 text-ink-mute" aria-hidden />
+                <Link href={card.href} className="min-w-0 flex-1 rounded-md focus-visible:outline-2 focus-visible:outline-ring">
+                  <span className="flex items-baseline gap-2">
+                    <span className="text-[14px] font-medium text-foreground hover:underline">{card.titleAr}</span>
+                    {typeof card.count === 'number' && <span className="text-[12.5px] tabular-nums text-ink-mute">{card.count}</span>}
+                  </span>
+                  <span className="mt-0.5 block text-[12.5px] text-ink-mute">{card.description}</span>
+                </Link>
+                {card.newHref && (
+                  <Button asChild variant="outline" size="sm" className="h-8 shrink-0 gap-1 text-[12.5px] touch-manipulation">
+                    <Link href={card.newHref}>
+                      <Plus className="h-3.5 w-3.5" aria-hidden />
+                      جديد
+                    </Link>
                   </Button>
-                  {card.newHref ? (
-                    <Button asChild variant="outline" size="sm" className="touch-manipulation">
-                      <Link href={card.newHref}>
-                        <Plus className="h-3.5 w-3.5 me-1" />
-                        جديد
-                      </Link>
-                    </Button>
-                  ) : null}
-                </CardContent>
-              </Card>
+                )}
+              </li>
             );
           })}
-        </div>
+        </ul>
       </AccountingPageBody>
     </>
   );
