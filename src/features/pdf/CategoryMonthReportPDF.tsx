@@ -85,7 +85,8 @@ export function CategoryMonthReportPDF({
   monthNameAr,
   rows,
 }: CategoryMonthReportPdfProps) {
-  const posted = rows.filter((r) => r.status === 'POSTED');
+  // drafts and voided rows are listed with their status but never counted
+  const posted = rows.filter((r) => r.status === 'POSTED' || r.status === 'RECONCILED');
   const total = posted.reduce((s, r) => s + Number(r.amount || 0), 0);
   const isRevenue = category?.type === 'REVENUE' || category?.kind === 'REVENUE';
   const kindLabel = isRevenue ? 'إيراد' : 'مصروف';
@@ -137,7 +138,9 @@ export function CategoryMonthReportPDF({
       )}
 
       <View style={col.foot} wrap={false}>
-        <Text style={[col.footLabel, col.desc]}>{ar(totalLabel)}</Text>
+        <Text style={[col.footLabel, col.desc]}>
+          {ar(posted.length < rows.length ? `${totalLabel} (المرحّل فقط)` : totalLabel)}
+        </Text>
         <View style={col.amt}>
           <PdfMoneyText amount={total} style={{ fontSize: 11, fontWeight: 'bold' }} />
         </View>

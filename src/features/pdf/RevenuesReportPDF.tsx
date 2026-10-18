@@ -9,6 +9,7 @@ import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTab
 import { TajMallPdfFooter, PdfReportHeaderFlow } from './pdfBrandKit';
 import { BRAND } from '@/lib/brand';
 import type { TransactionWithRelations } from '@/lib/db/types';
+import { arabicCount } from '@/lib/utils';
 
 const W_REV = {
   amount: '16%',
@@ -300,7 +301,7 @@ export function RevenuesReportPDF(props: RevenuesReportPdfProps) {
             </View>
             <View style={s.scopeItem}>
               <Text style={s.scopeLabel}>{ar('عدد السندات')}</Text>
-              <Text style={s.scopeValue}>{ar(`${totalTransactionsCount} سند`)}</Text>
+              <Text style={s.scopeValue}>{ar(arabicCount(totalTransactionsCount, ['معاملة واحدة', 'معاملتان', 'معاملات', 'معاملة']))}</Text>
             </View>
             <View style={s.scopeItem}>
               <Text style={s.scopeLabel}>{ar('إجمالي الإيرادات')}</Text>
@@ -320,7 +321,7 @@ export function RevenuesReportPDF(props: RevenuesReportPdfProps) {
 
             <View style={s.kpiCell}>
               <Text style={s.kpiLabel}>{ar('طرق الدفع المستخدمة')}</Text>
-              <Text style={s.kpiValue}>{ar(`${paymentMethodGroups.length} طرق دفع`)}</Text>
+              <Text style={s.kpiValue}>{ar(arabicCount(paymentMethodGroups.length, ['طريقة دفع واحدة', 'طريقتا دفع', 'طرق دفع', 'طريقة دفع']))}</Text>
               <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right', marginTop: 2 }}>
                 {ar('نقدي، بطاقة، حوالة، صك')}
               </Text>
@@ -328,7 +329,7 @@ export function RevenuesReportPDF(props: RevenuesReportPdfProps) {
 
             <View style={s.kpiCell}>
               <Text style={s.kpiLabel}>{ar('الحسابات والمصارف')}</Text>
-              <Text style={s.kpiValue}>{ar(`${banksSummary.length} حسابات`)}</Text>
+              <Text style={s.kpiValue}>{ar(arabicCount(banksSummary.length, ['حساب واحد', 'حسابان', 'حسابات', 'حساباً']))}</Text>
               <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right', marginTop: 2 }}>
                 {ar('خزائن نقدية ومصارف')}
               </Text>
@@ -336,7 +337,7 @@ export function RevenuesReportPDF(props: RevenuesReportPdfProps) {
 
             <View style={s.kpiCell}>
               <Text style={s.kpiLabel}>{ar('بنود الإيرادات')}</Text>
-              <Text style={s.kpiValue}>{ar(`${categoriesSummary.length} بنود`)}</Text>
+              <Text style={s.kpiValue}>{ar(arabicCount(categoriesSummary.length, ['بند واحد', 'بندان', 'بنود', 'بنداً']))}</Text>
               <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right', marginTop: 2 }}>
                 {ar('إيجارات وخدمات')}
               </Text>

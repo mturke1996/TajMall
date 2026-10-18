@@ -18,7 +18,7 @@ type Props = {
   transactions: TransactionWithRelations[];
   journalEntries: JournalEntryRow[];
   txLoading: boolean;
-  onEdit: () => void;
+  onEdit?: () => void;
 };
 
 function Row({ label, children, ltr }: { label: string; children: React.ReactNode; ltr?: boolean }) {
@@ -61,10 +61,12 @@ export function UtilitySupplierPanel({ contact, role, transactions, journalEntri
                 </div>
               </div>
             </div>
-            <Button type="button" variant="ghost" size="sm" className="h-8 gap-1.5 px-2 text-[13px]" onClick={onEdit}>
-              <Pencil className="h-3.5 w-3.5" aria-hidden />
-              تعديل
-            </Button>
+            {onEdit && (
+              <Button type="button" variant="ghost" size="sm" className="h-8 gap-1.5 px-2 text-[13px]" onClick={onEdit}>
+                <Pencil className="h-3.5 w-3.5" aria-hidden />
+                تعديل
+              </Button>
+            )}
           </div>
 
           <dl className="mt-3 divide-y divide-border">

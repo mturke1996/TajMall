@@ -316,6 +316,9 @@ export type TenantRentJournalLinkRow = {
     entry_date: string;
     description: string | null;
     status?: 'DRAFT' | 'POSTED' | 'REVERSED' | string;
+    /** the receipt that paid the month: TRANSACTION + its id */
+    source_type?: string | null;
+    source_id?: string | null;
   } | null;
 };
 

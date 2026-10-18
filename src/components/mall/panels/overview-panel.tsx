@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ChevronLeft, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { cn, formatDate, formatMoney } from '@/lib/utils';
+import { arabicCount, cn, formatDate, formatMoney } from '@/lib/utils';
 import { useTenantRentSummary } from '@/lib/db/queries';
 import { aggregateMallRentKpis } from '@/lib/mall-rent-kpis';
 import { useLeaseContracts, useTenantCharges } from '@/lib/db/mall-queries';
@@ -55,19 +55,19 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
   const followUps: { label: string; detail: string; tab: MallTab }[] = [];
   if (owingThisMonth.length > 0)
     followUps.push({
-      label: `${owingThisMonth.length} مستأجر لم يكمل إيجار ${monthName}`,
+      label: `${arabicCount(owingThisMonth.length, ['مستأجر واحد', 'مستأجران', 'مستأجرين', 'مستأجراً'])} لم ${owingThisMonth.length === 1 ? 'يكمل' : 'يكملوا'} إيجار ${monthName}`,
       detail: `متبقٍ ${formatMoney(owingThisMonth.reduce((s, t) => s + t.remaining, 0), 'LYD')}`,
       tab: 'tenants',
     });
   if (openCharges.length > 0)
     followUps.push({
-      label: `${openCharges.length} مطالبة لم تُسدَّد بالكامل`,
+      label: `${arabicCount(openCharges.length, ['مطالبة واحدة', 'مطالبتان', 'مطالبات', 'مطالبة'])} لم ${openCharges.length === 1 ? 'تُسدَّد' : 'تُسدَّد'} بالكامل`,
       detail: `متبقٍ ${formatMoney(openChargesTotal, 'LYD')}`,
       tab: 'charges',
     });
   if (endingSoon.length > 0)
     followUps.push({
-      label: `${endingSoon.length} عقد ينتهي خلال 60 يوماً`,
+      label: `${arabicCount(endingSoon.length, ['عقد واحد', 'عقدان', 'عقود', 'عقداً'])} ${endingSoon.length === 1 ? 'ينتهي' : 'تنتهي'} خلال 60 يوماً`,
       detail: `أقربها ${formatDate(endingSoon[0].end_date)}`,
       tab: 'contracts',
     });
@@ -85,7 +85,7 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
             <p className="text-[12.5px] text-ink-mute">إيجار {monthName}</p>
             <p className="mt-1 text-[20px] font-semibold tabular-nums">
               {rentKpis.currentMonthPaidCount}
-              <span className="text-[13px] font-normal text-ink-mute"> من {rentKpis.totalTenants} مكتمل</span>
+              <span className="text-[13px] font-normal text-ink-mute"> من {rentKpis.currentMonthDueCount} مكتمل</span>
             </p>
           </div>
           <div className="bg-card p-4">

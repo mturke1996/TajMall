@@ -11,7 +11,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable } from '@/components/data/data-table';
 import { EmptyState } from '@/components/data/empty-state';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
-import { cn, formatDate, formatMonthKeyAr } from '@/lib/utils';
+import { cn, formatDate, formatMonthKeyAr, arabicCount } from '@/lib/utils';
 import {
   RUN_STATUS_LABEL,
   payrollErrorMessage,
@@ -227,7 +227,7 @@ export function PayrollRunPanel({
     try {
       if (confirm === 'prepare') {
         const res = await prepare.mutateAsync({ month });
-        toast.success(`أُعدّ كشف ${formatMonthKeyAr(month)}`, { description: `${res?.employees ?? 0} موظف` });
+        toast.success(`أُعدّ كشف ${formatMonthKeyAr(month)}`, { description: arabicCount(res?.employees ?? 0, ['موظف واحد', 'موظفان', 'موظفين', 'موظفاً']) });
       } else if (confirm === 'approve' && run) {
         await approve.mutateAsync({ runId: run.id });
         toast.success('اعتُمد الكشف', { description: 'يمكن الآن ترحيله إلى الدفاتر' });
@@ -385,7 +385,8 @@ export function PayrollRunPanel({
         <StatStrip
           items={[
             { label: 'الموظفون في الكشف', value: <span className="tabular-nums">{lines.length}</span> },
-            { label: 'إجمالي المستحق', value: <Amount value={hasBreakdown(lines) ? totals.gross : null} /> },
+            // gross here is after the absence deduction; the payslip lists absence among the deductions
+            { label: 'المستحق بعد خصم الغياب', value: <Amount value={hasBreakdown(lines) ? totals.gross : null} /> },
             { label: 'جزاءات وأقساط', value: <Amount value={hasBreakdown(lines) ? totals.deductions + totals.advances : null} tone="negative" /> },
             {
               label: 'صافي الرواتب',

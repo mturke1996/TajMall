@@ -132,6 +132,7 @@ export function RentRevenueMonthsBlock({
   }, [calendarMonths, year, basisFor]);
 
   // Suggest the oldest month still owing (this year, up to now), else the first owing month after it.
+  // Debt from earlier years is offered from the profile's "تحصيل من …" button, which preselects it.
   const autoSelected = useRef(false);
   useEffect(() => {
     if (!autoSelectFirstDue || !ready || autoSelected.current || selected.length > 0) return;

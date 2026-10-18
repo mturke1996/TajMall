@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { NAV } from "./nav-items";
 import { isNavActive } from "./nav-active";
 import { Logo } from "@/components/brand/logo";
@@ -21,6 +21,8 @@ export function MobileNav({
   onClose: () => void;
 }) {
   const pathname = usePathname();
+  const params = useSearchParams();
+  const search = params?.toString() ?? '';
   const { can } = usePermission();
 
   return (
@@ -54,7 +56,7 @@ export function MobileNav({
                 if (item.permission && !can(item.permission)) {
                   return null;
                 }
-                const active = isNavActive(pathname, item.href);
+                const active = isNavActive(pathname, item.href, search);
                 const Icon = item.icon;
                 return (
                   <Link

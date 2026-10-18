@@ -21,6 +21,7 @@ import { JournalVoucherTable } from '@/components/accounting/journal-voucher-tab
 import { JournalBalanceBadge } from '@/components/accounting/journal-balance-badge';
 import { mapJournalLineRowToVoucherLine } from '@/lib/journal-entry-display';
 import Link from 'next/link';
+import { useEscapeKey } from '@/lib/hooks/use-escape-key';
 
 const STATUS_CONFIG = {
   POSTED: {
@@ -64,6 +65,7 @@ export function JournalDetailDialog({
 
   return (
     <div className="fixed inset-0 z-60" dir="rtl">
+      <EscapeToClose onClose={onClose} />
       <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
       <div
         className={cn(
@@ -73,6 +75,7 @@ export function JournalDetailDialog({
         )}
         role="dialog"
         aria-modal
+        aria-labelledby="journal-detail-title"
       >
         <div
           className="flex shrink-0 items-center gap-3 border-b px-4 py-3"
@@ -80,7 +83,7 @@ export function JournalDetailDialog({
         >
           <FileText className="h-5 w-5 text-foreground shrink-0" />
           <div className="min-w-0 flex-1">
-            <h2 className="font-semibold text-base truncate">تفاصيل القيد #{entry.number}</h2>
+            <h2 id="journal-detail-title" className="font-semibold text-base truncate">تفاصيل القيد #{entry.number}</h2>
             {entry.reference && (
               <p className="font-mono text-xs text-foreground truncate">{entry.reference}</p>
             )}
@@ -180,4 +183,10 @@ export function JournalDetailDialog({
       </div>
     </div>
   );
+}
+
+/** Mounted only while the dialog is open (the dialog returns early before its hooks would run). */
+function EscapeToClose({ onClose }: { onClose: () => void }) {
+  useEscapeKey(true, onClose);
+  return null;
 }

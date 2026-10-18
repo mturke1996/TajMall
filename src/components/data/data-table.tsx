@@ -45,7 +45,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { usePersistedState } from '@/lib/hooks/use-persisted-state';
 import { useMediaQuery } from '@/lib/hooks/use-media-query';
-import { cn } from '@/lib/utils';
+import { cn, arabicCount } from '@/lib/utils';
 
 declare module '@tanstack/react-table' {
   interface ColumnMeta<TData extends RowData, TValue> {
@@ -192,7 +192,7 @@ export function DataTable<T>({
       {/* View controls */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[12.5px] text-muted-foreground tabular-nums">
-          {sortedRows.length.toLocaleString('en-US')} سجل
+          {arabicCount(sortedRows.length, ['سجل واحد', 'سجلان', 'سجلات', 'سجلاً'])}
         </p>
         <div className="flex items-center gap-1.5">
           {toolbar}

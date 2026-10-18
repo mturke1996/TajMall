@@ -21,6 +21,14 @@ export type VoucherPdfModel = {
   lines: VoucherLinePdf[];
   total: number;
   notes?: string;
+  /** a saved voucher's state; anything but APPROVED prints a "not approved" banner */
+  status?: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | string;
+};
+
+const NOT_APPROVED: Record<string, string> = {
+  DRAFT: 'مسودة — غير معتمد ولا يُصرف بموجبه',
+  PENDING_APPROVAL: 'بانتظار الاعتماد — لا يُصرف بموجبه قبل الاعتماد',
+  REJECTED: 'مرفوض — لا يُصرف بموجبه',
 };
 
 const s = StyleSheet.create({
@@ -180,6 +188,16 @@ export function VoucherPDF({
         },
       ]}
     >
+      {voucher.status && NOT_APPROVED[voucher.status] ? (
+        <View
+          style={{ borderWidth: 1.5, borderColor: PDF.danger, borderRadius: 3, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 12 }}
+          wrap={false}
+        >
+          <Text style={{ fontSize: 11, fontWeight: 'bold', color: PDF.danger, textAlign: 'center' }}>
+            {ar(NOT_APPROVED[voucher.status])}
+          </Text>
+        </View>
+      ) : null}
       {/* Hero — ترتيب JSX: يصرف إلى ثم السداد ثم المصرف؛ row-reverse يضع يصرف إلى يمين الورقة */}
       <View style={s.hero} wrap={false}>
         <View style={s.heroCell}>

@@ -93,7 +93,8 @@ export async function POST(req: Request) {
     } else {
       const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
         data: { full_name_ar, full_name: full_name_ar },
-        redirectTo: `${origin}/login`,
+        // the invitee sets a first password there (the link carries #type=invite)
+        redirectTo: `${origin}/login/reset-password`,
       });
       invitedUser = data;
       invErr = error;

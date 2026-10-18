@@ -3,6 +3,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { invalidateMoneyQueries } from '@/lib/db/invalidate';
+import { friendlyError } from '@/lib/user-messages';
 
 // ── Query Keys ───────────────────────────────────────────────────
 export const qk = {
@@ -71,17 +73,9 @@ export type SaveJournalDraftInput = {
 };
 
 function invalidateJournalCaches(qc: ReturnType<typeof useQueryClient>, journalId?: string) {
-  qc.invalidateQueries({ queryKey: qk.journalEntries });
-  qc.invalidateQueries({ queryKey: qk.journalSummary });
+  // a posted or reversed entry moves every report, balance and rent link built on the ledger
+  invalidateMoneyQueries(qc);
   qc.invalidateQueries({ queryKey: ['journal_next_reference'] });
-  qc.invalidateQueries({ queryKey: ['journal_year_count'] });
-  qc.invalidateQueries({ queryKey: ['ledger'] });
-  qc.invalidateQueries({ queryKey: ['transactions'] });
-  qc.invalidateQueries({ queryKey: ['cashbox_balances'] });
-  qc.invalidateQueries({ queryKey: ['monthly_summary'] });
-  qc.invalidateQueries({ queryKey: ['tenant_rent_summary'] });
-  qc.invalidateQueries({ queryKey: ['tenant_rent_calendar'] });
-  qc.invalidateQueries({ queryKey: ['audit_log_feed'] });
   if (journalId) {
     qc.invalidateQueries({ queryKey: qk.journalEntry(journalId) });
     qc.invalidateQueries({ queryKey: qk.journalLines(journalId) });
@@ -215,7 +209,8 @@ export function useJournalEntriesForPeriod(filters: {
     enabled,
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
-      const pageSize = 5000;
+      // PostgREST returns at most 1,000 rows per request: a bigger page would end the loop early
+      const pageSize = 1000;
       const all: JournalEntryRow[] = [];
       let offset = 0;
 
@@ -407,7 +402,7 @@ export function useCreateJournalEntry() {
       toast.success('تم إنشاء القيد بنجاح');
     },
     onError: (error: any) => {
-      toast.error(error.message || 'فشل إنشاء القيد');
+      toast.error(friendlyError(error, 'فشل إنشاء القيد'));
     },
   });
 }
@@ -443,7 +438,7 @@ export function useUpdateJournalEntry() {
       toast.success('تم تعديل القيد بنجاح');
     },
     onError: (error: any) => {
-      toast.error(error.message || 'فشل تعديل القيد');
+      toast.error(friendlyError(error, 'فشل تعديل القيد'));
     },
   });
 }
@@ -467,7 +462,7 @@ export function usePostJournalEntry() {
       toast.success('تم ترحيل القيد بنجاح');
     },
     onError: (error: any) => {
-      toast.error(error.message || 'فشل ترحيل القيد');
+      toast.error(friendlyError(error, 'فشل ترحيل القيد'));
     },
   });
 }
@@ -491,7 +486,7 @@ export function useReverseJournalEntry() {
       toast.success('تم عكس القيد بنجاح');
     },
     onError: (error: any) => {
-      toast.error(error.message || 'فشل عكس القيد');
+      toast.error(friendlyError(error, 'فشل عكس القيد'));
     },
   });
 }
@@ -520,7 +515,7 @@ export function useDeleteJournalEntry() {
       toast.success('تم حذف القيد بنجاح');
     },
     onError: (error: any) => {
-      toast.error(error.message || 'فشل حذف القيد - يمكن حذف القيود المسودة فقط');
+      toast.error(friendlyError(error, 'فشل حذف القيد - يمكن حذف القيود المسودة فقط'));
     },
   });
 }
@@ -587,7 +582,7 @@ export function useSaveJournalFormDraft() {
       toast.success('تم حفظ مسودة القيد');
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'تعذّر حفظ المسودة');
+      toast.error(friendlyError(error, 'تعذّر حفظ المسودة'));
     },
   });
 }
@@ -630,7 +625,7 @@ export function useDuplicateJournalEntry() {
       toast.success('تم إنشاء نسخة كمسودة جديدة');
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'تعذّر نسخ القيد');
+      toast.error(friendlyError(error, 'تعذّر نسخ القيد'));
     },
   });
 }

@@ -6,6 +6,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { todayISODate } from "@/lib/utils";
 import { mqk } from "@/lib/db/mall-queries";
+import { invalidateMoneyQueries } from "@/lib/db/invalidate";
 import type {
   CategoryRow,
   CashboxRow,
@@ -24,6 +25,8 @@ import type {
 } from "./types";
 import { CONTACT_LIST_COLUMNS } from "@/lib/db/contact-columns";
 import { fetchAllContactPages } from "@/lib/contacts/contact-transactions";
+import { friendlyError } from "@/lib/user-messages";
+import { fetchAllPages } from "@/lib/db/fetch-all";
 
 /**
  * Centralised TanStack Query hooks over Supabase JS.
@@ -73,16 +76,21 @@ export function useBranches(includeInactive = false) {
 }
 
 // ── categories ───────────────────────────────────────────────────
-export function useCategories(kind?: "REVENUE" | "EXPENSE") {
+/**
+ * Accounts for pick lists (active only). `includeInactive` is for the chart of accounts itself, where a
+ * disabled account must stay visible so it can be enabled again and its history opened.
+ */
+export function useCategories(kind?: "REVENUE" | "EXPENSE", options?: { includeInactive?: boolean }) {
+  const includeInactive = options?.includeInactive ?? false;
   return useQuery<CategoryRow[]>({
-    queryKey: kind ? ["categories", kind] : qk.categories,
+    queryKey: [...(kind ? ["categories", kind] : qk.categories), includeInactive ? "all" : "active"],
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       let q = supabase
         .from("categories")
         .select("*")
-        .eq("active", true)
         .order("sort_order", { ascending: true });
+      if (!includeInactive) q = q.eq("active", true);
       // فلترة بنوع الحساب المحاسبي (type) لا بحقل kind القديم
       if (kind) q = q.eq("type", kind);
       const { data, error } = await q;
@@ -133,7 +141,7 @@ export function useCreateCategory() {
       toast.success("تم إضافة البند المحاسبي");
     },
     onError: (err: { message?: string }) => {
-      toast.error(err.message ?? "تعذّر إضافة البند");
+      toast.error(friendlyError(err, "تعذّر إضافة البند"));
     },
   });
 }
@@ -166,7 +174,7 @@ export function useUpdateCategory() {
       toast.success("تم تحديث البند");
     },
     onError: (err: { message?: string }) => {
-      toast.error(err.message ?? "تعذّر التحديث");
+      toast.error(friendlyError(err, "تعذّر التحديث"));
     },
   });
 }
@@ -250,7 +258,7 @@ export function useCreateCashbox() {
       toast.success("تمت إضافة الخزينة بنجاح");
     },
     onError: (err: { message?: string }) => {
-      toast.error(err.message ?? "تعذرت إضافة الخزينة");
+      toast.error(friendlyError(err, "تعذرت إضافة الخزينة"));
     },
   });
 }
@@ -308,7 +316,7 @@ export function useUpdateCashbox() {
       toast.success("تم تحديث الخزينة بنجاح");
     },
     onError: (err: { message?: string }) => {
-      toast.error(err.message ?? "تعذرت تحديث الخزينة");
+      toast.error(friendlyError(err, "تعذّر تحديث الخزينة"));
     },
   });
 }
@@ -747,23 +755,7 @@ export function useRecordRentPayment() {
         journal_entry_id: row.journal_entry_id ?? null,
       };
     },
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: ["transactions"] });
-      qc.invalidateQueries({ queryKey: ["journal_entries"] });
-      qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
-      qc.invalidateQueries({ queryKey: qk.cashboxBalances });
-      qc.invalidateQueries({ queryKey: qk.dashboardStats });
-      qc.invalidateQueries({ queryKey: qk.monthlySummary });
-      qc.invalidateQueries({ queryKey: ["tenant_charges"] });
-      qc.invalidateQueries({ queryKey: ["mall_rent_charges_year"] });
-      qc.invalidateQueries({
-        queryKey: ["tenant_rent_calendar", variables.tenant_id],
-      });
-      qc.invalidateQueries({ queryKey: qk.contact(variables.tenant_id) });
-      qc.invalidateQueries({
-        queryKey: qk.contactTransactions(variables.tenant_id),
-      });
-    },
+    onSuccess: () => invalidateMoneyQueries(qc),
   });
 }
 
@@ -773,7 +765,8 @@ const TX_SELECT =
 
 export function useTransactions(kind?: "REVENUE" | "EXPENSE", limit?: number) {
   return useQuery<TransactionWithRelations[]>({
-    queryKey: qk.transactions(kind),
+    // the limit is part of the key: a page that asked for 80 rows must not hand them to one that wants all
+    queryKey: [...qk.transactions(kind), limit ?? "all"],
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       const pageSize = 1000;
@@ -1015,46 +1008,8 @@ export function useCreateTransaction() {
 
       return data as unknown as TransactionWithRelations;
     },
-    onMutate: async (input) => {
-      // Cancel outgoing queries for transactions
-      await qc.cancelQueries({ queryKey: ["transactions"] });
-
-      // Get previous data for rollback
-      const previousTx = qc.getQueryData(["transactions"]);
-
-      // Optimistically update the transaction list
-      const optimisticTx: TransactionWithRelations = {
-        id: `temp-${Date.now()}`,
-        organization_id: "",
-        created_by: "",
-        status: "POSTED",
-        posted_at: new Date().toISOString(),
-        ...input,
-      } as any;
-
-      qc.setQueryData(["transactions"], (old: any) =>
-        old ? [optimisticTx, ...old] : [optimisticTx],
-      );
-
-      return { previousTx };
-    },
-    onError: (err, variables, context) => {
-      if (context?.previousTx) {
-        qc.setQueryData(["transactions"], context.previousTx);
-      }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["transactions"] });
-      qc.invalidateQueries({ queryKey: qk.cashboxBalances });
-      qc.invalidateQueries({ queryKey: qk.dashboardStats });
-      qc.invalidateQueries({ queryKey: ["tenant_charges"] });
-      qc.invalidateQueries({ queryKey: ["mall_rent_charges_year"] });
-      qc.invalidateQueries({ queryKey: ["tenant_ar_aging"] });
-      qc.invalidateQueries({ queryKey: ["tenant_rent_calendar"] });
-      qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
-      qc.invalidateQueries({ queryKey: ["journal_entries"] });
-      qc.invalidateQueries({ queryKey: ["audit_log_feed"] });
-    },
+    // A failed allocation leaves the transaction posted, so refresh either way.
+    onSettled: () => invalidateMoneyQueries(qc),
   });
 }
 
@@ -1069,19 +1024,7 @@ export function useDeleteTransaction() {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["transactions"] });
-      qc.invalidateQueries({ queryKey: qk.cashboxBalances });
-      qc.invalidateQueries({ queryKey: qk.dashboardStats });
-      qc.invalidateQueries({ queryKey: qk.employeeSummary });
-      qc.invalidateQueries({ queryKey: qk.monthlySummary });
-      qc.invalidateQueries({ queryKey: qk.topExpenseCategories });
-      qc.invalidateQueries({ queryKey: ["audit_log_feed"] });
-      qc.invalidateQueries({ queryKey: ["journal_entries"] });
-      qc.invalidateQueries({ queryKey: ["tenant_charges"] });
-      qc.invalidateQueries({ queryKey: ["tenant_rent_calendar"] });
-      qc.invalidateQueries({ queryKey: ["cash_flow"] });
-    },
+    onSuccess: () => invalidateMoneyQueries(qc),
   });
 }
 
@@ -1091,17 +1034,15 @@ export function useDisbursementVouchers() {
     queryKey: qk.disbursementVouchers,
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase
-        .from("disbursement_vouchers")
-        .select(
-          `
-          *,
-          disbursement_voucher_lines (*)
-        `,
-        )
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data as DisbursementVoucherWithLines[]) ?? [];
+      return fetchAllPages<DisbursementVoucherWithLines>(
+        (from, to) =>
+          supabase
+            .from("disbursement_vouchers")
+            .select("*, disbursement_voucher_lines (*)")
+            .order("created_at", { ascending: false })
+            .order("id")
+            .range(from, to) as unknown as PromiseLike<{ data: DisbursementVoucherWithLines[] | null; error: unknown }>,
+      );
     },
   });
 }
@@ -1171,11 +1112,7 @@ export function useCreateDisbursementVoucher() {
 
       return voucherId;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: qk.disbursementVouchers });
-      qc.invalidateQueries({ queryKey: ["journal_entries"] });
-      qc.invalidateQueries({ queryKey: ["ledger"] });
-    },
+    onSuccess: () => invalidateVoucherLedger(qc),
   });
 }
 
@@ -1192,17 +1129,15 @@ export function useSubmitVoucherForApproval() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.disbursementVouchers });
+      qc.invalidateQueries({ queryKey: ["app_notifications"] });
     },
   });
 }
 
 function invalidateVoucherLedger(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: qk.disbursementVouchers });
-  qc.invalidateQueries({ queryKey: qk.cashboxBalances });
-  qc.invalidateQueries({ queryKey: qk.dashboardStats });
-  qc.invalidateQueries({ queryKey: ["journal_entries"] });
-  qc.invalidateQueries({ queryKey: ["ledger"] });
-  qc.invalidateQueries({ queryKey: ["cash_flow"] });
+  // an approved or deleted voucher posts or reverses a cash entry
+  invalidateMoneyQueries(qc);
 }
 
 /** اعتماد أو رفض إذن — يتطلب owner/admin (محروس داخل الدالة نفسها). */

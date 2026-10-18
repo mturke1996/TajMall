@@ -8,7 +8,6 @@ import {
   Loader2,
   AlertTriangle,
   Calendar,
-  DollarSign,
   User,
   Store,
   RefreshCw,
@@ -455,7 +454,14 @@ export function MallChargesPanel() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="charge-type">نوع الرسم</Label>
-                <Select value={type} onValueChange={(val: any) => setType(val)}>
+                <Select
+                  value={type}
+                  onValueChange={(val: any) => {
+                    setType(val);
+                    // a rent charge belongs to a month: the database matches it on the 1st
+                    if (val === 'RENT' && dueDate) setDueDate(`${dueDate.slice(0, 7)}-01`);
+                  }}
+                >
                   <SelectTrigger id="charge-type">
                     <SelectValue />
                   </SelectTrigger>
@@ -468,14 +474,29 @@ export function MallChargesPanel() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="due-date">تاريخ الاستحقاق</Label>
-                <Input
-                  id="due-date"
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  required
-                />
+                {type === 'RENT' ? (
+                  <>
+                    <Label htmlFor="due-date">شهر الإيجار</Label>
+                    <Input
+                      id="due-date"
+                      type="month"
+                      value={dueDate.slice(0, 7)}
+                      onChange={(e) => setDueDate(e.target.value ? `${e.target.value}-01` : '')}
+                      required
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Label htmlFor="due-date">تاريخ الاستحقاق</Label>
+                    <Input
+                      id="due-date"
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      required
+                    />
+                  </>
+                )}
               </div>
             </div>
 
@@ -486,13 +507,16 @@ export function MallChargesPanel() {
                   id="charge-amount"
                   type="number"
                   step="0.001"
-                  placeholder="0.00"
+                  min="0.001"
+                  placeholder="0"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="ps-8"
+                  className="pe-12"
                   required
                 />
-                <DollarSign className="absolute inset-s-3 top-2.5 h-4.5 w-4.5 text-muted-foreground" />
+                <span className="pointer-events-none absolute inset-e-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+                  د.ل
+                </span>
               </div>
             </div>
 

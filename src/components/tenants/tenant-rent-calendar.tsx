@@ -15,7 +15,7 @@ import {
   filterVisibleCalendarMonths,
   isCalendarMonthOutstanding,
 } from '@/lib/rent-exempt-months';
-import { cn, formatMoney } from '@/lib/utils';
+import { cn, formatMoney, arabicCount } from '@/lib/utils';
 
 export function TenantRentCalendar({
   tenantId,
@@ -61,7 +61,7 @@ export function TenantRentCalendar({
 
       {exemptCount > 0 && (
         <p className="text-[11px] text-ink-mute">
-          استُبعد {exemptCount} شهر بدون مطالبة من العرض والإجماليات
+          استُبعد {arabicCount(exemptCount, ['شهر واحد', 'شهران', 'أشهر', 'شهراً'])} من المطالبة، فلا يدخل في العرض والإجماليات
         </p>
       )}
 

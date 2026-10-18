@@ -40,3 +40,15 @@ export function formatSuggestedDocNumber(prefix: string, sequence: number): stri
   const year = new Date().getFullYear();
   return `${prefix}-${year}-${String(sequence).padStart(4, '0')}`;
 }
+
+/** The next number in this year's series: one after the highest PREFIX-YEAR-NNNN already used. */
+export function nextDocNumber(prefix: string, used: Array<string | null | undefined>): string {
+  const year = new Date().getFullYear();
+  const pattern = new RegExp(`^${prefix}-${year}-(\\d+)$`);
+  let max = 0;
+  for (const n of used) {
+    const m = n?.trim().match(pattern);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return formatSuggestedDocNumber(prefix, max + 1);
+}

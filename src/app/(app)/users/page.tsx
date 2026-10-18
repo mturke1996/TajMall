@@ -33,7 +33,11 @@ import { cn, formatDate } from '@/lib/utils';
 
 export default function UsersPage() {
   const { user } = useUser();
-  const { can, loading: permLoading } = usePermission();
+  const { can, loading: permLoading, role: myRole } = usePermission();
+  // Only an owner gives or takes the owner role (the invite API applies the same rule).
+  const isOwner = myRole === 'owner';
+  const assignableRoles = SYSTEM_ROLES.filter((r) => isOwner || r.name !== 'owner');
+  const roleLocked = (p: { id: string; role?: string | null }) => p.id === user?.id || (!isOwner && p.role === 'owner');
   const { data: profiles, isLoading } = useProfiles();
   const updateProfile = useUpdateProfile();
   const qc = useQueryClient();
@@ -279,13 +283,13 @@ export default function UsersPage() {
                   <Select
                     value={p.role ?? 'viewer'}
                     onValueChange={(v) => onRoleChange(p.id, v)}
-                    disabled={p.id === user?.id}
+                    disabled={roleLocked(p)}
                   >
                     <SelectTrigger className="h-11 w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {SYSTEM_ROLES.map((r) => (
+                      {(p.role === 'owner' ? SYSTEM_ROLES : assignableRoles).map((r) => (
                         <SelectItem key={r.name} value={r.name}>
                           {r.nameAr}
                         </SelectItem>
@@ -352,13 +356,13 @@ export default function UsersPage() {
                       <Select
                         value={p.role ?? 'viewer'}
                         onValueChange={(v) => onRoleChange(p.id, v)}
-                        disabled={p.id === user?.id}
+                        disabled={roleLocked(p)}
                       >
                         <SelectTrigger className="h-10 w-[200px]" aria-label={`دور ${p.full_name_ar ?? p.full_name ?? 'المستخدم'}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {SYSTEM_ROLES.map((r) => (
+                          {(p.role === 'owner' ? SYSTEM_ROLES : assignableRoles).map((r) => (
                             <SelectItem key={r.name} value={r.name}>
                               {r.nameAr}
                             </SelectItem>
@@ -457,7 +461,7 @@ export default function UsersPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {SYSTEM_ROLES.map((r) => (
+                  {assignableRoles.map((r) => (
                     <SelectItem key={r.name} value={r.name}>
                       {r.nameAr}
                     </SelectItem>

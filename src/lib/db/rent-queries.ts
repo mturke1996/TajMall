@@ -9,7 +9,7 @@ import {
   buildMergedTenantRentCalendar,
   normalizeRpcRentCalendar,
 } from '@/lib/rent-calendar-from-charges';
-import { qk } from '@/lib/db/queries';
+import { invalidateMoneyQueries } from '@/lib/db/invalidate';
 import { setTenantRentMonthStatus } from '@/lib/db/set-rent-month-status';
 import { useTenantChargesForTenant, useTenantLeaseContracts } from '@/lib/db/mall-queries';
 import type { RentPricing } from '@/lib/rent-allocation';
@@ -91,13 +91,9 @@ export function invalidateRentCalendarQueries(
   tenantId: string,
   months: string[],
 ) {
-  qc.invalidateQueries({ queryKey: ['tenant_charges'] });
+  // charges, their accruals and links move the ledger, the receivables and every rent figure
+  invalidateMoneyQueries(qc);
   qc.invalidateQueries({ queryKey: ['lease_contracts'] });
-  qc.invalidateQueries({
-    predicate: (q) => q.queryKey[0] === 'tenant_rent_calendar',
-  });
-  qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
-  qc.invalidateQueries({ queryKey: ['mall_rent_charges_year'] });
   qc.invalidateQueries({ queryKey: rentQk.exemptMonths(tenantId) });
   qc.invalidateQueries({ queryKey: rentQk.priceBands(tenantId) });
   for (const month of months) {
@@ -126,10 +122,7 @@ export function useSetTenantRentMonthStatus() {
         journalEntryId: input.journalEntryId,
         amount: input.amount,
       }),
-    onSuccess: (_d, vars) => {
-      invalidateRentCalendarQueries(qc, vars.tenantId, vars.months);
-      qc.invalidateQueries({ queryKey: ['journal_entries'] });
-    },
+    onSuccess: (_d, vars) => invalidateRentCalendarQueries(qc, vars.tenantId, vars.months),
   });
 }
 
@@ -145,11 +138,7 @@ export function useEnsureTenantRentCharges() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (_d, vars) => {
-      qc.invalidateQueries({ queryKey: ['tenant_charges'] });
-      qc.invalidateQueries({ queryKey: rentQk.calendar(vars.tenantId, currentYear()) });
-      qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
-    },
+    onSuccess: (_d, vars) => invalidateRentCalendarQueries(qc, vars.tenantId, vars.months),
   });
 }
 
@@ -340,11 +329,7 @@ export function useSetTenantRentPriceBands() {
         };
       };
     },
-    onSuccess: (_d, vars) => {
-      invalidateRentCalendarQueries(qc, vars.tenantId, []);
-      qc.invalidateQueries({ queryKey: ['tenant_rent_summary_for_month'] });
-      qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
-    },
+    onSuccess: (_d, vars) => invalidateRentCalendarQueries(qc, vars.tenantId, []),
   });
 }
 

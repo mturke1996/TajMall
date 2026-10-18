@@ -171,8 +171,9 @@ export const RENT_MONTH_STATUS_LABEL: Record<RentMonthStatus, string> = {
   paid: 'مدفوع',
   partial: 'جزئي',
   unpaid: 'غير مدفوع',
-  no_charge: 'بلا مطالبة',
-  exempt: 'بدون مطالبة',
+  // owed but no charge recorded yet — not the same as a month excluded from the claim
+  no_charge: 'لم تُسجَّل مطالبته',
+  exempt: 'مستبعد من المطالبة',
   na: '—',
 };
 

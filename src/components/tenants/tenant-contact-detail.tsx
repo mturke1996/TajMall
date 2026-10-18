@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Loader2, Receipt, BookOpen, Banknote } from 'lucide-react';
+import { Loader2, Receipt, BookOpen, Banknote, ScrollText } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MobileTransactionList } from '@/components/data/mobile-transaction-list';
@@ -12,6 +12,7 @@ import { TenantProfileSidebar } from '@/components/tenants/tenant-profile-sideba
 import { TenantRentCalendarPanel } from '@/components/tenants/tenant-rent-calendar-panel';
 import { TenantProfileCharges } from '@/components/tenants/tenant-profile-charges';
 import { TenantRentHistory } from '@/components/tenants/tenant-rent-history';
+import { TenantRentStatement } from '@/components/tenants/tenant-rent-statement';
 import { TenantJournalEntryCard } from '@/components/journals/tenant-journal-entry-card';
 import { journalEntryIsVoided } from '@/lib/journal-entry-display';
 import type { JournalEntryRow } from '@/lib/db/journal-queries';
@@ -44,16 +45,14 @@ export function TenantContactDetail({
   journalEntries: JournalEntryRow[];
   jeLoading: boolean;
   rentPaymentsCount: number;
-  onEdit: () => void;
+  /** absent for people who may not edit the file */
+  onEdit?: () => void;
   /** open rent collection, optionally with months selected; absent when the user may not collect */
   onCollect?: (months?: string[]) => void;
 }) {
   const claimStart = rent.rent_claim_start ?? contact.contract_start ?? null;
-  const contractStartYear = contact.contract_start
-    ? new Date(contact.contract_start).getFullYear()
-    : rent.rent_claim_start
-      ? new Date(rent.rent_claim_start).getFullYear()
-      : null;
+  const startDate = contact.contract_start || rent.rent_claim_start;
+  const contractStartYear = startDate ? Number(String(startDate).slice(0, 4)) || null : null;
 
   const { activeJournalEntries, voidedJournalEntries } = useMemo(() => {
     const voided: JournalEntryRow[] = [];
@@ -89,6 +88,10 @@ export function TenantContactDetail({
                   >
                     <Banknote className="h-4 w-4 shrink-0" />
                     تقويم الإيجار
+                  </TabsTrigger>
+                  <TabsTrigger value="statement" className={TAB_TRIGGER}>
+                    <ScrollText className="h-4 w-4 shrink-0" />
+                    كشف الحساب
                   </TabsTrigger>
                   <TabsTrigger
                     value="charges"
@@ -132,6 +135,17 @@ export function TenantContactDetail({
                   claimStart={claimStart}
                   onCollect={onCollect ? (month) => onCollect([month]) : undefined}
                   className="rounded-none border-0 shadow-none"
+                />
+              </TabsContent>
+
+              <TabsContent value="statement" className="mt-0">
+                <TenantRentStatement
+                  contact={contact}
+                  monthlyRent={monthlyRent}
+                  claimStart={claimStart}
+                  contractStartYear={contractStartYear}
+                  transactions={transactions}
+                  journalEntries={journalEntries}
                 />
               </TabsContent>
 

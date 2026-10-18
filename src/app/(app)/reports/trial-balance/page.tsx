@@ -63,7 +63,9 @@ function TrialBalanceContent() {
         total_credit: Number(r.closing_credit || 0),
         balance: Number(r.closing_balance || 0),
       };
-    });
+    })
+      // the database returns accounts in no fixed order: by code, as on paper
+      .sort((a, b) => String(a.code ?? '').localeCompare(String(b.code ?? ''), 'en'));
   }, [rawBalanceData]);
 
   const summary = useMemo((): TrialBalanceSummary => {
@@ -100,7 +102,8 @@ function TrialBalanceContent() {
     () => Math.abs(summary.total_closing_debit - summary.total_closing_credit),
     [summary],
   );
-  const isBalanced = difference < 0.01;
+  // LYD has 3 decimals: any difference of a thousandth or more is a real imbalance
+  const isBalanced = difference < 0.0005;
 
   const pdfExport = useMemo(
     () =>

@@ -23,6 +23,7 @@ import { PayrollRunPanel } from '@/components/payroll/payroll-run-panel';
 import { PayrollAdjustmentsPanel } from '@/components/payroll/payroll-adjustments-panel';
 import { PayrollAdvancesPanel } from '@/components/payroll/payroll-advances-panel';
 import { PayrollStructuresPanel } from '@/components/payroll/payroll-structures-panel';
+import { Card } from '@/components/ui/card';
 
 const TABS = ['run', 'adjustments', 'advances', 'structures'] as const;
 type Tab = (typeof TABS)[number];
@@ -85,7 +86,15 @@ function PayrollScreen() {
       />
 
       <div className="flex min-w-0 flex-col gap-5 px-4 py-5 sm:px-5 md:px-8 md:py-6">
-        {missing ? (
+        {!roleLoading && !canManage ? (
+          // the database shows payroll lines to these roles only: an empty screen would look like "no payroll"
+          <Card className="flex flex-col items-center gap-2 p-10 text-center">
+            <p className="text-sm font-medium">الرواتب متاحة للمحاسب ومدير النظام والمالك</p>
+            <p className="max-w-md text-[13px] text-ink-mute">
+              اطلب من المدير تعديل دورك إن كان عملك يتطلب إعداد كشوف الرواتب أو صرفها.
+            </p>
+          </Card>
+        ) : missing ? (
           <PayrollSchemaMissing />
         ) : loading ? (
           <div className="flex flex-col gap-4">

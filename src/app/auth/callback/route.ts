@@ -9,7 +9,12 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const origin = url.origin;
   const next = url.searchParams.get('next') ?? '/login/reset-password';
-  const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/login/reset-password';
+  // a path in this app only: "//host" and "/\\host" are other sites to a browser
+  const safeNext = /^\/(?![\/\\])/.test(next) ? next : '/login/reset-password';
+  // the reset page accepts a session only when it was just created from an emailed link
+  const landing = safeNext.startsWith('/login/reset-password')
+    ? `${safeNext}${safeNext.includes('?') ? '&' : '?'}recovery=1`
+    : safeNext;
 
   const code = url.searchParams.get('code');
   const token_hash = url.searchParams.get('token_hash');
@@ -20,7 +25,7 @@ export async function GET(request: Request) {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(`${origin}${safeNext}`);
+      return NextResponse.redirect(`${origin}${landing}`);
     }
     console.error('auth callback code:', error.message);
     return NextResponse.redirect(
@@ -31,7 +36,7 @@ export async function GET(request: Request) {
   if (token_hash && type) {
     const { error } = await supabase.auth.verifyOtp({ token_hash, type });
     if (!error) {
-      return NextResponse.redirect(`${origin}${safeNext}`);
+      return NextResponse.redirect(`${origin}${landing}`);
     }
     console.error('auth callback otp:', error.message);
     return NextResponse.redirect(

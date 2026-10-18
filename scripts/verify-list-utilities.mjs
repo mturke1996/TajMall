@@ -62,4 +62,27 @@ check('negative numeric text stays numeric', () => assert.match(csv, /,-12\.5/))
 check('+ and @ are prefixed', () => assert.match(csv, /'\+cmd,'@sum/));
 check('UTF-8 BOM for Excel', () => assert.equal(csv.charCodeAt(0), 0xfeff));
 
+// Typed amounts: Arabic digits and the Arabic decimal mark, thousands separators, 3 decimals at most.
+const { parseAmountInput, formatMoney, formatDate } = await import('../src/lib/utils.ts');
+check('amount: Arabic digits and decimal mark', () => assert.equal(parseAmountInput('١٥٠٫٥'), 150.5));
+check('amount: thousands separator', () => assert.equal(parseAmountInput('1,250.5'), 1250.5));
+check('amount: comma as decimal mark', () => assert.equal(parseAmountInput('150,5'), 150.5));
+check('amount: 4 decimals rejected', () => assert.ok(Number.isNaN(parseAmountInput('0.0004'))));
+check('amount: negative rejected', () => assert.ok(Number.isNaN(parseAmountInput('-30'))));
+check('amount: empty is zero', () => assert.equal(parseAmountInput(''), 0));
+
+// Money: a negative balance always shows its minus; a value that rounds to 0 never shows "−0".
+check('money: negative keeps its sign', () => assert.match(formatMoney(-500, 'LYD'), /\u2212500/));
+check('money: rounding to zero has no sign', () => assert.doesNotMatch(formatMoney(100.1 + 200.2 - 300.3, 'LYD'), /\u2212/));
+check('money: signed positive', () => assert.match(formatMoney(5, 'LYD', { signed: true }), /\+5/));
+
+// A calendar day is shown as that day, whatever the time zone.
+check('date: YYYY-MM-DD stays on its day', () => assert.match(formatDate('2026-03-01'), /^01 /));
+
+// WhatsApp: Libyan numbers written every common way reach the same wa.me number.
+const { normalizeLibyanPhone } = await import('../src/lib/whatsapp.ts');
+for (const raw of ['0912345678', '+218 91 234 5678', '+218 091 234 5678', '00218912345678', '٠٩١٢٣٤٥٦٧٨']) {
+  check(`phone: ${raw}`, () => assert.equal(normalizeLibyanPhone(raw), '218912345678'));
+}
+
 console.log(`\n${passed} checks passed`);

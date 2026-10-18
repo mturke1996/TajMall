@@ -25,7 +25,7 @@ const COUNT_LABEL: Partial<Record<RentAccountMonthKind, string>> = {
   paid: 'مدفوع',
   partial: 'جزئي',
   due: 'غير مدفوع',
-  uncharged: 'بلا مطالبة',
+  uncharged: 'لم تُسجَّل مطالبته',
   upcoming: 'قادم',
 };
 
@@ -160,7 +160,7 @@ export function TenantRentCalendarPanel({
               </Button>
               <Button type="button" size="sm" variant="outline" className="h-9 gap-1.5 touch-manipulation" onClick={() => setExemptOpen(true)}>
                 <CalendarOff className="h-4 w-4" aria-hidden />
-                أشهر بلا مطالبة
+                بداية المطالبة والاستبعاد
               </Button>
               <Button type="button" size="sm" variant="outline" className="h-9 gap-1.5 touch-manipulation" onClick={() => setStatusOpen(true)}>
                 <Link2 className="h-4 w-4" aria-hidden />
@@ -194,7 +194,7 @@ export function TenantRentCalendarPanel({
                   : `أشهر بدأت دون مطالبة مسجّلة (${account.unchargedMonths.length}): `}
                 {formatMonthRangesAr(account.unchargedMonths)}. تُحسب مستحقة بسعرها (
                 <span className="tabular-nums">{formatMoney(account.owedUncharged, 'LYD')}</span>) وتُنشأ مطالبتها عند
-                التحصيل. إن لم تكن مستحقة فاجعلها «بلا مطالبة».
+                التحصيل. إن لم تكن مستحقة فاستبعدها من «بداية المطالبة والاستبعاد».
               </span>
             </p>
             {canWrite && (

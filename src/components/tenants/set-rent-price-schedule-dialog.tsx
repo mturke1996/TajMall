@@ -32,8 +32,9 @@ import {
   type RentPriceBandDraft,
 } from '@/lib/rent-price-schedule';
 import { currentYear, formatMonthLabelAr } from '@/lib/rent-months';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, arabicCount } from '@/lib/utils';
 import { toast } from 'sonner';
+import { friendlyError } from '@/lib/user-messages';
 
 const AR_MONTH_OPTIONS = [
   { value: 1, label: 'يناير' },
@@ -113,7 +114,8 @@ export function SetRentPriceScheduleDialog({
   onOpenChange,
 }: Props) {
   const formId = useId();
-  const { data: savedBands = [], isLoading } = useTenantRentPriceBands(tenantId);
+  const { data: savedData, isLoading } = useTenantRentPriceBands(tenantId);
+  const savedBands = useMemo(() => savedData ?? [], [savedData]);
   const saveBands = useSetTenantRentPriceBands();
   const yearOptions = useMemo(() => {
     const base = years.length > 0 ? years : [currentYear()];
@@ -134,19 +136,15 @@ export function SetRentPriceScheduleDialog({
         notes: b.notes,
       }, `b-${i}`)));
     } else {
-      const y = yearOptions[0] ?? currentYear();
+      // one band for the rest of this year at the rent already in force — never an invented price
+      const now = new Date();
+      const y = now.getFullYear();
       setDrafts([
         {
           ...emptyBandDraft(y, 'b-0'),
-          fromMonth: 1,
-          toMonth: 3,
-          amount: monthlyRent > 0 ? String(monthlyRent) : '1000',
-        },
-        {
-          ...emptyBandDraft(y, 'b-1'),
-          fromMonth: 4,
+          fromMonth: now.getMonth() + 1,
           toMonth: 12,
-          amount: monthlyRent > 0 ? String(Math.round(monthlyRent * 1.2)) : '1500',
+          amount: monthlyRent > 0 ? String(monthlyRent) : '',
         },
       ]);
     }
@@ -204,7 +202,7 @@ export function SetRentPriceScheduleDialog({
       const amountN = sync?.amount_changed ?? data?.unpaid_charges_updated ?? 0;
       const frozenN = sync?.frozen_settled ?? 0;
       const parts: string[] = ['تم حفظ جدول الأسعار'];
-      if (amountN > 0) parts.push(`تحديث مبلغ ${amountN} شهر`);
+      if (amountN > 0) parts.push(`تحديث مبلغ ${arabicCount(amountN, ['شهر واحد', 'شهرين', 'أشهر', 'شهراً'])}`);
       if (paidN > 0) {
         parts.push(
           `${paidN} ${paidN === 1 ? 'شهر أصبح/بقي مدفوعاً' : 'أشهر أصبحت/بقيت مدفوعة'} بعد مطابقة السعر`,
@@ -218,7 +216,7 @@ export function SetRentPriceScheduleDialog({
       toast.success(parts.join(' · '));
       onOpenChange(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'تعذّر حفظ الجدول');
+      toast.error(friendlyError(e, 'تعذّر حفظ الجدول'));
     }
   };
 
@@ -228,7 +226,7 @@ export function SetRentPriceScheduleDialog({
       toast.success('أُزيل جدول الأسعار — يُستخدم الإيجار الشهري الافتراضي');
       onOpenChange(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'تعذّر المسح');
+      toast.error(friendlyError(e, 'تعذّر المسح'));
     }
   };
 

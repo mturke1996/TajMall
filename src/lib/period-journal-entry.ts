@@ -545,6 +545,7 @@ export function buildPeriodCashCollectionsSummary(
     tx_date: string;
     amount: string | number;
     method: string;
+    status?: string | null;
     description: string | null;
     category?: { id: string; code: string; name_ar: string } | null;
     cashbox?: { id: string; code?: string; name_ar: string; kind?: CashboxKind | null } | null;
@@ -558,6 +559,8 @@ export function buildPeriodCashCollectionsSummary(
 ): PeriodCashCollectionsSummary {
   const filtered = transactions.filter((t) => {
     if (!t.tx_date) return false;
+    // only money actually in the books (a row without a status is an older caller's posted row)
+    if (t.status && t.status !== 'POSTED' && t.status !== 'RECONCILED') return false;
     const d = t.tx_date.slice(0, 10);
     return d >= options.startDate && d <= options.endDate;
   });
@@ -2448,7 +2451,8 @@ async function fetchRawLinesForJournalIds(ids: string[]): Promise<RawLine[]> {
   return enrichRawLinesCashboxKinds(allLines);
 }
 
-const PERIOD_LINES_PAGE = 5000;
+/** PostgREST returns at most 1,000 rows per request; a bigger page would look like the last one. */
+const PERIOD_LINES_PAGE = 1000;
 
 function mapPeriodRpcRowsToModel(
   period: ReportPeriod,
@@ -3096,7 +3100,7 @@ async function fetchAllPeriodJournalEntriesPaged(input: {
 }): Promise<{ entries: JournalEntryRow[]; truncated: boolean }> {
   const supabase = createSupabaseBrowserClient();
   const status = input.statusFilter ?? 'POSTED';
-  const pageSize = 5000;
+  const pageSize = 1000;
   const entries: JournalEntryRow[] = [];
   let offset = 0;
 

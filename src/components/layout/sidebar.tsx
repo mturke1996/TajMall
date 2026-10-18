@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NAV } from "./nav-items";
 import { isNavActive } from "./nav-active";
@@ -16,12 +16,15 @@ export function Sidebar({
   onToggle,
   className,
   previewAllItems = false,
+  search,
 }: {
   collapsed?: boolean;
   onToggle?: () => void;
   className?: string;
   /** Development gallery only: show every item without a signed-in user. */
   previewAllItems?: boolean;
+  /** the current query string, so a tab change (/mall?tab=…) moves the highlight */
+  search?: string | null;
 }) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
@@ -99,7 +102,7 @@ export function Sidebar({
               if (!previewAllItems && item.permission && !can(item.permission)) {
                 return null;
               }
-              const active = isNavActive(pathname, item.href);
+              const active = isNavActive(pathname, item.href, search);
               const Icon = item.icon;
               return (
                 <Link
@@ -176,4 +179,10 @@ export function Sidebar({
       </div>
     </aside>
   );
+}
+
+/** The sidebar, following the query string too. Rendered inside <Suspense> (useSearchParams). */
+export function SidebarFollowingSearch(props: Omit<Parameters<typeof Sidebar>[0], 'search'>) {
+  const params = useSearchParams();
+  return <Sidebar {...props} search={params?.toString() ?? ''} />;
 }

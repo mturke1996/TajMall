@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { QueryClient, QueryClientProvider, keepPreviousData } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { DirectionProvider } from "@radix-ui/react-direction";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,7 +15,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 5 * 60_000,       // 5 min — بيانات جاهزة عند التنقل
             gcTime: 30 * 60 * 1000,     // 30 min في الذاكرة
-            placeholderData: keepPreviousData,
+            // No placeholder data: after switching year, account or tenant, the previous figures must
+            // not stay on screen (or go into a PDF) under the new title while the new ones load.
             refetchOnWindowFocus: false,
             refetchOnReconnect: true,
             retry: 1,

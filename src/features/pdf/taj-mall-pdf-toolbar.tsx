@@ -74,8 +74,13 @@ export function TajMallPdfToolbar({
     revokePreviewUrl();
   }, [fileName, cacheKey, revokePreviewUrl]);
 
+  /**
+   * The file being previewed is reused for download and share from the preview, so they match what was
+   * seen. Anywhere else the document is built again: the page's figures may have changed since the last
+   * file (an edited line, a newer period), and an old file must never be handed out under a new state.
+   */
   async function ensureBlob(): Promise<Blob> {
-    if (blobRef.current) return blobRef.current;
+    if (blobRef.current && previewOpen) return blobRef.current;
     const blob = await renderPdfBlob(render);
     blobRef.current = blob;
     return blob;

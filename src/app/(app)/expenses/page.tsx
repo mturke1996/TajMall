@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { ArrowUpFromLine, Receipt, Wallet, Hash, SlidersHorizontal } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
-import { DataToolbar, type DateRangePreset, isInDatePreset } from '@/components/data/toolbar';
+import { DataToolbar, type DateRangePreset, datePresetLabel, isInDatePreset } from '@/components/data/toolbar';
 import { exportTransactionsCsv, filterTransactions } from '@/lib/transactions-filter';
 import { TransactionsTable } from '@/components/data/transactions-table';
 import { Stat } from '@/components/dashboard/stat';
@@ -16,6 +16,7 @@ import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { ExpensesPdfDialog } from '@/features/pdf/expenses-pdf-dialog';
 import { useHighlightScroll } from '@/lib/hooks/use-highlight-scroll';
 import { transactionHighlightDomId } from '@/components/data/transactions-table';
+import { todayISODate } from '@/lib/utils';
 
 const CategoryBreakdown = dynamic(
   () =>
@@ -73,7 +74,7 @@ export default function ExpensesPage() {
   // Stats from category-filtered rows
   const total = categoryFiltered.reduce((s, r) => s + Number(r.amount), 0);
   const count = categoryFiltered.length;
-  const avg = count ? Math.round(total / count) : 0;
+  const avg = count ? Math.round((total / count) * 1000) / 1000 : 0;
 
   // Breakdown by category (from date-filtered rows, so it shows general ratios)
   const byCategory = useMemo(() => {
@@ -117,8 +118,8 @@ export default function ExpensesPage() {
             <TajMallPdfToolbar
               fileName={
                 selectedCategoryName
-                  ? `مصروفات-${selectedCategoryName}-${new Date().toISOString().slice(0, 10)}`
-                  : `مصروفات-${new Date().toISOString().slice(0, 10)}`
+                  ? `مصروفات-${selectedCategoryName}-${todayISODate()}`
+                  : `مصروفات-${todayISODate()}`
               }
               disabled={categoryFiltered.length === 0}
               openLabel="عرض PDF سريع"
@@ -127,7 +128,9 @@ export default function ExpensesPage() {
                 return (
                   <ExpensesReportPDF
                     titleAr={selectedCategoryName ? `كشف مصروفات: ${selectedCategoryName}` : 'كشف المصروفات العمومية'}
-                    subtitleAr={`عدد القيود: ${categoryFiltered.length} — بحسب تصفية الجدول`}
+                    periodLabel={datePresetLabel(datePreset)}
+                    categoryLabel={selectedCategoryName ?? undefined}
+                    subtitleAr={`${datePresetLabel(datePreset)}${query.trim() ? ` · بحث: ${query.trim()}` : ''}`}
                     rows={categoryFiltered}
                     groupByPaymentMethod={true}
                     includeSummaries={true}
@@ -208,7 +211,8 @@ export default function ExpensesPage() {
           searchPlaceholder="ابحث في المصروفات…"
           count={categoryFiltered.length}
           onSearch={setQuery}
-          onExport={() => exportTransactionsCsv(categoryFiltered, `مصروفات-${new Date().toISOString().slice(0, 10)}`)}
+          searchValue={query}
+          onExport={() => exportTransactionsCsv(categoryFiltered, `مصروفات-${todayISODate()}`)}
           datePreset={datePreset}
           onDatePreset={setDatePreset}
         >
@@ -238,6 +242,8 @@ export default function ExpensesPage() {
       </div>
 
       <ExpensesPdfDialog
+        // opening it starts from the category chosen on the page
+        key={pdfModalOpen ? `open-${selectedCategoryId}` : 'closed'}
         open={pdfModalOpen}
         onOpenChange={setPdfModalOpen}
         categories={categories}

@@ -40,6 +40,7 @@ import { paymentMethodToUiMethod } from '@/lib/voucher-db';
 import { formatDocumentPdfExportNames } from '@/lib/document-pdf-export';
 import { toast } from 'sonner';
 import { usePermission } from '@/lib/supabase/use-permission';
+import { parseAmountInput } from '@/lib/utils';
 
 const METHODS: ReceiptVoucherPdfModel['method'][] = ['نقدي', 'صك', 'حوالة'];
 
@@ -95,7 +96,7 @@ export default function EditReceiptPage() {
   const totalAmount = useMemo(
     () =>
       lines.reduce((s, l) => {
-        const n = Number(l.amount);
+        const n = parseAmountInput(l.amount);
         return s + (Number.isFinite(n) ? n : 0);
       }, 0),
     [lines],
@@ -111,7 +112,7 @@ export default function EditReceiptPage() {
       method,
       lines: lines.map((l) => ({
         description: l.description || '—',
-        amount: Number(l.amount) || 0,
+        amount: parseAmountInput(l.amount) || 0,
       })),
       total: totalAmount,
       notes: notes || undefined,
@@ -140,9 +141,13 @@ export default function EditReceiptPage() {
     const normalizedLines = lines
       .map((l) => ({
         description: l.description.trim(),
-        amount: Number(l.amount) || 0,
+        amount: parseAmountInput(l.amount),
       }))
       .filter((l) => l.description || l.amount > 0);
+    if (normalizedLines.some((l) => !Number.isFinite(l.amount) || l.amount < 0)) {
+      toast.error('مبلغ غير صالح في أحد البنود — أدخل رقماً موجباً بثلاث خانات عشرية على الأكثر.');
+      return;
+    }
     if (normalizedLines.reduce((s, l) => s + l.amount, 0) <= 0) {
       toast.error('أضف بنداً بمبلغ أكبر من صفر');
       return;

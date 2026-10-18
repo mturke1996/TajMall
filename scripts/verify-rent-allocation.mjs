@@ -243,6 +243,56 @@ test('labels: month ranges, Arabic counts, price source and next change', () => 
   assert.equal(describeRentPrice('2026-10', P(1000, [], 1800)).source, 'lease');
 });
 
+// ── 1c. Statement of account ───────────────────────────────────────────────
+const { buildTenantStatement } = await import('../src/lib/tenant-statement.ts');
+const rcpt = (id, number, tx_date, amount, extra = {}) => ({
+  id, number, tx_date, amount, status: 'POSTED', kind: 'REVENUE', category: { code: 'REV-RNT' }, ...extra,
+});
+
+test('statement: started months are debits, receipts credits, the balance runs in date order', () => {
+  const acc = buildTenantRentAccount({
+    calendars: [cal(2026, { '2026-01': charged(1000, 1000), '2026-02': charged(1000, 500), '2026-05': charged(1000, 1000) })],
+    pricing: P(1000),
+    claimStart: '2026-01-01',
+    now: '2026-03',
+  });
+  const st = buildTenantStatement({
+    account: acc,
+    receipts: [
+      rcpt('a', 10, '2026-01-01', 1000),
+      rcpt('b', 11, '2026-02-10', 1500),
+      rcpt('v', 12, '2026-02-11', 700, { status: 'VOIDED' }),
+      rcpt('s', 13, '2026-02-12', 300, { category: { code: 'REV-SRV' } }),
+    ],
+    unlinkedTotal: 0,
+  });
+  // Jan, Feb, Mar charged (May paid ahead, not debited); two counted receipts
+  assert.deepEqual(st.rows.map((r) => r.key), ['m-2026-01', 't-a', 'm-2026-02', 't-b', 'm-2026-03']);
+  assert.deepEqual(st.rows.map((r) => r.balance), [1000, 0, 1000, -500, 500]);
+  assert.equal(st.totalDebit, 3000);
+  assert.equal(st.totalCredit, 2500);
+  assert.equal(st.closing, 500);
+  // owed now 1500 (half of Feb + Mar) − 1000 paid ahead for May = 500
+  assert.deepEqual(st.reconciliation, { owedNow: 1500, paidAhead: 1000, unlinked: 0, difference: 0 });
+});
+
+test('statement: a year carries the earlier balance as its opening; an unlinked receipt is explained', () => {
+  const acc = buildTenantRentAccount({
+    calendars: [cal(2025, { '2025-12': charged(800, 0) }), cal(2026, { '2026-01': charged(800, 800) })],
+    pricing: P(800),
+    claimStart: '2025-12-01',
+    now: '2026-01',
+  });
+  const receipts = [rcpt('a', 1, '2026-01-05', 800), rcpt('b', 2, '2026-01-20', 200.5)];
+  const year = buildTenantStatement({ account: acc, receipts, unlinkedTotal: 200.5, year: 2026 });
+  assert.equal(year.opening, 800);
+  assert.equal(year.closing, 599.5);
+  assert.equal(year.reconciliation, null);
+  const whole = buildTenantStatement({ account: acc, receipts, unlinkedTotal: 200.5 });
+  assert.equal(whole.closing, 599.5);
+  assert.deepEqual(whole.reconciliation, { owedNow: 800, paidAhead: 0, unlinked: 200.5, difference: 0 });
+});
+
 // ── 2. Against the database functions ───────────────────────────────────────
 const { createReplica, actAs } = await import('./lib/pglite-replica.mjs');
 const { db } = await createReplica();

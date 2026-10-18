@@ -19,15 +19,16 @@ import {
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import type { ReceiptVoucherPdfModel } from '@/features/pdf/ReceiptVoucherPDF';
-import { useCreateReceiptVoucher } from '@/lib/db/document-queries';
+import { useCreateReceiptVoucher, useReceiptVouchers } from '@/lib/db/document-queries';
 import { useCashboxes, useCategories } from '@/lib/db/queries';
 import { receiptUiMethodToPaymentMethod } from '@/lib/receipt-voucher-db';
 import {
   formatDocumentPdfExportNames,
   formatSuggestedDocNumber,
+  nextDocNumber,
 } from '@/lib/document-pdf-export';
 import { toast } from 'sonner';
-import { preferredCashboxId, todayISODate } from '@/lib/utils';
+import { preferredCashboxId, todayISODate, parseAmountInput } from '@/lib/utils';
 
 const METHODS: ReceiptVoucherPdfModel['method'][] = ['نقدي', 'صك', 'حوالة'];
 
@@ -37,7 +38,14 @@ export default function NewReceiptPage() {
   const { data: cashboxes = [] } = useCashboxes();
   const { data: revenueCategories = [] } = useCategories('REVENUE');
 
+  const { data: existingReceipts } = useReceiptVouchers();
   const [number, setNumber] = useState(() => formatSuggestedDocNumber('RCV', 1));
+  const [numberTouched, setNumberTouched] = useState(false);
+  // suggest the next free number once the existing receipts are known, unless the user typed one
+  useEffect(() => {
+    if (numberTouched || !existingReceipts) return;
+    setNumber(nextDocNumber('RCV', existingReceipts.map((r) => r.receipt_number)));
+  }, [existingReceipts, numberTouched]);
   const [receiptDate, setReceiptDate] = useState(() => todayISODate());
   const [payer, setPayer] = useState('');
   const [cashboxId, setCashboxId] = useState('');
@@ -56,7 +64,7 @@ export default function NewReceiptPage() {
   const totalAmount = useMemo(
     () =>
       lines.reduce((s, l) => {
-        const n = Number(l.amount);
+        const n = parseAmountInput(l.amount);
         return s + (Number.isFinite(n) ? n : 0);
       }, 0),
     [lines],
@@ -72,7 +80,7 @@ export default function NewReceiptPage() {
       method,
       lines: lines.map((l) => ({
         description: l.description || '—',
-        amount: Number(l.amount) || 0,
+        amount: parseAmountInput(l.amount) || 0,
       })),
       total: totalAmount,
       notes: notes || undefined,
@@ -100,9 +108,13 @@ export default function NewReceiptPage() {
     const normalizedLines = lines
       .map((l) => ({
         description: l.description.trim(),
-        amount: Number(l.amount) || 0,
+        amount: parseAmountInput(l.amount),
       }))
       .filter((l) => l.description || l.amount > 0);
+    if (normalizedLines.some((l) => !Number.isFinite(l.amount) || l.amount < 0)) {
+      toast.error('مبلغ غير صالح في أحد البنود — أدخل رقماً موجباً بثلاث خانات عشرية على الأكثر.');
+      return;
+    }
     if (normalizedLines.reduce((s, l) => s + l.amount, 0) <= 0) {
       toast.error('أضف بنداً بمبلغ أكبر من صفر');
       return;
@@ -169,7 +181,15 @@ export default function NewReceiptPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="num">رقم الإيصال</Label>
-              <Input id="num" value={number} onChange={(e) => setNumber(e.target.value)} dir="ltr" />
+              <Input
+                id="num"
+                value={number}
+                onChange={(e) => {
+                  setNumberTouched(true);
+                  setNumber(e.target.value);
+                }}
+                dir="ltr"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="date">التاريخ</Label>

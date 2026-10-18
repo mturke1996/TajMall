@@ -51,20 +51,28 @@ export function useBudgetActuals(year: number) {
     queryKey: budgetQk.actuals(year),
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('category_id, amount, tx_date')
-        .eq('status', 'POSTED')
-        .gte('tx_date', `${year}-01-01`)
-        .lte('tx_date', `${year}-12-31`);
-      if (error) throw error;
+      // pages of 1,000 (the most PostgREST returns at once), ordered so no row is skipped or repeated
+      const data: Array<Record<string, unknown>> = [];
+      for (let from = 0; ; from += 1000) {
+        const { data: page, error } = await supabase
+          .from('transactions')
+          .select('id, category_id, amount, tx_date')
+          .eq('status', 'POSTED')
+          .gte('tx_date', `${year}-01-01`)
+          .lte('tx_date', `${year}-12-31`)
+          .order('id')
+          .range(from, from + 999);
+        if (error) throw error;
+        data.push(...((page ?? []) as Array<Record<string, unknown>>));
+        if (!page || page.length < 1000) break;
+      }
 
       // نستخدم فاصل '|' بدل '-' لأن معرّفات UUID تحتوي شرطات، فيكسر split('-')
       // قيمة category_id ويجعل month = NaN.
       const byKey = new Map<string, { category_id: string; month: number; amount: number }>();
-      for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      for (const row of data) {
         const categoryId = row.category_id as string;
-        const month = new Date(row.tx_date as string).getMonth() + 1;
+        const month = Number(String(row.tx_date).slice(5, 7));
         const key = `${categoryId}|${month}`;
         const existing = byKey.get(key);
         const amt = Number(row.amount ?? 0);

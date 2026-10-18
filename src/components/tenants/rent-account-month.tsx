@@ -42,7 +42,7 @@ export const RENT_ACCOUNT_KIND: Record<
     swatch: 'border-danger-line bg-danger-soft',
   },
   uncharged: {
-    label: 'مستحق بلا مطالبة',
+    label: 'مستحق بلا مطالبة مسجّلة',
     icon: CircleDashed,
     ink: 'text-danger-ink',
     cell: 'border-dashed border-danger-line bg-card',
@@ -89,11 +89,11 @@ export function rentAccountMonthStatus(m: RentAccountMonth): string {
     case 'due':
       return 'غير مدفوع';
     case 'uncharged':
-      return 'بلا مطالبة';
+      return 'لم تُسجَّل مطالبته';
     case 'upcoming':
       return m.paid > 0 ? `يبقى ${plain(m.remaining)}` : 'قادم';
     case 'exempt':
-      return m.exemptReason === 'manual' ? 'بدون مطالبة' : 'قبل بدء المطالبة';
+      return m.exemptReason === 'manual' ? 'مستبعد من المطالبة' : 'قبل بدء المطالبة';
     case 'no_price':
       return 'بلا سعر';
   }

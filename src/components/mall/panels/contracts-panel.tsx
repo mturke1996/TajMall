@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import Link from 'next/link';
-import { cn, formatMoney, formatDate } from '@/lib/utils';
+import { cn, formatMoney, formatDate, arabicCount } from '@/lib/utils';
 import { useContacts } from '@/lib/db/queries';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
@@ -250,7 +250,7 @@ export function MallContractsPanel() {
                           {formatDate(contract.start_date)} — {formatDate(contract.end_date)}
                           {endingSoon && (
                             <span className="block text-[12px] text-warning-ink">
-                              {daysLeft === 0 ? 'ينتهي اليوم' : `ينتهي بعد ${daysLeft} يوماً`}
+                              {daysLeft === 0 ? 'ينتهي اليوم' : `ينتهي بعد ${arabicCount(daysLeft, ['يوم واحد', 'يومين', 'أيام', 'يوماً'])}`}
                             </span>
                           )}
                         </td>

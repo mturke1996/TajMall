@@ -106,7 +106,7 @@ export function LedgerDesktopTable({ lines }: { lines: LedgerLineView[] }) {
                   line.debit > 0 ? 'text-success-ink' : 'text-muted-foreground/40',
                 )}
               >
-                {line.debit > 0 ? `+${formatMoney(line.debit, '')}` : '—'}
+                {line.debit > 0 ? formatMoney(line.debit, '', { signed: true }) : '—'}
               </td>
               <td
                 className={cn(

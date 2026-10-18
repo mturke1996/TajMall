@@ -20,8 +20,20 @@ const arabicMonths = [
   'ديسمبر',
 ];
 
+/**
+ * `new Date('2026-03-01')` is midnight UTC, which is still February west of Greenwich. A date-only
+ * string is a calendar day, so it is read as that day in local time.
+ */
+export function parseCalendarDate(d: Date | string | number): Date {
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const [y, m, day] = d.split('-').map(Number);
+    return new Date(y, m - 1, day);
+  }
+  return new Date(d);
+}
+
 export function formatDate(d: Date | string | number, locale: 'ar' | 'en' = 'ar') {
-  const date = new Date(d);
+  const date = parseCalendarDate(d);
   if (Number.isNaN(date.getTime())) return '—';
   const day = date.getDate().toString().padStart(2, '0');
   const month = date.getMonth();
@@ -44,7 +56,7 @@ export function formatMonthKeyAr(monthKey: string) {
 }
 
 export function formatShortDate(d: Date | string | number) {
-  const date = new Date(d);
+  const date = parseCalendarDate(d);
   if (Number.isNaN(date.getTime())) return '—';
   return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
 }
@@ -86,7 +98,8 @@ const fullFormatter = new Intl.NumberFormat('en-US', {
  * The result is wrapped in a left-to-right isolate (U+2066 … U+2069) so the sign, digits and
  * currency keep their order inside Arabic sentences and right-aligned cells; without it the
  * browser moved the currency to the other side of the number in some places and not others.
- * Pass `signed` to show + / − (inside the isolate); otherwise the absolute value is shown.
+ * A negative amount always carries − (an overdrawn box or a net loss must never read as positive);
+ * pass `signed` to also show + on positive amounts, and Math.abs() when a label already gives the side.
  */
 export function formatMoney(
   amount: number | string | bigint,
@@ -95,13 +108,34 @@ export function formatMoney(
 ) {
   const label = CURRENCY_LABEL[currency] ?? currency;
   const unit = label ? ` ${label}` : '';
-  const n = typeof amount === 'string' ? Number(amount) : Number(amount);
-  if (!Number.isFinite(n)) return `⁦0${unit}⁩`;
+  const raw = typeof amount === 'string' ? Number(amount) : Number(amount);
+  if (!Number.isFinite(raw)) return `⁦0${unit}⁩`;
 
-  const sign = options?.signed ? (n > 0 ? '+' : n < 0 ? '−' : '') : '';
+  // the sign follows the rounded value, so -0.0001 is shown as 0, not as a negative zero
+  const n = Math.round(raw * 1000) / 1000;
+  const sign = n < 0 ? '−' : options?.signed && n > 0 ? '+' : '';
   const abs = Math.abs(n);
   const digits = options?.compact && abs >= 1000 ? compactFormatter.format(abs) : fullFormatter.format(abs);
   return `⁦${sign}${digits}${unit}⁩`;
+}
+
+/**
+ * A typed amount in dinars: accepts Arabic-Indic digits (١٥٠٫٥), the Arabic decimal mark, and thousands
+ * separators ("1,250.5"). Returns NaN for anything that is not a plain amount with at most 3 decimals,
+ * and 0 for an empty field.
+ */
+export function parseAmountInput(raw: string): number {
+  let s = String(raw ?? '')
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .replace(/٫/g, '.')
+    .replace(/[٬\s ]/g, '')
+    .trim();
+  if (s === '') return 0;
+  if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) s = s.replace(/,/g, '');
+  else if (/^\d+,\d{1,3}$/.test(s)) s = s.replace(',', '.');
+  if (!/^\d+(\.\d{1,3})?$/.test(s) && !/^\.\d{1,3}$/.test(s)) return NaN;
+  return Number(s);
 }
 
 export function formatNumber(n: number | string, fractionDigits: number = 0) {

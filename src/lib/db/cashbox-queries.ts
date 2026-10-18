@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { qk } from '@/lib/db/queries';
 import { todayISODate } from '@/lib/utils';
+import { invalidateMoneyQueries } from '@/lib/db/invalidate';
 
 export type CashTransferRow = {
   id: string;
@@ -57,16 +58,10 @@ export const cashboxQk = {
   ledger: (id: string) => ['cashbox_ledger', id] as const,
 };
 
-function invalidateCashboxCaches(qc: ReturnType<typeof useQueryClient>, cashboxId?: string) {
-  qc.invalidateQueries({ queryKey: qk.cashboxBalances });
+function invalidateCashboxCaches(qc: ReturnType<typeof useQueryClient>, _cashboxId?: string) {
   qc.invalidateQueries({ queryKey: qk.cashboxes });
-  qc.invalidateQueries({ queryKey: cashboxQk.transfers });
-  qc.invalidateQueries({ queryKey: ['audit_log_feed'] });
-  qc.invalidateQueries({ queryKey: qk.dashboardStats });
-  qc.invalidateQueries({ queryKey: qk.monthlySummary });
-  if (cashboxId) {
-    qc.invalidateQueries({ queryKey: cashboxQk.ledger(cashboxId) });
-  }
+  // balances, both boxes' ledgers, transfers and every report built on cash
+  invalidateMoneyQueries(qc);
 }
 
 export function useCashTransfers(limit = 50) {
@@ -86,23 +81,37 @@ export function useCashTransfers(limit = 50) {
   });
 }
 
-export function useCashboxLedger(cashboxId: string, limit = 200) {
+/**
+ * Every movement of one cashbox. The function returns one JSON value per call, so it is read in pages
+ * until a short page: the in/out totals and the reconciled balance on the page need all rows, not the
+ * newest 200.
+ */
+export function useCashboxLedger(cashboxId: string, pageSize = 500) {
   return useQuery<CashboxLedgerPayload>({
-    queryKey: [...cashboxQk.ledger(cashboxId), limit],
+    queryKey: [...cashboxQk.ledger(cashboxId), 'all'],
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase.rpc('get_cashbox_ledger', {
-        p_cashbox_id: cashboxId,
-        p_limit: limit,
-        p_offset: 0,
-      });
-      if (error) throw error;
-      const payload = data as CashboxLedgerPayload;
+      let first: CashboxLedgerPayload | null = null;
+      const rows: CashboxLedgerPayload['rows'] = [];
+      for (let offset = 0; offset < 100_000; offset += pageSize) {
+        const { data, error } = await supabase.rpc('get_cashbox_ledger', {
+          p_cashbox_id: cashboxId,
+          p_limit: pageSize,
+          p_offset: offset,
+        });
+        if (error) throw error;
+        const payload = data as CashboxLedgerPayload;
+        first ??= payload;
+        const page = payload.rows ?? [];
+        rows.push(...page);
+        if (page.length < pageSize) break;
+      }
+      const payload = first as CashboxLedgerPayload;
       return {
         ...payload,
         opening_balance: Number(payload.opening_balance),
         current_balance: Number(payload.current_balance),
-        rows: (payload.rows ?? []).map((r) => ({
+        rows: rows.map((r) => ({
           ...r,
           signed_amount: Number(r.signed_amount),
           balance_after: Number(r.balance_after),
@@ -172,6 +181,8 @@ export function useSetLedgerEventReconciled(cashboxId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: cashboxQk.ledger(cashboxId) });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: cashboxQk.transfers });
     },
   });
 }

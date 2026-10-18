@@ -43,7 +43,7 @@ export default function AccountsPage() {
   const [editingRow, setEditingRow] = useState<CategoryRow | null>(null);
   const { can } = usePermission();
   const canManage = can('account.manage');
-  const { data, isLoading } = useCategories();
+  const { data, isLoading } = useCategories(undefined, { includeInactive: true });
   const updateCategory = useUpdateCategory();
   const confirm = useConfirm();
   const source = useMemo(() => data ?? [], [data]);

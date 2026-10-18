@@ -33,6 +33,7 @@ import { disbursementRowToPdfModel } from '@/lib/voucher-db';
 import { useHighlightScroll, isHighlighted } from '@/lib/hooks/use-highlight-scroll';
 import { cn, formatMoney } from '@/lib/utils';
 import { toast } from 'sonner';
+import { friendlyError } from '@/lib/user-messages';
 
 const STATUS_LABEL: Record<VoucherApprovalStatus, string> = {
   DRAFT: 'مسودة',
@@ -54,7 +55,7 @@ function voucherHighlightDomId(id: string) {
 
 export default function VouchersPage() {
   const highlightId = useSearchParams().get('highlight');
-  const { data: vouchers = [], isLoading, isError } = useDisbursementVouchers();
+  const { data: vouchers = [], isLoading, isError, error } = useDisbursementVouchers();
   const { can } = usePermission();
   const canApprove = can('voucher.approve');
   const submitForApproval = useSubmitVoucherForApproval();
@@ -69,10 +70,7 @@ export default function VouchersPage() {
   function handleSubmit(id: string) {
     submitForApproval.mutate(id, {
       onSuccess: () => toast.success('تم إرسال الإذن للاعتماد'),
-      onError: (e) =>
-        toast.error('تعذّر الإرسال للاعتماد', {
-          description: e instanceof Error ? e.message : undefined,
-        }),
+      onError: (e) => toast.error(friendlyError(e, 'تعذّر الإرسال للاعتماد')),
     });
   }
 
@@ -82,7 +80,7 @@ export default function VouchersPage() {
       {
         onSuccess: () => toast.success('تمت الموافقة على الإذن'),
         onError: (e) =>
-          toast.error('تعذّر الاعتماد', { description: e instanceof Error ? e.message : undefined }),
+          toast.error(friendlyError(e, 'تعذّر الاعتماد')),
       },
     );
   }
@@ -122,7 +120,7 @@ export default function VouchersPage() {
           setRejectReason('');
         },
         onError: (e) =>
-          toast.error('تعذّر الرفض', { description: e instanceof Error ? e.message : undefined }),
+          toast.error(friendlyError(e, 'تعذّر الرفض')),
       },
     );
   }
@@ -168,11 +166,7 @@ export default function VouchersPage() {
         {isLoading ? (
           <p className="text-sm text-ink-mute">جاري تحميل الإذونات…</p>
         ) : isError ? (
-          <p className="text-sm text-danger">
-            تعذّر قراءة الإذونات. إذا كانت الترحيلات غير مطبّقة على المشروع، نفّذ ملف{' '}
-            <code className="rounded bg-muted px-1 text-xs">009_disbursement_vouchers.sql</code>{' '}
-            من مجلد ترحيلات Supabase.
-          </p>
+          <p className="text-sm text-danger">{friendlyError(error, 'تعذّر تحميل أذونات الصرف. أعد تحميل الصفحة.')}</p>
         ) : vouchers.length === 0 ? (
           <EmptyState
             icon={Receipt}
@@ -201,15 +195,14 @@ export default function VouchersPage() {
                     </div>
                     <p className="truncate text-sm text-ink-mute">المستفيد: {row.payee}</p>
                     <p className="text-sm tabular-nums text-ink">
-                      الإجمالي:{' '}
-                      {new Intl.NumberFormat('en-US').format(Number(row.total_amount))} د.ل
+                      الإجمالي: {formatMoney(Number(row.total_amount), 'LYD')}
                     </p>
                     {row.status === 'REJECTED' && row.rejection_reason && (
                       <p className="text-xs text-pastel-redInk">سبب الرفض: {row.rejection_reason}</p>
                     )}
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    {row.status === 'DRAFT' && (
+                    {(row.status === 'DRAFT' || row.status === 'REJECTED') && (
                       <WriteGuard permission="voucher.create">
                         <Button
                           size="sm"
@@ -223,7 +216,7 @@ export default function VouchersPage() {
                           ) : (
                             <Send className="h-3.5 w-3.5" />
                           )}
-                          إرسال للاعتماد
+                          {row.status === 'REJECTED' ? 'إعادة الإرسال للاعتماد' : 'إرسال للاعتماد'}
                         </Button>
                       </WriteGuard>
                     )}

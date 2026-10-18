@@ -117,8 +117,8 @@ export function TenantChargeInvoicePDF({ charge }: TenantChargeInvoicePdfProps) 
       </View>
 
       <View style={s.amountBox}>
-        <Text style={s.amountLabel}>{ar('المبلغ المستحق للسداد')}</Text>
-        <PdfMoneyText amount={remaining > 0 ? remaining : charge.amount} style={{ fontSize: 18, fontWeight: 'bold' }} />
+        <Text style={s.amountLabel}>{ar(remaining > 0 ? 'المبلغ المستحق للسداد' : 'مسدّدة بالكامل — لا مبلغ مستحق')}</Text>
+        <PdfMoneyText amount={Math.max(remaining, 0)} style={{ fontSize: 18, fontWeight: 'bold' }} />
       </View>
 
       <Text style={s.notes}>

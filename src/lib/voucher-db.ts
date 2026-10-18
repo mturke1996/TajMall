@@ -39,5 +39,6 @@ export function disbursementRowToPdfModel(
     lines: lines.length ? lines : [{ description: '—', amount: 0 }],
     total: Number.isFinite(total) ? total : 0,
     notes: row.notes ?? undefined,
+    status: row.status,
   };
 }

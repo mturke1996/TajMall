@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { TrendingUp, ArrowDownToLine, Receipt, SlidersHorizontal } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
-import { DataToolbar, type DateRangePreset, isInDatePreset } from '@/components/data/toolbar';
+import { DataToolbar, type DateRangePreset, isInDatePreset, datePresetLabel } from '@/components/data/toolbar';
 import { exportTransactionsCsv, filterTransactions } from '@/lib/transactions-filter';
 import { TransactionsTable } from '@/components/data/transactions-table';
 import { Stat } from '@/components/dashboard/stat';
@@ -15,6 +15,7 @@ import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { RevenuesPdfDialog } from '@/features/pdf/revenues-pdf-dialog';
 import { useHighlightScroll } from '@/lib/hooks/use-highlight-scroll';
 import { transactionHighlightDomId } from '@/components/data/transactions-table';
+import { todayISODate } from '@/lib/utils';
 
 export default function RevenuesPage() {
   const highlightId = useSearchParams().get('highlight');
@@ -79,7 +80,7 @@ export default function RevenuesPage() {
               خيارات تقرير PDF المتقدمة
             </Button>
             <TajMallPdfToolbar
-              fileName={`إيرادات-${new Date().toISOString().slice(0, 10)}`}
+              fileName={`إيرادات-${todayISODate()}`}
               disabled={filtered.length === 0}
               openLabel="عرض PDF سريع"
               render={async () => {
@@ -89,7 +90,8 @@ export default function RevenuesPage() {
                 return (
                   <RevenuesReportPDF
                     titleAr="كشف الإيرادات التفصيلي"
-                    subtitleAr={`عدد القيود: ${filtered.length} — بحسب تصفية الجدول`}
+                    periodLabel={datePresetLabel(datePreset)}
+                    subtitleAr={`${datePresetLabel(datePreset)}${query.trim() ? ` · بحث: ${query.trim()}` : ''}`}
                     rows={filtered}
                     groupByPaymentMethod={true}
                     includeSummaries={true}
@@ -140,7 +142,8 @@ export default function RevenuesPage() {
           searchPlaceholder="ابحث في الإيرادات…"
           count={filtered.length}
           onSearch={setQuery}
-          onExport={() => exportTransactionsCsv(filtered, `إيرادات-${new Date().toISOString().slice(0, 10)}`)}
+          searchValue={query}
+          onExport={() => exportTransactionsCsv(filtered, `إيرادات-${todayISODate()}`)}
           datePreset={datePreset}
           onDatePreset={setDatePreset}
         />

@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
+import { useEscapeKey } from '@/lib/hooks/use-escape-key';
 
 export function JournalConfirmSheet({
   open,
@@ -27,6 +28,7 @@ export function JournalConfirmSheet({
   onCancel: () => void;
 }) {
   useBodyScrollLock(open);
+  useEscapeKey(open && !loading, onCancel);
   if (!open) return null;
 
   return (
@@ -39,9 +41,11 @@ export function JournalConfirmSheet({
         )}
         role="alertdialog"
         aria-modal
+        aria-labelledby="journal-confirm-title"
+        aria-describedby="journal-confirm-desc"
       >
-        <h3 className="font-semibold text-base">{title}</h3>
-        <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{description}</p>
+        <h3 id="journal-confirm-title" className="font-semibold text-base">{title}</h3>
+        <p id="journal-confirm-desc" className="mt-2 text-sm text-muted-foreground leading-relaxed">{description}</p>
         <div
           className="mt-5 grid grid-cols-2 gap-2"
           style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
@@ -51,6 +55,7 @@ export function JournalConfirmSheet({
             className="h-12 touch-manipulation"
             onClick={onCancel}
             disabled={loading}
+            autoFocus
           >
             {cancelLabel}
           </Button>

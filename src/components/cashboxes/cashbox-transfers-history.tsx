@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ArrowLeftRight, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useCashTransfers } from '@/lib/db/cashbox-queries';
-import { formatMoney, formatDate, cn } from '@/lib/utils';
+import { formatMoney, formatDate, cn, arabicCount } from '@/lib/utils';
 
 export function CashboxTransfersHistory() {
   const { data: transfers = [], isLoading } = useCashTransfers(30);
@@ -32,7 +32,7 @@ export function CashboxTransfersHistory() {
     <div className="surface overflow-hidden">
       <div className="border-b border-border px-4 py-3 sm:px-5">
         <h3 className="text-[14px] font-semibold">سجل التحويلات</h3>
-        <p className="text-[11.5px] text-ink-mute">آخر {transfers.length} تحويل — اضغط الخزينة لعرض سجلها</p>
+        <p className="text-[11.5px] text-ink-mute">{transfers.length === 1 ? 'تحويل واحد' : `آخر ${arabicCount(transfers.length, ['تحويل', 'تحويلين', 'تحويلات', 'تحويلاً'])}`} — اضغط الخزينة لعرض سجلها</p>
       </div>
       <ul className="divide-y divide-border">
         {transfers.map((t) => {

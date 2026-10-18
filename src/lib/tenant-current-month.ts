@@ -116,9 +116,9 @@ export function getTenantCurrentMonthPresentation(
         paid: 0,
         remaining: 0,
         percentPaid: 0,
-        headline: 'بدون مطالبة',
+        headline: 'مستبعد من المطالبة',
         subtitle: `${monthName} · مستبعد من الإيجار المستحق`,
-        badgeLabel: 'بدون مطالبة',
+        badgeLabel: 'مستبعد',
         badgeDetail: '',
         tone: 'neutral',
       };

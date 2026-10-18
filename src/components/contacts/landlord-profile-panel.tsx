@@ -40,7 +40,7 @@ type Props = {
   transactions: TransactionWithRelations[];
   journalEntries: JournalEntryRow[];
   txLoading: boolean;
-  onEdit: () => void;
+  onEdit?: () => void;
 };
 
 export function LandlordProfilePanel({
@@ -70,6 +70,9 @@ export function LandlordProfilePanel({
       kind: 'EXPENSE',
       contactId: contact.id,
       contactKind: contact.kind,
+      // the month in the description is what the schedule attributes the payment to
+      description: desc,
+      amount: targetMonth?.remainingAmount,
     });
 
   };
@@ -108,9 +111,11 @@ export function LandlordProfilePanel({
                 تسجيل سداد إيجار للمؤجر
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={onEdit} className="text-xs h-9">
-              تعديل بيانات العقد
-            </Button>
+            {onEdit && (
+              <Button variant="outline" size="sm" onClick={onEdit} className="text-xs h-9">
+                تعديل بيانات العقد
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -253,7 +258,9 @@ export function LandlordProfilePanel({
                             سداد شهر {m.monthNameAr}
                           </Button>
                         ) : (
-                          <span className="text-[11px] text-muted-foreground font-medium">مكتمل</span>
+                          <span className="text-[11px] text-muted-foreground font-medium">
+                            {m.remainingAmount > 0 ? '—' : 'مكتمل'}
+                          </span>
                         )}
                       </td>
                     </tr>

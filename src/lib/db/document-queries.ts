@@ -9,6 +9,8 @@ import type {
   SaveCorrespondenceLetterInput,
   SaveReceiptVoucherInput,
 } from '@/lib/db/types';
+import { friendlyError } from '@/lib/user-messages';
+import { fetchAllPages } from '@/lib/db/fetch-all';
 
 export const dqk = {
   correspondence: ['correspondence_letters'] as const,
@@ -16,6 +18,12 @@ export const dqk = {
   receiptVouchers: ['receipt_vouchers'] as const,
   receiptOne: (id: string) => ['receipt_voucher', id] as const,
 };
+
+/** A document number is unique per date: say so instead of a generic duplicate message. */
+function documentSaveError(e: unknown) {
+  if ((e as { code?: string } | null)?.code === '23505') return 'رقم المستند مستخدم من قبل — اختر رقماً آخر.';
+  return friendlyError(e, 'تعذّر الحفظ');
+}
 
 export function useCorrespondenceLetters(type?: 'official' | 'routine') {
   return useQuery<CorrespondenceLetterRow[]>({
@@ -83,7 +91,7 @@ export function useCreateCorrespondenceLetter() {
       qc.invalidateQueries({ queryKey: dqk.correspondence });
       toast.success('تم حفظ المراسلة');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(documentSaveError(e)),
   });
 }
 
@@ -119,7 +127,7 @@ export function useUpdateCorrespondenceLetter() {
       qc.invalidateQueries({ queryKey: dqk.correspondenceOne(row.id) });
       toast.success('تم تحديث المراسلة');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(documentSaveError(e)),
   });
 }
 
@@ -137,7 +145,7 @@ export function useDeleteCorrespondenceLetter() {
       qc.removeQueries({ queryKey: dqk.correspondenceOne(id) });
       toast.success('تم حذف المراسلة');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(documentSaveError(e)),
   });
 }
 
@@ -146,12 +154,15 @@ export function useReceiptVouchers() {
     queryKey: dqk.receiptVouchers,
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase
-        .from('receipt_vouchers')
-        .select('*, receipt_voucher_lines (*)')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data as ReceiptVoucherWithLines[]) ?? [];
+      return fetchAllPages<ReceiptVoucherWithLines>(
+        (from, to) =>
+          supabase
+            .from('receipt_vouchers')
+            .select('*, receipt_voucher_lines (*)')
+            .order('created_at', { ascending: false })
+            .order('id')
+            .range(from, to) as unknown as PromiseLike<{ data: ReceiptVoucherWithLines[] | null; error: unknown }>,
+      );
     },
   });
 }
@@ -242,7 +253,7 @@ export function useCreateReceiptVoucher() {
       qc.invalidateQueries({ queryKey: dqk.receiptVouchers });
       toast.success('تم حفظ إيصال القبض');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(documentSaveError(e)),
   });
 }
 
@@ -297,7 +308,7 @@ export function useUpdateReceiptVoucher() {
       qc.invalidateQueries({ queryKey: dqk.receiptOne(row.id) });
       toast.success('تم تحديث إيصال القبض');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(documentSaveError(e)),
   });
 }
 
@@ -316,6 +327,6 @@ export function useDeleteReceiptVoucher() {
       qc.removeQueries({ queryKey: dqk.receiptOne(id) });
       toast.success('تم حذف إيصال القبض');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(documentSaveError(e)),
   });
 }

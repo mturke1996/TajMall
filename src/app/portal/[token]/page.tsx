@@ -81,6 +81,9 @@ export default async function TenantPortalPage({ params }: { params: Promise<{ t
     .from('contacts')
     .select('id, name, shop_number, floor, monthly_rent, phone')
     .eq('portal_token', token)
+    // a deactivated tenant's link stops working
+    .eq('kind', 'TENANT')
+    .eq('is_active', true)
     .maybeSingle();
 
   if (contactError) return <ServiceUnavailable />;
@@ -138,6 +141,7 @@ export default async function TenantPortalPage({ params }: { params: Promise<{ t
         .select('id, amount, due_date, type, description, status, total_paid')
         .in('contract_id', contractIds)
         .order('due_date', { ascending: false })
+        .order('id')
         .range(from, from + pageSize - 1);
       if (chargesError) return <ServiceUnavailable />;
       const page = (data ?? []) as ChargeRow[];
@@ -147,7 +151,16 @@ export default async function TenantPortalPage({ params }: { params: Promise<{ t
     }
   }
 
-  const totalOutstanding = charges.reduce((sum, c) => sum + chargeRemaining(c), 0);
+  // What is owed today: charges already due, never a month that has not started (an invoice issued
+  // early) or one the mall exempted. Same rule as the tenant's file inside the system.
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const exemptMonths = new Set(
+    (calendar?.months ?? []).filter((m) => m.status === 'exempt').map((m) => m.month),
+  );
+  const totalOutstanding = charges
+    .filter((c) => String(c.due_date).slice(0, 10) <= todayKey && !exemptMonths.has(String(c.due_date).slice(0, 7)))
+    .reduce((sum, c) => sum + chargeRemaining(c), 0);
 
   const monthFromCalendar = calendar?.months.find((m) => m.month === thisMonth);
   const currentRent =

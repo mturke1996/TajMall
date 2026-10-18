@@ -11,6 +11,8 @@ export type MallRentKpis = {
   openChargesCount: number;
   /** عدد مستأجرين أوفيّا على الشهر الحالي */
   currentMonthPaidCount: number;
+  /** tenants who owe rent this month (not exempt, a rent is set) — the "of N" in "X of N paid" */
+  currentMonthDueCount: number;
   basis: 'charges' | 'monthly';
 };
 
@@ -38,6 +40,7 @@ export function aggregateMallRentKpis(
   let outstanding = 0;
   let openChargesCount = 0;
   let currentMonthPaidCount = 0;
+  let currentMonthDueCount = 0;
 
   for (const t of tenants) {
     collected += Number(t.total_rent_paid ?? 0);
@@ -45,6 +48,9 @@ export function aggregateMallRentKpis(
     openChargesCount += Number(t.open_charges_count ?? 0);
     if (t.current_month_status === 'paid_full') {
       currentMonthPaidCount += 1;
+    }
+    if (t.current_month_status !== 'exempt' && t.current_month_status !== 'no_rent_set') {
+      currentMonthDueCount += 1;
     }
   }
 
@@ -58,6 +64,7 @@ export function aggregateMallRentKpis(
       collectionRate: (collected / billed) * 100,
       openChargesCount,
       currentMonthPaidCount,
+      currentMonthDueCount,
       basis: 'charges',
     };
   }
@@ -82,6 +89,7 @@ export function aggregateMallRentKpis(
     collectionRate,
     openChargesCount,
     currentMonthPaidCount,
+    currentMonthDueCount,
     basis: 'monthly',
   };
 }

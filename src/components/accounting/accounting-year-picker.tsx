@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
+import { useFiscalPeriods } from '@/lib/db/mall-queries';
 import { cn } from '@/lib/utils';
 
 /** Fiscal year as a compact segmented control. */
@@ -14,8 +16,18 @@ export function AccountingYearPicker({
   years?: number[];
   className?: string;
 }) {
-  const currentYear = new Date().getFullYear();
-  const list = years ?? [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
+  const { data: periods } = useFiscalPeriods();
+  // every year that has a fiscal period, plus the last two and the next one, plus the chosen year
+  const list = useMemo(() => {
+    if (years) return years;
+    const currentYear = new Date().getFullYear();
+    const set = new Set<number>([currentYear - 2, currentYear - 1, currentYear, currentYear + 1, value]);
+    for (const p of periods ?? []) {
+      const y = Number(String(p.start_date).slice(0, 4));
+      if (y > 1990 && y <= currentYear + 1) set.add(y);
+    }
+    return [...set].sort((a, b) => a - b);
+  }, [years, periods, value]);
 
   return (
     <div className={cn('flex min-w-0 items-center gap-2', className)}>

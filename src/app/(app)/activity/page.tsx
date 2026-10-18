@@ -25,8 +25,13 @@ const KINDS = [
 ] as const;
 
 /** The latest money movements, grouped by month, one line each with its date. */
+const PAGE = 100;
+
 export default function ActivityPage() {
-  const { data: txs = [], isLoading, isError } = useTransactions(undefined, 80);
+  const [limit, setLimit] = useState(PAGE);
+  const { data: txs = [], isLoading, isError, isFetching } = useTransactions(undefined, limit);
+  // a full page means older transactions exist beyond it
+  const truncated = txs.length >= limit;
   const [kind, setKind] = useState<(typeof KINDS)[number]['value']>('ALL');
   const [search, setSearch] = useState('');
 
@@ -55,21 +60,22 @@ export default function ActivityPage() {
       const key = String(tx.tx_date).slice(0, 7);
       byDay.set(key, [...(byDay.get(key) ?? []), tx]);
     }
-    return [...byDay.entries()]
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([key, rows]) => ({
+    const groups = [...byDay.entries()].sort(([a], [b]) => b.localeCompare(a));
+    return groups.map(([key, rows], i) => ({
         key,
         rows,
+        // the oldest month shown may continue past the loaded rows: its totals would be partial
+        partial: truncated && i === groups.length - 1,
         revenue: rows.filter((r) => r.kind === 'REVENUE' && r.status !== 'VOIDED').reduce((s, r) => s + Number(r.amount), 0),
         expense: rows.filter((r) => r.kind === 'EXPENSE' && r.status !== 'VOIDED').reduce((s, r) => s + Number(r.amount), 0),
       }));
-  }, [filtered]);
+  }, [filtered, truncated]);
 
   return (
     <>
       <PageHeader
         title="النشاط"
-        description="آخر المعاملات المسجّلة، مجمّعة حسب الشهر."
+        description={truncated ? `آخر ${limit} معاملة مسجّلة، مجمّعة حسب الشهر.` : 'المعاملات المسجّلة، مجمّعة حسب الشهر.'}
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link href="/transactions" prefetch>
@@ -123,7 +129,9 @@ export default function ActivityPage() {
             <p className="max-w-md text-[13px] text-ink-mute">تظهر هنا الإيرادات والمصروفات فور تسجيلها.</p>
           </Card>
         ) : filtered.length === 0 ? (
-          <Card className="p-10 text-center text-[13px] text-ink-mute">لا توجد حركات تطابق البحث.</Card>
+          <Card className="p-10 text-center text-[13px] text-ink-mute">
+            لا توجد حركات تطابق البحث{truncated ? ' بين المعاملات المعروضة' : ''}.
+          </Card>
         ) : (
           <div className="flex flex-col gap-4">
             {days.map((day) => {
@@ -136,9 +144,15 @@ export default function ActivityPage() {
                     <span className="text-[14px] font-semibold text-foreground">{formatMonthLabelAr(day.key)}</span>
                     <span className="text-[12.5px] text-ink-mute tabular-nums">{arabicCount(day.rows.length, ['حركة واحدة', 'حركتان', 'حركات', 'حركة'])}</span>
                     <span className="ms-auto text-[12px] tabular-nums text-ink-mute">
-                      {day.revenue > 0 && <>إيرادات {formatMoney(day.revenue, 'LYD')}</>}
-                      {day.revenue > 0 && day.expense > 0 && ' · '}
-                      {day.expense > 0 && <>مصروفات {formatMoney(day.expense, 'LYD')}</>}
+                      {day.partial ? (
+                        'الشهر غير مكتمل في القائمة'
+                      ) : (
+                        <>
+                          {day.revenue > 0 && <>إيرادات {formatMoney(day.revenue, 'LYD')}</>}
+                          {day.revenue > 0 && day.expense > 0 && ' · '}
+                          {day.expense > 0 && <>مصروفات {formatMoney(day.expense, 'LYD')}</>}
+                        </>
+                      )}
                     </span>
                   </h2>
                   <ul className="surface divide-y divide-border overflow-hidden">
@@ -185,6 +199,26 @@ export default function ActivityPage() {
                 </section>
               );
             })}
+            {truncated && (
+              <div className="flex flex-col items-center gap-1.5 py-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isFetching}
+                  onClick={() => setLimit((n) => n + PAGE * 2)}
+                  className="min-h-10"
+                >
+                  {isFetching ? 'جارٍ التحميل…' : 'عرض معاملات أقدم'}
+                </Button>
+                <p className="text-[12px] text-ink-mute">
+                  البحث يشمل المعاملات المعروضة فقط — للبحث في كل المعاملات افتح{' '}
+                  <Link href="/transactions" className="text-foreground underline-offset-2 hover:underline">
+                    صفحة المعاملات
+                  </Link>
+                  .
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/data/data-table';
 import { EmptyState } from '@/components/data/empty-state';
 import type { ContactRow } from '@/lib/db/types';
-import { formatMonthKeyAr } from '@/lib/utils';
+import { formatMonthKeyAr, arabicCount } from '@/lib/utils';
 import {
   ADJUSTMENT_IS_ADDITION,
   ADJUSTMENT_KIND_LABEL,
@@ -87,7 +87,7 @@ export function PayrollAdjustmentsPanel({
         cell: ({ row }) => (
           <Badge variant={ADJUSTMENT_IS_ADDITION[row.original.kind] ? 'success' : 'danger'}>
             {ADJUSTMENT_KIND_LABEL[row.original.kind]}
-            {row.original.days ? ` · ${Number(row.original.days)} يوم` : ''}
+            {row.original.days ? ` · ${arabicCount(Number(row.original.days), ['يوم واحد', 'يومان', 'أيام', 'يوماً'])}` : ''}
           </Badge>
         ),
       },
@@ -246,12 +246,15 @@ export function PayrollAdjustmentsPanel({
                 <Badge variant={STATUS_VARIANT[r.status]}>{ADJUSTMENT_STATUS_LABEL[r.status]}</Badge>
               </div>
               <p className="text-[12.5px] text-muted-foreground">{r.reason}</p>
-              {canApprove && !monthLocked && !r.run_id && r.status === 'DRAFT' && (
+              {/* the same actions as the desktop table: approve a draft, cancel a draft or an approved line */}
+              {canApprove && !monthLocked && !r.run_id && r.status !== 'CANCELLED' && (
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => approve(r)}>
-                    <Check />
-                    اعتمد
-                  </Button>
+                  {r.status === 'DRAFT' && (
+                    <Button size="sm" variant="outline" onClick={() => approve(r)} disabled={decide.isPending}>
+                      <Check />
+                      اعتمد
+                    </Button>
+                  )}
                   <Button size="sm" variant="ghost" onClick={() => setCancelId(r.id)}>
                     ألغِ
                   </Button>

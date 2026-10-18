@@ -31,7 +31,7 @@ export function TenantProfileSidebar({
 }: {
   contact: ContactRow;
   claimStart: string | null;
-  onEdit: () => void;
+  onEdit?: () => void;
 }) {
   const { data: contracts = [], isLoading } = useTenantLeaseContracts(contact.id);
   const notes = visibleContactNotes(contact.notes);
@@ -45,10 +45,12 @@ export function TenantProfileSidebar({
       <Card className="p-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-[14px] font-semibold text-foreground">بيانات المستأجر</h2>
-          <Button type="button" variant="ghost" size="sm" className="h-8 gap-1.5 px-2 text-[13px] touch-manipulation" onClick={onEdit}>
-            <Pencil className="h-3.5 w-3.5" aria-hidden />
-            تعديل
-          </Button>
+          {onEdit && (
+            <Button type="button" variant="ghost" size="sm" className="h-8 gap-1.5 px-2 text-[13px] touch-manipulation" onClick={onEdit}>
+              <Pencil className="h-3.5 w-3.5" aria-hidden />
+              تعديل
+            </Button>
+          )}
         </div>
         <dl className="mt-1 divide-y divide-border">
           {shop && <Row label="المحل">{shop}</Row>}

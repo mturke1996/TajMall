@@ -1,7 +1,10 @@
 /**
  * Consistent active-state matching for sidebar / mobile nav (RTL app).
  */
-export function isNavActive(pathname: string, href: string): boolean {
+export function isNavActive(pathname: string, href: string, search?: string | null): boolean {
+  // the current query string: passed by callers that follow it (useSearchParams), otherwise read once
+  const currentSearch =
+    search ?? (typeof window === 'undefined' ? null : window.location.search.replace(/^\?/, ''));
   if (href === '/dashboard') return pathname === '/dashboard';
   // مركز التقارير يبقى مفعّلاً داخل أي تقرير، عدا قيد الفترة الذي له بند مستقل في القائمة
   if (href === '/reports') {
@@ -17,21 +20,17 @@ export function isNavActive(pathname: string, href: string): boolean {
 
   if (!queryString) {
     if (path === '/mall') {
-      return (
-        pathname === '/mall' &&
-        (typeof window === 'undefined' ||
-          !new URLSearchParams(window.location.search).get('tab') ||
-          new URLSearchParams(window.location.search).get('tab') === 'overview')
-      );
+      const tab = currentSearch == null ? null : new URLSearchParams(currentSearch).get('tab');
+      return pathname === '/mall' && (!tab || tab === 'overview');
     }
     return pathname === path || pathname.startsWith(`${path}/`);
   }
 
-  if (typeof window === 'undefined') {
+  if (currentSearch == null) {
     return pathname === path;
   }
 
-  const current = new URLSearchParams(window.location.search);
+  const current = new URLSearchParams(currentSearch);
   const target = new URLSearchParams(queryString);
 
   for (const [key, value] of target.entries()) {

@@ -21,6 +21,7 @@ import {
   type ReportPeriod,
 } from '@/lib/report-period';
 import { formatMoney } from '@/lib/utils';
+import { friendlyError } from '@/lib/user-messages';
 
 function EmployeeSpendContent() {
   const router = useRouter();
@@ -101,21 +102,21 @@ function EmployeeSpendContent() {
               <CardTitle className="text-sm text-ink-mute">إجمالي المدفوع</CardTitle>
             </CardHeader>
             <CardContent className="text-xl font-bold text-plum-ink">
-              {formatMoney(total, 'LYD')}
+              {isLoading ? '—' : formatMoney(total, 'LYD')}
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-ink-mute">عدد الموظفين</CardTitle>
             </CardHeader>
-            <CardContent className="text-xl font-bold">{rows.length}</CardContent>
+            <CardContent className="text-xl font-bold">{isLoading ? '—' : rows.length}</CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-ink-mute">المعاملات المرتبطة</CardTitle>
             </CardHeader>
             <CardContent className="text-xl font-bold">
-              {rows.reduce((s, r) => s + r.txCount, 0)}
+              {isLoading ? '—' : rows.reduce((s, r) => s + r.txCount, 0)}
             </CardContent>
           </Card>
         </div>
@@ -126,7 +127,7 @@ function EmployeeSpendContent() {
           </div>
         ) : isError ? (
           <p className="text-sm text-danger-ink py-8 text-center">
-            {(error as Error)?.message ?? 'تعذّر تحميل التقرير'}
+            {friendlyError(error, 'تعذّر تحميل التقرير. أعد المحاولة.')}
           </p>
         ) : rows.length === 0 ? (
           <Card className="p-8 text-center text-sm text-ink-mute">

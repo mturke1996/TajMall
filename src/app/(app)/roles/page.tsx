@@ -8,6 +8,7 @@ import { SYSTEM_ROLES, PERMISSION_KEYS } from '@/lib/constants';
 import { useProfiles } from '@/lib/db/queries';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { cn } from '@/lib/utils';
+import { can as canRole } from '@/lib/permissions';
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
   owner: 'صلاحيات كاملة لكل وحدات النظام بدون استثناء.',
@@ -35,23 +36,20 @@ const GROUP_LABELS: Record<string, string> = {
   account: 'الحسابات',
   journal: 'القيود',
   voucher: 'الإذونات',
+  budget: 'الموازنة',
+  document: 'الوثائق والمراسلات',
   org: 'الإدارة',
 };
 
-type Access = 'full' | 'view' | 'none';
+type Access = 'full' | 'partial' | 'view' | 'none';
 
+/** Read from the same rules the app enforces (src/lib/permissions.ts), so the table cannot disagree. */
 function roleAccess(roleName: string, group: string): Access {
-  const hasFull =
-    roleName === 'owner' ||
-    roleName === 'admin' ||
-    (roleName === 'accountant' && group !== 'org') ||
-    (roleName === 'cashier' &&
-      ['revenue', 'expense', 'voucher', 'cashbox'].includes(group));
-  if (hasFull) return 'full';
-  const hasView =
-    roleName === 'viewer' ||
-    (roleName === 'cashier' && ['dashboard', 'account', 'journal'].includes(group));
-  return hasView ? 'view' : 'none';
+  const keys = PERMISSION_KEYS.filter((k) => k.split('.')[0] === group);
+  const allowed = keys.filter((k) => canRole(roleName, k));
+  if (allowed.length === 0) return 'none';
+  if (allowed.length === keys.length) return keys.length === 1 && keys[0].endsWith('.view') ? 'view' : 'full';
+  return allowed.every((k) => k.endsWith('.view')) ? 'view' : 'partial';
 }
 
 export default function RolesPage() {
@@ -153,11 +151,12 @@ export default function RolesPage() {
                             'inline-flex items-center justify-center gap-0.5 rounded-md px-1.5 py-0.5 text-[11px]',
                             access === 'full' && 'bg-pastel-green text-pastel-greenInk',
                             access === 'view' && 'bg-pastel-blue text-pastel-blueInk',
+                            access === 'partial' && 'bg-warning-soft text-warning-ink',
                             access === 'none' && 'bg-canvas-sunken text-ink-mute',
                           )}
                         >
                           {access === 'full' && <Check className="h-3 w-3 stroke-2" />}
-                          {access === 'full' ? 'كامل' : access === 'view' ? 'عرض' : '—'}
+                          {access === 'full' ? 'كامل' : access === 'partial' ? 'جزئي' : access === 'view' ? 'عرض' : '—'}
                         </span>
                       </td>
                     );

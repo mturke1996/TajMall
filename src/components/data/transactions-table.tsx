@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable } from './data-table';
 import { EmptyState } from './empty-state';
-import { formatMoney, formatShortDate, cn } from '@/lib/utils';
+import { formatMoney, formatShortDate, cn, arabicCount } from '@/lib/utils';
 import type { TransactionWithRelations } from '@/lib/db/types';
 import { useDeleteTransaction } from '@/lib/db/queries';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { toast } from 'sonner';
+import { friendlyError } from '@/lib/user-messages';
 
 export function transactionHighlightDomId(id: string) {
   return `transaction-${id}`;
@@ -77,7 +78,7 @@ export function TransactionsTable({
       await del.mutateAsync(pendingDelete.id);
       toast.success(`حُذفت المعاملة #${pendingDelete.number} وعُكس قيدها`);
     } catch (e) {
-      toast.error('تعذّر الحذف', { description: e instanceof Error ? e.message : undefined });
+      toast.error(friendlyError(e, 'تعذّر الحذف'));
       throw e;
     }
   }
@@ -107,7 +108,7 @@ export function TransactionsTable({
         ),
         footer: ({ table }) => (
           <span className="text-muted-foreground">
-            الإجمالي · {table.getSortedRowModel().rows.length.toLocaleString('en-US')} معاملة
+            الإجمالي · {arabicCount(table.getSortedRowModel().rows.length, ['معاملة واحدة', 'معاملتان', 'معاملات', 'معاملة'])}
           </span>
         ),
       },

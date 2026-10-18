@@ -13,7 +13,7 @@ import {
   useMarkAllNotificationsRead,
   useSyncOverdueChargeReminders,
 } from '@/lib/db/notification-queries';
-import { NEEDS_DB_UPDATE } from '@/lib/user-messages';
+import { NEEDS_DB_UPDATE, friendlyError } from '@/lib/user-messages';
 
 const SEVERITY: Record<string, string> = {
   info: 'border-border bg-canvas-sunken',
@@ -23,7 +23,7 @@ const SEVERITY: Record<string, string> = {
 };
 
 export default function NotificationsPage() {
-  const { data: items = [], isLoading, isError } = useNotifications();
+  const { data: items = [], isLoading, isError, error } = useNotifications();
   const markRead = useMarkNotificationRead();
   const markAll = useMarkAllNotificationsRead();
   const syncReminders = useSyncOverdueChargeReminders();
@@ -73,7 +73,7 @@ export default function NotificationsPage() {
           <EmptyState
             icon={Bell}
             title="تعذّر تحميل الإشعارات"
-            description={NEEDS_DB_UPDATE}
+            description={friendlyError(error, 'أعد تحميل الصفحة، وإن تكرر أبلغ مسؤول النظام.')}
           />
         ) : items.length === 0 ? (
           <EmptyState

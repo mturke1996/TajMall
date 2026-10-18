@@ -12,6 +12,7 @@ import {
   type ReportPeriod,
 } from '@/lib/report-period';
 import type { ContactKind } from '@/lib/db/types';
+import { todayISODate } from '@/lib/utils';
 
 type PartyTxRow = {
   id: string;
@@ -56,6 +57,8 @@ async function fetchPartyLinkedTransactions(
       .gte('tx_date', startDate)
       .lte('tx_date', endDate)
       .order('tx_date', { ascending: false })
+      // a unique tie-breaker, or rows sharing a date can repeat or vanish between pages
+      .order('id')
       .range(from, from + PAGE - 1);
 
     if (error) throw error;
@@ -126,7 +129,7 @@ export function usePartyActivity() {
       const supabase = createSupabaseBrowserClient();
       const since = new Date();
       since.setFullYear(since.getFullYear() - 1);
-      const sinceIso = since.toISOString().slice(0, 10);
+      const sinceIso = todayISODate(since);
       const out = new Map<string, PartyActivity>();
       let from = 0;
       for (;;) {
@@ -137,6 +140,7 @@ export function usePartyActivity() {
           .not('contact_id', 'is', null)
           .gte('tx_date', sinceIso)
           .order('tx_date', { ascending: false })
+          .order('id')
           .range(from, from + PAGE - 1);
         if (error) throw error;
         const page = (data ?? []) as { amount: string | number; kind: string; tx_date: string; contact_id: string | null }[];

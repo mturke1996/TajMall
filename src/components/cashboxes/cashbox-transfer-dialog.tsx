@@ -24,6 +24,7 @@ import {
 import { useCashboxBalances } from '@/lib/db/queries';
 import { useRecordCashboxTransfer } from '@/lib/db/cashbox-queries';
 import { formatMoney, todayISODate } from '@/lib/utils';
+import { friendlyError } from '@/lib/user-messages';
 
 function sanitizeAmount(raw: string) {
   const cleaned = raw.replace(/[^\d.]/g, '');
@@ -110,7 +111,7 @@ export function CashboxTransferDialog({
       toast.success(`تم التحويل — ${res.reference}`);
       handleOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'تعذّر تنفيذ التحويل');
+      toast.error(friendlyError(err, 'تعذّر تنفيذ التحويل'));
     }
   }
 

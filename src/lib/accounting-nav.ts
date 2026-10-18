@@ -143,7 +143,11 @@ export const ACCOUNTING_NAV_ITEMS: AccountingNavItem[] = [
 export function ledgerUrl(categoryId?: string, year?: number) {
   const params = new URLSearchParams();
   if (categoryId) params.set('category', categoryId);
-  if (year) params.set('year', String(year));
+  if (year) {
+    params.set('year', String(year));
+    // the whole year: without a mode the ledger would open on one month only
+    params.set('mode', 'year');
+  }
   const q = params.toString();
   return q ? `/reports/ledger?${q}` : '/reports/ledger';
 }

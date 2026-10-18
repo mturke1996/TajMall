@@ -180,7 +180,7 @@ export function CashboxFormDialog({
               <Input
                 id="cashbox-opening"
                 type="number"
-                step="0.01"
+                step="0.001"
                 value={openingBalance}
                 onChange={(e) => setOpeningBalance(e.target.value)}
               />

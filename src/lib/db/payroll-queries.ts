@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { qk } from "@/lib/db/queries";
+import { invalidateMoneyQueries } from "@/lib/db/invalidate";
 
 /**
  * Payroll read models and actions (migration 080).
@@ -338,10 +339,9 @@ function usePayrollRpc<TArgs, TResult = unknown>(fn: string, toParams: (args: TA
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pqk.all });
-      qc.invalidateQueries({ queryKey: qk.employeeSummary });
       qc.invalidateQueries({ queryKey: qk.employees });
-      qc.invalidateQueries({ queryKey: ["transactions"] });
-      qc.invalidateQueries({ queryKey: qk.cashboxBalances });
+      // posting and paying payroll write journal entries and cash movements
+      invalidateMoneyQueries(qc);
     },
   });
 }
@@ -500,9 +500,7 @@ export function usePayPayrollLines() {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: pqk.all });
-      qc.invalidateQueries({ queryKey: qk.employeeSummary });
-      qc.invalidateQueries({ queryKey: ["transactions"] });
-      qc.invalidateQueries({ queryKey: qk.cashboxBalances });
+      invalidateMoneyQueries(qc);
     },
   });
 }

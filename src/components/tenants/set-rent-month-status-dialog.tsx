@@ -39,6 +39,7 @@ import type { TenantChargeWithRelations } from '@/lib/db/types';
 import type { JournalEntryRow } from '@/lib/db/journal-queries';
 import { cn, formatDate, formatMoney } from '@/lib/utils';
 import { toast } from 'sonner';
+import { friendlyError } from '@/lib/user-messages';
 
 type Props = {
   tenantId: string;
@@ -219,7 +220,7 @@ export function SetRentMonthStatusDialog({
       toast.success(`${formatMonthsLabelAr([...selected].sort())} — أُلغي الربط وعاد غير مسدد`);
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'تعذّر التحديث');
+      toast.error(friendlyError(err, 'تعذّر التحديث'));
     }
   }
 

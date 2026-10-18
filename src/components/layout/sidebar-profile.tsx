@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Settings } from 'lucide-react';
 import { useCurrentProfile } from '@/lib/supabase/use-profile';
 import { cn, initials } from '@/lib/utils';
+import { SYSTEM_ROLES } from '@/lib/constants';
 
 export function SidebarProfile({ collapsed = false }: { collapsed?: boolean }) {
   const { user, profile } = useCurrentProfile();
@@ -44,7 +45,7 @@ export function SidebarProfile({ collapsed = false }: { collapsed?: boolean }) {
       {!collapsed && (
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-semibold leading-none mb-0.5">{name}</p>
-          <p className="truncate text-[11px] text-muted-foreground capitalize">{role}</p>
+          <p className="truncate text-[11px] text-muted-foreground">{SYSTEM_ROLES.find((r) => r.name === role)?.nameAr ?? role}</p>
         </div>
       )}
 

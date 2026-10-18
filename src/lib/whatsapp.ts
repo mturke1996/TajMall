@@ -8,11 +8,19 @@ import { formatMoney } from '@/lib/utils';
  * إن كان الرقم غير صالح بدل حجب الميزة كاملة.
  */
 export function normalizeLibyanPhone(raw: string): string | null {
-  const digits = raw.replace(/[^\d]/g, '');
+  // Arabic-Indic digits (٠٩١…) are the same number
+  const latin = String(raw ?? '')
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
+  let digits = latin.replace(/[^\d]/g, '');
   if (!digits) return null;
 
-  if (digits.startsWith('00218')) return digits.slice(2);
-  if (digits.startsWith('218')) return digits;
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (digits.startsWith('218')) {
+    // "+218 091 234 5678": the trunk 0 is written after the country code by habit
+    const rest = digits.slice(3);
+    return `218${rest.startsWith('0') ? rest.slice(1) : rest}`;
+  }
   if (digits.startsWith('0')) return `218${digits.slice(1)}`;
   if (digits.length === 9) return `218${digits}`;
   return digits;

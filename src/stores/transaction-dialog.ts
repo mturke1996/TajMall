@@ -14,6 +14,9 @@ export type TxDialogPrefill = {
   kind?: TxKind;
   contactId?: string;
   contactKind?: ContactKind | 'ALL';
+  /** e.g. "سداد إيجار شهر مارس 2026 للمؤجر …": the month a schedule attributes the payment to */
+  description?: string;
+  amount?: number;
 };
 
 type State = {
@@ -21,6 +24,8 @@ type State = {
   defaultKind: TxKind;
   prefillContactId: string | null;
   prefillContactKind: ContactKind | 'ALL' | null;
+  prefillDescription: string | null;
+  prefillAmount: number | null;
   open: (kindOrPrefill?: TxKind | TxDialogPrefill) => void;
   close: () => void;
 };
@@ -32,6 +37,8 @@ function resolveOpen(arg?: TxKind | TxDialogPrefill): Omit<State, 'open' | 'clos
       defaultKind: arg ?? 'REVENUE',
       prefillContactId: null,
       prefillContactKind: null,
+      prefillDescription: null,
+      prefillAmount: null,
     };
   }
   return {
@@ -39,6 +46,8 @@ function resolveOpen(arg?: TxKind | TxDialogPrefill): Omit<State, 'open' | 'clos
     defaultKind: arg.kind ?? 'REVENUE',
     prefillContactId: arg.contactId ?? null,
     prefillContactKind: arg.contactKind ?? null,
+    prefillDescription: arg.description ?? null,
+    prefillAmount: arg.amount != null && arg.amount > 0 ? arg.amount : null,
   };
 }
 
@@ -47,11 +56,15 @@ export const useTxDialog = create<State>((set) => ({
   defaultKind: 'REVENUE',
   prefillContactId: null,
   prefillContactKind: null,
+  prefillDescription: null,
+  prefillAmount: null,
   open: (kindOrPrefill) => set(resolveOpen(kindOrPrefill)),
   close: () =>
     set({
       isOpen: false,
       prefillContactId: null,
       prefillContactKind: null,
+      prefillDescription: null,
+      prefillAmount: null,
     }),
 }));

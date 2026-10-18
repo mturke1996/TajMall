@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
 import { useTransactions } from '@/lib/db/queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, todayISODate, arabicCount } from '@/lib/utils';
 import { useHighlightScroll } from '@/lib/hooks/use-highlight-scroll';
 import { transactionHighlightDomId } from '@/components/data/transactions-table';
 
@@ -64,7 +64,7 @@ export default function TransactionsPage() {
   const pdfTitleAr =
     tab === 'revenues' ? 'كشف الإيرادات' :
     tab === 'expenses' ? 'كشف المصروفات' : 'كشف المعاملات المالية';
-  const pdfSubtitleAr = `${pdfRows.length} قيد`;
+  const pdfSubtitleAr = arabicCount(pdfRows.length, ['معاملة واحدة', 'معاملتان', 'معاملات', 'معاملة']);
 
   return (
     <>
@@ -73,13 +73,13 @@ export default function TransactionsPage() {
         title="جميع المعاملات"
         description={
           contactFilter
-            ? `معاملات مرتبطة بجهة محددة (${rows.length} قيد).`
+            ? `معاملات مرتبطة بجهة محددة (${arabicCount(rows.length, ['معاملة واحدة', 'معاملتان', 'معاملات', 'معاملة'])}).`
             : 'إيرادات ومصروفات في مكان واحد.'
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <TajMallPdfToolbar
-              fileName={`معاملات-${tab}-${new Date().toISOString().slice(0, 10)}`}
+              fileName={`معاملات-${tab}-${todayISODate()}`}
               disabled={pdfRows.length === 0}
               render={async () => {
                 const { TransactionsReportPDF } = await import('@/features/pdf/TransactionsReportPDF');
@@ -149,7 +149,7 @@ export default function TransactionsPage() {
               searchPlaceholder="ابحث في رقم القيد أو البيان أو البند…"
               count={pdfRows.length}
               onSearch={setQuery}
-              onExport={() => exportTransactionsCsv(pdfRows, `معاملات-${tab}-${new Date().toISOString().slice(0, 10)}`)}
+              onExport={() => exportTransactionsCsv(pdfRows, `معاملات-${tab}-${todayISODate()}`)}
               datePreset={datePreset}
               onDatePreset={setDatePreset}
             />

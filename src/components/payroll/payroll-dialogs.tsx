@@ -32,7 +32,7 @@ import {
   type PayrollRunLine,
   type PayrollSalaryStructure,
 } from '@/lib/db/payroll-queries';
-import { formatMonthKeyAr, preferredCashboxId, todayISODate } from '@/lib/utils';
+import { formatMonthKeyAr, preferredCashboxId, todayISODate, arabicCount } from '@/lib/utils';
 import { Amount, EmployeeSelect, FormField } from './payroll-ui';
 
 type Employee = Pick<ContactRow, 'id' | 'name' | 'job_title'>;
@@ -703,7 +703,7 @@ export function PayAllDialog({
       .map((r) => ({ lineId: r.lineId, name: names.get(r.lineId) ?? '', message: r.message ?? '' }));
     setFailures(failed);
     if (failed.length === 0) {
-      toast.success(`صُرفت رواتب ${formatMonthKeyAr(month)}`, { description: `${results.length} موظف` });
+      toast.success(`صُرفت رواتب ${formatMonthKeyAr(month)}`, { description: arabicCount(results.length, ['موظف واحد', 'موظفان', 'موظفين', 'موظفاً']) });
       onOpenChange(false);
     } else {
       toast.error(`لم يُصرف راتب ${failed.length} من ${results.length}`, { description: 'صُرفت البقية؛ صحّح السبب ثم أعد المحاولة' });
@@ -719,7 +719,7 @@ export function PayAllDialog({
       title="صرف كل الرواتب المتبقية"
       description={`كشف ${formatMonthKeyAr(month)} — حركة صرف منفصلة لكل موظف من الخزينة المختارة.`}
       wide
-      submitLabel={busy ? `جارٍ الصرف ${done}/${due.length}` : failures.length ? `أعد المحاولة (${due.length})` : `اصرف ${due.length} راتب`}
+      submitLabel={busy ? `جارٍ الصرف ${done}/${due.length}` : failures.length ? `أعد المحاولة (${due.length})` : `اصرف ${arabicCount(due.length, ['راتباً واحداً', 'راتبين', 'رواتب', 'راتباً'])}`}
       onSubmit={submit}
       submitDisabled={!values.cashboxId || due.length === 0}
     >

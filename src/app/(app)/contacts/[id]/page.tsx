@@ -29,7 +29,7 @@ import {
   useUpdateContact,
 } from '@/lib/db/queries';
 import { useJournalEntries } from '@/lib/db/journal-queries';
-import { cn } from '@/lib/utils';
+import { cn, todayISODate } from '@/lib/utils';
 import type { ContactKind } from '@/lib/db/types';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import {
@@ -71,7 +71,7 @@ export default function ContactDetailPage() {
   const params = useParams();
   const id = typeof params?.id === 'string' ? params.id : '';
   const openTx = useTxDialog((s) => s.open);
-  const { can } = usePermission();
+  const { can, canWrite } = usePermission();
 
   const { data: contact, isLoading, isError } = useContact(id);
   const { data: transactions = [], isLoading: txLoading } = useContactTransactions(id);
@@ -189,7 +189,7 @@ export default function ContactDetailPage() {
   // collecting rent posts revenue: same rule as any new transaction (active file, revenue permission)
   const canRecordRent = isTenant && !!rentSummary && mayCreateTransaction;
   const contactRecord = contact;
-  const pdfFileName = `ملف-${contactRecord.name}-${new Date().toISOString().slice(0, 10)}`;
+  const pdfFileName = `ملف-${contactRecord.name}-${todayISODate()}`;
 
   async function renderContactPdf() {
     const { ContactDossierPDF } = await import('@/features/pdf/ContactDossierPDF');
@@ -227,10 +227,12 @@ export default function ContactDetailPage() {
             </Button>
             <div className="hidden flex-wrap items-center gap-2 sm:flex">
               <TajMallPdfToolbar fileName={pdfFileName} render={renderContactPdf} />
-              <Button size="sm" variant="outline" onClick={openEdit}>
-                <Edit2 className="h-4 w-4 me-1" />
-                تعديل
-              </Button>
+              {canWrite && (
+                <Button size="sm" variant="outline" onClick={openEdit}>
+                  <Edit2 className="h-4 w-4 me-1" />
+                  تعديل
+                </Button>
+              )}
               {!isTenant && mayCreateTransaction ? (
                 <Button
                   size="sm"
@@ -282,7 +284,7 @@ export default function ContactDetailPage() {
             journalEntries={journalEntries}
             jeLoading={jeLoading}
             rentPaymentsCount={rentPaymentsCount}
-            onEdit={openEdit}
+            onEdit={canWrite ? openEdit : undefined}
             onCollect={canRecordRent ? openCollect : undefined}
           />
         ) : isLandlord ? (
@@ -291,7 +293,7 @@ export default function ContactDetailPage() {
             transactions={transactions}
             journalEntries={journalEntries}
             txLoading={txLoading}
-            onEdit={openEdit}
+            onEdit={canWrite ? openEdit : undefined}
           />
         ) : isUtilitySupplier ? (
           <UtilitySupplierPanel
@@ -300,7 +302,7 @@ export default function ContactDetailPage() {
             transactions={transactions}
             journalEntries={journalEntries}
             txLoading={txLoading}
-            onEdit={openEdit}
+            onEdit={canWrite ? openEdit : undefined}
           />
         ) : (
           <OtherContactDetailBody
@@ -369,14 +371,16 @@ export default function ContactDetailPage() {
             showDownload={false}
             className="min-w-0 flex-1 [&>button]:h-11 [&>button]:w-full [&>button]:flex-1 [&>button]:px-2 [&>button]:text-[13px]"
           />
-          <Button
-            variant="outline"
-            className="h-11 flex-1 gap-1.5 touch-manipulation"
-            onClick={openEdit}
-          >
-            <Edit2 className="h-4 w-4" />
-            تعديل
-          </Button>
+          {canWrite && (
+            <Button
+              variant="outline"
+              className="h-11 flex-1 gap-1.5 touch-manipulation"
+              onClick={openEdit}
+            >
+              <Edit2 className="h-4 w-4" />
+              تعديل
+            </Button>
+          )}
         </div>
       </MobilePageActionBar>
     </>

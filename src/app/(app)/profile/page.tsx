@@ -12,14 +12,10 @@ import { useCurrentProfile } from '@/lib/supabase/use-profile';
 import { useUpdateProfile } from '@/lib/db/queries';
 import { ChangePasswordForm } from '@/components/auth/change-password-form';
 import { toast } from 'sonner';
+import { SYSTEM_ROLES } from '@/lib/constants';
 
-const ROLE_LABEL: Record<string, string> = {
-  owner: 'المدير',
-  admin: 'مساعد',
-  accountant: 'محاسب',
-  cashier: 'أمين صندوق',
-  viewer: 'مشاهد',
-};
+// the same names as the users page
+const ROLE_LABEL: Record<string, string> = Object.fromEntries(SYSTEM_ROLES.map((r) => [r.name, r.nameAr]));
 
 export default function ProfilePage() {
   const { profile, user, loading } = useCurrentProfile();

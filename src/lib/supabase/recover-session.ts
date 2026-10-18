@@ -16,6 +16,12 @@ export async function exchangePasswordRecoverySession(
   }
 
   const search = new URLSearchParams(window.location.search);
+  // arriving from /auth/confirm, which has just exchanged an emailed token for this session
+  if (search.get('recovery') === '1') {
+    markRecovery();
+    stripRecoveryParamsFromUrl();
+    return { ok: true };
+  }
   const code = search.get('code');
   const token_hash = search.get('token_hash');
   const type = search.get('type');
@@ -35,23 +41,56 @@ export async function exchangePasswordRecoverySession(
     const access_token = hashParams.get('access_token');
     const refresh_token = hashParams.get('refresh_token');
     const hashType = hashParams.get('type');
-    if (access_token && hashType === 'recovery') {
+    // "recovery" (forgot password) and "invite" (a new user setting their first password)
+    if (access_token && (hashType === 'recovery' || hashType === 'invite')) {
       const { error } = await supabase.auth.setSession({
         access_token,
         refresh_token: refresh_token ?? '',
       });
       if (error) return { ok: false, reason: error.message };
+      markRecovery();
       stripRecoveryParamsFromUrl();
       return { ok: true };
     }
   }
 
+  // An ordinary signed-in session is not enough: anyone at an unlocked browser could then set a new
+  // password without the current one. Only a session created from a link in this tab counts.
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  if (session) return { ok: true };
+  if (session && hasRecovery()) return { ok: true };
+  if (session) return { ok: false, reason: 'signed_in' };
 
   return { ok: false, reason: 'missing_token' };
+}
+
+const RECOVERY_KEY = 'pw-recovery-at';
+
+function markRecovery() {
+  try {
+    sessionStorage.setItem(RECOVERY_KEY, String(Date.now()));
+  } catch {
+    /* private mode: the page still works for this load */
+  }
+}
+
+/** A recovery started in this tab within the last 30 minutes. */
+function hasRecovery() {
+  try {
+    const at = Number(sessionStorage.getItem(RECOVERY_KEY));
+    return Number.isFinite(at) && Date.now() - at < 30 * 60_000;
+  } catch {
+    return false;
+  }
+}
+
+export function clearRecovery() {
+  try {
+    sessionStorage.removeItem(RECOVERY_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 function stripRecoveryParamsFromUrl() {
@@ -59,6 +98,7 @@ function stripRecoveryParamsFromUrl() {
   url.searchParams.delete('code');
   url.searchParams.delete('token_hash');
   url.searchParams.delete('type');
+  url.searchParams.delete('recovery');
   url.hash = '';
   window.history.replaceState({}, '', url.pathname + (url.search || ''));
 }

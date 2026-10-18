@@ -21,7 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { cn, formatMoney } from '@/lib/utils';
+import { cn, formatMoney, todayISODate, parseAmountInput } from '@/lib/utils';
 import { useCategories, useContacts, useCashboxes } from '@/lib/db/queries';
 import {
   useCreateJournalEntry,
@@ -64,8 +64,19 @@ type JournalLine = {
   showExtras: boolean;
 };
 
+/** A line's amount as saved: dinars with at most 3 decimals (the database rounds the same way). */
+function lineAmount(line: JournalLine) {
+  const n = parseAmountInput(line.amount);
+  return Number.isFinite(n) ? Math.round(n * 1000) / 1000 : 0;
+}
+
+/** Only lines with an account and an amount are sent; the balance check must use exactly those. */
+function isSentLine(line: JournalLine) {
+  return Boolean(line.category_id) && lineAmount(line) > 0;
+}
+
 function lineToPayload(line: JournalLine) {
-  const amt = Number(line.amount) || 0;
+  const amt = lineAmount(line);
   return {
     category_id: line.category_id,
     debit: line.side === 'debit' ? amt : 0,
@@ -135,7 +146,7 @@ export function JournalEntryDialog({
   const saveDraft = useSaveJournalFormDraft();
   const deleteDraft = useDeleteJournalFormDraft();
 
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [entryDate, setEntryDate] = useState(todayISODate());
   const [reference, setReference] = useState('');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
@@ -216,13 +227,13 @@ export function JournalEntryDialog({
       setEntryDate(
         editingEntry.entry_date
           ? editingEntry.entry_date.split('T')[0]
-          : new Date().toISOString().split('T')[0],
+          : todayISODate(),
       );
       setDescription(editingEntry.description || '');
       setNotes(editingEntry.notes || '');
       setCategorySearch('');
     } else {
-      setEntryDate(new Date().toISOString().split('T')[0]);
+      setEntryDate(todayISODate());
       setReference('');
       setDescription('');
       setNotes('');
@@ -233,11 +244,16 @@ export function JournalEntryDialog({
     }
   }, [editingEntry, open]);
 
+  // The entry being edited is saved only once its own lines have arrived — never with the lines of the
+  // entry edited before it.
+  const [linesLoadedFor, setLinesLoadedFor] = useState<string | null>(null);
   useEffect(() => {
     if (editingEntry && dbLines && dbLines.length > 0) {
       setLines(dbLines.map(dbLineToForm));
+      setLinesLoadedFor(editingEntry.id);
     }
   }, [dbLines, editingEntry]);
+  const editLinesReady = !editingEntry || linesLoadedFor === editingEntry.id;
 
   const addLine = () => setLines((prev) => [...prev, emptyLine()]);
   const removeLine = (id: string) => {
@@ -252,18 +268,24 @@ export function JournalEntryDialog({
     setLines((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
   };
 
-  const totals = lines.reduce(
+  const totals = lines.filter(isSentLine).reduce(
     (acc, line) => {
-      const amt = Number(line.amount) || 0;
+      const amt = lineAmount(line);
       if (line.side === 'debit') acc.debit += amt;
       else acc.credit += amt;
       return acc;
     },
     { debit: 0, credit: 0 },
   );
+  totals.debit = Math.round(totals.debit * 1000) / 1000;
+  totals.credit = Math.round(totals.credit * 1000) / 1000;
+  // lines with an amount but no account are not saved: say so instead of counting them
+  const linesWithoutAccount = lines.filter((l) => !l.category_id && lineAmount(l) > 0).length;
+  const badAmounts = lines.filter((l) => l.amount.trim() !== '' && !Number.isFinite(parseAmountInput(l.amount))).length;
 
-  const isBalanced = Math.abs(totals.debit - totals.credit) < 0.001 && totals.debit > 0;
-  const difference = totals.debit - totals.credit;
+  const isBalanced =
+    Math.abs(totals.debit - totals.credit) < 0.0005 && totals.debit > 0 && linesWithoutAccount === 0 && badAmounts === 0;
+  const difference = Math.round((totals.debit - totals.credit) * 1000) / 1000;
 
   const voucherPreviewLines = useMemo((): JournalVoucherLineInput[] => {
     const catMap = new Map((categories ?? []).map((c) => [c.id, c]));
@@ -271,12 +293,12 @@ export function JournalEntryDialog({
     const cashboxMap = new Map((cashboxes ?? []).map((c) => [c.id, c]));
 
     return lines
-      .filter((l) => l.category_id || Number(l.amount) > 0)
+      .filter((l) => l.category_id || lineAmount(l) > 0)
       .map((l) => {
         const cat = catMap.get(l.category_id);
         const contact = l.contact_id ? contactMap.get(l.contact_id) : null;
         const cashbox = l.cashbox_id ? cashboxMap.get(l.cashbox_id) : null;
-        const amt = Number(l.amount) || 0;
+        const amt = lineAmount(l);
         const metaParts = [
           contact?.name ?? null,
           cashbox ? `خزينة: ${cashbox.name_ar}` : null,
@@ -335,7 +357,7 @@ export function JournalEntryDialog({
   const applyDraft = (row: JournalFormDraftRow) => {
     const p = row.payload;
     setEditingDraftId(row.id);
-    setEntryDate(p.entry_date ?? new Date().toISOString().split('T')[0]);
+    setEntryDate(p.entry_date ?? todayISODate());
     setDescription(p.description ?? '');
     setNotes(p.notes ?? '');
     if (p.lines && p.lines.length > 0) {
@@ -416,9 +438,19 @@ export function JournalEntryDialog({
       return;
     }
 
-    const validLines = lines
-      .filter((l) => l.category_id && Number(l.amount) > 0)
-      .map(lineToPayload);
+    if (!editLinesReady) {
+      toast.error('انتظر تحميل بنود القيد');
+      return;
+    }
+    if (badAmounts > 0) {
+      toast.error('مبلغ غير صالح في أحد البنود — أدخل رقماً موجباً بثلاث خانات عشرية على الأكثر.');
+      return;
+    }
+    if (linesWithoutAccount > 0) {
+      toast.error('اختر الحساب لكل بند فيه مبلغ، أو احذف البند');
+      return;
+    }
+    const validLines = lines.filter(isSentLine).map(lineToPayload);
 
     if (validLines.length < 2) {
       toast.error('أدخل بندين على الأقل مع مبالغ');
@@ -688,6 +720,7 @@ export function JournalEntryDialog({
                     size="sm"
                     variant="ghost"
                     className="h-11 min-w-11 text-destructive touch-manipulation"
+                    aria-label={`حذف البند ${index + 1}`}
                     onClick={() => removeLine(line.id)}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -834,7 +867,13 @@ export function JournalEntryDialog({
                 <AlertCircle className="h-4 w-4 text-warning shrink-0" />
               )}
               <span className="font-medium text-xs">
-                {isBalanced ? 'القيد متوازن ✓' : 'غير متوازن'}
+                {isBalanced
+                  ? 'القيد متوازن ✓'
+                  : linesWithoutAccount > 0
+                    ? 'بند فيه مبلغ بلا حساب — لن يُحفظ'
+                    : badAmounts > 0
+                      ? 'مبلغ غير صالح في أحد البنود'
+                      : 'غير متوازن'}
               </span>
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
@@ -888,7 +927,7 @@ export function JournalEntryDialog({
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={!isBalanced || isPending || !can('journal.create')}
+                disabled={!isBalanced || isPending || !editLinesReady || !can('journal.create')}
                 className="h-12 gap-1.5 touch-manipulation"
               >
                 {isPending ? (

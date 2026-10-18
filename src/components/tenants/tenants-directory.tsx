@@ -265,7 +265,7 @@ export function TenantsDirectory({
       ) : filteredTenants.length === 0 ? (
         <Card className="p-8 text-center">
           <Building2 className="mx-auto h-8 w-8 text-ink-mute" />
-          <p className="mt-2 text-ink-mute">لا يوجد مستأجرين</p>
+          <p className="mt-2 text-ink-mute">لا يوجد مستأجرون</p>
           {onAddTenant && (
             <Button className="mt-4" size="sm" onClick={onAddTenant}>
               إضافة مستأجر

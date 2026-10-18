@@ -68,8 +68,8 @@ export const TENANT_STATUS_CONFIG: Record<
     border: 'border-border',
   },
   exempt: {
-    label: 'بدون مطالبة',
-    shortLabel: 'بدون مطالبة',
+    label: 'مستبعد من المطالبة',
+    shortLabel: 'مستبعد',
     icon: CalendarOff,
     color: 'text-muted-foreground',
     bg: 'bg-canvas-sunken/80',

@@ -5,6 +5,7 @@ import { ReportShell } from './ReportShell';
 import { ar } from './arabicPDF';
 import { PDF } from './pdfBase';
 import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTable';
+import { accountTypeLabelAr } from '@/lib/accounting-labels';
 
 const W = {
   balance: '14%',
@@ -39,7 +40,7 @@ export function TrialBalanceReportPDF({
     totalDebits += Number(r.total_debit || 0);
     totalCredits += Number(r.total_credit || 0);
   });
-  const isBalanced = Math.abs(totalDebits - totalCredits) < 0.01;
+  const isBalanced = Math.abs(totalDebits - totalCredits) < 0.0005;
   const periodLabel = `السنة المالية ${year}`;
 
   return (
@@ -101,7 +102,7 @@ export function TrialBalanceReportPDF({
               <PdfReportMoney amount={Number(r.total_debit)} color={PDF.success} />
             </View>
             <Text style={[pdfReportTable.tdMuted, { width: W.type, fontSize: 7.5 }]}>
-              {ar(r.type)}
+              {ar(accountTypeLabelAr(r.type))}
             </Text>
             <Text style={[pdfReportTable.tdAr, { width: W.name }]}>{ar(r.name_ar)}</Text>
             <Text style={[pdfReportTable.tdMuted, { width: W.code }]}>{r.code}</Text>

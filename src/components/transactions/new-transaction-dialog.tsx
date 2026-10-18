@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { ArrowDownToLine, ArrowUpFromLine, Loader2, X, User, Building2, Briefcase, Plus, FileStack, Trash2, Landmark, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTxDialog, type TxKind } from '@/stores/transaction-dialog';
 import { PAYMENT_METHODS } from '@/lib/constants';
-import { cn, preferredCashboxId, todayISODate } from '@/lib/utils';
+import { cn, parseAmountInput, preferredCashboxId, todayISODate } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCategories, useCashboxes, useCreateTransaction, useContacts, useCreateContact, useTransactionFormDrafts, useSaveTransactionFormDraft, useDeleteTransactionFormDraft, useRecordRentPayment } from '@/lib/db/queries';
 import type { TransactionFormDraftRow, PaymentMethod } from '@/lib/db/types';
@@ -29,28 +29,18 @@ import { invalidateRentCalendarQueries } from '@/lib/db/rent-queries';
 import { toast } from 'sonner';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { formatContactSaveError } from '@/lib/contacts/form-utils';
-import { NEEDS_DB_UPDATE } from '@/lib/user-messages';
+import { NEEDS_DB_UPDATE, friendlyError } from '@/lib/user-messages';
 
 /** يُرجع رسالة خطأ مفيدة من خطأ Supabase/Postgres بدل رسالة عامة. */
 function extractSaveError(err: unknown): string {
-  const e = err as { message?: string; code?: string; details?: string } | null;
-  const code = e?.code;
-  const raw = e?.message?.trim();
-  const hints: Record<string, string> = {
-    '23502': 'إعداد الحسابات غير مكتمل (حساب الخزينة غير مربوط) — أبلغ مسؤول النظام.',
-    '23503': 'مرجع غير صالح — تحقق من البند/الخزينة/الجهة المختارة.',
-    '23505': 'القيمة مسجّلة من قبل.',
-    '42501': 'لا توجد صلاحية للحفظ — تحقق من دورك.',
-    '42804': NEEDS_DB_UPDATE,
-    'P0001': raw ?? 'خطأ منطقي في قاعدة البيانات.',
-  };
-  if (raw?.includes('payment_method') && raw.includes('type text')) {
-    return `فشل الحفظ: ${NEEDS_DB_UPDATE}`;
+  const e = err as { message?: string; code?: string } | null;
+  const raw = e?.message?.trim() ?? '';
+  if (e?.code === '42804' || (raw.includes('payment_method') && raw.includes('type text'))) {
+    return `لم تُحفظ المعاملة: ${NEEDS_DB_UPDATE}`;
   }
-  const hint = code ? hints[code] : undefined;
-  if (hint) return `فشل الحفظ: ${hint}`;
-  if (raw) return `فشل الحفظ: ${raw}`;
-  return 'فشل الحفظ — تعذّر حفظ المعاملة، حاول مجدداً.';
+  if (e?.code === '23502') return 'لم تُحفظ المعاملة: إعداد الحسابات غير مكتمل (حساب الخزينة غير مربوط) — أبلغ مسؤول النظام.';
+  if (e?.code === '23503') return 'لم تُحفظ المعاملة: أحد الاختيارات (البند أو الخزينة أو الجهة) لم يعد موجوداً — أعد اختياره.';
+  return `لم تُحفظ المعاملة: ${friendlyError(err, 'تعذّر الحفظ، حاول مجدداً.')}`;
 }
 
 export function NewTransactionDialog() {
@@ -59,6 +49,8 @@ export function NewTransactionDialog() {
     defaultKind,
     prefillContactId,
     prefillContactKind,
+    prefillDescription,
+    prefillAmount,
     close,
   } = useTxDialog();
   const { can, loading: permLoading } = usePermission();
@@ -77,6 +69,8 @@ export function NewTransactionDialog() {
   const [error, setError] = useState<string | null>(null);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const [rentMonths, setRentMonths] = useState<string[]>([]);
+  // the whole save, including removing a used draft: the button stays disabled until it ends
+  const [submitting, setSubmitting] = useState(false);
   const qc = useQueryClient();
 
   const { data: drafts = [], isLoading: draftsLoading } = useTransactionFormDrafts(kind, isOpen);
@@ -84,7 +78,8 @@ export function NewTransactionDialog() {
   const deleteDraft = useDeleteTransactionFormDraft();
 
   const { data: categoriesAll = [], isLoading: catsLoading } = useCategories();
-  const { data: cashboxes = [], isLoading: boxLoading } = useCashboxes();
+  const { data: cashboxData, isLoading: boxLoading } = useCashboxes();
+  const cashboxes = useMemo(() => cashboxData ?? [], [cashboxData]);
   const { data: contactsAll = [], isLoading: contactsLoading } = useContacts();
   const createTx = useCreateTransaction();
   const recordRentPayment = useRecordRentPayment();
@@ -101,15 +96,20 @@ export function NewTransactionDialog() {
     return contactsAll.filter(c => c.kind === contactKind);
   }, [contactsAll, contactKind]);
 
+  // Reset the form each time the dialog opens — not on every re-render, or typing would be wiped while
+  // the cashboxes load.
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (isOpen) {
+    const opening = isOpen && !wasOpen.current;
+    wasOpen.current = isOpen;
+    if (opening) {
       setKind(defaultKind);
-      setAmount('');
+      setAmount(prefillAmount ? String(prefillAmount) : '');
       setCategoryId('');
       setCashboxId(preferredCashboxId(cashboxes));
       setMethod('CASH');
       setDate(todayISODate());
-      setDescription('');
+      setDescription(prefillDescription ?? '');
       const prefKind =
         prefillContactKind &&
         (prefillContactKind === 'ALL' ||
@@ -126,18 +126,30 @@ export function NewTransactionDialog() {
       setError(null);
       setEditingDraftId(null);
       setRentMonths([]);
+      setSubmitting(false);
     }
-  }, [isOpen, defaultKind, cashboxes, prefillContactId, prefillContactKind]);
+  }, [isOpen, defaultKind, cashboxes, prefillContactId, prefillContactKind, prefillDescription, prefillAmount]);
+
+  // no choice yet means the preferred box, also when the cashboxes arrive after the dialog opened
+  const effectiveCashboxId = cashboxId || preferredCashboxId(cashboxes);
 
   const createPerm = kind === 'REVENUE' ? 'revenue.create' : 'expense.create';
+  const canRevenue = !permLoading && can('revenue.create');
+  const canExpense = !permLoading && can('expense.create');
 
+  // Opened for a kind this user may not record: switch to the other kind, or close if neither.
   useEffect(() => {
     if (!isOpen || permLoading) return;
-    if (!can(createPerm)) {
-      close();
-      toast.error('صلاحية القراءة فقط — لا يمكن إضافة معاملات');
+    if (can(createPerm)) return;
+    const other: TxKind = kind === 'REVENUE' ? 'EXPENSE' : 'REVENUE';
+    if (can(other === 'REVENUE' ? 'revenue.create' : 'expense.create')) {
+      setKind(other);
+      setCategoryId('');
+      return;
     }
-  }, [isOpen, permLoading, createPerm, can, close]);
+    close();
+    toast.error('صلاحية القراءة فقط — لا يمكن إضافة معاملات');
+  }, [isOpen, permLoading, createPerm, can, close, kind]);
 
   // Escape closes it like every other dialog in the app.
   useEffect(() => {
@@ -160,7 +172,7 @@ export function NewTransactionDialog() {
   const tenantChargesQuery = useTenantChargesForTenant(showRentAllocation ? contactId : '');
   const tenantCharges = useMemo(() => tenantChargesQuery.data ?? [], [tenantChargesQuery.data]);
   const tenantMonthlyRent = Number(selectedContact?.monthly_rent) || 0;
-  const amountNumber = Number(amount.replace(/[^\d.-]/g, '')) || 0;
+  const amountNumber = parseAmountInput(amount) || 0;
   // The rent split is the same one the tenant payment dialog shows (src/lib/rent-allocation.ts).
   const rentPlan = useRentPaymentPlan({
     tenantId: showRentAllocation ? contactId : '',
@@ -179,6 +191,7 @@ export function NewTransactionDialog() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting) return;
     setError(null);
 
     if (!can(createPerm)) {
@@ -186,16 +199,20 @@ export function NewTransactionDialog() {
       return;
     }
 
-    const amountNum = Number(amount.replace(/[^\d.-]/g, ''));
+    const amountNum = parseAmountInput(amount);
     if (!Number.isFinite(amountNum) || amountNum <= 0) {
-      setError('أدخل مبلغ صحيح');
+      setError('أدخل مبلغاً صحيحاً أكبر من صفر، بثلاث خانات عشرية على الأكثر.');
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      setError('حدّد تاريخ العملية');
       return;
     }
     if (!categoryId) {
       setError('اختر البند');
       return;
     }
-    if (!cashboxId) {
+    if (!effectiveCashboxId) {
       setError('اختر الخزينة');
       return;
     }
@@ -211,6 +228,7 @@ export function NewTransactionDialog() {
       }
     }
 
+    setSubmitting(true);
     try {
       /** مسار إيجار ذرّي: معاملة + قيد + ربط في RPC واحد */
       if (showRentAllocation && contactId && rentMonths.length > 0) {
@@ -218,7 +236,7 @@ export function NewTransactionDialog() {
           tenant_id: contactId,
           amount: amountNum,
           payment_date: date,
-          cashbox_id: cashboxId,
+          cashbox_id: effectiveCashboxId,
           description:
             description.trim() ||
             `تحصيل إيجار: ${formatMonthsLabelAr(rentMonths)}`,
@@ -232,7 +250,7 @@ export function NewTransactionDialog() {
           amount: amountNum,
           method,
           category_id: categoryId,
-          cashbox_id: cashboxId,
+          cashbox_id: effectiveCashboxId,
           tx_date: date,
           description: description || undefined,
           contact_id: contactId || undefined,
@@ -263,12 +281,13 @@ export function NewTransactionDialog() {
     } catch (err) {
       console.error('فشل حفظ المعاملة:', err);
       setError(extractSaveError(err));
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  async function handleCreateContact(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newContactName.trim()) return;
+  async function handleCreateContact() {
+    if (!newContactName.trim() || createContact.isPending) return;
 
     const createKind =
       contactKind === 'ALL' ? (isRevenue ? 'CUSTOMER' : 'VENDOR') : contactKind;
@@ -325,7 +344,7 @@ export function NewTransactionDialog() {
         payload: {
           amount,
           category_id: categoryId || undefined,
-          cashbox_id: cashboxId || undefined,
+          cashbox_id: effectiveCashboxId || undefined,
           method,
           tx_date: date,
           description: description || undefined,
@@ -434,13 +453,16 @@ export function NewTransactionDialog() {
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
+              aria-pressed={kind === 'REVENUE'}
+              disabled={!canRevenue}
+              title={canRevenue ? undefined : 'لا تملك صلاحية تسجيل إيراد'}
               onClick={() => {
                 setKind('REVENUE');
                 setCategoryId('');
                 setContactKind(suggestedContactKindForTx('REVENUE', null));
               }}
               className={cn(
-                'rounded-md py-2 text-sm font-medium',
+                'rounded-md py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50',
                 kind === 'REVENUE' ? 'bg-pastel-green text-pastel-greenInk' : 'bg-canvas-sunken'
               )}
             >
@@ -448,13 +470,16 @@ export function NewTransactionDialog() {
             </button>
             <button
               type="button"
+              aria-pressed={kind === 'EXPENSE'}
+              disabled={!canExpense}
+              title={canExpense ? undefined : 'لا تملك صلاحية تسجيل مصروف'}
               onClick={() => {
                 setKind('EXPENSE');
                 setCategoryId('');
                 setContactKind(suggestedContactKindForTx('EXPENSE', null));
               }}
               className={cn(
-                'rounded-md py-2 text-sm font-medium',
+                'rounded-md py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50',
                 kind === 'EXPENSE' ? 'bg-pastel-red text-pastel-redInk' : 'bg-canvas-sunken'
               )}
             >
@@ -464,8 +489,9 @@ export function NewTransactionDialog() {
 
           {/* المبلغ */}
           <div>
-            <Label>المبلغ (د.ل)</Label>
+            <Label htmlFor="tx-amount">المبلغ (د.ل)</Label>
             <Input
+              id="tx-amount"
               type="text"
               inputMode="decimal"
               placeholder="0"
@@ -479,8 +505,9 @@ export function NewTransactionDialog() {
           {/* البند والخزينة */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label>البند</Label>
+              <Label htmlFor="tx-category">البند</Label>
               <select
+                id="tx-category"
                 value={categoryId}
                 onChange={(e) => {
                   const nextId = e.target.value;
@@ -498,9 +525,10 @@ export function NewTransactionDialog() {
               </select>
             </div>
             <div>
-              <Label>الخزينة</Label>
+              <Label htmlFor="tx-cashbox">الخزينة</Label>
               <select
-                value={cashboxId}
+                id="tx-cashbox"
+                value={effectiveCashboxId}
                 onChange={(e) => setCashboxId(e.target.value)}
                 className="h-10 w-full rounded border px-2 text-sm"
                 disabled={boxLoading}
@@ -521,8 +549,9 @@ export function NewTransactionDialog() {
           {/* طريقة الدفع والتاريخ */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label>الطريقة</Label>
+              <Label htmlFor="tx-method">الطريقة</Label>
               <select
+                id="tx-method"
                 value={method}
                 onChange={(e) => setMethod(e.target.value as any)}
                 className="h-10 w-full rounded border px-2 text-sm"
@@ -533,9 +562,11 @@ export function NewTransactionDialog() {
               </select>
             </div>
             <div>
-              <Label>تاريخ العملية</Label>
+              <Label htmlFor="tx-date">تاريخ العملية</Label>
               <Input
+                id="tx-date"
                 type="date"
+                required
                 value={date}
                 max={todayISODate()}
                 min="2020-01-01"
@@ -549,8 +580,9 @@ export function NewTransactionDialog() {
 
           {/* البيان */}
           <div>
-            <Label>البيان (اختياري)</Label>
+            <Label htmlFor="tx-description">البيان (اختياري)</Label>
             <Input
+              id="tx-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="وصف المعاملة"
@@ -560,7 +592,7 @@ export function NewTransactionDialog() {
           {/* الجهة: عميل / مورد / مستأجر / موظف */}
           <div className="border rounded-md p-3 space-y-2 bg-canvas-sunken/30">
             <div className="flex items-center justify-between gap-2">
-              <Label className="flex items-center gap-1.5">
+              <Label htmlFor="tx-contact" className="flex items-center gap-1.5">
                 <User className="h-3.5 w-3.5 text-ink-mute" />
                 {isRevenue ? 'المسدد' : 'المستفيد'} (اختياري)
               </Label>
@@ -618,23 +650,41 @@ export function NewTransactionDialog() {
             ) : null}
 
             {showNewContact ? (
-              <form onSubmit={handleCreateContact} className="flex gap-2">
+              // not a nested <form>: its submit would post the transaction itself
+              <div className="flex gap-2">
                 <Input
+                  id="tx-contact"
                   value={newContactName}
                   onChange={(e) => setNewContactName(e.target.value)}
-                  placeholder="اسم جديد..."
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void handleCreateContact();
+                    }
+                  }}
+                  placeholder="اسم الجهة الجديدة"
+                  aria-label="اسم الجهة الجديدة"
                   className="flex-1 h-9"
+                  autoFocus
                 />
-                <Button type="submit" size="sm" className="h-9 px-2">
-                  <Plus className="h-4 w-4" />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-9 px-2"
+                  aria-label="إضافة الجهة"
+                  disabled={!newContactName.trim() || createContact.isPending}
+                  onClick={() => void handleCreateContact()}
+                >
+                  {createContact.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 </Button>
-                <Button type="button" variant="ghost" size="sm" className="h-9 px-2" onClick={() => setShowNewContact(false)}>
+                <Button type="button" variant="ghost" size="sm" className="h-9 px-2" aria-label="إلغاء إضافة جهة" onClick={() => setShowNewContact(false)}>
                   <X className="h-4 w-4" />
                 </Button>
-              </form>
+              </div>
             ) : (
               <div className="flex gap-2">
                 <select
+                  id="tx-contact"
                   value={contactId}
                   onChange={(e) => setContactId(e.target.value)}
                   className="h-9 flex-1 rounded border px-2 text-sm bg-card"
@@ -652,6 +702,7 @@ export function NewTransactionDialog() {
                   variant="outline" 
                   size="sm" 
                   className="h-9 px-2"
+                  aria-label="إضافة جهة جديدة"
                   onClick={() => setShowNewContact(true)}
                 >
                   <Plus className="h-4 w-4" />
@@ -696,8 +747,8 @@ export function NewTransactionDialog() {
             >
               {saveDraft.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'حفظ مسودة'}
             </Button>
-            <Button type="submit" disabled={createTx.isPending || recordRentPayment.isPending} className="min-w-[96px] flex-1">
-              {createTx.isPending || recordRentPayment.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'ترحيل الآن'}
+            <Button type="submit" disabled={submitting} className="min-w-[96px] flex-1">
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-label="جارٍ الترحيل" /> : 'ترحيل الآن'}
             </Button>
           </div>
         </form>

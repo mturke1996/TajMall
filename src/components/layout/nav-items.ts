@@ -59,7 +59,7 @@ export const NAV: NavSection[] = [
     titleAr: 'الرئيسية',
     title: 'Overview',
     items: [
-      { href: '/dashboard', labelAr: 'لوحة التحكم', label: 'Dashboard', icon: LayoutDashboard, shortcut: '⌘D', permission: 'dashboard.view' },
+      { href: '/dashboard', labelAr: 'لوحة التحكم', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
       { href: '/activity', labelAr: 'النشاط', label: 'Activity', icon: Activity, permission: 'dashboard.view' },
       { href: '/notifications', labelAr: 'التنبيهات', label: 'Notifications', icon: Bell, permission: 'dashboard.view' },
     ],
@@ -78,9 +78,9 @@ export const NAV: NavSection[] = [
     titleAr: 'الخزينة',
     title: 'Treasury',
     items: [
-      { href: '/transactions', labelAr: 'المعاملات', label: 'Transactions', icon: ArrowLeftRight, shortcut: '⌘T', permission: 'revenue.view' },
-      { href: '/revenues', labelAr: 'الإيرادات', label: 'Revenues', icon: ArrowDownToLine, shortcut: '⌘R', permission: 'revenue.view' },
-      { href: '/expenses', labelAr: 'المصروفات', label: 'Expenses', icon: ArrowUpFromLine, shortcut: '⌘E', permission: 'expense.view' },
+      { href: '/transactions', labelAr: 'المعاملات', label: 'Transactions', icon: ArrowLeftRight, permission: 'revenue.view' },
+      { href: '/revenues', labelAr: 'الإيرادات', label: 'Revenues', icon: ArrowDownToLine, permission: 'revenue.view' },
+      { href: '/expenses', labelAr: 'المصروفات', label: 'Expenses', icon: ArrowUpFromLine, permission: 'expense.view' },
       { href: '/cashboxes', labelAr: 'الخزائن والمصارف', label: 'Cashboxes', icon: Wallet, permission: 'cashbox.view' },
       { href: '/vouchers', labelAr: 'إذونات الصرف', label: 'Vouchers', icon: Receipt, permission: 'voucher.view' },
     ],
@@ -91,7 +91,8 @@ export const NAV: NavSection[] = [
     items: [
       { href: '/mall?tab=people', labelAr: 'الدليل الشامل', label: 'Directory', icon: Users, permission: 'revenue.view' },
       { href: '/mall?tab=people&segment=EMPLOYEE', labelAr: 'الموظفون', label: 'Employees', icon: Briefcase, permission: 'expense.view' },
-      { href: '/payroll', labelAr: 'الرواتب', label: 'Payroll', icon: BadgeDollarSign, permission: 'expense.view' },
+      // payroll rows are readable by the accountant, the admin and the owner only (row-level security)
+      { href: '/payroll', labelAr: 'الرواتب', label: 'Payroll', icon: BadgeDollarSign, permission: 'journal.create' },
       { href: '/mall?tab=people&segment=VENDOR', labelAr: 'الموردون', label: 'Vendors', icon: Landmark, permission: 'expense.view' },
       { href: '/mall?tab=people&segment=CUSTOMER', labelAr: 'العملاء', label: 'Customers', icon: Store, permission: 'revenue.view' },
     ],

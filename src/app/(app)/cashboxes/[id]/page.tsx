@@ -249,11 +249,11 @@ export default function CashboxLedgerPage() {
                   <p
                     className={cn(
                       'num mt-1 text-[16px] font-bold',
-                      Math.abs(reconcileDiff) < 0.01 ? 'text-success-ink' : 'text-danger-ink',
+                      Math.abs(reconcileDiff) < 0.0005 ? 'text-success-ink' : 'text-danger-ink',
                     )}
                   >
                     {formatMoney(reconcileDiff, currency)}
-                    {Math.abs(reconcileDiff) < 0.01 ? ' — متطابق' : ''}
+                    {Math.abs(reconcileDiff) < 0.0005 ? ' — متطابق' : ''}
                   </p>
                 </div>
               )}
@@ -337,6 +337,10 @@ export default function CashboxLedgerPage() {
                         >
                           {reconcileMode && (
                             <td className="px-4 py-3">
+                              {/* journal-line movements (vouchers, counts, manual entries) cannot be marked yet */}
+                              {row.source_type === 'journal' ? (
+                                <span className="text-[11px] text-ink-mute" title="المطابقة متاحة للإيراد والمصروف والتحويلات">—</span>
+                              ) : (
                               <button
                                 type="button"
                                 onClick={() => toggleReconciled(row)}
@@ -350,6 +354,7 @@ export default function CashboxLedgerPage() {
                                   <Square className="h-4 w-4 text-ink-mute" />
                                 )}
                               </button>
+                              )}
                             </td>
                           )}
                           <td className="px-4 py-3 whitespace-nowrap" dir="ltr">
@@ -423,7 +428,7 @@ function LedgerMobileRow({
     <article className={cn('px-4 py-3.5', reconcileMode && row.reconciled_at && 'bg-success-soft/40')}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          {reconcileMode && (
+          {reconcileMode && row.source_type !== 'journal' && (
             <button
               type="button"
               onClick={onToggleReconciled}

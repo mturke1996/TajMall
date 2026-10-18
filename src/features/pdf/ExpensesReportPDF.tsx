@@ -9,6 +9,7 @@ import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTab
 import { TajMallPdfFooter, PdfReportHeaderFlow } from './pdfBrandKit';
 import { BRAND } from '@/lib/brand';
 import type { TransactionWithRelations } from '@/lib/db/types';
+import { arabicCount } from '@/lib/utils';
 
 const W_EXP = {
   amount: '16%',
@@ -300,7 +301,7 @@ export function ExpensesReportPDF(props: ExpensesReportPdfProps) {
             </View>
             <View style={s.scopeItem}>
               <Text style={s.scopeLabel}>{ar('عدد السندات')}</Text>
-              <Text style={s.scopeValue}>{ar(`${totalTransactionsCount} سند`)}</Text>
+              <Text style={s.scopeValue}>{ar(arabicCount(totalTransactionsCount, ['معاملة واحدة', 'معاملتان', 'معاملات', 'معاملة']))}</Text>
             </View>
             <View style={s.scopeItem}>
               <Text style={s.scopeLabel}>{ar('إجمالي المصروفات')}</Text>
@@ -321,7 +322,7 @@ export function ExpensesReportPDF(props: ExpensesReportPdfProps) {
             <View style={s.kpiCell}>
               <Text style={s.kpiLabel}>{ar('طرق الدفع المستخدمة')}</Text>
               <Text style={[s.kpiValue, { color: PDF.primary }]}>
-                {ar(`${paymentMethodGroups.length} طرق دفع`)}
+                {ar(arabicCount(paymentMethodGroups.length, ['طريقة دفع واحدة', 'طريقتا دفع', 'طرق دفع', 'طريقة دفع']))}
               </Text>
               <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right', marginTop: 2 }}>
                 {ar('نقدي، بطاقة، حوالة، صك')}
@@ -331,7 +332,7 @@ export function ExpensesReportPDF(props: ExpensesReportPdfProps) {
             <View style={s.kpiCell}>
               <Text style={s.kpiLabel}>{ar('الحسابات والمصارف')}</Text>
               <Text style={[s.kpiValue, { color: PDF.primary }]}>
-                {ar(`${banksSummary.length} حسابات`)}
+                {ar(arabicCount(banksSummary.length, ['حساب واحد', 'حسابان', 'حسابات', 'حساباً']))}
               </Text>
               <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right', marginTop: 2 }}>
                 {ar('خزائن ومصارف مدفوع منها')}
@@ -341,7 +342,7 @@ export function ExpensesReportPDF(props: ExpensesReportPdfProps) {
             <View style={s.kpiCell}>
               <Text style={s.kpiLabel}>{ar('بنود المصروفات')}</Text>
               <Text style={[s.kpiValue, { color: PDF.primary }]}>
-                {ar(`${categoriesSummary.length} بنود`)}
+                {ar(arabicCount(categoriesSummary.length, ['بند واحد', 'بندان', 'بنود', 'بنداً']))}
               </Text>
               <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right', marginTop: 2 }}>
                 {ar('تشغيل وصيانة وعمومية')}

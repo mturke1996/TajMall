@@ -111,7 +111,11 @@ export function arDateParts(date: Date | string): {
   monthYear: string;
   gregorian: string;
 } {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  // a calendar day (YYYY-MM-DD) is read at local noon, so no time zone moves it to another day
+  const d =
+    typeof date === 'string'
+      ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T12:00:00` : date)
+      : date;
   const safe = Number.isNaN(d.getTime()) ? new Date() : d;
   try {
     const day = new Intl.DateTimeFormat('ar-LY-u-ca-gregory-nu-latn', {

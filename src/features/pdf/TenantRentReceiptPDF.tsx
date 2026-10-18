@@ -130,7 +130,7 @@ export function TenantRentReceiptPDF({
         <Text style={{ fontSize: 9, color: PDF.muted }}>{ar('إجمالي التحصيل')}</Text>
         <PdfMoneyText amount={totalAmount} style={{ fontSize: 14, fontWeight: 'bold' }} />
         <Text style={{ fontSize: 8, color: PDF.muted, marginTop: 4 }}>
-          {ar(`${dateParts.day} ${dateParts.monthName} ${dateParts.year}`)}
+          {ar(`${dateParts.day} ${dateParts.monthYear}`)}
         </Text>
       </View>
     </ReportShell>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { Loader2, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,12 +27,14 @@ import { describeRentIssue, resolveRentAmount } from '@/lib/rent-allocation';
 import { currentMonthKey, formatMonthLabelAr, formatMonthsLabelAr } from '@/lib/rent-months';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import type { PaymentMethod } from '@/lib/db/types';
-import { formatMoney, preferredCashboxId, todayISODate } from '@/lib/utils';
+import { formatMoney, parseAmountInput, preferredCashboxId, todayISODate } from '@/lib/utils';
+import { useTenantRentAccount } from '@/components/tenants/use-tenant-rent-account';
 import { toast } from 'sonner';
+import { friendlyError } from '@/lib/user-messages';
 
 export type RentPaymentTenant = Pick<
   TenantRentSummary,
-  'id' | 'name' | 'shop_number' | 'monthly_rent' | 'current_month_paid'
+  'id' | 'name' | 'shop_number' | 'monthly_rent' | 'current_month_paid' | 'rent_claim_start'
 >;
 
 type RecordRentPaymentDialogProps = {
@@ -77,7 +79,8 @@ export function RecordRentPaymentDialog({
   const [rentMonths, setRentMonths] = useState<string[]>([]);
   const [method, setMethod] = useState<PaymentMethod>('CASH');
 
-  const amount = Number(amountText.replace(/,/g, '')) || 0;
+  const parsedAmount = parseAmountInput(amountText);
+  const amount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
   const { plan, basis, basisFor, pricing, loading: pricingLoading } = useRentPaymentPlan({
     tenantId: tenant?.id ?? '',
     contactRent: Number(tenant?.monthly_rent) || 0,
@@ -92,10 +95,23 @@ export function RecordRentPaymentDialog({
   const selectedCashbox = cashboxes.find((c) => c.id === effectiveCashboxId);
   const lastPartial = plan.lines.length > 0 && plan.lines[plan.lines.length - 1].status === 'partial';
 
+  // The oldest month owed across all years (the same account as the profile), used when the dialog is
+  // opened without months: last year's debt comes before this year's.
+  const claimStart = tenant?.rent_claim_start ?? null;
+  const { account, loading: accountLoading } = useTenantRentAccount({
+    tenantId,
+    contactRent: Number(tenant?.monthly_rent) || 0,
+    claimStart,
+    contractStartYear: claimStart ? Number(claimStart.slice(0, 4)) || null : null,
+  });
+  const oldestOwing = account.owingMonths[0] ?? null;
+  const picked = useRef(false);
+
   // Fresh form each time the dialog opens (not when cashboxes or the tenant row refetch mid-entry).
   const initialKey = (initialMonths ?? []).join(',');
   useEffect(() => {
     if (!open || !tenantId) return;
+    picked.current = Boolean(initialKey);
     setRentMonths(initialKey ? initialKey.split(',') : []);
     setAmountText('');
     setPaymentDate(todayISODate());
@@ -104,6 +120,12 @@ export function RecordRentPaymentDialog({
     setCashboxId('');
     setMethod('CASH');
   }, [open, tenantId, initialKey]);
+
+  useEffect(() => {
+    if (!open || picked.current || accountLoading || !ready) return;
+    picked.current = true;
+    if (oldestOwing) setRentMonths([oldestOwing]);
+  }, [open, accountLoading, ready, oldestOwing]);
 
   useEffect(() => {
     if (selectedCashbox?.kind === 'BANK') setMethod('TRANSFER');
@@ -140,7 +162,7 @@ export function RecordRentPaymentDialog({
       onSuccess?.();
     } catch (err) {
       console.error('[rent-payment]', err);
-      toast.error(err instanceof Error ? err.message : 'تعذّر تسجيل الدفعة');
+      toast.error(friendlyError(err, 'تعذّر تسجيل الدفعة'));
     }
   }
 
@@ -189,7 +211,10 @@ export function RecordRentPaymentDialog({
               basisFor={basisFor}
               onAmountChange={setAmount}
               ready={ready}
-              autoSelectFirstDue
+              // the same claim start the database applies when it records the payment
+              claimStart={tenant.rent_claim_start ?? null}
+              // nothing owed now: suggest the next month due
+              autoSelectFirstDue={!accountLoading && !oldestOwing}
             />
           )}
 

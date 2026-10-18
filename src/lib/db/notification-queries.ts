@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/user-messages';
+import { arabicCount } from '@/lib/utils';
 
 export type AppNotificationRow = {
   id: string;
@@ -148,7 +149,7 @@ export function useSyncOverdueChargeReminders() {
     },
     onSuccess: (res) => {
       const n = Number(res?.created ?? 0);
-      toast.success(n > 0 ? `تم إنشاء ${n} تذكيراً جديداً` : 'لا توجد مطالبات متأخرة جديدة للتذكير');
+      toast.success(n > 0 ? `تم إنشاء ${arabicCount(n, ['تذكير واحد', 'تذكيران', 'تذكيرات', 'تذكيراً'])}` : 'لا توجد مطالبات متأخرة جديدة للتذكير');
       qc.invalidateQueries({ queryKey: nqk.all });
       qc.invalidateQueries({ queryKey: nqk.unreadCount });
     },

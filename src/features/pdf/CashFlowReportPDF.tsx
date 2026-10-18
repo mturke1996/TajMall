@@ -5,6 +5,7 @@ import { ReportShell } from './ReportShell';
 import { ar } from './arabicPDF';
 import { PDF } from './pdfBase';
 import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTable';
+import { pdfFmtNum } from './pdfBrandKit';
 
 const W = { amount: '24%', label: '76%' };
 
@@ -99,7 +100,7 @@ export function CashFlowReportPDF({ year, data, documentTitle }: CashFlowReportP
       periodSummary={{
         eyebrow: 'Cash Flow',
         title: periodLabel,
-        subtitle: `صافي التغير: ${s.netChange >= 0 ? '+' : ''}${s.netChange}`,
+        subtitle: `صافي التغير: ${s.netChange > 0 ? '+' : s.netChange < 0 ? '−' : ''}${pdfFmtNum(Math.abs(s.netChange))} د.ل`,
         hint: 'مصادر واستخدامات النقد',
       }}
       metaCells={[

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, Save } from 'lucide-react';
@@ -19,13 +19,15 @@ import {
 } from '@/components/ui/select';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
-import { useCreateCorrespondenceLetter } from '@/lib/db/document-queries';
+import { useCorrespondenceLetters, useCreateCorrespondenceLetter } from '@/lib/db/document-queries';
 import {
   formatDocumentPdfExportNames,
   formatSuggestedDocNumber,
+  nextDocNumber,
 } from '@/lib/document-pdf-export';
 import type { CorrespondenceLetterType } from '@/lib/db/types';
 import { toast } from 'sonner';
+import { todayISODate } from '@/lib/utils';
 
 function NewCorrespondenceContent() {
   const router = useRouter();
@@ -38,7 +40,19 @@ function NewCorrespondenceContent() {
   const [number, setNumber] = useState(() =>
     formatSuggestedDocNumber(initialType === 'official' ? 'OFF' : 'RTN', 1),
   );
-  const [letterDate, setLetterDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [numberTouched, setNumberTouched] = useState(false);
+  const { data: existingLetters } = useCorrespondenceLetters();
+  // the next free number in the chosen type's series, unless the user typed one
+  useEffect(() => {
+    if (numberTouched || !existingLetters) return;
+    setNumber(
+      nextDocNumber(
+        letterType === 'official' ? 'OFF' : 'RTN',
+        existingLetters.map((l) => l.letter_number),
+      ),
+    );
+  }, [existingLetters, letterType, numberTouched]);
+  const [letterDate, setLetterDate] = useState(() => todayISODate());
   const [subject, setSubject] = useState('');
   const [recipientName, setRecipientName] = useState('');
   const [recipientTitle, setRecipientTitle] = useState('');
@@ -171,7 +185,15 @@ function NewCorrespondenceContent() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="num">رقم المراسلة</Label>
-              <Input id="num" value={number} onChange={(e) => setNumber(e.target.value)} dir="ltr" />
+              <Input
+                id="num"
+                value={number}
+                onChange={(e) => {
+                  setNumberTouched(true);
+                  setNumber(e.target.value);
+                }}
+                dir="ltr"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="date">التاريخ</Label>

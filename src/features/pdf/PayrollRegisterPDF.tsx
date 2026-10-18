@@ -97,7 +97,7 @@ export function PayrollRegisterPDF({
       }}
       metaCells={[
         { label: 'عدد الموظفين', value: pdfFmtNum(lines.length) },
-        { label: 'إجمالي المستحق', moneyAmount: base + allowances + additions - total((l) => n(l.absence_deduction)), adaptiveMoney: true },
+        { label: 'المستحق بعد خصم الغياب', moneyAmount: base + allowances + additions - total((l) => n(l.absence_deduction)), adaptiveMoney: true },
         { label: 'صافي الرواتب', moneyAmount: net, adaptiveMoney: true },
       ]}
     >

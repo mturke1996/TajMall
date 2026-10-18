@@ -22,20 +22,12 @@ import {
 import { RentMonthLabel } from '@/components/rent/rent-month-label';
 import { useSetTenantRentExemptMonths } from '@/lib/db/rent-queries';
 import { buildRentCalendarFromCharges } from '@/lib/rent-calendar-from-charges';
-import {
-  autoExemptMonthsForYear,
-  rentClaimStartMonthKey,
-} from '@/lib/rent-exempt-months';
-import {
-  currentYear,
-  formatMonthLabelAr,
-  formatMonthsLabelAr,
-  parseMonthKey,
-  yearMonthsAll,
-} from '@/lib/rent-months';
+import { rentClaimStartMonthKey } from '@/lib/rent-exempt-months';
+import { currentYear, formatMonthLabelAr, parseMonthKey, yearMonthsAll } from '@/lib/rent-months';
 import type { TenantChargeWithRelations } from '@/lib/db/types';
-import { cn, formatDate } from '@/lib/utils';
+import { arabicCount, cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { friendlyError } from '@/lib/user-messages';
 
 const AR_MONTH_OPTIONS = [
   { value: '1', label: 'يناير' },
@@ -64,20 +56,13 @@ type Props = {
   onOpenChange: (open: boolean) => void;
 };
 
-function claimStartFromFirstMonth(year: number, monthIndex: number): string {
-  return `${year}-${String(monthIndex).padStart(2, '0')}-01`;
-}
-
-function buildExemptForYear(
-  year: number,
-  claimStart: string | null | undefined,
-  manualExemptMonths: string[],
-): string[] {
-  const auto = autoExemptMonthsForYear(year, claimStart);
-  const manual = manualExemptMonths.filter((m) => m.startsWith(String(year)));
-  return [...new Set([...auto, ...manual])].sort();
-}
-
+/**
+ * Two separate decisions, saved separately:
+ * - the claim start (the first month the tenant owes rent): changed only when the person changes it —
+ *   saving the dialog for another reason never moves it (it also moves the active lease's start);
+ * - individual months marked "no claim" (a rent-free month after the start).
+ * Months before the claim start are excluded automatically and are not stored as marked months.
+ */
 export function SetRentExemptMonthsDialog({
   tenantId,
   tenantName,
@@ -90,119 +75,81 @@ export function SetRentExemptMonthsDialog({
   onOpenChange,
 }: Props) {
   const setExempt = useSetTenantRentExemptMonths();
-  const defaultYear = years[0] ?? currentYear();
-  const [year, setYear] = useState(defaultYear);
-  const [selectedExempt, setSelectedExempt] = useState<string[]>([]);
-  const [firstClaimMonth, setFirstClaimMonth] = useState('3');
+  const currentClaimKey = rentClaimStartMonthKey(claimStart);
+  const yearList = useMemo(() => {
+    const set = new Set(years.length ? years : [currentYear()]);
+    if (currentClaimKey) set.add(parseMonthKey(currentClaimKey).year);
+    return [...set].sort((a, b) => b - a);
+  }, [years, currentClaimKey]);
 
-  const claimStartKey = rentClaimStartMonthKey(claimStart);
+  const [year, setYear] = useState(yearList[0] ?? currentYear());
+  const [marked, setMarked] = useState<string[]>([]);
+  // claim start being edited: null until the person picks one when none is recorded
+  const [claimYear, setClaimYear] = useState<number | null>(null);
+  const [claimMonth, setClaimMonth] = useState<number | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    const y = defaultYear;
-    setYear(y);
-    setSelectedExempt(buildExemptForYear(y, claimStart, manualExemptMonths));
-    if (claimStartKey) {
-      setFirstClaimMonth(String(parseMonthKey(claimStartKey).month));
+    setYear(yearList[0] ?? currentYear());
+    setMarked([...manualExemptMonths].sort());
+    if (currentClaimKey) {
+      const { year: y, month: m } = parseMonthKey(currentClaimKey);
+      setClaimYear(y);
+      setClaimMonth(m);
     } else {
-      setFirstClaimMonth('3');
+      setClaimYear(null);
+      setClaimMonth(null);
     }
-  }, [open, defaultYear, claimStart, claimStartKey, manualExemptMonths]);
+  }, [open, yearList, manualExemptMonths, currentClaimKey]);
+
+  const editedClaimKey =
+    claimYear != null && claimMonth != null ? `${claimYear}-${String(claimMonth).padStart(2, '0')}` : null;
+  const claimChanged = editedClaimKey != null && editedClaimKey !== currentClaimKey;
+  const effectiveClaimKey = editedClaimKey ?? currentClaimKey;
+  const effectiveClaimStart = effectiveClaimKey ? `${effectiveClaimKey}-01` : claimStart ?? null;
 
   const calendarMonths = useMemo(
     () =>
       buildRentCalendarFromCharges(tenantId, year, monthlyRent, charges, {
-        claimStart,
-        manualExemptMonths: selectedExempt,
+        claimStart: effectiveClaimStart,
+        manualExemptMonths: marked,
       }).months,
-    [tenantId, year, monthlyRent, charges, claimStart, selectedExempt],
+    [tenantId, year, monthlyRent, charges, effectiveClaimStart, marked],
   );
 
-  const yearExemptKeys = useMemo(
-    () => selectedExempt.filter((m) => m.startsWith(String(year))),
-    [selectedExempt, year],
-  );
+  // a month before the claim start needs no mark: it is excluded anyway
+  const storedMarks = marked.filter((m) => !effectiveClaimKey || m >= effectiveClaimKey);
+  const markedThisYear = storedMarks.filter((m) => m.startsWith(String(year))).length;
 
-  const previewAutoExempt = useMemo(() => {
-    const idx = Number(firstClaimMonth);
-    if (!Number.isFinite(idx) || idx < 2) return [];
-    return autoExemptMonthsForYear(
-      year,
-      claimStartFromFirstMonth(year, idx),
-    );
-  }, [year, firstClaimMonth]);
-
-  function handleYearChange(nextYear: number) {
-    setYear(nextYear);
-    setSelectedExempt((prev) => {
-      const keepOtherYears = prev.filter((m) => !m.startsWith(String(year)));
-      const forNext = buildExemptForYear(
-        nextYear,
-        claimStart,
-        manualExemptMonths,
-      );
-      return [...keepOtherYears, ...forNext].sort();
-    });
-  }
-
-  function toggleExemptMonth(month: string) {
-    setSelectedExempt((prev) =>
-      prev.includes(month)
-        ? prev.filter((m) => m !== month)
-        : [...prev, month].sort(),
-    );
-  }
-
-  function applyFirstClaimMonth() {
-    const idx = Number(firstClaimMonth);
-    if (!Number.isFinite(idx) || idx < 1 || idx > 12) {
-      toast.error('اختر شهر بداية المطالبة');
-      return;
-    }
-    const auto = yearMonthsAll(year).filter((_, i) => i + 1 < idx);
-    setSelectedExempt((prev) => {
-      const withoutYear = prev.filter((m) => !m.startsWith(String(year)));
-      return [...withoutYear, ...auto].sort();
-    });
-    if (auto.length === 0) {
-      toast.message(`لا أشهر قبل ${AR_MONTH_OPTIONS[idx - 1]?.label ?? idx}`);
-    } else {
-      toast.success(`بدون مطالبة: ${formatMonthsLabelAr(auto)}`);
-    }
+  function toggle(month: string) {
+    setMarked((prev) => (prev.includes(month) ? prev.filter((m) => m !== month) : [...prev, month].sort()));
   }
 
   async function save() {
-    const claimIdx = Number(firstClaimMonth);
-    if (!Number.isFinite(claimIdx) || claimIdx < 1 || claimIdx > 12) {
-      toast.error('اختر شهر بداية المطالبة');
-      return;
-    }
-
-    const newClaimStart = claimStartFromFirstMonth(year, claimIdx);
-    const autoFromClaim = autoExemptMonthsForYear(year, newClaimStart);
-
-    // يدوي = المحدد − المعفى تلقائياً من بداية المطالبة الجديدة
-    const nextManual = selectedExempt.filter((m) => !autoFromClaim.includes(m));
-    const removed = manualExemptMonths.filter((m) => !nextManual.includes(m));
-
+    const removed = manualExemptMonths.filter((m) => !storedMarks.includes(m));
     try {
       await setExempt.mutateAsync({
         tenantId,
-        exemptMonths: nextManual,
+        exemptMonths: storedMarks,
         removeMonths: removed,
-        claimStart: newClaimStart,
+        // null keeps the recorded start exactly as it is
+        claimStart: claimChanged && editedClaimKey ? `${editedClaimKey}-01` : null,
       });
-      toast.success('تم الحفظ — الأشهر بدون مطالبة مستبعدة من الإجمالي');
+      toast.success(
+        claimChanged
+          ? `تم الحفظ — المطالبة تبدأ من ${formatMonthLabelAr(editedClaimKey!)}`
+          : 'تم الحفظ — الأشهر المحددة لا تُطالَب',
+      );
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل الحفظ');
+      toast.error(friendlyError(err, 'تعذّر الحفظ'));
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-lg w-[calc(100%-1.5rem)] max-h-[min(90dvh,40rem)] overflow-hidden rounded-2xl p-0 gap-0 flex flex-col"
+        className="max-w-lg w-[calc(100%-1.5rem)] max-h-[min(90dvh,42rem)] overflow-hidden rounded-2xl p-0 gap-0 flex flex-col"
         dir="rtl"
       >
         <DialogHeader className="shrink-0 px-5 pt-5 pb-3 pe-12 border-b border-border bg-canvas-sunken/50">
@@ -210,35 +157,31 @@ export function SetRentExemptMonthsDialog({
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-border/80 text-ink-soft">
               <CalendarOff className="h-4 w-4" />
             </span>
-            أشهر بدون مطالبة
+            بداية المطالبة والأشهر المستبعدة
           </DialogTitle>
           <DialogDescription className="text-start pt-1">
-            {tenantName} — الأشهر قبل بداية الإيجار لا تُنشأ لها مطالبة ولا تدخل
-            في إجمالي المطالبات المفتوحة.
+            {tenantName} — لا تُنشأ مطالبة لشهر قبل بداية المطالبة ولا لشهر مستبعد، ولا يدخل أيٌّ منهما في المستحق.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 space-y-5">
-          <section className="rounded-xl border border-border bg-card px-3.5 py-3.5 space-y-3">
+          <section className="rounded-xl border border-border bg-card px-3.5 py-3.5 space-y-3" aria-labelledby="claim-start-title">
             <div>
-              <Label className="text-ink font-medium text-sm">
+              <h3 id="claim-start-title" className="text-sm font-medium text-ink">
                 أول شهر مطالبة
-              </Label>
-              <p className="text-xs text-ink-mute leading-relaxed mt-1">
-                مثال: بدأ الإيجار في مارس — اختر مارس فيُعفى يناير وفبراير
-                تلقائياً.
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed text-ink-mute">
+                {currentClaimKey
+                  ? `المسجّل الآن: ${formatMonthLabelAr(currentClaimKey)}. غيّره فقط إن كان الإيجار بدأ فعلاً في شهر آخر — يُعدَّل معه بدء العقد النشط.`
+                  : 'لم تُسجَّل بداية للمطالبة. اختر الشهر الذي بدأ فيه الإيجار.'}
               </p>
             </div>
-
-            <div className="flex flex-wrap items-end gap-2">
-              <div className="space-y-1.5 min-w-36 flex-1">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="claim-month" className="text-xs text-ink-mute">
                   الشهر
                 </Label>
-                <Select
-                  value={firstClaimMonth}
-                  onValueChange={setFirstClaimMonth}
-                >
+                <Select value={claimMonth ? String(claimMonth) : ''} onValueChange={(v) => setClaimMonth(Number(v))}>
                   <SelectTrigger id="claim-month" className="h-10">
                     <SelectValue placeholder="اختر الشهر" />
                   </SelectTrigger>
@@ -251,46 +194,45 @@ export function SetRentExemptMonthsDialog({
                   </SelectContent>
                 </Select>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 shrink-0 touch-manipulation"
-                onClick={applyFirstClaimMonth}
-              >
-                تطبيق على {year}
-              </Button>
+              <div className="space-y-1.5">
+                <Label htmlFor="claim-year" className="text-xs text-ink-mute">
+                  السنة
+                </Label>
+                <Select value={claimYear ? String(claimYear) : ''} onValueChange={(v) => setClaimYear(Number(v))}>
+                  <SelectTrigger id="claim-year" className="h-10">
+                    <SelectValue placeholder="اختر السنة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[...new Set([...yearList, currentYear() - 2, currentYear() - 1, currentYear()])]
+                      .sort((a, b) => b - a)
+                      .map((y) => (
+                        <SelectItem key={y} value={String(y)}>
+                          {y}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-
-            {previewAutoExempt.length > 0 && (
-              <p className="text-[11px] text-ink-soft bg-canvas-sunken rounded-lg px-2.5 py-2 border border-dashed border-border">
-                سيُعفى:{' '}
-                <span className="font-medium">
-                  {formatMonthsLabelAr(previewAutoExempt)}
-                </span>
-              </p>
-            )}
-
-            {claimStart && (
-              <p className="text-[11px] text-ink-mute border-t border-border pt-2">
-                بداية العقد الحالية:{' '}
-                <span className="tabular-nums">{formatDate(claimStart)}</span>
-                {claimStartKey ? ` · ${formatMonthLabelAr(claimStartKey)}` : ''}
+            {claimChanged && (
+              <p className="rounded-lg border border-warning-line bg-warning-soft px-2.5 py-2 text-[12px] text-warning-ink">
+                ستتغيّر بداية المطالبة إلى {formatMonthLabelAr(editedClaimKey!)}
+                {currentClaimKey ? ` (بدلاً من ${formatMonthLabelAr(currentClaimKey)})` : ''} عند الحفظ.
               </p>
             )}
           </section>
 
-          <section className="space-y-2.5">
+          <section className="space-y-2.5" aria-labelledby="marked-title">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <Label className="text-ink text-sm">تحديد يدوي</Label>
-              <Select
-                value={String(year)}
-                onValueChange={(v) => handleYearChange(Number(v))}
-              >
-                <SelectTrigger className="h-9 w-26" aria-label="السنة">
+              <h3 id="marked-title" className="text-sm text-ink">
+                أشهر مستبعدة بعد البداية
+              </h3>
+              <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                <SelectTrigger className="h-9 w-26" aria-label="سنة الأشهر">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(years.length > 0 ? years : [currentYear()]).map((y) => (
+                  {yearList.map((y) => (
                     <SelectItem key={y} value={String(y)}>
                       {y}
                     </SelectItem>
@@ -300,49 +242,48 @@ export function SetRentExemptMonthsDialog({
             </div>
 
             <p className="text-xs text-ink-mute">
-              انقر للتفعيل أو الإلغاء · محدد{' '}
-              <span className="font-semibold text-ink tabular-nums">
-                {yearExemptKeys.length}
-              </span>{' '}
-              شهر
+              اضغط الشهر لاستبعاده أو إعادته ·{' '}
+              {markedThisYear === 0
+                ? 'لا أشهر مستبعدة في هذه السنة'
+                : `مستبعد ${arabicCount(markedThisYear, ['شهر واحد', 'شهران', 'أشهر', 'شهراً'])}`}
             </p>
 
             <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
               {yearMonthsAll(year).map((key) => {
                 const cal = calendarMonths.find((m) => m.month === key);
-                const isExempt = selectedExempt.includes(key);
-                const isPaid =
-                  cal?.status === 'paid' || cal?.status === 'partial';
-
+                const beforeStart = !!effectiveClaimKey && key < effectiveClaimKey;
+                const isMarked = !beforeStart && marked.includes(key);
+                const isPaid = cal?.status === 'paid' || cal?.status === 'partial';
+                const disabled = isPaid || beforeStart || setExempt.isPending;
                 return (
                   <button
                     key={key}
                     type="button"
-                    disabled={isPaid || setExempt.isPending}
-                    aria-pressed={isExempt}
+                    disabled={disabled}
+                    aria-pressed={isMarked}
                     title={
-                      isPaid
-                        ? 'شهر مسدّد — لا يمكن إعفاؤه'
-                        : isExempt
-                          ? 'إلغاء بدون مطالبة'
-                          : 'تعيين بدون مطالبة'
+                      beforeStart
+                        ? 'قبل بداية المطالبة — مستبعد تلقائياً'
+                        : isPaid
+                          ? 'شهر مسدّد — لا يمكن استبعاده'
+                          : isMarked
+                            ? 'إعادة الشهر إلى المطالبة'
+                            : 'استبعاد الشهر من المطالبة'
                     }
-                    onClick={() => {
-                      if (!isPaid) toggleExemptMonth(key);
-                    }}
+                    onClick={() => toggle(key)}
                     className={cn(
-                      'rounded-xl px-2 py-2.5 text-center touch-manipulation transition-all border-2',
+                      'rounded-xl border-2 px-2 py-2.5 text-center touch-manipulation transition-colors',
                       'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ink-soft/40',
-                      isPaid && 'opacity-45 cursor-not-allowed',
-                      isExempt
-                        ? 'border-dashed border-ink-mute/50 bg-canvas-sunken text-ink-soft shadow-none'
-                        : 'border-border bg-card hover:bg-canvas-sunken active:scale-[0.98]',
+                      (isPaid || beforeStart) && 'cursor-not-allowed opacity-50',
+                      isMarked || beforeStart
+                        ? 'border-dashed border-ink-mute/50 bg-canvas-sunken text-ink-soft'
+                        : 'border-border bg-card hover:bg-canvas-sunken',
                     )}
                   >
                     <RentMonthLabel
                       monthKey={key}
-                      status={isExempt ? 'exempt' : undefined}
-                      statusLabel={isExempt ? 'بدون مطالبة' : undefined}
+                      status={isMarked || beforeStart ? 'exempt' : undefined}
+                      statusLabel={beforeStart ? 'قبل البداية' : isMarked ? 'مستبعد' : undefined}
                       layout="stacked"
                     />
                   </button>
@@ -362,12 +303,7 @@ export function SetRentExemptMonthsDialog({
           >
             إلغاء
           </Button>
-          <Button
-            type="button"
-            className="h-10 touch-manipulation min-w-28"
-            onClick={save}
-            disabled={setExempt.isPending}
-          >
+          <Button type="button" className="h-10 touch-manipulation min-w-28" onClick={save} disabled={setExempt.isPending}>
             {setExempt.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin ms-1" />

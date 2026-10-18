@@ -16,7 +16,8 @@ import {
   useSetCashboxInventoryPin,
 } from '@/lib/db/cashbox-inventory-queries';
 import { usePermission } from '@/lib/supabase/use-permission';
-import { cn, formatMoney, todayISODate } from '@/lib/utils';
+import { cn, formatMoney, parseAmountInput, todayISODate } from '@/lib/utils';
+import { friendlyError } from '@/lib/user-messages';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 
 function todayIso() {
@@ -26,7 +27,8 @@ function todayIso() {
 export default function CashboxCountPage() {
   const { can, loading: roleLoading } = usePermission();
   const canManage = can('cashbox.manage');
-  const { data: balances = [], isLoading } = useCashboxBalances();
+  const { data: balanceData, isLoading, refetch: refetchBalances } = useCashboxBalances();
+  const balances = useMemo(() => balanceData ?? [], [balanceData]);
   const { data: pinSet, isLoading: pinLoading } = useCashboxInventoryPinSet();
   const { data: runs = [] } = useCashboxInventoryRuns();
   const setPin = useSetCashboxInventoryPin();
@@ -41,30 +43,25 @@ export default function CashboxCountPage() {
   const [notes, setNotes] = useState('');
   const [countDate, setCountDate] = useState(todayIso);
 
+  // The book balance is read fresh when the page opens: a cached figure could be minutes old.
   useEffect(() => {
-    if (balances.length === 0) return;
-    setCounts((prev) => {
-      const next = { ...prev };
-      for (const row of balances) {
-        if (next[row.id] === undefined) {
-          next[row.id] = String(Number(row.balance));
-        }
-      }
-      return next;
-    });
-  }, [balances]);
+    void refetchBalances();
+  }, [refetchBalances]);
 
+  // Only the boxes the user actually counted: an empty field means "not counted", never "same as the
+  // book" — otherwise a payment posted meanwhile would be reversed as a count difference.
   const rows = useMemo(() => {
     return balances.map((row) => {
       const book = Number(row.balance) || 0;
       const raw = counts[row.id] ?? '';
-      const counted = raw.trim() === '' ? NaN : Number(raw.replace(/,/g, ''));
+      const counted = raw.trim() === '' ? NaN : parseAmountInput(raw);
       const diff = Number.isFinite(counted) ? counted - book : 0;
-      return { row, book, counted, diff, raw };
+      return { row, book, counted, diff, raw, entered: raw.trim() !== '' };
     });
   }, [balances, counts]);
 
-  const diffs = rows.filter((r) => Number.isFinite(r.counted) && Math.abs(r.diff) >= 0.005);
+  const entered = rows.filter((r) => r.entered);
+  const diffs = entered.filter((r) => Number.isFinite(r.counted) && Math.abs(r.diff) >= 0.0005);
   const net = diffs.reduce((s, r) => s + r.diff, 0);
 
   function handleSetPin() {
@@ -81,10 +78,7 @@ export default function CashboxCountPage() {
           setNewPin2('');
           setCurrentPin('');
         },
-        onError: (e) =>
-          toast.error('تعذّر حفظ الرقم السري', {
-            description: e instanceof Error ? e.message : undefined,
-          }),
+        onError: (e) => toast.error(friendlyError(e, 'تعذّر حفظ الرقم السري')),
       },
     );
   }
@@ -94,16 +88,25 @@ export default function CashboxCountPage() {
       toast.error('اضبط الرقم السري أولاً');
       return;
     }
-    if (diffs.length === 0) {
-      toast.message('الأرصدة مطابقة للعدّ — لا قيد للترحيل');
+    if (entered.length === 0) {
+      toast.error('أدخل المبلغ المعدود لخزينة واحدة على الأقل');
+      return;
     }
-    const invalid = rows.some((r) => !Number.isFinite(r.counted) || r.counted < 0);
+    const invalid = entered.some((r) => !Number.isFinite(r.counted) || r.counted < 0);
     if (invalid) {
-      toast.error('أدخل مبلغاً صالحاً (صفر أو أكثر) لكل خزينة');
+      toast.error('أدخل مبلغاً صالحاً (صفر أو أكثر) لكل خزينة عددتها');
       return;
     }
     if (!/^\d{4,8}$/.test(pin)) {
       toast.error('أدخل الرقم السري (4 إلى 8 أرقام)');
+      return;
+    }
+    // compare with the balance as it is now, not as it was when the page loaded
+    const fresh = await refetchBalances();
+    const freshBook = new Map((fresh.data ?? []).map((b) => [b.id, Number(b.balance) || 0]));
+    const changed = entered.filter((r) => Math.abs((freshBook.get(r.row.id) ?? r.book) - r.book) >= 0.0005);
+    if (changed.length > 0) {
+      toast.error('تغيّر رصيد خزينة أثناء العدّ — راجع الفروقات المحدّثة ثم اعتمد مرة أخرى.');
       return;
     }
     const ok = await confirm({
@@ -115,6 +118,7 @@ export default function CashboxCountPage() {
       details:
         diffs.length > 0
           ? [
+              { label: 'خزائن معدودة', value: <bdi>{entered.length}</bdi> },
               { label: 'خزائن بفروقات', value: <bdi>{diffs.length}</bdi> },
               { label: 'صافي الفروقات', value: formatMoney(net, 'LYD', { signed: true }) },
             ]
@@ -127,7 +131,7 @@ export default function CashboxCountPage() {
     apply.mutate(
       {
         pin,
-        counts: rows.map((r) => ({
+        counts: entered.map((r) => ({
           cashbox_id: r.row.id,
           counted: r.counted,
         })),
@@ -137,16 +141,14 @@ export default function CashboxCountPage() {
       {
         onSuccess: (res) => {
           setPinValue('');
+          setCounts({});
           if (res.adjusted === 0) {
             toast.success('الجرد محفوظ — الأرصدة كانت مطابقة');
           } else {
             toast.success(`تم ترحيل تسوية ${res.adjusted} خزينة`);
           }
         },
-        onError: (e) =>
-          toast.error('تعذّر اعتماد الجرد', {
-            description: e instanceof Error ? e.message : undefined,
-          }),
+        onError: (e) => toast.error(friendlyError(e, 'تعذّر اعتماد الجرد')),
       },
     );
   }
@@ -291,6 +293,8 @@ export default function CashboxCountPage() {
                         <Input
                           className="max-w-[160px] font-mono"
                           inputMode="decimal"
+                          aria-label={`المبلغ المعدود في ${row.name_ar}`}
+                          placeholder="لم تُعدّ"
                           value={counts[row.id] ?? ''}
                           onChange={(e) =>
                             setCounts((prev) => ({ ...prev, [row.id]: e.target.value }))
@@ -300,7 +304,7 @@ export default function CashboxCountPage() {
                       <td
                         className={cn(
                           'num py-3 tabular-nums font-semibold',
-                          Number.isFinite(counted) && Math.abs(diff) >= 0.005
+                          Number.isFinite(counted) && Math.abs(diff) >= 0.0005
                             ? diff > 0
                               ? 'text-pastel-greenInk'
                               : 'text-pastel-redInk'

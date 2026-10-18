@@ -5,6 +5,7 @@ import { ReportShell } from './ReportShell';
 import { ar } from './arabicPDF';
 import { PDF } from './pdfBase';
 import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTable';
+import { arabicCount } from '@/lib/utils';
 
 const W = { amount: '22%', name: '58%', code: '20%' };
 
@@ -80,12 +81,13 @@ export function ProfitLossReportPDF({
   return (
     <ReportShell
       title="قائمة الأرباح والخسائر"
-      subtitle={`${periodText} · ${year}`}
+      // the period text already names the year ("عام 2026", "الربع 3 من 2026")
+      subtitle={periodText.includes(String(year)) ? periodText : `${periodText} · ${year}`}
       documentTitle={documentTitle}
       periodSummary={{
         eyebrow: 'Profit & Loss',
         title: periodText,
-        subtitle: `${revenues.length + expenses.length} بند`,
+        subtitle: arabicCount(revenues.length + expenses.length, ['بند واحد', 'بندان', 'بنود', 'بنداً']),
         hint: isProfit ? 'صافي ربح' : 'صافي خسارة',
         badge: isProfit ? 'ربح' : 'خسارة',
       }}

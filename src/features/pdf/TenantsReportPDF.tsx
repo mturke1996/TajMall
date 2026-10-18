@@ -36,7 +36,7 @@ const STATUS_AR: Record<string, string> = {
   unpaid: 'غير مدفوع',
   partial_unpaid: 'جزئي + غير مدفوع',
   no_rent_set: 'بلا إيجار',
-  exempt: 'بدون مطالبة',
+  exempt: 'مستبعد',
 };
 
 const col = StyleSheet.create({

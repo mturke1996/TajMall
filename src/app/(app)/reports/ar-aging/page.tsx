@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { Suspense, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Users, Loader2, AlertTriangle } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -8,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { formatMoney, cn } from '@/lib/utils';
+import { formatMoney, cn, todayISODate } from '@/lib/utils';
 import { useTenantArAging } from '@/lib/db/mall-queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { ExportCsvButton } from '@/components/data/export-csv-button';
@@ -17,6 +18,7 @@ import { WhatsAppReminderButton } from '@/components/tenants/whatsapp-reminder-b
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { formatAccountingReportExportNames } from '@/lib/report-pdf-export';
 import { friendlyError } from '@/lib/user-messages';
+import { reportAsOfFromSearchParams } from '@/lib/report-period';
 
 type AgingRow = {
   tenant_id: string;
@@ -30,8 +32,9 @@ type AgingRow = {
   bucket_90_plus: number;
 };
 
-export default function TenantArAgingPage() {
-  const [asOf, setAsOf] = useState(() => new Date().toISOString().slice(0, 10));
+function TenantArAgingContent() {
+  const searchParams = useSearchParams();
+  const [asOf, setAsOf] = useState(() => reportAsOfFromSearchParams(searchParams, todayISODate()));
   const { data: raw, isLoading, isError, error } = useTenantArAging(asOf);
   const syncReminders = useSyncOverdueChargeReminders();
 
@@ -91,7 +94,7 @@ export default function TenantArAgingPage() {
             <ExportCsvButton
               fileName={pdfExport.fileName}
               disabled={rows.length === 0}
-              headers={['المستأجر', 'رقم المحل', 'الهاتف', 'إجمالي المتأخر', 'جاري', '1-30', '31-60', '+60']}
+              headers={['المستأجر', 'رقم المحل', 'الهاتف', 'إجمالي المستحق', 'جاري', '1-30', '31-60', '+60']}
               rows={rows.map((r) => [
                 r.tenant_name,
                 r.shop_number ?? '',
@@ -149,7 +152,7 @@ export default function TenantArAgingPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">تفصيل المتأخرات</CardTitle>
+          <CardTitle className="text-lg">المستحقات حسب عمر الدين</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -191,7 +194,7 @@ export default function TenantArAgingPage() {
                       </p>
                     </div>
                     <div className="shrink-0 text-end">
-                      <p className="text-[11px] text-muted-foreground">إجمالي المتأخر</p>
+                      <p className="text-[11px] text-muted-foreground">إجمالي المستحق</p>
                       <p className="font-mono text-base font-bold text-danger-ink">
                         {formatMoney(row.total_outstanding, 'LYD')}
                       </p>
@@ -302,5 +305,14 @@ function BucketCell({
         {value > 0 ? formatMoney(value, '') : '—'}
       </p>
     </div>
+  );
+}
+
+export default function TenantArAgingPage() {
+  // reads ?year/?month from the reports hub
+  return (
+    <Suspense fallback={null}>
+      <TenantArAgingContent />
+    </Suspense>
   );
 }

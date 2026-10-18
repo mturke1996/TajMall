@@ -184,14 +184,14 @@ function ReportsHubContent() {
       const c = Number(e.total_credit);
       debit += d;
       credit += c;
-      if (Math.abs(d - c) > 0.005) unbalanced += 1;
+      if (Math.abs(d - c) >= 0.0005) unbalanced += 1;
     }
     return {
       count: entries.length,
       debit,
       credit,
       unbalanced,
-      balanced: Math.abs(debit - credit) <= 0.005,
+      balanced: Math.abs(debit - credit) < 0.0005,
     };
   }, [entries]);
 

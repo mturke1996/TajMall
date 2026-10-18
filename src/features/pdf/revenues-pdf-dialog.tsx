@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
+import { cn, todayISODate, arabicCount } from '@/lib/utils';
 import { toast } from 'sonner';
 import { renderPdfBlob, savePdfBlob, shouldUseInAppPdfViewer } from './pdf-blob-utils';
 import { PdfPreviewDialog } from './pdf-preview-dialog';
@@ -83,7 +83,8 @@ export function RevenuesPdfDialog({
   const [toDate, setToDate] = useState<string>('');
 
   // PDF Layout Options
-  const [groupByMethod, setGroupByMethod] = useState(true);
+  // the report always has one table per payment method
+  const groupByMethod = true;
   const [includeSummaries, setIncludeSummaries] = useState(true);
   const [customTitle, setCustomTitle] = useState('');
 
@@ -184,18 +185,18 @@ export function RevenuesPdfDialog({
     if (preset === 'THIS_MONTH') {
       const start = new Date(y, m, 1);
       const end = new Date(y, m + 1, 0);
-      setFromDate(start.toISOString().slice(0, 10));
-      setToDate(end.toISOString().slice(0, 10));
+      setFromDate(todayISODate(start));
+      setToDate(todayISODate(end));
     } else if (preset === 'LAST_MONTH') {
       const start = new Date(y, m - 1, 1);
       const end = new Date(y, m, 0);
-      setFromDate(start.toISOString().slice(0, 10));
-      setToDate(end.toISOString().slice(0, 10));
+      setFromDate(todayISODate(start));
+      setToDate(todayISODate(end));
     } else if (preset === 'LAST_3_MONTHS') {
       const start = new Date(y, m - 2, 1);
       const end = new Date(y, m + 1, 0);
-      setFromDate(start.toISOString().slice(0, 10));
-      setToDate(end.toISOString().slice(0, 10));
+      setFromDate(todayISODate(start));
+      setToDate(todayISODate(end));
     } else if (preset === 'THIS_YEAR') {
       setFromDate(`${y}-01-01`);
       setToDate(`${y}-12-31`);
@@ -286,7 +287,7 @@ export function RevenuesPdfDialog({
   const fileName = useMemo(() => {
     const cleanPeriod = periodLabel.replace(/[^\u0621-\u064A\w-]/g, '_').slice(0, 30);
     const cleanCat = categoriesLabel.replace(/[^\u0621-\u064A\w-]/g, '_').slice(0, 25);
-    return `تقرير-إيرادات-${cleanCat}-${cleanPeriod}-${new Date().toISOString().slice(0, 10)}`;
+    return `تقرير-إيرادات-${cleanCat}-${cleanPeriod}-${todayISODate()}`;
   }, [periodLabel, categoriesLabel]);
 
   // Generate Report JSX for PDF renderer
@@ -760,24 +761,6 @@ export function RevenuesPdfDialog({
               </div>
 
               <div className="space-y-2">
-                {/* Group by Payment Method Toggle */}
-                <label className="flex items-center justify-between p-2 rounded-lg border border-border bg-card cursor-pointer hover:bg-canvas-sunken/60 transition-colors">
-                  <div className="space-y-0.5">
-                    <span className="text-xs font-semibold text-foreground block">
-                      فصل الجداول حسب طريقة ونوع الدفع
-                    </span>
-                    <span className="text-[11px] text-muted-foreground block">
-                      عرض جدول مستقل لكل طريقة (نقدي، بطاقة، حوالة، صك) مع مجاميعها ومصارفها.
-                    </span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={groupByMethod}
-                    onChange={(e) => setGroupByMethod(e.target.checked)}
-                    className="h-4 w-4 rounded border-border text-success-ink focus:ring-success ms-3 accent-success cursor-pointer"
-                  />
-                </label>
-
                 {/* Summaries Toggle */}
                 <label className="flex items-center justify-between p-2 rounded-lg border border-border bg-card cursor-pointer hover:bg-canvas-sunken/60 transition-colors">
                   <div className="space-y-0.5">
@@ -817,7 +800,7 @@ export function RevenuesPdfDialog({
                 <PieChart className="h-4 w-4 text-success-ink shrink-0" />
                 <span className="text-xs font-medium text-success-ink">
                   النتائج المطابقة:{' '}
-                  <strong className="font-bold">{matchingTransactions.length} قيداً</strong>
+                  <strong className="font-bold">{arabicCount(matchingTransactions.length, ['معاملة واحدة', 'معاملتان', 'معاملات', 'معاملة'])}</strong>
                 </span>
               </div>
               <div className="text-xs font-bold text-success-ink">

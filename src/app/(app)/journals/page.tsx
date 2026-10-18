@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { cn, formatMoney, formatDate } from '@/lib/utils';
+import { cn, formatMoney, formatDate, arabicCount, todayISODate } from '@/lib/utils';
 import {
   useJournalEntries,
   useJournalSummary,
@@ -57,6 +57,7 @@ import { JournalVoucherTable } from '@/components/accounting/journal-voucher-tab
 import { JournalBalanceBadge } from '@/components/accounting/journal-balance-badge';
 import { mapJournalLineRowToVoucherLine } from '@/lib/journal-entry-display';
 import { friendlyError, technicalDetail } from '@/lib/user-messages';
+import { isSourceLinkedJournal } from '@/lib/journal-source';
 
 const STATUS_CONFIG: Record<JournalStatus, {
   label: string;
@@ -87,6 +88,8 @@ const STATUS_CONFIG: Record<JournalStatus, {
     border: 'border-danger-line',
   },
 };
+
+const JOURNAL_LIST_LIMIT = 500;
 
 export default function JournalsPage() {
   return (
@@ -144,7 +147,7 @@ function JournalsPageInner() {
       cashboxId: cashboxFilter,
       search: searchQuery,
     },
-    500,
+    JOURNAL_LIST_LIMIT,
   );
   const {
     data: summary,
@@ -320,7 +323,8 @@ function JournalsPageInner() {
               </Link>
             </Button>
             <TajMallPdfToolbar
-              fileName={`دفتر-اليومية-${new Date().getFullYear()}`}
+              fileName={`دفتر-اليومية-${todayISODate()}`}
+              disabled={filteredEntries.length === 0}
               render={async () => {
                 const [{ JournalPDF }] =
                   await Promise.all([
@@ -331,7 +335,8 @@ function JournalsPageInner() {
                 return (
                   <JournalPDF
                     entries={pdfEntries}
-                    periodLabel={`السنة المالية ${new Date().getFullYear()}`}
+                    // the PDF holds exactly the entries listed on the screen under its filters
+                    periodLabel={`القيود المعروضة حسب التصفية — ${arabicCount(filteredEntries.length, ['قيد واحد', 'قيدان', 'قيود', 'قيداً'])}`}
                   />
                 );
               }}
@@ -503,6 +508,15 @@ function JournalsPageInner() {
           </Card>
         ) : (
           <div className="space-y-3">
+            {(entries?.length ?? 0) >= JOURNAL_LIST_LIMIT && (
+              <p className="px-1 text-[12.5px] text-ink-mute">
+                تُعرض أحدث {JOURNAL_LIST_LIMIT} قيد. للوصول إلى قيد أقدم استخدم البحث أو التصفية، أو افتح{' '}
+                <Link href="/reports/journal-month" className="text-foreground underline-offset-2 hover:underline">
+                  قيود الشهر
+                </Link>
+                .
+              </p>
+            )}
             {filteredEntries.map((entry) => {
               const status = STATUS_CONFIG[entry.status];
               const StatusIcon = status.icon;
@@ -555,7 +569,7 @@ function JournalsPageInner() {
                               {formatDate(entry.entry_date)}
                             </span>
                             <span className="hidden sm:inline text-ink-mute/50">•</span>
-                            <span>{entry.line_count} بنود</span>
+                            <span>{arabicCount(entry.line_count, ['بند واحد', 'بندان', 'بنود', 'بنداً'])}</span>
                           </div>
                         </div>
                       </div>
@@ -745,7 +759,7 @@ function JournalsPageInner() {
                               <FileText className="h-4 w-4" />
                               التفاصيل
                             </Button>
-                            {can('journal.reverse') && (
+                            {can('journal.reverse') && !isSourceLinkedJournal(entry) && (
                             <Button
                               size="sm"
                               variant="ghost"

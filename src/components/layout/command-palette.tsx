@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/dialog";
 import { PALETTE_SECTIONS } from "./nav-items";
 import { usePermission } from "@/lib/supabase/use-permission";
+import { useTxDialog } from "@/stores/transaction-dialog";
+import { normalizeArabic } from "@/lib/arabic-search";
 import {
   Search,
   Plus,
@@ -27,6 +29,11 @@ export function CommandPalette({
 }) {
   const router = useRouter();
   const { can } = usePermission();
+  const openTx = useTxDialog((s) => s.open);
+  const newTx = (kind: "REVENUE" | "EXPENSE") => {
+    onOpenChange(false);
+    openTx(kind);
+  };
 
   const go = (href: string) => {
     onOpenChange(false);
@@ -44,12 +51,12 @@ export function CommandPalette({
         <Command
           loop
           className="flex flex-col"
+          // hamza, taa marbuta and alef maqsura are ignored, so "ايراد" finds "إيراد"
           filter={(value, search) => {
             if (!search) return 1;
-            if (value.toLowerCase().includes(search.toLowerCase())) return 1;
-            if (search.split(" ").every((s) => value.toLowerCase().includes(s)))
-              return 1;
-            return 0;
+            const v = normalizeArabic(value);
+            const words = normalizeArabic(search).split(" ").filter(Boolean);
+            return words.every((w) => v.includes(w)) ? 1 : 0;
           }}
         >
           <div className="flex items-center gap-2 border-b border-border px-4">
@@ -73,18 +80,16 @@ export function CommandPalette({
             >
               {can('revenue.create') && (
                 <Item
-                  onSelect={() => go("/revenues/new")}
+                  onSelect={() => newTx("REVENUE")}
                   icon={<ArrowDownToLine className="text-pastel-greenInk" />}
                   label="إضافة إيراد جديد"
-                  shortcut="⌘⇧R"
                 />
               )}
               {can('expense.create') && (
                 <Item
-                  onSelect={() => go("/expenses/new")}
+                  onSelect={() => newTx("EXPENSE")}
                   icon={<ArrowUpFromLine className="text-pastel-redInk" />}
                   label="إضافة مصروف جديد"
-                  shortcut="⌘⇧E"
                 />
               )}
               {can('voucher.create') && (
@@ -119,7 +124,6 @@ export function CommandPalette({
                       onSelect={() => go(item.href)}
                       icon={<Icon />}
                       label={item.labelAr}
-                      shortcut={item.shortcut}
                     />
                   );
                 })}

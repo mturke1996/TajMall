@@ -1,7 +1,7 @@
 'use client';
 
 import { RentMonthLabel } from '@/components/rent/rent-month-label';
-import { cn } from '@/lib/utils';
+import { cn, arabicCount } from '@/lib/utils';
 import {
   formatMonthLabelAr,
   toggleMonthInSelection,
@@ -61,7 +61,7 @@ export function RentMonthPicker({
       </p>
       {hiddenExempt > 0 && (
         <p className="text-[11px] text-ink-mute">
-          {hiddenExempt} شهر بدون مطالبة مخفي من الاختيار
+          {arabicCount(hiddenExempt, ['شهر واحد مستبعد', 'شهران مستبعدان', 'أشهر مستبعدة', 'شهراً مستبعداً'])} من المطالبة لا يظهر في الاختيار
         </p>
       )}
       <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">

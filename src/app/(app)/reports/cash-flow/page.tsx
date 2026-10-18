@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { Suspense, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { TrendingUp } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,6 +20,7 @@ import {
   AccountingLoading,
 } from '@/components/accounting/accounting-states';
 import { formatAccountingReportExportNames } from '@/lib/report-pdf-export';
+import { parseReportPeriod } from '@/lib/report-period';
 
 type CashFlowItem = {
   category: string;
@@ -85,9 +87,9 @@ function ActivityCard({
   );
 }
 
-export default function CashFlowPage() {
-  const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+function CashFlowContent() {
+  const searchParams = useSearchParams();
+  const [selectedYear, setSelectedYear] = useState<number>(() => parseReportPeriod(searchParams).year);
 
   const { data: rawCashFlow, isLoading, isError, error } = useCashFlow(selectedYear);
 
@@ -246,5 +248,14 @@ export default function CashFlowPage() {
         )}
       </AccountingPageBody>
     </>
+  );
+}
+
+export default function CashFlowPage() {
+  // reads ?year/?month from the reports hub
+  return (
+    <Suspense fallback={null}>
+      <CashFlowContent />
+    </Suspense>
   );
 }

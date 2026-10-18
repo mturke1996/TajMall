@@ -52,7 +52,7 @@ export function TenantArAgingReportPDF({
       }}
       metaCells={[
         { label: 'عدد المستأجرين', value: String(summary.tenantCount) },
-        { label: 'إجمالي المتأخرات', moneyAmount: summary.totalOutstanding, adaptiveMoney: true },
+        { label: 'إجمالي المستحقات', moneyAmount: summary.totalOutstanding, adaptiveMoney: true },
       ]}
     >
       <View style={pdfReportTable.tableWrap}>

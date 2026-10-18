@@ -4,7 +4,7 @@ import { Search, SlidersHorizontal, Download, CalendarRange, X } from 'lucide-re
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, arabicCount } from '@/lib/utils';
 
 export type DateRangePreset = 'all' | 'this_month' | 'last_month' | 'this_quarter' | 'this_year';
 
@@ -27,10 +27,13 @@ export function DataToolbar({
   children,
   onExport,
   onSearch,
+  searchValue,
   datePreset,
   onDatePreset,
 }: {
   searchPlaceholder?: string;
+  /** the current search text, when the page can also clear it (e.g. a "show all" card) */
+  searchValue?: string;
   count?: number;
   children?: React.ReactNode;
   onExport?: () => void;
@@ -47,13 +50,15 @@ export function DataToolbar({
           <Input
             placeholder={searchPlaceholder}
             className="pe-9 bg-canvas-sunken border-transparent focus:border-ring focus:bg-card transition-colors w-full"
+            value={searchValue}
             onChange={(e) => onSearch?.(e.target.value)}
+            aria-label={searchPlaceholder}
           />
         </div>
         <div className="flex flex-wrap items-center gap-2 min-w-0">
           {typeof count === 'number' && (
             <Badge variant="neutral" className="font-mono normal-case tracking-normal shrink-0">
-              {count.toLocaleString('en-US')} نتيجة
+              {arabicCount(count, ['نتيجة واحدة', 'نتيجتان', 'نتائج', 'نتيجة'])}
             </Badge>
           )}
           {children}
@@ -108,6 +113,16 @@ function isoDay(d: Date): string {
  * Compare day strings, not Date objects: `new Date('2026-09-30')` is UTC midnight, which in
  * Libya (UTC+2) is later than the local end-of-range Date and silently dropped the last day.
  */
+/** "هذا الشهر (أكتوبر 2026)" — the preset in words, for report titles. */
+export function datePresetLabel(preset: DateRangePreset): string {
+  const label = PRESETS.find((p) => p.value === preset)?.label ?? 'الكل';
+  if (preset === 'all') return 'كل الفترات';
+  const { from, to } = getDateRange(preset);
+  if (!from || !to) return label;
+  const fmt = (d: Date) => d.toLocaleDateString('ar-LY-u-nu-latn', { month: 'long', year: 'numeric' });
+  return from.getMonth() === to.getMonth() ? `${label} (${fmt(from)})` : `${label} (${fmt(from)} – ${fmt(to)})`;
+}
+
 export function isInDatePreset(txDate: string | null | undefined, preset: DateRangePreset): boolean {
   const { from, to } = getDateRange(preset);
   if (!from || !to) return true;

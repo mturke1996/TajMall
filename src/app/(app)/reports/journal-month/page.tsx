@@ -1419,6 +1419,8 @@ function JournalMonthContent() {
       </AccountingPageBody>
 
       <PeriodJournalPdfDialog
+        // each opening starts from the page's current period and account
+        key={pdfModalOpen ? `open-${period.year}-${period.month ?? 'y'}-${categoryFilterId}` : 'closed'}
         open={pdfModalOpen}
         onOpenChange={setPdfModalOpen}
         categories={categories}

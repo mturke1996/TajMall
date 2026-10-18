@@ -63,7 +63,8 @@ function PnLLineList({
               tone === 'revenue' ? 'text-success-ink' : 'text-danger',
             )}
           >
-            {formatMoney(tone === 'revenue' ? Math.abs(item.amount) : -Math.abs(item.amount), '', { signed: true })}
+            {/* revenue = credit − debit, expense = debit − credit: a reversed line keeps its real sign */}
+            {formatMoney(tone === 'revenue' ? item.amount : -item.amount, '', { signed: true })}
           </span>
         </li>
       ))}
@@ -339,7 +340,7 @@ function ProfitLossContent() {
                 <CardHeader className="flex flex-col gap-2 border-b border-border sm:flex-row sm:items-center sm:justify-between py-4">
                   <CardTitle className="text-base font-bold">الإيرادات</CardTitle>
                   <span className="font-mono text-sm font-bold text-success-ink bg-success-soft px-2.5 py-1 rounded-md w-fit">
-                    {formatMoney(Math.abs(totalRevenues), 'LYD', { signed: true })}
+                    {formatMoney(totalRevenues, 'LYD', { signed: true })}
                   </span>
                 </CardHeader>
                 <CardContent className="pt-4 pb-5">
@@ -351,7 +352,7 @@ function ProfitLossContent() {
                 <CardHeader className="flex flex-col gap-2 border-b border-border sm:flex-row sm:items-center sm:justify-between py-4">
                   <CardTitle className="text-base font-bold">المصروفات</CardTitle>
                   <span className="font-mono text-sm font-bold text-danger-ink bg-danger-soft px-2.5 py-1 rounded-md w-fit">
-                    {formatMoney(-Math.abs(totalExpenses), 'LYD', { signed: true })}
+                    {formatMoney(-totalExpenses, 'LYD', { signed: true })}
                   </span>
                 </CardHeader>
                 <CardContent className="pt-4 pb-5">

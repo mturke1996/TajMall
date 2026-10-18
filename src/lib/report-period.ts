@@ -98,6 +98,16 @@ export function reportPeriodDateRange(period: ReportPeriod): {
   };
 }
 
+/**
+ * "As of" date for point-in-time reports (balance sheet, receivables) opened from a period link:
+ * the period's last day, but never later than today. Without period parameters: today.
+ */
+export function reportAsOfFromSearchParams(searchParams: URLSearchParams | { get(name: string): string | null; has(name: string): boolean }, today: string): string {
+  if (!searchParams.has('year') && !searchParams.has('month') && !searchParams.has('mode')) return today;
+  const { endDate } = reportPeriodDateRange(parseReportPeriod(searchParams as URLSearchParams));
+  return endDate < today ? endDate : today;
+}
+
 export function formatReportPeriodLabelAr(period: ReportPeriod): string {
   if (period.mode === 'year' || period.month == null) {
     return `السنة المالية ${period.year}`;

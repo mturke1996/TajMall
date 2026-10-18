@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { qk } from '@/lib/db/queries';
 import { cashboxQk } from '@/lib/db/cashbox-queries';
 import { todayISODate } from '@/lib/utils';
+import { invalidateMoneyQueries } from '@/lib/db/invalidate';
 
 export const inventoryQk = {
   pin: ['cashbox_inventory_pin'] as const,
@@ -80,13 +81,8 @@ export function useApplyCashboxInventory() {
       };
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: qk.cashboxBalances });
-      qc.invalidateQueries({ queryKey: qk.dashboardStats });
-      qc.invalidateQueries({ queryKey: qk.monthlySummary });
-      qc.invalidateQueries({ queryKey: ['journal_entries'] });
-      qc.invalidateQueries({ queryKey: ['cash_flow'] });
-      qc.invalidateQueries({ queryKey: ['audit_log_feed'] });
-      qc.invalidateQueries({ queryKey: cashboxQk.transfers });
+      // a count posts adjustment entries: balances, cashbox ledgers and reports all move
+      invalidateMoneyQueries(qc);
       qc.invalidateQueries({ queryKey: inventoryQk.runs });
     },
   });

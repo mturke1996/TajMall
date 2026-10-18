@@ -66,6 +66,46 @@ if (blob.size < 2000) {
   throw new Error(`PDF too small: ${blob.size} bytes`);
 }
 
+// Statement of account: renders for the whole account and for one year (with an opening balance).
+const { buildTenantRentAccount } = await import('../src/lib/tenant-rent-account.ts');
+const { buildTenantStatement } = await import('../src/lib/tenant-statement.ts');
+const { TenantStatementPDF } = await import('../src/features/pdf/TenantStatementPDF.tsx');
+const calMonths = (year, cells) =>
+  Array.from({ length: 12 }, (_, i) => {
+    const month = `${year}-${String(i + 1).padStart(2, '0')}`;
+    return { month, status: 'no_charge', amount: 0, paid: 0, charge_id: null, description: null, ...(cells[month] ?? {}) };
+  });
+const account = buildTenantRentAccount({
+  calendars: [
+    { year: 2025, tenant_id: 't', monthly_rent: 0, contract_id: null, months: calMonths(2025, { '2025-12': { status: 'partial', amount: 1500, paid: 750, charge_id: 'c1' } }) },
+    { year: 2026, tenant_id: 't', monthly_rent: 0, contract_id: null, months: calMonths(2026, { '2026-01': { status: 'paid', amount: 1500, paid: 1500, charge_id: 'c2' } }) },
+  ],
+  pricing: { contactRent: 1500, bands: [], leaseRent: null },
+  claimStart: '2025-12-01',
+  now: '2026-03',
+});
+const receipts = [
+  { id: 'r1', number: 41, tx_date: '2025-12-04', amount: 750, status: 'POSTED', kind: 'REVENUE', category: { code: 'REV-RNT' }, description: 'نصف إيجار ديسمبر' },
+  { id: 'r2', number: 57, tx_date: '2026-01-03', amount: 1500, status: 'POSTED', kind: 'REVENUE', category: { code: 'REV-RNT' }, method: 'TRANSFER' },
+];
+for (const year of [null, 2026]) {
+  const statement = buildTenantStatement({ account, receipts, unlinkedTotal: 0, year });
+  // Dec half paid + Feb, Mar without a charge = 3,750 owed, whether the year opens with Dec's 750 or not
+  const expectedClosing = 3750;
+  if (statement.closing !== expectedClosing) throw new Error(`statement ${year ?? 'all'} closing ${statement.closing} ≠ ${expectedClosing}`);
+  const sblob = await renderPdfBlob(async () =>
+    React.createElement(TenantStatementPDF, {
+      tenantName: 'مستأجر تجريبي',
+      shopNumber: '12',
+      phone: '0910000000',
+      periodLabel: year == null ? 'كل الفترة' : `سنة ${year}`,
+      issuedOn: '2026-03-15',
+      statement,
+    }),
+  );
+  if (sblob.size < 2000) throw new Error(`statement PDF too small: ${sblob.size} bytes`);
+}
+
 console.log(
   JSON.stringify({
     periodExpected: tenantPeriodExpectedRent(t),
@@ -74,4 +114,4 @@ console.log(
     pdfBytes: blob.size,
   }),
 );
-console.log('✓ verify-tenant-rent-pdf: PDF matches UI totals');
+console.log('✓ verify-tenant-rent-pdf: PDF matches UI totals; statement PDF renders');

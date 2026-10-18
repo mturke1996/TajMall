@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Sidebar } from './sidebar';
+import { useState, useEffect, Suspense } from 'react';
+import { Sidebar, SidebarFollowingSearch } from './sidebar';
 import { TopBar } from './topbar';
 import { MobileNav } from './mobile-nav';
 import { MobileBottomNav } from './mobile-bottom-nav';
@@ -37,8 +37,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         تجاوز إلى المحتوى
       </a>
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-      <MobileNav open={mobileOpen} onClose={() => setMobileOpen(false)} />
+      <Suspense fallback={<Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />}>
+        <SidebarFollowingSearch collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <MobileNav open={mobileOpen} onClose={() => setMobileOpen(false)} />
+      </Suspense>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar

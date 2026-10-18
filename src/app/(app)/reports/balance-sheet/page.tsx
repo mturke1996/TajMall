@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { Suspense, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Landmark, Loader2, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, todayISODate } from '@/lib/utils';
 import { useBalanceSheet } from '@/lib/db/mall-queries';
 import { ledgerUrl } from '@/lib/accounting-nav';
 import { AccountingBackfillBanner } from '@/components/accounting/accounting-backfill-banner';
@@ -17,6 +18,7 @@ import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { formatAccountingReportExportNames } from '@/lib/report-pdf-export';
 import { friendlyError } from '@/lib/user-messages';
+import { reportAsOfFromSearchParams } from '@/lib/report-period';
 
 type BsRow = {
   category_id: string;
@@ -26,8 +28,9 @@ type BsRow = {
   is_net_income?: boolean;
 };
 
-export default function BalanceSheetPage() {
-  const [asOf, setAsOf] = useState(() => new Date().toISOString().slice(0, 10));
+function BalanceSheetContent() {
+  const searchParams = useSearchParams();
+  const [asOf, setAsOf] = useState(() => reportAsOfFromSearchParams(searchParams, todayISODate()));
   const { data: raw, isLoading, isError, error } = useBalanceSheet(asOf);
 
   const { assets, liabilities, equity, summary, isBalanced } = useMemo(() => {
@@ -42,7 +45,7 @@ export default function BalanceSheetPage() {
       liabilities: ((d?.liabilities ?? []) as BsRow[]) || [],
       equity: ((d?.equity ?? []) as BsRow[]) || [],
       summary: { totalAssets, totalLiab, totalEquity },
-      isBalanced: diff < 0.01,
+      isBalanced: diff < 0.0005,
     };
   }, [raw]);
 
@@ -261,5 +264,14 @@ export default function BalanceSheetPage() {
       )}
       </AccountingPageBody>
     </>
+  );
+}
+
+export default function BalanceSheetPage() {
+  // reads ?year/?month from the reports hub
+  return (
+    <Suspense fallback={null}>
+      <BalanceSheetContent />
+    </Suspense>
   );
 }

@@ -33,7 +33,9 @@ export default function LoginPage() {
 function LoginCard() {
   const router = useRouter();
   const params = useSearchParams();
-  const nextHref = params.get('next') || '/dashboard';
+  // only a path inside this app: "/x" — never "//host", "/\\host" or "https://…" (an open redirect)
+  const rawNext = params.get('next') ?? '';
+  const nextHref = /^\/(?![\/\\])/.test(rawNext) ? rawNext : '/dashboard';
 
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);

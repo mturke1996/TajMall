@@ -142,7 +142,8 @@ function computeAggregatedStatus(
   totalExpected: number,
   totalPaid: number,
 ): TenantRentStatusKey {
-  if (!monthlyRent || monthlyRent <= 0) return 'no_rent_set';
+  // the expected amount already reflects price schedules and leases; the contact's own rent may be 0
+  void monthlyRent;
   if (totalExpected <= 0) return 'no_rent_set';
   if (totalPaid >= totalExpected) return 'paid_full';
   if (totalPaid > 0) return 'paid_partial';

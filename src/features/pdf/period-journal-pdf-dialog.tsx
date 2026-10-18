@@ -30,7 +30,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { BRAND } from '@/lib/brand';
-import { cn } from '@/lib/utils';
+import { cn, todayISODate } from '@/lib/utils';
 import { toast } from 'sonner';
 
 import { renderPdfBlob, savePdfBlob, shouldUseInAppPdfViewer } from './pdf-blob-utils';
@@ -94,9 +94,14 @@ export function PeriodJournalPdfDialog({
 
   // 4. Period Selection
   const [selectedYear, setSelectedYear] = useState<number>(defaultPeriod?.year || currentYear);
-  const [selectedMonths, setSelectedMonths] = useState<number[]>([
-    defaultPeriod?.month || currentMonth,
-  ]);
+  // a year opened from the page means all of its months, not the current one
+  const [selectedMonths, setSelectedMonths] = useState<number[]>(() =>
+    defaultPeriod && !defaultPeriod.month
+      ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      : [defaultPeriod?.month || currentMonth],
+  );
+  // With "all accounts" one kind at a time: revenue and expenses added together mean nothing.
+  const [txKind, setTxKind] = useState<'REVENUE' | 'EXPENSE'>('REVENUE');
   const [dateRangeMode, setDateRangeMode] = useState<'MONTHS' | 'RANGE' | 'ALL'>('MONTHS');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
@@ -189,10 +194,13 @@ export function PeriodJournalPdfDialog({
   const processedData = useMemo(() => {
     // 1. Filter Transactions by Period and Category
     const filtered = transactions.filter((t) => {
+      // posted money only: drafts and voided entries are not in the books
+      if (t.status !== 'POSTED' && t.status !== 'RECONCILED') return false;
       // Category filter
       if (selectedCategoryId !== 'ALL' && t.category_id !== selectedCategoryId) {
         return false;
       }
+      if (selectedCategoryId === 'ALL' && t.kind !== txKind) return false;
 
       // Cashbox filter
       if (selectedCashboxIds.length > 0 && t.cashbox_id && !selectedCashboxIds.includes(t.cashbox_id)) {
@@ -203,9 +211,8 @@ export function PeriodJournalPdfDialog({
       if (basisMode === 'CASH_COLLECTED_IN_MONTH' || basisMode === 'GENERAL_ACCRUAL') {
         if (!t.tx_date) return false;
         if (dateRangeMode === 'MONTHS') {
-          const d = new Date(t.tx_date);
-          const y = d.getFullYear();
-          const m = d.getMonth() + 1;
+          const y = Number(t.tx_date.slice(0, 4));
+          const m = Number(t.tx_date.slice(5, 7));
           if (y !== selectedYear || !selectedMonths.includes(m)) return false;
         } else if (dateRangeMode === 'RANGE') {
           const d = t.tx_date.slice(0, 10);
@@ -363,13 +370,14 @@ export function PeriodJournalPdfDialog({
     selectedMonths,
     fromDate,
     toDate,
+    txKind,
   ]);
 
   const fileName = useMemo(() => {
     const cleanCat = (selectedCategory?.name_ar || 'شامل').replace(/[^\u0621-\u064A\w-]/g, '_').slice(0, 20);
     const cleanPeriod = periodLabel.replace(/[^\u0621-\u064A\w-]/g, '_').slice(0, 25);
     const levelSlug = viewLevel === 'SUMMARY_ONLY' ? 'مجموع' : 'تفصيلي';
-    return `قيد-الفترة-${cleanCat}-${levelSlug}-${cleanPeriod}-${new Date().toISOString().slice(0, 10)}`;
+    return `قيد-الفترة-${cleanCat}-${levelSlug}-${cleanPeriod}-${todayISODate()}`;
   }, [selectedCategory, periodLabel, viewLevel]);
 
   // Generate Report JSX for PDF Renderer
@@ -657,7 +665,7 @@ export function PeriodJournalPdfDialog({
                     onChange={(e) => setSelectedCategoryId(e.target.value)}
                     className="h-9 w-full rounded-md border border-border bg-card px-2.5 text-xs font-semibold outline-hidden"
                   >
-                    <option value="ALL">جميع البنود المحاسبية</option>
+                    <option value="ALL">كل بنود {txKind === 'REVENUE' ? 'الإيرادات' : 'المصروفات'}</option>
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.code} — {c.name_ar} ({c.type === 'REVENUE' ? 'إيراد' : 'مصروف'})
@@ -666,6 +674,27 @@ export function PeriodJournalPdfDialog({
                   </select>
                 </div>
 
+                {selectedCategoryId === 'ALL' && (
+                  <div className="sm:col-span-2">
+                    <span className="text-[11px] font-medium text-muted-foreground block mb-1">نوع الحركات</span>
+                    <div className="flex w-fit rounded-lg border border-border bg-canvas-sunken p-0.5" role="group" aria-label="نوع الحركات">
+                      {(['REVENUE', 'EXPENSE'] as const).map((k) => (
+                        <button
+                          key={k}
+                          type="button"
+                          aria-pressed={txKind === k}
+                          onClick={() => setTxKind(k)}
+                          className={cn(
+                            'h-8 rounded-md px-3 text-[12.5px] font-medium transition-colors',
+                            txKind === k ? 'bg-card text-foreground shadow-xs' : 'text-ink-mute hover:text-foreground',
+                          )}
+                        >
+                          {k === 'REVENUE' ? 'إيرادات' : 'مصروفات'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="text-[11px] font-medium text-muted-foreground block mb-1">
                     عنوان مخصص للتقرير (اختياري)

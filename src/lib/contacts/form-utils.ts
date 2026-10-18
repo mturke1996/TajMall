@@ -4,7 +4,7 @@ import {
   encodeContactRoleFields,
   type ContactBusinessRole,
 } from '@/lib/contacts/contact-roles';
-import { NEEDS_DB_UPDATE } from '@/lib/user-messages';
+import { NEEDS_DB_UPDATE, friendlyError } from '@/lib/user-messages';
 
 /** قيمة من Supabase قد تكون number (numeric) أو string */
 function toFormString(value: unknown): string {
@@ -235,7 +235,12 @@ export function formatContactSaveError(error: unknown): string {
     if (msg.includes('duplicate key') || msg.includes('unique')) {
       return 'سجل مكرر — غيّر الاسم أو الرمز';
     }
-    return msg;
+    // an update that matched no row (PGRST116 "Cannot coerce the result to a single JSON object"): the
+    // database allowed nothing to change, usually because the role may not edit
+    if ((error as { code?: string }).code === 'PGRST116' || msg.includes('single JSON object')) {
+      return 'لم يُحفظ التعديل — قد لا تملك صلاحية تعديل هذا الملف، أو حُذف. أعد تحميل الصفحة.';
+    }
+    return friendlyError(error, 'تعذّر الحفظ — حاول مرة أخرى.');
   }
-  return 'فشل الحفظ';
+  return 'تعذّر الحفظ — حاول مرة أخرى.';
 }

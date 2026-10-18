@@ -271,8 +271,10 @@ export function JournalPDF({
     REVERSED: { label: 'معكوس', style: s.statusReversed },
   };
 
-  const grandDebit = entries.reduce((sum, e) => sum + e.total_debit, 0);
-  const grandCredit = entries.reduce((sum, e) => sum + e.total_credit, 0);
+  // drafts and reversed entries are listed with their status but are not in the books' totals
+  const countedEntries = entries.filter((e) => e.status === 'POSTED');
+  const grandDebit = countedEntries.reduce((sum, e) => sum + e.total_debit, 0);
+  const grandCredit = countedEntries.reduce((sum, e) => sum + e.total_credit, 0);
   const lineCount = entries.reduce((sum, e) => sum + e.lines.length, 0);
   const bookBalanced = nearlyEqual(grandDebit, grandCredit);
   const unbalancedCount = entries.filter(
@@ -288,12 +290,12 @@ export function JournalPDF({
         { label: 'عدد القيود', value: String(entries.length) },
         { label: 'عدد البنود', value: String(lineCount) },
         {
-          label: 'إجمالي المدين',
+          label: countedEntries.length < entries.length ? 'إجمالي المدين (المرحّل)' : 'إجمالي المدين',
           moneyAmount: grandDebit,
           adaptiveMoney: true,
         },
         {
-          label: 'إجمالي الدائن',
+          label: countedEntries.length < entries.length ? 'إجمالي الدائن (المرحّل)' : 'إجمالي الدائن',
           moneyAmount: grandCredit,
           adaptiveMoney: true,
         },

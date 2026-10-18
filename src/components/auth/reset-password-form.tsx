@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/brand/logo';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
-import { exchangePasswordRecoverySession } from '@/lib/supabase/recover-session';
+import { clearRecovery, exchangePasswordRecoverySession } from '@/lib/supabase/recover-session';
 import { toast } from 'sonner';
 
 function formatUrlError(raw: string | null): string | null {
@@ -33,14 +33,15 @@ export function ResetPasswordForm() {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(urlError);
+  const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
     let active = true;
     const supabase = createSupabaseBrowserClient();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (!active) return;
-      if (event === 'PASSWORD_RECOVERY' || session) {
+      if (event === 'PASSWORD_RECOVERY') {
         setReady(true);
         setChecking(false);
         setError(null);
@@ -55,6 +56,8 @@ export function ResetPasswordForm() {
         setError(null);
       } else if (result.redirecting) {
         return;
+      } else if (result.reason === 'signed_in') {
+        setSignedIn(true);
       } else if (result.reason !== 'missing_token') {
         setError(result.reason);
       }
@@ -88,6 +91,7 @@ export function ResetPasswordForm() {
         setError(updateError.message || 'تعذّر تحديث كلمة المرور.');
         return;
       }
+      clearRecovery();
       toast.success('تم تعيين كلمة المرور الجديدة');
       router.push('/dashboard');
       router.refresh();
@@ -102,6 +106,23 @@ export function ResetPasswordForm() {
     return (
       <div className="flex min-h-dvh items-center justify-center" dir="rtl">
         <Loader2 className="h-6 w-6 animate-spin text-ink-mute" />
+      </div>
+    );
+  }
+
+  if (!ready && signedIn) {
+    return (
+      <div className="relative flex min-h-dvh items-center justify-center p-6 paper" dir="rtl">
+        <div className="surface w-full max-w-md space-y-4 p-7 text-center">
+          <KeyRound className="mx-auto h-8 w-8 text-ink-mute" aria-hidden />
+          <h1 className="text-lg font-semibold">أنت مسجّل الدخول</h1>
+          <p className="text-sm text-ink-mute">
+            لتغيير كلمة المرور وأنت داخل النظام استخدم صفحة الملف الشخصي — تُطلب فيها كلمة المرور الحالية.
+          </p>
+          <Button asChild className="w-full">
+            <Link href="/profile">فتح الملف الشخصي</Link>
+          </Button>
+        </div>
       </div>
     );
   }

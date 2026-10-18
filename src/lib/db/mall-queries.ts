@@ -13,6 +13,10 @@ import type {
   TenantChargeWithRelations,
   AccountMappingRow
 } from './types';
+import { todayISODate } from '@/lib/utils';
+import { invalidateMoneyQueries } from '@/lib/db/invalidate';
+import { friendlyError } from '@/lib/user-messages';
+import { fetchAllPages } from '@/lib/db/fetch-all';
 
 export const mqk = {
   fiscalPeriods: ['fiscal_periods'] as const,
@@ -64,7 +68,7 @@ export function useCreateFiscalPeriod() {
       toast.success('تم إنشاء الفترة المالية بنجاح');
     },
     onError: (err: any) => {
-      toast.error(err.message || 'فشل إنشاء الفترة المالية');
+      toast.error(friendlyError(err, 'فشل إنشاء الفترة المالية'));
     }
   });
 }
@@ -93,11 +97,11 @@ export function useCloseFiscalPeriod() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: mqk.fiscalPeriods });
-      qc.invalidateQueries({ queryKey: ['journal_entries'] });
+      invalidateMoneyQueries(qc);
       toast.success('تم تحديث حالة إغلاق الفترة المالية');
     },
     onError: (err: any) => {
-      toast.error(err.message || 'فشل تحديث حالة الإغلاق');
+      toast.error(friendlyError(err, 'فشل تحديث حالة الإغلاق'));
     }
   });
 }
@@ -137,7 +141,7 @@ export function usePreviewFiscalYearClose() {
       } satisfies YearClosePreview;
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'تعذّرت معاينة إقفال السنة');
+      toast.error(friendlyError(err, 'تعذّرت معاينة إقفال السنة'));
     },
   });
 }
@@ -165,12 +169,8 @@ export function useCloseFiscalYear() {
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: mqk.fiscalPeriods });
-      qc.invalidateQueries({ queryKey: ['journal_entries'] });
-      qc.invalidateQueries({ queryKey: ['trial_balance'] });
-      qc.invalidateQueries({ queryKey: ['profit_loss'] });
-      qc.invalidateQueries({ queryKey: ['balance_sheet'] });
-      qc.invalidateQueries({ queryKey: ['ledger'] });
       qc.invalidateQueries({ queryKey: ['categories'] });
+      invalidateMoneyQueries(qc);
       toast.success(`تم إنشاء قيد إقفال سنة ${data.year}`, {
         description: `صافي النتيجة: ${Number(data.net_income).toLocaleString('ar-LY')} د.ل${
           data.periods_auto_closed ? ' · أُغلقت فترات السنة' : ' · أغلق الفترات يدوياً إن رغبت'
@@ -178,7 +178,7 @@ export function useCloseFiscalYear() {
       });
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'فشل إقفال السنة المالية');
+      toast.error(friendlyError(err, 'فشل إقفال السنة المالية'));
     },
   });
 }
@@ -217,7 +217,7 @@ export function useCreateMallUnit() {
       toast.success('تمت إضافة المحل بنجاح');
     },
     onError: (err: any) => {
-      toast.error(err.message || 'فشل إضافة المحل');
+      toast.error(friendlyError(err, 'فشل إضافة المحل'));
     }
   });
 }
@@ -242,7 +242,7 @@ export function useUpdateMallUnit() {
       toast.success('تم تحديث بيانات المحل بنجاح');
     },
     onError: (err: any) => {
-      toast.error(err.message || 'فشل تحديث بيانات المحل');
+      toast.error(friendlyError(err, 'فشل تحديث بيانات المحل'));
     }
   });
 }
@@ -260,7 +260,7 @@ export function useDeleteMallUnit() {
       toast.success('تم حذف المحل بنجاح');
     },
     onError: (err: any) => {
-      toast.error(err.message || 'لا يمكن حذف المحل لوجود عقود مرتبطة به');
+      toast.error(friendlyError(err, 'لا يمكن حذف المحل لوجود عقود مرتبطة به'));
     }
   });
 }
@@ -455,15 +455,11 @@ export function useCreateLeaseContract() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: mqk.leaseContracts });
       qc.invalidateQueries({ queryKey: mqk.mallUnits });
-      qc.invalidateQueries({ queryKey: ['contacts'] });
-      qc.invalidateQueries({ queryKey: ['tenant_rent_summary'] });
-      qc.invalidateQueries({ queryKey: ['transactions'] });
-      qc.invalidateQueries({ queryKey: ['journal_entries'] });
-      qc.invalidateQueries({ queryKey: ['cashbox_balances'] });
+      invalidateMoneyQueries(qc);
       toast.success('تم توثيق عقد الإيجار بنجاح وتأمين المحل');
     },
     onError: (err: any) => {
-      toast.error(err.message || 'فشل إنشاء عقد الإيجار');
+      toast.error(friendlyError(err, 'فشل إنشاء عقد الإيجار'));
     }
   });
 }
@@ -476,7 +472,7 @@ export function useTerminateLeaseContract() {
 
       const { error } = await supabase
         .from('lease_contracts')
-        .update({ status: 'TERMINATED', end_date: new Date().toISOString().slice(0,10) })
+        .update({ status: 'TERMINATED', end_date: todayISODate() })
         .eq('id', vars.id);
       if (error) throw error;
 
@@ -489,10 +485,12 @@ export function useTerminateLeaseContract() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: mqk.leaseContracts });
       qc.invalidateQueries({ queryKey: mqk.mallUnits });
+      // the tenant's later months stop being claimed
+      invalidateMoneyQueries(qc);
       toast.success('تم إنهاء عقد الإيجار وتفريغ المحل');
     },
     onError: (err: any) => {
-      toast.error(err.message || 'فشل إنهاء العقد');
+      toast.error(friendlyError(err, 'فشل إنهاء العقد'));
     }
   });
 }
@@ -514,7 +512,7 @@ const TENANT_CHARGE_SELECT = `
     id,
     amount,
     journal_entry_id,
-    journal:journal_entries(id, number, entry_date, description, status)
+    journal:journal_entries(id, number, entry_date, description, status, source_type, source_id)
   )
 `;
 
@@ -523,15 +521,17 @@ export function useTenantCharges(contractId?: string) {
     queryKey: mqk.tenantCharges(contractId),
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
-      let q = supabase
-        .from('tenant_charges')
-        .select(TENANT_CHARGE_SELECT)
-        .order('due_date', { ascending: false });
-
-      if (contractId) q = q.eq('contract_id', contractId);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data as TenantChargeWithRelations[]) ?? [];
+      // every charge, not the first 1,000: 68 tenants × two years already pass that
+      return fetchAllPages<TenantChargeWithRelations>((from, to) => {
+        let q = supabase
+          .from('tenant_charges')
+          .select(TENANT_CHARGE_SELECT)
+          .order('due_date', { ascending: false })
+          .order('id')
+          .range(from, to);
+        if (contractId) q = q.eq('contract_id', contractId);
+        return q as unknown as PromiseLike<{ data: TenantChargeWithRelations[] | null; error: unknown }>;
+      });
     },
   });
 }
@@ -577,13 +577,11 @@ export function useCreateTenantCharge() {
       return data as TenantChargeRow;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tenant_charges'] });
-      qc.invalidateQueries({ queryKey: ['mall_rent_charges_year'] });
-      qc.invalidateQueries({ queryKey: ['journal_entries'] });
-      toast.success('تم تسجيل المطالبة المالية بنجاح وصبها بالدفتر اليومي');
+      invalidateMoneyQueries(qc);
+      toast.success('تم تسجيل المطالبة وقيدها في دفتر اليومية');
     },
     onError: (err: any) => {
-      toast.error(err.message || 'فشل تسجيل المطالبة');
+      toast.error(friendlyError(err, 'فشل تسجيل المطالبة'));
     }
   });
 }
@@ -605,10 +603,7 @@ export function useGenerateMonthlyCharges() {
       return Number(payload.created ?? 0);
     },
     onSuccess: (count) => {
-      qc.invalidateQueries({ queryKey: ['tenant_charges'] });
-      qc.invalidateQueries({ queryKey: ['mall_rent_charges_year'] });
-      qc.invalidateQueries({ queryKey: ['journal_entries'] });
-      qc.invalidateQueries({ queryKey: ['tenant_rent_calendar'] });
+      invalidateMoneyQueries(qc);
       toast.success(
         count > 0
           ? `تم توليد ${count} مطالبة إيجار وخدمات`
@@ -616,7 +611,7 @@ export function useGenerateMonthlyCharges() {
       );
     },
     onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : 'فشل توليد المطالبات الشهرية');
+      toast.error(friendlyError(err, 'تعذّر توليد المطالبات الشهرية'));
     },
   });
 }
@@ -811,19 +806,10 @@ export function useBackfillTransactions() {
     },
     onSuccess: (res) => {
       toast.success(res);
-      qc.invalidateQueries({ queryKey: ['trial_balance'] });
-      qc.invalidateQueries({ queryKey: ['profit_loss'] });
-      qc.invalidateQueries({ queryKey: ['cash_flow'] });
-      qc.invalidateQueries({ queryKey: ['ledger'] });
-      qc.invalidateQueries({ queryKey: ['journal_entries'] });
-      qc.invalidateQueries({ queryKey: ['journal_summary'] });
-      qc.invalidateQueries({ queryKey: ['balance_sheet'] });
-      qc.invalidateQueries({ queryKey: ['tenant_ar_aging'] });
-      qc.invalidateQueries({ queryKey: ['tenant_charges'] });
-      qc.invalidateQueries({ queryKey: ['mall_rent_charges_year'] });
+      invalidateMoneyQueries(qc);
     },
     onError: (err: { message?: string }) => {
-      toast.error(err.message || 'فشل الترحيل التراكمي');
+      toast.error(friendlyError(err, 'فشل الترحيل التراكمي'));
     },
   });
 }

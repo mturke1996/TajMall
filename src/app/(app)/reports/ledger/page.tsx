@@ -159,7 +159,8 @@ function GeneralLedgerContent() {
               headers={['التاريخ', 'رقم القيد', 'المرجع', 'الوصف', 'مدين', 'دائن', 'الرصيد التراكمي']}
               rows={[
                 ['—', '—', '', 'الرصيد الافتتاحي', '', '', openingBalance],
-                ...linesWithBalance.map((l) => [
+                // oldest first, so the running balance reads down from the opening balance
+                ...[...linesWithBalance].reverse().map((l) => [
                   l.entry_date,
                   l.journal_number,
                   l.journal_reference ?? '',

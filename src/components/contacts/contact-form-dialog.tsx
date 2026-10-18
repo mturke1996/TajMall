@@ -184,7 +184,7 @@ export function ContactFormDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-xl max-h-[90dvh] overflow-y-auto sm:max-h-[85vh] w-[calc(100%-1.5rem)] sm:w-full rounded-2xl p-0 overflow-hidden"
+        className="max-w-xl max-h-[90dvh] overflow-y-auto overscroll-contain sm:max-h-[85vh] w-[calc(100%-1.5rem)] sm:w-full rounded-2xl p-0"
         dir="rtl"
       >
         <div className="border-b border-border bg-canvas-sunken/60 px-5 py-4">

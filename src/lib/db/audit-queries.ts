@@ -74,6 +74,12 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   journal_entry: 'قيد يومية',
   tenant_charge: 'مطالبة مستأجر',
   disbursement_voucher: 'إذن صرف',
+  employee: 'موظف',
+  payroll_run: 'كشف رواتب',
+  payroll_adjustment: 'مكافأة أو خصم',
+  payroll_advance: 'سلفة',
+  contact: 'جهة',
+  lease_contract: 'عقد إيجار',
 };
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {

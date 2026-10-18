@@ -51,7 +51,7 @@ export default function CategoryDetailPage() {
   const params = useParams<{ id: string }>();
   const categoryId = params.id;
 
-  const { data: categories = [], isLoading: catsLoading } = useCategories();
+  const { data: categories = [], isLoading: catsLoading } = useCategories(undefined, { includeInactive: true });
   const category = useMemo(
     () => categories.find((c) => c.id === categoryId),
     [categories, categoryId],
@@ -111,7 +111,7 @@ export default function CategoryDetailPage() {
     );
   }, [txs, searchQuery]);
 
-  const posted = filteredTxs.filter((t) => t.status === 'POSTED');
+  const posted = filteredTxs.filter((t) => t.status === 'POSTED' || t.status === 'RECONCILED');
   const cashTotal = posted.reduce((s, t) => s + Number(t.amount || 0), 0);
   const draftCount = filteredTxs.filter((t) => t.status === 'DRAFT').length;
 
@@ -193,7 +193,7 @@ export default function CategoryDetailPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <TajMallPdfToolbar
-              fileName={`${category.code}-${selectedMonthKey}`}
+              fileName={`${category.code}-${selectedMonthKey}-${viewMode === 'journal' ? 'قيود' : 'معاملات'}`}
               disabled={viewMode === 'cash' ? filteredTxs.length === 0 : journalLines.length === 0}
               render={async () => {
                 if (viewMode === 'journal') {
@@ -563,7 +563,12 @@ export default function CategoryDetailPage() {
                 <tfoot>
                   <tr className="border-t-2 border-ink-soft bg-canvas-sunken">
                     <td className="px-4 py-3 font-bold" colSpan={6}>
-                      إجمالي {typeLabel} — {monthName} {year}
+                      إجمالي {typeLabel} المرحّل — {monthName} {year}
+                      {filteredTxs.length > posted.length && (
+                        <span className="ms-2 text-[12px] font-normal text-ink-mute">
+                          (المسودات والملغاة لا تدخل في المجموع)
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-end font-bold tabular-nums">
                       {formatMoney(cashTotal, 'LYD')}

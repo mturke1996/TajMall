@@ -132,7 +132,8 @@ export function TenantRentOverview({
                     tenantName={contact.name}
                     phone={contact.phone}
                     shopNumber={contact.shop_number}
-                    amountOutstanding={account.owedNow}
+                    // money already received but not yet linked to a month is not asked for again
+                    amountOutstanding={Math.max(Math.round((account.owedNow - unlinked.total) * 1000) / 1000, 0)}
                     className="h-9 touch-manipulation gap-1.5"
                   />
                 </div>

@@ -80,17 +80,33 @@ export type TransactionsReportPdfProps = {
   rows: TransactionWithRelations[];
 };
 
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
 export function TransactionsReportPDF({ titleAr, subtitleAr, rows }: TransactionsReportPdfProps) {
-  const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const counted = rows.filter((r) => r.status !== 'VOIDED');
+  const revenue = round3(counted.filter((r) => r.kind === 'REVENUE').reduce((s, r) => s + Number(r.amount || 0), 0));
+  const expense = round3(counted.filter((r) => r.kind === 'EXPENSE').reduce((s, r) => s + Number(r.amount || 0), 0));
+  const mixed = revenue > 0 && expense > 0;
+  // one kind: its total; both kinds: revenue in, expenses out
+  const total = mixed ? round3(revenue - expense) : revenue > 0 ? revenue : expense;
+  const countLabel = rows.length === 1 ? 'معاملة واحدة' : rows.length === 2 ? 'معاملتان' : rows.length <= 10 ? `${rows.length} معاملات` : `${rows.length} معاملة`;
 
   return (
     <ReportShell
       title={titleAr}
       subtitle={subtitleAr}
-      metaCells={[
-        { label: 'عدد القيود', value: pdfFmtNum(rows.length) },
-        { label: 'إجمالي المبالغ', moneyAmount: total },
-      ]}
+      metaCells={
+        mixed
+          ? [
+              { label: 'الإيرادات', moneyAmount: revenue },
+              { label: 'المصروفات', moneyAmount: expense },
+              { label: total < 0 ? 'صافي (عجز)' : 'الصافي', moneyAmount: Math.abs(total) },
+            ]
+          : [
+              { label: 'عدد المعاملات', value: pdfFmtNum(rows.length) },
+              { label: expense > 0 ? 'إجمالي المصروفات' : 'إجمالي الإيرادات', moneyAmount: total },
+            ]
+      }
     >
       <Text style={pdfBase.sectionTitle}>{ar('تفاصيل المعاملات')}</Text>
 
@@ -121,7 +137,9 @@ export function TransactionsReportPDF({ titleAr, subtitleAr, rows }: Transaction
       ))}
 
       <View style={col.foot} wrap={false}>
-        <Text style={[col.footLabel, col.desc]}>{ar('الإجمالي')}</Text>
+        <Text style={[col.footLabel, col.desc]}>
+          {ar(mixed ? `الصافي (${countLabel}) — الإيرادات ناقص المصروفات` : `الإجمالي (${countLabel})`)}
+        </Text>
         <View style={col.amt}>
           <PdfMoneyText amount={total} style={{ fontSize: 11, fontWeight: 'bold' }} />
         </View>
