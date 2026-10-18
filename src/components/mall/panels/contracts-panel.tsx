@@ -108,6 +108,7 @@ export function MallContractsPanel() {
   };
 
   const confirm = useConfirm();
+  const [openedAt] = useState(() => Date.now());
 
   const handleTerminate = async (contractId: string, unitId: string) => {
     const ok = await confirm({
@@ -229,7 +230,7 @@ export function MallContractsPanel() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {contracts.map((contract) => {
-                    const daysLeft = contract.end_date ? Math.ceil((new Date(contract.end_date).getTime() - Date.now()) / 86_400_000) : null;
+                    const daysLeft = contract.end_date ? Math.ceil((new Date(contract.end_date).getTime() - openedAt) / 86_400_000) : null;
                     const endingSoon = contract.status === 'ACTIVE' && daysLeft != null && daysLeft >= 0 && daysLeft <= 60;
                     return (
                       <tr key={contract.id} className="hover:bg-canvas-sunken/50">

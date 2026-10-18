@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -44,12 +44,13 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
   const openCharges = charges.filter((c) => c.status !== 'PAID' && Number(c.amount) > Number(c.total_paid));
   const openChargesTotal = openCharges.reduce((s, c) => s + (Number(c.amount) - Number(c.total_paid)), 0);
 
+  // the time the page opened: enough for "ends within 60 days", and stable across re-renders
+  const [now] = useState(() => Date.now());
   const endingSoon = useMemo(() => {
-    const now = Date.now();
     return activeContracts
       .filter((c) => c.end_date && new Date(c.end_date).getTime() - now <= 60 * DAY && new Date(c.end_date).getTime() >= now - DAY)
       .sort((a, b) => String(a.end_date).localeCompare(String(b.end_date)));
-  }, [activeContracts]);
+  }, [activeContracts, now]);
 
   const followUps: { label: string; detail: string; tab: MallTab }[] = [];
   if (owingThisMonth.length > 0)
