@@ -113,6 +113,13 @@ const REPORT_CARDS: ReportCard[] = [
     icon: Users,
   },
   {
+    href: '/reports/monthly-report',
+    group: 'statements',
+    titleAr: 'التقرير الشهري',
+    description: 'ملخص الشهر للمالك: النقد والإيجار والمتأخرات والخزائن',
+    icon: CalendarRange,
+  },
+  {
     href: '/reports/tenant-statements',
     group: 'analysis',
     titleAr: 'كشوف حساب المستأجرين',

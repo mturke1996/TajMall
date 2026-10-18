@@ -86,40 +86,45 @@ export function useCashTransfers(limit = 50) {
  * until a short page: the in/out totals and the reconciled balance on the page need all rows, not the
  * newest 200.
  */
+export async function fetchCashboxLedger(cashboxId: string, pageSize = 500): Promise<CashboxLedgerPayload> {
+  const supabase = createSupabaseBrowserClient();
+  let first: CashboxLedgerPayload | null = null;
+  const rows: CashboxLedgerPayload['rows'] = [];
+  for (let offset = 0; offset < 100_000; offset += pageSize) {
+    const { data, error } = await supabase.rpc('get_cashbox_ledger', {
+      p_cashbox_id: cashboxId,
+      p_limit: pageSize,
+      p_offset: offset,
+    });
+    if (error) throw error;
+    const payload = data as CashboxLedgerPayload;
+    first ??= payload;
+    const page = payload.rows ?? [];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+  const payload = first as CashboxLedgerPayload;
+  return {
+    ...payload,
+    opening_balance: Number(payload.opening_balance),
+    current_balance: Number(payload.current_balance),
+    rows: rows.map((r) => ({
+      ...r,
+      signed_amount: Number(r.signed_amount),
+      balance_after: Number(r.balance_after),
+    })),
+  };
+}
+
+/** The query that holds one cashbox's full ledger; its key is shared with every screen that reads it. */
+export const cashboxLedgerQuery = (cashboxId: string, pageSize = 500) => ({
+  queryKey: [...cashboxQk.ledger(cashboxId), 'all'] as const,
+  queryFn: () => fetchCashboxLedger(cashboxId, pageSize),
+  enabled: !!cashboxId,
+});
+
 export function useCashboxLedger(cashboxId: string, pageSize = 500) {
-  return useQuery<CashboxLedgerPayload>({
-    queryKey: [...cashboxQk.ledger(cashboxId), 'all'],
-    queryFn: async () => {
-      const supabase = createSupabaseBrowserClient();
-      let first: CashboxLedgerPayload | null = null;
-      const rows: CashboxLedgerPayload['rows'] = [];
-      for (let offset = 0; offset < 100_000; offset += pageSize) {
-        const { data, error } = await supabase.rpc('get_cashbox_ledger', {
-          p_cashbox_id: cashboxId,
-          p_limit: pageSize,
-          p_offset: offset,
-        });
-        if (error) throw error;
-        const payload = data as CashboxLedgerPayload;
-        first ??= payload;
-        const page = payload.rows ?? [];
-        rows.push(...page);
-        if (page.length < pageSize) break;
-      }
-      const payload = first as CashboxLedgerPayload;
-      return {
-        ...payload,
-        opening_balance: Number(payload.opening_balance),
-        current_balance: Number(payload.current_balance),
-        rows: rows.map((r) => ({
-          ...r,
-          signed_amount: Number(r.signed_amount),
-          balance_after: Number(r.balance_after),
-        })),
-      };
-    },
-    enabled: !!cashboxId,
-  });
+  return useQuery<CashboxLedgerPayload>(cashboxLedgerQuery(cashboxId, pageSize));
 }
 
 export function useRecordCashboxTransfer() {

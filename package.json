@@ -36,6 +36,7 @@
     "verify:rent-allocation": "npx tsx scripts/verify-rent-allocation.mjs",
     "verify:period-review": "npx tsx scripts/verify-period-review.mjs",
     "verify:occupancy": "npx tsx scripts/verify-mall-occupancy.mjs",
+    "verify:monthly-report": "npx tsx scripts/verify-monthly-report.mjs",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
