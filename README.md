@@ -23,7 +23,7 @@
 
 | الطبقة            | التقنية                                                  |
 |------------------|-----------------------------------------------------------|
-| Framework        | Next.js 14 (App Router) + TypeScript                      |
+| Framework        | Next.js 16 (App Router) + React 19 + TypeScript           |
 | Styling          | Tailwind CSS 3 + shadcn/ui pattern (custom)               |
 | Database         | PostgreSQL via Supabase — schema managed by hand-written SQL in `supabase/migrations/` |
 | ORM              | ~~Prisma~~ غير مستخدم فعلياً في التطبيق (راجع الملاحظة أدناه) |

@@ -1,20 +1,19 @@
 'use client';
 
 import { Suspense, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { peopleSegmentHref } from '@/lib/mall/routes';
 
 function EmployeesRedirectInner() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
+  // Redirect once: depending on useSearchParams() re-ran this when its identity changed and sent a
+  // second replace after the people panel had already consumed `add`.
   useEffect(() => {
-    const extra: Record<string, string> = { add: 'EMPLOYEE' };
-    const add = searchParams.get('add');
-    if (add) extra.add = add;
-    router.replace(peopleSegmentHref('EMPLOYEE', extra));
-  }, [router, searchParams]);
+    const add = new URLSearchParams(window.location.search).get('add');
+    router.replace(peopleSegmentHref('EMPLOYEE', { add: add || 'EMPLOYEE' }));
+  }, [router]);
 
   return (
     <div className="flex h-48 items-center justify-center gap-2 text-ink-mute">

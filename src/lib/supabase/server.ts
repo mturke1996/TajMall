@@ -12,8 +12,8 @@ type CookieItem = { name: string; value: string; options?: CookieOptions };
  * Server-side Supabase client bound to the incoming request's cookie jar.
  * Use inside Server Components, Route Handlers, and Server Actions.
  */
-export function createSupabaseServerClient() {
-  const cookieStore = cookies();
+export async function createSupabaseServerClient() {
+  const cookieStore = await cookies();
   return createServerClient(getSupabaseUrl(), getSupabasePublicKey(), {
     cookies: {
       getAll() {

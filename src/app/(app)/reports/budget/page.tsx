@@ -77,7 +77,9 @@ export default function BudgetPage() {
     setEditingId(null);
   }
 
-  function BudgetTable({ title, list, tone }: { title: string; list: typeof rows; tone: 'emerald' | 'red' }) {
+  // A render helper, not a component: a component declared inside the page is a new type on every
+  // render, so the budget input would remount (and lose the caret) on each keystroke.
+  function renderBudgetTable(title: string, list: typeof rows, tone: 'emerald' | 'red') {
     const t = totals(list);
     return (
       <Card>
@@ -307,8 +309,8 @@ export default function BudgetPage() {
           <p className="py-12 text-center text-sm text-muted-foreground">جارٍ التحميل…</p>
         ) : (
           <>
-            <BudgetTable title="الإيرادات" list={revenueRows} tone="emerald" />
-            <BudgetTable title="المصروفات" list={expenseRows} tone="red" />
+            {renderBudgetTable('الإيرادات', revenueRows, 'emerald')}
+            {renderBudgetTable('المصروفات', expenseRows, 'red')}
           </>
         )}
 

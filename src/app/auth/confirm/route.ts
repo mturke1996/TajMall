@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   const type = url.searchParams.get('type') as EmailOtpType | null;
   const code = url.searchParams.get('code');
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   if (token_hash && type) {
     const { error } = await supabase.auth.verifyOtp({ token_hash, type });

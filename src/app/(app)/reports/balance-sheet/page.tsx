@@ -60,15 +60,9 @@ export default function BalanceSheetPage() {
     [asOf, assets.length, liabilities.length, equity.length, isBalanced],
   );
 
-  function SectionTable({
-    title,
-    rows,
-    tone,
-  }: {
-    title: string;
-    rows: BsRow[];
-    tone: 'emerald' | 'amber' | 'violet';
-  }) {
+  // Called as a function, not rendered as <SectionTable>: a component declared inside the page is a
+  // new type on every render and would remount its rows each time.
+  function renderSectionTable(title: string, rows: BsRow[], tone: 'emerald' | 'amber' | 'violet') {
     const total = rows.reduce((s, r) => s + Number(r.balance), 0);
     const color =
       tone === 'emerald' ? 'text-success-ink' : tone === 'amber' ? 'text-warning-ink' : 'text-plum-ink';
@@ -260,9 +254,9 @@ export default function BalanceSheetPage() {
               </CardContent>
             </Card>
           </div>
-          <SectionTable title="الأصول" rows={assets} tone="emerald" />
-          <SectionTable title="الخصوم" rows={liabilities} tone="amber" />
-          <SectionTable title="حقوق الملكية" rows={equity} tone="violet" />
+          {renderSectionTable('الأصول', assets, 'emerald')}
+          {renderSectionTable('الخصوم', liabilities, 'amber')}
+          {renderSectionTable('حقوق الملكية', equity, 'violet')}
         </>
       )}
       </AccountingPageBody>

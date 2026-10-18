@@ -10,11 +10,9 @@ const nextConfig = {
       { protocol: 'https', hostname: '*.supabase.in' },
     ],
   },
-  // We run `tsc --noEmit` and `next lint` independently in CI (see package.json
-  // scripts `typecheck` and `lint`). Keep build lean, but do NOT ignore type
-  // errors silently in local verification — typecheck script is the gate.
+  // `next build` type-checks; ESLint runs separately (`npm run lint`, also in CI) since
+  // Next 16 no longer lints during the build.
   typescript: { ignoreBuildErrors: false },
-  eslint: { ignoreDuringBuilds: false },
   async redirects() {
     return [
       // /boss دُمجت في /users (كانت صفحة مكرّرة لنفس إدارة المستخدمين)

@@ -85,7 +85,8 @@ function GeneralLedgerContent() {
     let cred = 0;
 
     // احسب الرصيد زمنياً (قديم → جديد) ثم اعرض الأحدث أولاً مثل صفحة المصروفات
-    const chronological = (ledgerResult?.lines ?? []).map((line) => {
+    const chronological = [];
+    for (const line of ledgerResult?.lines ?? []) {
       const lineDebit = line.debit;
       const lineCredit = line.credit;
 
@@ -98,14 +99,14 @@ function GeneralLedgerContent() {
         currentBalance += lineCredit - lineDebit;
       }
 
-      return {
+      chronological.push({
         ...line,
         runningBalance: currentBalance,
-      };
-    });
+      });
+    }
 
     return {
-      linesWithBalance: [...chronological].reverse(),
+      linesWithBalance: chronological.reverse(),
       totalDebit: deb,
       totalCredit: cred,
       netBalance: currentBalance,

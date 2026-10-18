@@ -65,7 +65,7 @@ Organization
 
 - Tabular numerals + monospaced reference numbers prevent layout shift.
 - Recharts disabled animations for empty data; animations on entry only.
-- Static page shells (`metadata`, `<head>`) cached via Next 14's defaults.
+- Static page shells (`metadata`, `<head>`) prerendered at build time; data loads in the browser under RLS.
 - Database query patterns:
   - `transactions` indexed on `(organization_id, tx_date)` and `(cashbox_id)`.
   - `journal_entries` indexed on `(organization_id, entry_date)`.

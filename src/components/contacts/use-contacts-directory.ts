@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   useContacts,
@@ -31,7 +31,7 @@ export function useContactsDirectory(options?: {
   addKind?: ContactKind | null;
 }) {
   const router = useRouter();
-  const { canWrite } = usePermission();
+  const { canWrite, loading: permissionLoading } = usePermission();
   const segment = options?.segment ?? 'all';
   const { data: contacts = [], isLoading } = useContacts();
   const createContact = useCreateContact();
@@ -149,13 +149,25 @@ export function useContactsDirectory(options?: {
     [resetForm, segment, canWrite],
   );
 
+  // `?add=KIND` opens the add dialog once. Waits for the role (otherwise a writer is told they are
+  // read-only and the request is dropped) and remembers what it consumed: the URL keeps the param
+  // until router.replace lands, and replacing again on every render cancelled each navigation and
+  // looped the page.
+  const addKind = options?.addKind ?? null;
+  const onAddKindConsumed = options?.onAddKindConsumed;
+  const consumedAddKind = useRef<string | null>(null);
   useEffect(() => {
-    const addKind = options?.addKind;
-    if (addKind && ['TENANT', 'CUSTOMER', 'EMPLOYEE', 'VENDOR'].includes(addKind)) {
-      openAdd(addKind);
-      options?.onAddKindConsumed?.();
+    if (!addKind) {
+      consumedAddKind.current = null;
+      return;
     }
-  }, [options?.addKind, openAdd, options]);
+    if (permissionLoading || consumedAddKind.current === addKind) return;
+    if (['TENANT', 'CUSTOMER', 'EMPLOYEE', 'VENDOR'].includes(addKind)) {
+      consumedAddKind.current = addKind;
+      openAdd(addKind);
+      onAddKindConsumed?.();
+    }
+  }, [addKind, permissionLoading, openAdd, onAddKindConsumed]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -66,8 +66,8 @@ function chargeRemaining(c: ChargeRow): number {
  * service_role عبر التوكن فقط. لا تُستخدم جلسة المستخدم أو RLS هنا
  * إطلاقاً، فلا خطر على بقية بيانات النظام.
  */
-export default async function TenantPortalPage({ params }: { params: { token: string } }) {
-  const token = params.token?.trim();
+export default async function TenantPortalPage({ params }: { params: Promise<{ token: string }> }) {
+  const token = (await params).token?.trim();
   if (!token) return <InvalidLink />;
 
   let supabase;

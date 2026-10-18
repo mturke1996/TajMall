@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 /**
  * Lightweight health probe — لا يكشف وجود أسرار البيئة.
  */
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {

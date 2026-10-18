@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Plus,
   Search,
@@ -174,6 +175,7 @@ export function ContactsDirectory({
   hideKindFilters = false,
   allowMutate = true,
 }: ContactsDirectoryProps) {
+  const router = useRouter();
   const { canWrite } = usePermission();
 
   const filterTabs: Array<{
@@ -286,9 +288,7 @@ export function ContactsDirectory({
                     <tr
                       key={contact.id}
                       className="hover:bg-muted/30 transition-colors group cursor-pointer"
-                      onClick={() => {
-                        window.location.href = `/contacts/${contact.id}`;
-                      }}
+                      onClick={() => router.push(`/contacts/${contact.id}`)}
                     >
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2.5">
