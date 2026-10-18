@@ -69,7 +69,7 @@ export default function ReceiptsPage() {
         ) : isError ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-danger">
-              تعذّر التحميل. طبّق هجرة 058 على Supabase.
+              تعذّر تحميل الإيصالات. أعد المحاولة، وإن تكرر أبلغ مسؤول النظام.
             </CardContent>
           </Card>
         ) : receipts.length === 0 ? (

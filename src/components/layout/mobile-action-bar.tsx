@@ -31,7 +31,7 @@ export function MobileActionBar() {
         <div className="flex w-[68px] shrink-0 items-center justify-center -mt-2">
           <button type="button" aria-label="معاملة جديدة"
             onClick={() => openTx('REVENUE')}
-            className="grid h-[52px] w-[52px] place-items-center rounded-full bg-foreground text-background shadow-lg active:scale-95 transition-transform duration-150"
+            className="grid h-[52px] w-[52px] place-items-center rounded-full bg-foreground text-background shadow-lift active:scale-95 transition-transform duration-150"
           >
             <Plus className="h-6 w-6" />
           </button>

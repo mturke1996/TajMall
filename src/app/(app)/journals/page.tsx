@@ -515,7 +515,7 @@ function JournalsPageInner() {
                   id={`journal-entry-${entry.id}`}
                   className={cn(
                     'overflow-hidden transition-shadow',
-                    highlightId === entry.id && 'ring-2 ring-ink-soft shadow-md',
+                    highlightId === entry.id && 'ring-2 ring-ink-soft',
                   )}
                 >
                   {/* Header */}
@@ -836,7 +836,7 @@ function JournalsPageInner() {
         <Button
           size="lg"
           onClick={() => setIsCreateOpen(true)}
-          className="fixed z-40 h-14 w-14 rounded-full shadow-lg bg-foreground hover:bg-foreground text-background sm:hidden p-0 touch-manipulation inset-e-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))]"
+          className="fixed z-40 h-14 w-14 rounded-full shadow-lift bg-foreground hover:bg-foreground text-background sm:hidden p-0 touch-manipulation inset-e-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))]"
           aria-label="قيد جديد"
         >
           <Plus className="h-6 w-6" />

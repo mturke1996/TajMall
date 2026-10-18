@@ -133,7 +133,7 @@ export default function CashboxesPage() {
                     id={cashboxHighlightDomId(c.id)}
                     className={cn(
                       'scroll-mt-24',
-                      isHighlighted(highlightId, c.id) && 'rounded-xl ring-2 ring-ink-soft shadow-md',
+                      isHighlighted(highlightId, c.id) && 'rounded-xl ring-2 ring-ink-soft',
                     )}
                   >
                     <Link

@@ -349,7 +349,7 @@ export function NewTransactionDialog() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-tx-title"
-        className="absolute bottom-0 inset-e-0 inset-s-0 mx-auto max-w-lg rounded-t-2xl bg-card sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl border shadow-xl"
+        className="absolute bottom-0 inset-e-0 inset-s-0 mx-auto max-w-lg rounded-t-2xl bg-card sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl border shadow-lift"
       >
         {/* Header */}
         <div className="flex items-center gap-3 border-b p-4">

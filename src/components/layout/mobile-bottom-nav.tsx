@@ -54,7 +54,7 @@ export function MobileBottomNav() {
             }
             disabled={!canCreate}
             className={cn(
-              "grid h-[52px] w-[52px] place-items-center rounded-full ring-4 ring-canvas shadow-lg transition-all",
+              "grid h-[52px] w-[52px] place-items-center rounded-full ring-4 ring-canvas shadow-lift transition-all",
               canCreate ? "bg-foreground text-background" : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
             )}
             aria-label="إضافة معاملة"

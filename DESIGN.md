@@ -41,6 +41,10 @@ Rules:
 - Charts use `hsl(var(--success))`, `hsl(var(--danger))`, `hsl(var(--info))` and
   `hsl(var(--border))` for the grid, so they follow dark mode.
 - No gradients, glass/blur or heavy shadows. Floating layers use `shadow-lift`.
+- No decoration that reads as generated: no entrance or staggered animations on page content, no
+  scale/lift/shadow on hover (a border colour change is enough), no white overlays (`bg-white/20`
+  breaks dark mode; use `bg-background/20`), no greeting, no feature checklists, no icon tiles in front
+  of every card.
 
 ## Typography
 
@@ -50,9 +54,23 @@ Rules:
 - No `tracking-*` letter-spacing and no `uppercase` on Arabic text: spacing breaks joined letters.
 - PDFs use Tajawal (react-pdf), see `src/features/pdf`.
 
+## Layout patterns
+
+- **Figures**: one card split by hairlines (`grid gap-px bg-border`, cells `bg-card p-4`) instead of a
+  row of separate KPI cards. Label, exact figure, one line of context.
+- **Hubs and settings**: grouped lists (heading + `surface divide-y` rows: title, one-line
+  description, chevron), not grids of identical icon cards. Only link to pages that exist.
+- **Logs**: one compact line per entry, grouped by day or month with a sticky heading
+  (`sticky top-16`, below the top bar); details open in place.
+- **Filters**: segmented controls (`rounded-lg border bg-canvas-sunken p-0.5`, active `bg-card`) and
+  selects on one line; never rows of year and month tiles.
+- **Empty and error states**: neutral, one sentence and at most one action. Errors come from
+  `friendlyError()` in `src/lib/user-messages.ts`; technical text only behind «تفاصيل تقنية».
+
 ## Money
 
-- Always `formatMoney(amount, 'LYD', { compact?, signed? })` → `1,250.5 د.ل`.
+- Always `formatMoney(amount, 'LYD', { signed? })` → `1,250.5 د.ل`. Screens show exact amounts;
+  `compact` (25K) is for chart axes only, never for a figure someone reads.
   The result is wrapped in a left-to-right isolate so the order number → currency is stable inside
   Arabic sentences, right-aligned cells and both themes; it matches the PDFs.
 - Signs go through `signed: true` (`+1,250 د.ل`, `−309 د.ل`). Never type `+` / `−` next to the call:
@@ -77,4 +95,7 @@ development at `/ui-kit` and `/ui-kit/payroll`.
 ## Copy
 
 Short, specific sentences; buttons are verbs («سجّل التحصيل», «اعتمد الكشف»); errors say what
-happened and what to do next; no exclamation marks or emoji.
+happened and what to do next; no exclamation marks or emoji. No marketing words («احترافي», «بجودة
+عالية») and no setup instructions (migration numbers, Supabase) in text people see: say «أبلغ مسؤول
+النظام». Counts take the Arabic noun form via `arabicCount()` (شهر، شهرين، 3 أشهر، 11 شهراً); relative
+dates via `formatDateRelative()` already do.

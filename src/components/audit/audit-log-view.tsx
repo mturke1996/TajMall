@@ -420,7 +420,7 @@ export function AuditLogView() {
               <section key={day.key} aria-labelledby={`day-${day.key}`}>
                 <h3
                   id={`day-${day.key}`}
-                  className="sticky top-16 z-10 -mx-1 mb-1.5 flex items-baseline gap-2 bg-canvas/95 px-1 py-1.5 backdrop-blur-sm"
+                  className="sticky top-16 z-10 -mx-1 mb-1.5 flex items-baseline gap-2 bg-canvas px-1 py-1.5"
                 >
                   <span className="text-[14px] font-semibold text-foreground">{label.title}</span>
                   {label.sub && <span className="text-[12.5px] text-ink-mute">{label.sub}</span>}

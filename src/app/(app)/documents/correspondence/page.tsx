@@ -88,7 +88,7 @@ function CorrespondenceListContent() {
         ) : isError ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-danger">
-              تعذّر تحميل المراسلات. طبّق هجرة 058 على Supabase.
+              تعذّر تحميل المراسلات. أعد المحاولة، وإن تكرر أبلغ مسؤول النظام.
             </CardContent>
           </Card>
         ) : letters.length === 0 ? (

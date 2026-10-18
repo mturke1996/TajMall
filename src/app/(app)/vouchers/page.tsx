@@ -191,7 +191,7 @@ export default function VouchersPage() {
                   id={voucherHighlightDomId(row.id)}
                   className={cn(
                     'flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-xs scroll-mt-24 sm:flex-row sm:items-center sm:justify-between',
-                    isHighlighted(highlightId, row.id) && 'ring-2 ring-ink-soft shadow-md',
+                    isHighlighted(highlightId, row.id) && 'ring-2 ring-ink-soft',
                   )}
                 >
                   <div className="min-w-0 space-y-1">

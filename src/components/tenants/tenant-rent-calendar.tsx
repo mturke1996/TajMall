@@ -37,7 +37,7 @@ export function TenantRentCalendar({
   if (isError || !data) {
     return (
       <p className="text-sm text-ink-mute py-4 text-center">
-        تعذّر تحميل تقويم الإيجار — طبّق هجرة 022 على Supabase
+        تعذّر تحميل تقويم الإيجار. أعد المحاولة، وإن تكرر أبلغ مسؤول النظام.
       </p>
     );
   }

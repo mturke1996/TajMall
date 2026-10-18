@@ -131,7 +131,7 @@ export default function ActivityPage() {
                 <section key={day.key} aria-labelledby={`act-${day.key}`}>
                   <h2
                     id={`act-${day.key}`}
-                    className="sticky top-16 z-10 -mx-1 mb-1.5 flex flex-wrap items-baseline gap-x-2 bg-canvas/95 px-1 py-1.5"
+                    className="sticky top-16 z-10 -mx-1 mb-1.5 flex flex-wrap items-baseline gap-x-2 bg-canvas px-1 py-1.5"
                   >
                     <span className="text-[14px] font-semibold text-foreground">{formatMonthLabelAr(day.key)}</span>
                     <span className="text-[12.5px] text-ink-mute tabular-nums">{arabicCount(day.rows.length, ['حركة واحدة', 'حركتان', 'حركات', 'حركة'])}</span>
