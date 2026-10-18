@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import {
   Cairo,
   Plus_Jakarta_Sans,
-  JetBrains_Mono,
   Instrument_Serif,
 } from 'next/font/google';
 import './globals.css';
@@ -29,12 +28,6 @@ const serif = Instrument_Serif({
   subsets: ['latin'],
   variable: '--font-serif',
   weight: ['400'],
-  display: 'swap',
-});
-
-const mono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
   display: 'swap',
 });
 
@@ -102,7 +95,7 @@ export default function RootLayout({
       lang="ar"
       dir="rtl"
       suppressHydrationWarning
-      className={`${arabic.variable} ${latin.variable} ${serif.variable} ${mono.variable}`}
+      className={`${arabic.variable} ${latin.variable} ${serif.variable}`}
     >
       <head>
         {/* iOS standalone niceties not covered by the Metadata API */}

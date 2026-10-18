@@ -17,13 +17,13 @@ export function journalVoidStatusLabelAr(
 
 /** صنف CSS للصف أو البطاقة عند إلغاء القيد */
 export const JOURNAL_VOID_ROW_CLASS =
-  'border-red-300/90 bg-red-50/80 dark:bg-red-950/30 dark:border-red-800/70 opacity-95';
+  'border-danger-line/90 bg-danger-soft/80 opacity-95';
 
 export const JOURNAL_VOID_TEXT_CLASS =
-  'text-red-700 dark:text-red-400 line-through decoration-red-600/80 decoration-2';
+  'text-danger-ink line-through decoration-danger/80 decoration-2';
 
 export const JOURNAL_VOID_MUTED_CLASS =
-  'text-red-600/90 dark:text-red-400/90 line-through decoration-red-500/70';
+  'text-danger/90 line-through decoration-danger/70';
 
 export type JournalLike = Pick<
   JournalEntryRow,

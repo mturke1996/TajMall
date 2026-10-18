@@ -109,7 +109,7 @@ export default function DocumentsHubPage() {
                       className={cn(
                         'flex h-11 w-11 items-center justify-center rounded-xl border',
                         card.tone === 'green'
-                          ? 'border-sage-200 bg-sage-100 text-sage-800'
+                          ? 'border-border bg-muted text-foreground'
                           : 'border-border bg-muted/50 text-foreground',
                       )}
                     >
@@ -135,7 +135,7 @@ export default function DocumentsHubPage() {
                   {card.newHref ? (
                     <Button asChild variant="outline" size="sm" className="touch-manipulation">
                       <Link href={card.newHref}>
-                        <Plus className="h-3.5 w-3.5 ml-1" />
+                        <Plus className="h-3.5 w-3.5 me-1" />
                         جديد
                       </Link>
                     </Button>

@@ -137,7 +137,7 @@ export default function CashboxesPage() {
                     transition={{ delay: i * 0.04, duration: 0.4 }}
                     className={cn(
                       'scroll-mt-24',
-                      isHighlighted(highlightId, c.id) && 'rounded-xl ring-2 ring-sage-600 shadow-md',
+                      isHighlighted(highlightId, c.id) && 'rounded-xl ring-2 ring-ink-soft shadow-md',
                     )}
                   >
                     <Link
@@ -210,7 +210,7 @@ export default function CashboxesPage() {
                       )}
 
                       <div className="flex flex-col gap-1.5 border-y border-border py-4">
-                        <span className="text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+                        <span className="text-[10px] text-ink-mute">
                           الرصيد الحالي
                         </span>
                         <span className="num text-[26px] font-semibold tracking-tight">
@@ -220,25 +220,25 @@ export default function CashboxesPage() {
 
                       <div className="grid grid-cols-2 gap-3 text-[12px]">
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+                          <span className="text-[10px] text-ink-mute">
                             وارد الشهر
                           </span>
                           <span className="num font-semibold text-pastel-greenInk tabular-nums">
-                            + {formatMoney(inflow, c.currency || 'LYD', { compact: true })}
+                            {formatMoney(Math.abs(inflow), c.currency || 'LYD', { compact: true, signed: true })}
                           </span>
                         </div>
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+                          <span className="text-[10px] text-ink-mute">
                             صادر الشهر
                           </span>
                           <span className="num font-semibold text-pastel-redInk tabular-nums">
-                            − {formatMoney(outflow, c.currency || 'LYD', { compact: true })}
+                            {formatMoney(-Math.abs(outflow), c.currency || 'LYD', { compact: true, signed: true })}
                           </span>
                         </div>
                       </div>
 
                       <footer className="flex items-center justify-between border-t border-border pt-3 text-[11px]">
-                        <span className="flex items-center gap-1 font-semibold text-sage-700 group-hover:underline">
+                        <span className="flex items-center gap-1 font-semibold text-foreground group-hover:underline">
                           <ChevronLeft className="h-3 w-3" />
                           سجل الحركات
                         </span>
@@ -248,8 +248,7 @@ export default function CashboxesPage() {
                             net >= 0 ? 'text-pastel-greenInk' : 'text-pastel-redInk',
                           )}
                         >
-                          صافي الشهر {net >= 0 ? '+' : '−'}{' '}
-                          {formatMoney(Math.abs(net), c.currency || 'LYD', { compact: true })}
+                          صافي الشهر {formatMoney(net, c.currency || 'LYD', { compact: true, signed: true })}
                         </span>
                       </footer>
                     </Link>

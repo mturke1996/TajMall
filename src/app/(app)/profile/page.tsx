@@ -64,7 +64,7 @@ export default function ProfilePage() {
       <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-4 sm:px-5 sm:py-5 md:px-8 md:py-6">
         {/* Identity — compact, app-style (no marketing hero) */}
         <div className="surface flex items-center gap-3 p-4 sm:gap-4">
-          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-border bg-canvas-sunken text-[18px] font-bold text-sage-700">
+          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-border bg-canvas-sunken text-[18px] font-bold text-foreground">
             {initial}
           </div>
           <div className="min-w-0 flex-1">
@@ -73,7 +73,7 @@ export default function ProfilePage() {
               {user?.email}
             </p>
             <div className="mt-1.5 flex items-center gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5 text-sage-600" />
+              <ShieldCheck className="h-3.5 w-3.5 text-ink-soft" />
               <Badge variant="outline" className="text-[10px]">
                 {roleLabel}
               </Badge>
@@ -141,7 +141,7 @@ export default function ProfilePage() {
         <p className="px-1 text-[12px] leading-relaxed text-ink-mute">
           يمكنك تحديث اسمك الظاهر في النظام. البريد الإلكتروني والدور الوظيفي يُداران من قبل المدير.
           {' '}
-          <Link href="/login/forgot-password" className="text-sage-700 underline underline-offset-2">
+          <Link href="/login/forgot-password" className="text-foreground underline underline-offset-2">
             نسيت كلمة المرور؟
           </Link>
           {' '}

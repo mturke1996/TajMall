@@ -31,7 +31,7 @@ export function TenantProfileCharges({ contact }: { contact: ContactRow }) {
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-sage-600" />
+        <Loader2 className="h-6 w-6 animate-spin text-ink-soft" />
       </div>
     );
   }
@@ -68,9 +68,9 @@ export function TenantProfileCharges({ contact }: { contact: ContactRow }) {
                       استحقاق {formatDate(charge.due_date)} ·{' '}
                       <span
                         className={cn(
-                          charge.status === 'PAID' && 'text-emerald-700',
-                          charge.status === 'UNPAID' && 'text-red-700',
-                          charge.status === 'PARTIAL' && 'text-amber-800',
+                          charge.status === 'PAID' && 'text-success-ink',
+                          charge.status === 'UNPAID' && 'text-danger-ink',
+                          charge.status === 'PARTIAL' && 'text-warning-ink',
                         )}
                       >
                         {STATUS_AR[charge.status] ?? charge.status}
@@ -80,7 +80,7 @@ export function TenantProfileCharges({ contact }: { contact: ContactRow }) {
                       {formatMoney(Number(charge.total_paid), 'LYD')} /{' '}
                       {formatMoney(Number(charge.amount), 'LYD')}
                       {remaining > 0 && (
-                        <span className="text-red-600"> · متبقي {formatMoney(remaining, 'LYD')}</span>
+                        <span className="text-danger"> · متبقي {formatMoney(remaining, 'LYD')}</span>
                       )}
                     </p>
                   </div>

@@ -60,11 +60,10 @@ function ActivityCard({
                 <span
                   className={cn(
                     'shrink-0 font-mono font-semibold tabular-nums text-sm',
-                    item.isPositive ? 'text-emerald-700' : 'text-red-600',
+                    item.isPositive ? 'text-success-ink' : 'text-danger',
                   )}
                 >
-                  {item.isPositive ? '+' : '−'}
-                  {formatMoney(item.amount, '')}
+                  {formatMoney(item.isPositive ? Math.abs(item.amount) : -Math.abs(item.amount), '', { signed: true })}
                 </span>
               </li>
             ))
@@ -75,7 +74,7 @@ function ActivityCard({
           <span
             className={cn(
               'font-mono tabular-nums',
-              netAmount >= 0 ? 'text-emerald-700' : 'text-red-600',
+              netAmount >= 0 ? 'text-success-ink' : 'text-danger',
             )}
           >
             {formatMoney(netAmount, 'LYD')}

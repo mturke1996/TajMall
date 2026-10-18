@@ -54,6 +54,28 @@
     --ink: 210 12% 10%;
     --ink-soft: 210 8% 23%;
     --ink-mute: 115 4% 43%;
+
+    /* semantic status colours — one family per meaning, each with a soft fill, a hairline and an ink */
+    --success: 152 42% 32%;
+    --success-soft: 135 26% 94%;
+    --success-line: 135 20% 82%;
+    --success-ink: 140 32% 24%;
+    --danger: 2 58% 44%;
+    --danger-soft: 4 64% 96%;
+    --danger-line: 4 48% 86%;
+    --danger-ink: 2 52% 34%;
+    --warning: 38 82% 38%;
+    --warning-soft: 45 68% 92%;
+    --warning-line: 43 52% 78%;
+    --warning-ink: 40 78% 26%;
+    --info: 206 56% 38%;
+    --info-soft: 206 46% 94%;
+    --info-line: 206 38% 84%;
+    --info-ink: 206 58% 27%;
+    --plum: 292 24% 40%;
+    --plum-soft: 300 24% 94%;
+    --plum-line: 300 18% 85%;
+    --plum-ink: 292 28% 30%;
   }
 
   /* ── DARK MODE ─────────────────────────────────────────────── */
@@ -94,6 +116,27 @@
     --ink: 40 14% 94%;
     --ink-soft: 40 10% 75%;
     --ink-mute: 40 6% 52%;
+
+    --success: 150 42% 56%;
+    --success-soft: 150 28% 14%;
+    --success-line: 150 22% 26%;
+    --success-ink: 145 46% 72%;
+    --danger: 2 70% 63%;
+    --danger-soft: 2 34% 15%;
+    --danger-line: 2 28% 28%;
+    --danger-ink: 2 80% 78%;
+    --warning: 40 80% 56%;
+    --warning-soft: 40 34% 14%;
+    --warning-line: 40 28% 26%;
+    --warning-ink: 42 85% 72%;
+    --info: 206 64% 63%;
+    --info-soft: 210 34% 15%;
+    --info-line: 210 24% 27%;
+    --info-ink: 206 75% 78%;
+    --plum: 292 34% 67%;
+    --plum-soft: 292 20% 16%;
+    --plum-line: 292 16% 28%;
+    --plum-ink: 292 44% 80%;
   }
 
   * {
@@ -146,6 +189,7 @@
   }
 
   /* Tabular numbers everywhere by default for accounting */
+  .font-mono,
   .num,
   td.num,
   th.num,
@@ -214,16 +258,10 @@
     background-color: hsl(var(--canvas-sunken));
   }
 
-  /* Glass morphism for dark mode modals/popovers */
+  /* Floating surfaces are solid: blurred glass hurt legibility of Arabic text and numbers. */
   .glass {
-    background: rgba(255, 255, 255, 0.06);
-    backdrop-filter: blur(16px) saturate(1.4);
-    -webkit-backdrop-filter: blur(16px) saturate(1.4);
-    border: 1px solid rgba(255, 255, 255, 0.10);
-  }
-  .dark .glass {
-    background: rgba(30, 34, 42, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: hsl(var(--popover));
+    border: 1px solid hsl(var(--border));
   }
 
   /* Editorial pill / eyebrow */
@@ -257,7 +295,7 @@
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
-    font-family: var(--font-mono), ui-monospace, monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 10.5px;
     color: hsl(var(--muted-foreground));
     background: hsl(var(--canvas-sunken));
@@ -288,61 +326,9 @@
     );
   }
 
-  /* Ambient warm wash for hero areas */
+  /* Auth screens: the plain canvas, no decorative wash. */
   .paper {
     background-color: hsl(var(--background));
-    background-image:
-      radial-gradient(800px 320px at 100% -10%, rgba(217, 72, 65, 0.04), transparent 60%),
-      radial-gradient(700px 280px at -10% 100%, rgba(168, 146, 83, 0.04), transparent 60%);
-  }
-  .dark .paper {
-    background-image:
-      radial-gradient(800px 320px at 100% -10%, rgba(217, 72, 65, 0.07), transparent 60%),
-      radial-gradient(700px 280px at -10% 100%, rgba(168, 146, 83, 0.05), transparent 60%);
-  }
-
-  /* Subtle grid dots — used only for hero areas, low opacity */
-  .grid-dots {
-    background-image: radial-gradient(
-      circle at 1px 1px,
-      rgba(20, 22, 25, 0.05) 1px,
-      transparent 0
-    );
-    background-size: 22px 22px;
-    mask-image: radial-gradient(ellipse 70% 50% at 50% 30%, #000 40%, transparent 80%);
-  }
-  .dark .grid-dots {
-    background-image: radial-gradient(
-      circle at 1px 1px,
-      rgba(255, 255, 255, 0.04) 1px,
-      transparent 0
-    );
-  }
-
-  /* Stat card gradient accent bar */
-  .stat-accent-emerald {
-    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-  }
-  .dark .stat-accent-emerald {
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.08) 100%);
-  }
-  .stat-accent-rose {
-    background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
-  }
-  .dark .stat-accent-rose {
-    background: linear-gradient(135deg, rgba(244, 63, 94, 0.12) 0%, rgba(225, 29, 72, 0.08) 100%);
-  }
-  .stat-accent-amber {
-    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-  }
-  .dark .stat-accent-amber {
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.08) 100%);
-  }
-  .stat-accent-blue {
-    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  }
-  .dark .stat-accent-blue {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(37, 99, 235, 0.08) 100%);
   }
 }
 

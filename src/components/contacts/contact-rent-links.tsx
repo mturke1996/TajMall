@@ -26,8 +26,8 @@ export function ContactRentLinks({
   const active = contracts.find((c) => c.status === 'ACTIVE');
 
   return (
-    <Card className="p-4 border-sage-200 bg-sage-50/40">
-      <p className="text-sm font-semibold text-sage-900 mb-3 flex items-center gap-2">
+    <Card className="p-4 border-border bg-canvas-sunken/40">
+      <p className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
         <Store className="h-4 w-4" />
         الإيجار والمحل
       </p>
@@ -65,19 +65,19 @@ export function ContactRentLinks({
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         {onRecordPayment && (
           <Button size="sm" className="h-10 flex-1 touch-manipulation" onClick={onRecordPayment}>
-            <Banknote className="h-4 w-4 ml-1" />
+            <Banknote className="h-4 w-4 me-1" />
             تسجيل دفع إيجار
           </Button>
         )}
         <Button size="sm" variant="outline" className="h-10 flex-1 touch-manipulation" asChild>
           <Link href={mallTabHref('contracts')}>
-            <FileText className="h-4 w-4 ml-1" />
+            <FileText className="h-4 w-4 me-1" />
             العقود
           </Link>
         </Button>
         <Button size="sm" variant="outline" className="h-10 flex-1 touch-manipulation" asChild>
           <Link href={mallTabHref('charges')}>
-            <Coins className="h-4 w-4 ml-1" />
+            <Coins className="h-4 w-4 me-1" />
             الرسوم
           </Link>
         </Button>

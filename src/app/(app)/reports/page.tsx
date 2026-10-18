@@ -229,8 +229,8 @@ function ReportsHubContent() {
               <Link key={card.href} href={href} className="group block h-full">
                 <Card
                   className={cn(
-                    'h-full transition-colors hover:border-sage-600/40 hover:bg-sage-50/40',
-                    card.featured && 'border-sage-600/50 bg-sage-50/30 shadow-sm',
+                    'h-full transition-colors hover:border-ink-soft/40 hover:bg-canvas-sunken/40',
+                    card.featured && 'border-ink-soft/50 bg-canvas-sunken/30 shadow-sm',
                   )}
                 >
                   <CardHeader className="pb-2">
@@ -239,7 +239,7 @@ function ReportsHubContent() {
                         className={cn(
                           'flex h-10 w-10 items-center justify-center rounded-lg',
                           card.featured
-                            ? 'bg-sage-700 text-white'
+                            ? 'bg-foreground text-background'
                             : 'bg-secondary text-foreground',
                         )}
                       >
@@ -254,7 +254,7 @@ function ReportsHubContent() {
                   </CardHeader>
                   {card.featured ? (
                     <CardContent className="pt-0">
-                      <p className="text-[11px] font-medium text-sage-800">
+                      <p className="text-[11px] font-medium text-foreground">
                         التقرير الرئيسي — قيد ملخّص بكل بند وإجماله
                       </p>
                     </CardContent>

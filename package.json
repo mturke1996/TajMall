@@ -30,6 +30,7 @@
     "verify:audit-safe": "node scripts/verify-audit-is-read-only.mjs",
     "verify:lists": "npx tsx scripts/verify-list-utilities.mjs",
     "verify:payroll-pdf": "npx tsx scripts/verify-payroll-pdf.mjs",
+    "verify:design": "node scripts/verify-design-tokens.mjs",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",

@@ -148,8 +148,8 @@ export function UtilitySupplierPanel({
           <Badge className={cn(
             'mt-1',
             contact.is_active
-              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-              : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
+              ? 'bg-success-soft text-success-ink'
+              : 'bg-warning-soft text-warning-ink',
           )}>
             {contact.is_active ? 'مورد نشط' : 'ملف غير نشط'}
           </Badge>

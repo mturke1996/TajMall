@@ -14,7 +14,7 @@ export default function AuditLogPage() {
   if (permLoading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-sage-600" aria-hidden />
+        <Loader2 className="h-8 w-8 animate-spin text-ink-soft" aria-hidden />
       </div>
     );
   }

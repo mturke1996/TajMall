@@ -79,22 +79,22 @@ export function OtherContactDetailBody({
       <div className="-mx-4 px-4 md:mx-0 md:px-0">
         <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar snap-x snap-mandatory md:grid md:grid-cols-2 md:gap-3 md:overflow-visible lg:grid-cols-4">
           {isTenant && rent && (
-            <Card className="min-w-[9.5rem] shrink-0 snap-center p-4 border-sage-200 bg-sage-50/50 md:min-w-0">
+            <Card className="min-w-[9.5rem] shrink-0 snap-center p-4 border-border bg-canvas-sunken/50 md:min-w-0">
               <p className="text-xs text-ink-mute">إيجارات 12 شهر</p>
-              <p className="text-lg font-bold text-sage-800 sm:text-xl">
+              <p className="text-lg font-bold text-foreground sm:text-xl">
                 {formatMoney(Number(rent.last_12_months_revenue), 'LYD')}
               </p>
             </Card>
           )}
           <Card className="min-w-[9.5rem] shrink-0 snap-center p-4 md:min-w-0">
             <p className="text-xs text-ink-mute">إجمالي الإيرادات</p>
-            <p className="text-lg font-bold text-green-600 sm:text-xl">
+            <p className="text-lg font-bold text-success sm:text-xl">
               {formatMoney(totals.revenue, 'LYD')}
             </p>
           </Card>
           <Card className="min-w-[9.5rem] shrink-0 snap-center p-4 md:min-w-0">
             <p className="text-xs text-ink-mute">إجمالي المصروفات</p>
-            <p className="text-lg font-bold text-red-600 sm:text-xl">
+            <p className="text-lg font-bold text-danger sm:text-xl">
               {formatMoney(totals.expense, 'LYD')}
             </p>
           </Card>
@@ -105,8 +105,8 @@ export function OtherContactDetailBody({
                 className={cn(
                   'text-lg font-bold sm:text-xl',
                   totals.revenue - totals.expense >= 0
-                    ? 'text-sage-800'
-                    : 'text-amber-800',
+                    ? 'text-foreground'
+                    : 'text-warning-ink',
                 )}
               >
                 {formatMoney(totals.revenue - totals.expense, 'LYD')}
@@ -114,14 +114,14 @@ export function OtherContactDetailBody({
               <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[11px]">
                 <Link
                   href={`/transactions?contact=${contactId}`}
-                  className="text-sage-700 hover:underline"
+                  className="text-foreground hover:underline"
                 >
                   المعاملات
                 </Link>
                 <span className="text-ink-mute">·</span>
                 <Link
                   href={`/journals?contact=${contactId}`}
-                  className="text-sage-700 hover:underline"
+                  className="text-foreground hover:underline"
                 >
                   اليومية
                 </Link>
@@ -143,7 +143,7 @@ export function OtherContactDetailBody({
         <div className="flex flex-col gap-4 order-2 lg:order-none">
           <Card className="p-4">
             <div className="flex items-center gap-3 mb-4">
-              <div className="h-12 w-12 rounded-xl bg-sage-100 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
                 <KindIcon className={cn('h-6 w-6', kindColor)} />
               </div>
               <div>
@@ -151,8 +151,8 @@ export function OtherContactDetailBody({
                   <Badge variant="outline">{kindLabel}</Badge>
                   <Badge className={cn(
                     contact.is_active
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                      : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
+                      ? 'bg-success-soft text-success-ink'
+                      : 'bg-warning-soft text-warning-ink',
                   )}>
                     {contact.is_active ? 'نشط' : 'غير نشط'}
                   </Badge>
@@ -193,7 +193,7 @@ export function OtherContactDetailBody({
               {contact.address && (
                 <div className="flex justify-between gap-2">
                   <dt className="shrink-0 text-ink-mute">العنوان</dt>
-                  <dd className="text-left">{contact.address}</dd>
+                  <dd className="text-end">{contact.address}</dd>
                 </div>
               )}
               {contact.phone2 && (
@@ -258,7 +258,7 @@ export function OtherContactDetailBody({
               {monthPres && monthPres.paid > 0 && (
                 <div className="flex justify-between gap-2">
                   <dt className="text-ink-mute">المسدّد</dt>
-                  <dd className="font-medium text-emerald-700 tabular-nums">
+                  <dd className="font-medium text-success-ink tabular-nums">
                     {formatMoney(monthPres.paid, 'LYD')}
                   </dd>
                 </div>
@@ -266,7 +266,7 @@ export function OtherContactDetailBody({
               {monthPres && monthPres.remaining > 0 && (
                 <div className="flex justify-between gap-2">
                   <dt className="text-ink-mute">المتبقي</dt>
-                  <dd className="font-medium text-amber-800 tabular-nums">
+                  <dd className="font-medium text-warning-ink tabular-nums">
                     {formatMoney(monthPres.remaining, 'LYD')}
                   </dd>
                 </div>
@@ -274,7 +274,7 @@ export function OtherContactDetailBody({
               {rent && Number(rent.open_charges_count) > 0 && (
                 <div className="flex justify-between gap-2">
                   <dt className="text-ink-mute">مطالبات مفتوحة</dt>
-                  <dd className="text-red-700 font-medium">
+                  <dd className="text-danger-ink font-medium">
                     {rent.open_charges_count} (
                     {formatMoney(Number(rent.open_charges_total ?? 0), 'LYD')})
                   </dd>

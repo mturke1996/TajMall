@@ -17,13 +17,13 @@ export function AccountingFlowHint() {
   if (!next) return null;
 
   return (
-    <div className="rounded-xl border border-dashed border-sage-200 bg-sage-50/60 px-3 py-2.5 text-xs flex flex-wrap items-center justify-between gap-2">
-      <span className="text-sage-900 min-w-0">
+    <div className="rounded-xl border border-dashed border-border bg-canvas-sunken/60 px-3 py-2.5 text-xs flex flex-wrap items-center justify-between gap-2">
+      <span className="text-foreground min-w-0">
         الخطوة التالية: <strong>{next.labelAr}</strong>
       </span>
       <Link
         href={next.href}
-        className="inline-flex shrink-0 items-center gap-1 font-semibold text-sage-800 hover:underline touch-manipulation min-h-9 px-1"
+        className="inline-flex shrink-0 items-center gap-1 font-semibold text-foreground hover:underline touch-manipulation min-h-9 px-1"
       >
         انتقل
         <ChevronLeft className="h-3.5 w-3.5" />

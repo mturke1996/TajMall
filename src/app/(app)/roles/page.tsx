@@ -109,7 +109,7 @@ export default function RolesPage() {
               className="surface flex flex-col gap-3 p-4 transition-shadow duration-200 hover:shadow-whisper sm:p-5"
             >
               <div className="flex items-start justify-between">
-                <span className="grid h-9 w-9 place-items-center rounded-md border border-border bg-canvas-sunken text-sage-700">
+                <span className="grid h-9 w-9 place-items-center rounded-md border border-border bg-canvas-sunken text-foreground">
                   <Shield className="h-[15px] w-[15px] stroke-[1.5]" />
                 </span>
                 <Badge variant="neutral" className="gap-1 normal-case tracking-normal">

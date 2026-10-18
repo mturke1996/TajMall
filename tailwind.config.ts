@@ -15,8 +15,10 @@ const config: Config = {
         sans: ['var(--font-arabic)', 'var(--font-latin)', 'system-ui', 'sans-serif'],
         // Latin display serif for the brand mark and English headings
         serif: ['var(--font-serif)', 'Georgia', 'serif'],
-        // Monospace for numbers, refs, codes
-        mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
+        // "font-mono" marks numbers, references and codes. It renders in the UI font with tabular
+        // digits (see globals.css): columns still align, and Arabic labels such as «د.ل» inside an
+        // amount no longer fall back to a different typeface.
+        mono: ['var(--font-arabic)', 'var(--font-latin)', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -93,18 +95,49 @@ const config: Config = {
           600: '#8B7943',
           700: '#6E6035',
         },
-        // Muted pastels for badges & tags (editorial)
+        // Status colours: follow light/dark mode through CSS variables (globals.css).
+        success: {
+          DEFAULT: 'hsl(var(--success) / <alpha-value>)',
+          soft: 'hsl(var(--success-soft) / <alpha-value>)',
+          line: 'hsl(var(--success-line) / <alpha-value>)',
+          ink: 'hsl(var(--success-ink) / <alpha-value>)',
+        },
+        danger: {
+          DEFAULT: 'hsl(var(--danger) / <alpha-value>)',
+          soft: 'hsl(var(--danger-soft) / <alpha-value>)',
+          line: 'hsl(var(--danger-line) / <alpha-value>)',
+          ink: 'hsl(var(--danger-ink) / <alpha-value>)',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning) / <alpha-value>)',
+          soft: 'hsl(var(--warning-soft) / <alpha-value>)',
+          line: 'hsl(var(--warning-line) / <alpha-value>)',
+          ink: 'hsl(var(--warning-ink) / <alpha-value>)',
+        },
+        info: {
+          DEFAULT: 'hsl(var(--info) / <alpha-value>)',
+          soft: 'hsl(var(--info-soft) / <alpha-value>)',
+          line: 'hsl(var(--info-line) / <alpha-value>)',
+          ink: 'hsl(var(--info-ink) / <alpha-value>)',
+        },
+        plum: {
+          DEFAULT: 'hsl(var(--plum) / <alpha-value>)',
+          soft: 'hsl(var(--plum-soft) / <alpha-value>)',
+          line: 'hsl(var(--plum-line) / <alpha-value>)',
+          ink: 'hsl(var(--plum-ink) / <alpha-value>)',
+        },
+        // Legacy badge names, now backed by the status tokens so they also work in dark mode.
         pastel: {
-          green:    '#EDF3EC',
-          greenInk: '#2F5234',
-          red:      '#FBEDEC',
-          redInk:   '#8A2F2D',
-          blue:     '#E7F0F7',
-          blueInk:  '#1F4F73',
-          yellow:   '#F8F1DA',
-          yellowInk:'#7A5C0F',
-          plum:     '#F1E9F1',
-          plumInk:  '#5E3A66',
+          green:    'hsl(var(--success-soft) / <alpha-value>)',
+          greenInk: 'hsl(var(--success-ink) / <alpha-value>)',
+          red:      'hsl(var(--danger-soft) / <alpha-value>)',
+          redInk:   'hsl(var(--danger-ink) / <alpha-value>)',
+          blue:     'hsl(var(--info-soft) / <alpha-value>)',
+          blueInk:  'hsl(var(--info-ink) / <alpha-value>)',
+          yellow:   'hsl(var(--warning-soft) / <alpha-value>)',
+          yellowInk:'hsl(var(--warning-ink) / <alpha-value>)',
+          plum:     'hsl(var(--plum-soft) / <alpha-value>)',
+          plumInk:  'hsl(var(--plum-ink) / <alpha-value>)',
         },
       },
       boxShadow: {

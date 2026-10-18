@@ -69,7 +69,7 @@ function JournalEntryRowItem({ entry }: { entry: JournalEntryRow }) {
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sage-50 text-sage-700 dark:bg-sage-950 dark:text-sage-300">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-canvas-sunken text-foreground">
             <BookOpen className="h-4 w-4" />
           </div>
           <div className="min-w-0">
@@ -82,10 +82,10 @@ function JournalEntryRowItem({ entry }: { entry: JournalEntryRow }) {
                 className={cn(
                   'text-[10px] px-1.5 py-0.2 gap-1',
                   entry.status === 'POSTED'
-                    ? 'border-emerald-300 text-emerald-800 bg-emerald-50 dark:bg-emerald-950 dark:text-emerald-300'
+                    ? 'border-success-line text-success-ink bg-success-soft'
                     : entry.status === 'DRAFT'
-                    ? 'border-amber-300 text-amber-800 bg-amber-50 dark:bg-amber-950 dark:text-amber-300'
-                    : 'border-red-300 text-red-800 bg-red-50 dark:bg-red-950 dark:text-red-300'
+                    ? 'border-warning-line text-warning-ink bg-warning-soft'
+                    : 'border-danger-line text-danger-ink bg-danger-soft'
                 )}
               >
                 {entry.status === 'POSTED' ? (
@@ -100,7 +100,7 @@ function JournalEntryRowItem({ entry }: { entry: JournalEntryRow }) {
                   : 'معكوس'}
               </Badge>
               {isBalanced ? (
-                <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px]">
+                <Badge className="bg-success-soft text-success-ink text-[10px]">
                   متوازن
                 </Badge>
               ) : null}
@@ -113,7 +113,7 @@ function JournalEntryRowItem({ entry }: { entry: JournalEntryRow }) {
         </div>
 
         <div className="flex items-center gap-2.5 justify-between sm:justify-end shrink-0" onClick={(e) => e.stopPropagation()}>
-          <div className="text-left font-mono">
+          <div className="text-end font-mono">
             <span className="text-xs text-muted-foreground block">إجمالي القيد</span>
             <span className="text-sm font-bold text-foreground">
               {formatMoney(Number(entry.total_debit || 0), 'LYD')}
@@ -262,9 +262,9 @@ export function ContactLedgerPanel({
         <Card className="p-4 border-border bg-card">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-muted-foreground">إجمالي المقبوضات</span>
-            <ArrowDownLeft className="h-4 w-4 text-emerald-600" />
+            <ArrowDownLeft className="h-4 w-4 text-success" />
           </div>
-          <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400 font-mono">
+          <p className="text-lg font-bold text-success-ink font-mono">
             {formatMoney(totalInflow, 'LYD')}
           </p>
           <span className="text-[10px] text-muted-foreground mt-0.5 block">
@@ -275,9 +275,9 @@ export function ContactLedgerPanel({
         <Card className="p-4 border-border bg-card">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-muted-foreground">إجمالي المدفوعات</span>
-            <ArrowUpRight className="h-4 w-4 text-red-600" />
+            <ArrowUpRight className="h-4 w-4 text-danger" />
           </div>
-          <p className="text-lg font-bold text-red-700 dark:text-red-400 font-mono">
+          <p className="text-lg font-bold text-danger-ink font-mono">
             {formatMoney(totalOutflow, 'LYD')}
           </p>
           <span className="text-[10px] text-muted-foreground mt-0.5 block">
@@ -289,17 +289,17 @@ export function ContactLedgerPanel({
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-muted-foreground">صافي رصيد الحركة</span>
             {netBalance >= 0 ? (
-              <TrendingUp className="h-4 w-4 text-emerald-600" />
+              <TrendingUp className="h-4 w-4 text-success" />
             ) : (
-              <TrendingDown className="h-4 w-4 text-amber-600" />
+              <TrendingDown className="h-4 w-4 text-warning" />
             )}
           </div>
           <p
             className={cn(
               'text-lg font-bold font-mono',
               netBalance >= 0
-                ? 'text-emerald-700 dark:text-emerald-400'
-                : 'text-amber-700 dark:text-amber-400'
+                ? 'text-success-ink'
+                : 'text-warning-ink'
             )}
           >
             {formatMoney(netBalance, 'LYD')}
@@ -373,12 +373,12 @@ export function ContactLedgerPanel({
             {/* Quick Actions & Search */}
             <div className="flex items-center gap-2">
               <div className="relative">
-                <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="بحث في الحركات والبيان…"
-                  className="pr-8 text-xs h-8 w-44 sm:w-56 bg-card"
+                  className="ps-8 text-xs h-8 w-44 sm:w-56 bg-card"
                 />
               </div>
 
@@ -392,7 +392,7 @@ export function ContactLedgerPanel({
                       contactKind: contact.kind,
                     })
                   }
-                  className="gap-1 text-xs h-8 bg-red-700 hover:bg-red-800 text-white font-semibold shadow-xs"
+                  className="gap-1 text-xs h-8 bg-danger hover:bg-danger/90 text-white font-semibold shadow-xs"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   سند صرف
@@ -409,7 +409,7 @@ export function ContactLedgerPanel({
                       contactKind: contact.kind,
                     })
                   }
-                  className="gap-1 text-xs h-8 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold shadow-xs"
+                  className="gap-1 text-xs h-8 font-semibold shadow-xs"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   سند قبض

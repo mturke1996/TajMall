@@ -161,7 +161,7 @@ export function TenantContactDetail({
               <TabsContent value="journals" className="mt-0 p-4 sm:p-5">
                 {jeLoading ? (
                   <div className="flex justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-sage-600" />
+                    <Loader2 className="h-6 w-6 animate-spin text-ink-soft" />
                   </div>
                 ) : journalEntries.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-6 text-center">
@@ -178,7 +178,7 @@ export function TenantContactDetail({
                     )}
                     {voidedJournalEntries.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-xs font-semibold text-red-700 px-1">
+                        <p className="text-xs font-semibold text-danger-ink px-1">
                           قيود ملغاة أو معكوسة ({voidedJournalEntries.length})
                         </p>
                         {voidedJournalEntries.map((je) => (

@@ -24,19 +24,19 @@ function StatTile({
 }) {
   const styles = {
     neutral: 'border-border/80 bg-card',
-    sage: 'border-sage-200/80 bg-sage-50/50 dark:bg-sage-950/20',
+    sage: 'border-border/80 bg-canvas-sunken/50',
     emerald:
-      'border-emerald-200/70 bg-emerald-50/40 dark:border-emerald-800/40 dark:bg-emerald-950/20',
-    rose: 'border-rose-200/70 bg-rose-50/40 dark:border-rose-800/40 dark:bg-rose-950/20',
+      'border-success-line/70 bg-success-soft/40',
+    rose: 'border-danger-line/70 bg-danger-soft/40',
     amber:
-      'border-amber-200/70 bg-amber-50/40 dark:border-amber-800/40 dark:bg-amber-950/20',
+      'border-warning-line/70 bg-warning-soft/40',
   };
   const iconStyles = {
     neutral: 'bg-muted text-muted-foreground',
-    sage: 'bg-sage-100 text-sage-700 dark:bg-sage-900/50 dark:text-sage-300',
-    emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50',
-    rose: 'bg-rose-100 text-rose-700 dark:bg-rose-900/50',
-    amber: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50',
+    sage: 'bg-muted text-foreground',
+    emerald: 'bg-success-soft text-success-ink',
+    rose: 'bg-danger-soft text-danger-ink',
+    amber: 'bg-warning-soft text-warning-ink',
   };
 
   return (

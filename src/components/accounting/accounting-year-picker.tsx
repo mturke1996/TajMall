@@ -30,7 +30,7 @@ export function AccountingYearPicker({
             onClick={() => onChange(year)}
             className={cn(
               'snap-center shrink-0 min-h-10 min-w-[4.25rem] touch-manipulation',
-              value === year && 'bg-sage-700 hover:bg-sage-800 text-white border-sage-700',
+              value === year && 'bg-foreground hover:bg-foreground text-background border-foreground',
             )}
           >
             {year}

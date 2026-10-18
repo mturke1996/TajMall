@@ -15,6 +15,12 @@ import { Input } from '@/components/ui/input';
 import { useTransactions } from '@/lib/db/queries';
 import { cn, formatMoney, formatDateRelative } from '@/lib/utils';
 
+/** Revenue in, expense out; transfers carry no sign. */
+function signedTxAmount(tx: { kind: string; amount: string | number }) {
+  const amount = Math.abs(Number(tx.amount));
+  return tx.kind === 'EXPENSE' ? -amount : amount;
+}
+
 export default function ActivityPage() {
   const { data: txs = [], isLoading, isError } = useTransactions(undefined, 80);
   const [kind, setKind] = useState<'ALL' | 'REVENUE' | 'EXPENSE'>('ALL');
@@ -70,7 +76,7 @@ export default function ActivityPage() {
                 className={cn(
                   'flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium touch-manipulation',
                   kind === 'ALL'
-                    ? 'border-sage-300 bg-sage-50 text-sage-700'
+                    ? 'border-border bg-canvas-sunken text-foreground'
                     : 'border-border bg-card text-ink-mute',
                 )}
               >
@@ -85,7 +91,7 @@ export default function ActivityPage() {
                 className={cn(
                   'flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium touch-manipulation',
                   kind === 'REVENUE'
-                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    ? 'border-success-line bg-success-soft text-success-ink'
                     : 'border-border bg-card text-ink-mute',
                 )}
               >
@@ -100,7 +106,7 @@ export default function ActivityPage() {
                 className={cn(
                   'flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium touch-manipulation',
                   kind === 'EXPENSE'
-                    ? 'border-red-300 bg-red-50 text-red-700'
+                    ? 'border-danger-line bg-danger-soft text-danger-ink'
                     : 'border-border bg-card text-ink-mute',
                 )}
               >
@@ -126,7 +132,7 @@ export default function ActivityPage() {
 
         {isLoading ? (
           <div className="flex justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-sage-600" aria-hidden />
+            <Loader2 className="h-8 w-8 animate-spin text-ink-soft" aria-hidden />
           </div>
         ) : isError ? (
           <p className="text-center text-sm text-destructive">تعذّر تحميل النشاط.</p>
@@ -182,9 +188,9 @@ export default function ActivityPage() {
                         className={cn(
                           'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
                           tx.kind === 'REVENUE'
-                            ? 'bg-emerald-50 text-emerald-700'
+                            ? 'bg-success-soft text-success-ink'
                             : tx.kind === 'EXPENSE'
-                              ? 'bg-red-50 text-red-700'
+                              ? 'bg-danger-soft text-danger-ink'
                               : 'bg-secondary text-secondary-foreground',
                         )}
                       >
@@ -213,13 +219,10 @@ export default function ActivityPage() {
                   )}
                 >
                   <span className="sm:hidden">
-                    {tx.kind === 'REVENUE' ? '+' : tx.kind === 'EXPENSE' ? '−' : ''}
-                    {' '}
-                    {formatMoney(Number(tx.amount), tx.currency ?? 'LYD', { compact: true })}
+                    {formatMoney(signedTxAmount(tx), tx.currency ?? 'LYD', { compact: true, signed: tx.kind !== 'TRANSFER' })}
                   </span>
                   <span className="hidden sm:inline">
-                    {tx.kind === 'REVENUE' ? '+' : tx.kind === 'EXPENSE' ? '−' : ''}{' '}
-                    {formatMoney(Number(tx.amount), tx.currency ?? 'LYD')}
+                    {formatMoney(signedTxAmount(tx), tx.currency ?? 'LYD', { signed: tx.kind !== 'TRANSFER' })}
                   </span>
                 </p>
               </div>

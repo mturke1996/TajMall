@@ -31,8 +31,8 @@ export function TenantProfileSidebar({
 
   return (
     <div className="flex flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
-      <Card className="overflow-hidden border-sage-200/60 shadow-sm">
-        <div className="bg-sage-800 px-4 py-5 text-white">
+      <Card className="overflow-hidden border-border/60 shadow-sm">
+        <div className="bg-foreground px-4 py-5 text-background">
           <div className="flex items-start gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
               <Building2 className="h-6 w-6" />
@@ -83,7 +83,7 @@ export function TenantProfileSidebar({
                 <Layers className="h-3.5 w-3.5" />
                 إيجار شهري
               </dt>
-              <dd className="font-bold text-sage-800 dark:text-sage-300 tabular-nums">
+              <dd className="font-bold text-foreground tabular-nums">
                 {formatMoney(monthlyRent, 'LYD')}
               </dd>
             </div>
@@ -101,7 +101,7 @@ export function TenantProfileSidebar({
                 <dd
                   className={cn(
                     'font-semibold tabular-nums',
-                    monthPres.paid > 0 && 'text-emerald-700 dark:text-emerald-400',
+                    monthPres.paid > 0 && 'text-success-ink',
                   )}
                 >
                   {formatMoney(monthPres.paid, 'LYD')}
@@ -110,7 +110,7 @@ export function TenantProfileSidebar({
               {monthPres.remaining > 0 && (
                 <div className="flex items-center justify-between gap-2">
                   <dt className="text-muted-foreground">المتبقي</dt>
-                  <dd className="font-semibold tabular-nums text-amber-800 dark:text-amber-300">
+                  <dd className="font-semibold tabular-nums text-warning-ink">
                     {formatMoney(monthPres.remaining, 'LYD')}
                   </dd>
                 </div>
@@ -120,7 +120,7 @@ export function TenantProfileSidebar({
           {Number(rent.total_rent_paid) > 0 && (
             <div className="flex items-center justify-between gap-2">
               <dt className="text-muted-foreground">إجمالي مسدّد</dt>
-              <dd className="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
+              <dd className="font-medium tabular-nums text-success-ink">
                 {formatMoney(Number(rent.total_rent_paid), 'LYD', { compact: true })}
               </dd>
             </div>

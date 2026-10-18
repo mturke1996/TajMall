@@ -91,7 +91,7 @@ function AuditRowCard({ row }: { row: AuditLogRow }) {
       className={cn(
         'surface overflow-hidden transition-shadow',
         link && 'hover:shadow-whisper',
-        isDelete && 'border-s-2 border-s-red-500/70',
+        isDelete && 'border-s-2 border-s-danger/70',
       )}
     >
       <div
@@ -114,8 +114,8 @@ function AuditRowCard({ row }: { row: AuditLogRow }) {
           <div
             className={cn(
               'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
-              isDelete && 'bg-red-50 text-red-700',
-              isInsert && !isDelete && 'bg-emerald-50 text-emerald-800',
+              isDelete && 'bg-danger-soft text-danger-ink',
+              isInsert && !isDelete && 'bg-success-soft text-success-ink',
               !isDelete && !isInsert && 'bg-canvas-sunken text-foreground',
             )}
           >
@@ -128,9 +128,9 @@ function AuditRowCard({ row }: { row: AuditLogRow }) {
                 className={cn(
                   'rounded-full px-2 py-0.5 text-[10px] font-semibold',
                   isDelete
-                    ? 'bg-red-100 text-red-800'
+                    ? 'bg-danger-soft text-danger-ink'
                     : isInsert
-                      ? 'bg-emerald-100 text-emerald-800'
+                      ? 'bg-success-soft text-success-ink'
                       : 'bg-secondary text-secondary-foreground',
                 )}
               >
@@ -140,7 +140,7 @@ function AuditRowCard({ row }: { row: AuditLogRow }) {
                 {AUDIT_ENTITY_LABELS[row.entity_type] ?? row.entity_type}
               </span>
               {isDelete && (
-                <span className="text-[10px] font-medium text-red-600">محذوف</span>
+                <span className="text-[10px] font-medium text-danger">محذوف</span>
               )}
             </div>
 
@@ -163,11 +163,10 @@ function AuditRowCard({ row }: { row: AuditLogRow }) {
               <p
                 className={cn(
                   'text-sm font-semibold tabular-nums',
-                  delta > 0 ? 'text-emerald-700' : 'text-red-700',
+                  delta > 0 ? 'text-success-ink' : 'text-danger-ink',
                 )}
               >
-                {delta > 0 ? '+' : ''}
-                {formatMoney(delta, 'LYD', { compact: true })}
+                {formatMoney(delta, 'LYD', { compact: true, signed: true })}
               </p>
             )}
           </div>
@@ -184,7 +183,7 @@ function AuditRowCard({ row }: { row: AuditLogRow }) {
         </div>
 
         {link && (
-          <p className="flex items-center justify-end gap-1 border-t border-border/60 px-4 py-2 text-[11px] font-medium text-sage-800">
+          <p className="flex items-center justify-end gap-1 border-t border-border/60 px-4 py-2 text-[11px] font-medium text-foreground">
             {link.label}
             <ExternalLink className="h-3.5 w-3.5" aria-hidden />
           </p>
@@ -313,25 +312,25 @@ export function AuditLogView() {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <div className="surface col-span-2 flex items-center justify-between gap-3 p-4 sm:col-span-1">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-mute">
+              <p className="text-[10px] font-semibold text-ink-mute">
                 آخر رصيد
               </p>
               <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
                 {formatMoney(latestBalance, 'LYD', { compact: true })}
               </p>
             </div>
-            <div className="grid h-10 w-10 place-items-center rounded-lg bg-canvas-sunken text-sage-700">
+            <div className="grid h-10 w-10 place-items-center rounded-lg bg-canvas-sunken text-foreground">
               <Wallet className="h-5 w-5" aria-hidden />
             </div>
           </div>
           <div className="surface p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-mute">
+            <p className="text-[10px] font-semibold text-ink-mute">
               السجلات
             </p>
             <p className="mt-0.5 text-lg font-bold tabular-nums">{total}</p>
           </div>
           <div className="surface p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-mute">
+            <p className="text-[10px] font-semibold text-ink-mute">
               حذف (الصفحة)
             </p>
             <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
@@ -345,14 +344,14 @@ export function AuditLogView() {
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
             <Search
-              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute"
+              className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute"
               aria-hidden
             />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="بحث…"
-              className="h-10 border-0 bg-canvas-sunken pr-9 shadow-none focus-visible:ring-1"
+              className="h-10 border-0 bg-canvas-sunken ps-9 shadow-none focus-visible:ring-1"
             />
           </div>
           <Button

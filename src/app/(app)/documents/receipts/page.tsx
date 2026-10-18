@@ -51,9 +51,9 @@ export default function ReceiptsPage() {
             <Button variant="outline" size="sm" asChild>
               <Link href="/documents">العودة للمركز</Link>
             </Button>
-            <Button size="sm" asChild className="bg-sage-700 hover:bg-sage-800">
+            <Button size="sm" asChild className="bg-foreground hover:bg-foreground">
               <Link href="/documents/receipts/new">
-                <Plus className="h-4 w-4 ml-1" />
+                <Plus className="h-4 w-4 me-1" />
                 إيصال جديد
               </Link>
             </Button>
@@ -68,7 +68,7 @@ export default function ReceiptsPage() {
           </div>
         ) : isError ? (
           <Card>
-            <CardContent className="py-10 text-center text-sm text-red-600">
+            <CardContent className="py-10 text-center text-sm text-danger">
               تعذّر التحميل. طبّق هجرة 058 على Supabase.
             </CardContent>
           </Card>
@@ -101,13 +101,13 @@ export default function ReceiptsPage() {
                   <div className="min-w-0 flex-1">
                     <Link
                       href={`/documents/receipts/${row.id}`}
-                      className="font-bold text-sm hover:text-sage-800 hover:underline"
+                      className="font-bold text-sm hover:text-foreground hover:underline"
                     >
                       {row.payer_name}
                     </Link>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {row.receipt_number} · {row.receipt_date} ·{' '}
-                      <span className="font-mono font-semibold text-emerald-700">
+                      <span className="font-mono font-semibold text-success-ink">
                         {formatMoney(Number(row.total_amount), 'LYD')}
                       </span>
                     </p>
@@ -116,7 +116,7 @@ export default function ReceiptsPage() {
                     {canEdit ? (
                       <Button variant="outline" size="sm" asChild className="touch-manipulation">
                         <Link href={`/documents/receipts/${row.id}`}>
-                          <Pencil className="h-3.5 w-3.5 ml-1" />
+                          <Pencil className="h-3.5 w-3.5 me-1" />
                           تعديل
                         </Link>
                       </Button>
@@ -125,11 +125,11 @@ export default function ReceiptsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="touch-manipulation text-red-600 hover:bg-red-50 hover:text-red-700"
+                        className="touch-manipulation text-danger hover:bg-danger-soft hover:text-danger-ink"
                         disabled={deleteReceipt.isPending}
                         onClick={() => setDeleteId(row.id)}
                       >
-                        <Trash2 className="h-3.5 w-3.5 ml-1" />
+                        <Trash2 className="h-3.5 w-3.5 me-1" />
                         حذف
                       </Button>
                     ) : null}

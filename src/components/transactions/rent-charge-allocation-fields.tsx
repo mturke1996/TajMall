@@ -57,9 +57,9 @@ export function RentChargeAllocationFields({
   }
 
   return (
-    <div className="rounded-lg border border-sage-200 bg-sage-50/50 p-3 space-y-3">
+    <div className="rounded-lg border border-border bg-canvas-sunken/50 p-3 space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <Label className="text-sm font-semibold text-sage-900">تخصيص على المطالبات</Label>
+        <Label className="text-sm font-semibold text-foreground">تخصيص على المطالبات</Label>
         <div className="flex rounded-lg border border-border bg-card p-0.5 text-xs">
           {(['AUTO', 'MANUAL'] as const).map((m) => (
             <button
@@ -71,7 +71,7 @@ export function RentChargeAllocationFields({
               }}
               className={cn(
                 'rounded-md px-2.5 py-1.5 font-medium touch-manipulation',
-                mode === m ? 'bg-sage-700 text-white' : 'text-muted-foreground',
+                mode === m ? 'bg-foreground text-background' : 'text-muted-foreground',
               )}
             >
               {m === 'AUTO' ? 'تلقائي (FIFO)' : 'يدوي'}
@@ -81,13 +81,13 @@ export function RentChargeAllocationFields({
       </div>
 
       {mode === 'AUTO' ? (
-        <p className="text-xs text-sage-800 leading-relaxed">
+        <p className="text-xs text-foreground leading-relaxed">
           يُوزَّع المبلغ تلقائياً على أقدم المطالبات غير المسددة للمستأجر.
         </p>
       ) : isLoading ? (
         <p className="text-xs text-muted-foreground">جاري تحميل المطالبات…</p>
       ) : unpaid.length === 0 ? (
-        <p className="text-xs text-amber-800">لا توجد مطالبات مفتوحة لهذا المستأجر.</p>
+        <p className="text-xs text-warning-ink">لا توجد مطالبات مفتوحة لهذا المستأجر.</p>
       ) : (
         <ul className="space-y-2 max-h-40 overflow-y-auto">
           {unpaid.map((c) => {
@@ -98,7 +98,7 @@ export function RentChargeAllocationFields({
                 key={c.id}
                 className={cn(
                   'rounded-md border p-2 text-xs',
-                  selected ? 'border-sage-400 bg-white' : 'border-border bg-card/80',
+                  selected ? 'border-ink-mute/50 bg-white' : 'border-border bg-card/80',
                 )}
               >
                 <label className="flex items-start gap-2 cursor-pointer touch-manipulation">
@@ -137,10 +137,10 @@ export function RentChargeAllocationFields({
       )}
 
       {mode === 'MANUAL' && allocations.length > 0 && (
-        <p className="text-[11px] text-sage-800">
+        <p className="text-[11px] text-foreground">
           مجمّع التخصيص: {formatMoney(allocatedTotal, 'LYD')}
           {paymentAmount > 0 && allocatedTotal > paymentAmount && (
-            <span className="text-red-600 font-semibold"> — يتجاوز مبلغ التحصيل</span>
+            <span className="text-danger font-semibold"> — يتجاوز مبلغ التحصيل</span>
           )}
         </p>
       )}

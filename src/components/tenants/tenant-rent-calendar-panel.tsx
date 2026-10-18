@@ -81,15 +81,15 @@ function YearSection({
 
   return (
     <div className="border-t border-border first:border-t-0">
-      <div className="bg-sage-50/80 px-4 py-3 sm:px-5 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-bold text-sage-900 text-sm sm:text-base">
+      <div className="bg-canvas-sunken/80 px-4 py-3 sm:px-5 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-bold text-foreground text-sm sm:text-base">
           إيجار {year}
         </h3>
         <div className="flex gap-2 text-[11px]">
-          <span className="rounded-full bg-emerald-600/90 text-white px-2.5 py-0.5 font-semibold">
+          <span className="rounded-full bg-success/90 text-white px-2.5 py-0.5 font-semibold">
             مدفوع {paidMonths.length}
           </span>
-          <span className="rounded-full bg-red-600/90 text-white px-2.5 py-0.5 font-semibold">
+          <span className="rounded-full bg-danger/90 text-white px-2.5 py-0.5 font-semibold">
             مستحق {unpaidMonths.length}
           </span>
         </div>
@@ -106,8 +106,8 @@ function YearSection({
       <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
         <div className="rounded-xl border border-pastel-greenInk/20 bg-pastel-green p-4 min-h-[6rem]">
           <div className="flex items-center gap-2 mb-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-700" />
-            <h4 className="font-bold text-emerald-900 text-sm">
+            <CheckCircle2 className="h-4 w-4 text-success-ink" />
+            <h4 className="font-bold text-success-ink text-sm">
               الشهور المدفوعة ({paidMonths.length})
             </h4>
           </div>
@@ -124,13 +124,13 @@ function YearSection({
 
         <div className="rounded-xl border border-pastel-redInk/20 bg-pastel-red p-4 min-h-[6rem]">
           <div className="flex items-center gap-2 mb-2">
-            <AlertCircle className="h-4 w-4 text-red-700" />
-            <h4 className="font-bold text-red-900 text-sm">
+            <AlertCircle className="h-4 w-4 text-danger-ink" />
+            <h4 className="font-bold text-danger-ink text-sm">
               مستحق ({unpaidMonths.length})
             </h4>
           </div>
           {unpaidMonths.length === 0 ? (
-            <p className="text-sm text-emerald-800 font-medium">لا مستحقات</p>
+            <p className="text-sm text-success-ink font-medium">لا مستحقات</p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {unpaidMonths.map((m) => (
@@ -272,7 +272,7 @@ export function TenantRentCalendarPanel({
   if (isLoading) {
     return (
       <Card className={cn('p-8 flex justify-center', className)}>
-        <Loader2 className="h-7 w-7 animate-spin text-sage-600" />
+        <Loader2 className="h-7 w-7 animate-spin text-ink-soft" />
       </Card>
     );
   }
@@ -281,11 +281,11 @@ export function TenantRentCalendarPanel({
     <>
       <Card
         className={cn(
-          'overflow-hidden border-sage-200/80 shadow-sm',
+          'overflow-hidden border-border/80 shadow-sm',
           className,
         )}
       >
-        <div className="bg-sage-800 px-4 py-4 sm:px-5 text-white">
+        <div className="bg-foreground px-4 py-4 sm:px-5 text-background">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
@@ -329,7 +329,7 @@ export function TenantRentCalendarPanel({
                   type="button"
                   size="sm"
                   variant="secondary"
-                  className="h-9 gap-1.5 bg-white text-sage-900 border-0 hover:bg-white/90 touch-manipulation font-semibold"
+                  className="h-9 gap-1.5 bg-white text-foreground border-0 hover:bg-white/90 touch-manipulation font-semibold"
                   onClick={() => setStatusOpen(true)}
                 >
                   <Link2 className="h-4 w-4 shrink-0" />

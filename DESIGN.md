@@ -1,127 +1,80 @@
-# Fluxen Design System
+# Taj Mall / Fluxen — Design System
 
-## Color Strategy: Sage & Sand (Restrained Premium)
+A quiet accounting interface: warm neutral surfaces, one primary button style, and colour used only
+where it carries meaning (money in, money out, overdue, pending). Everything below is enforced by
+`npm run verify:design` (also run in CI).
 
-### Primary Palette
-- **Sage 50**: `#f6f7f6` - Background canvas
-- **Sage 100**: `#e3e7e3` - Hover states
-- **Sage 200**: `#c7d0c7` - Borders subtle
-- **Sage 600**: `#5a6b5a` - Primary text
-- **Sage 700**: `#4a5d4a` - Primary actions
-- **Sage 800**: `#3e4d3e` - Emphasis
-- **Sage 900**: `#2f3b2f` - Headings
+## Colour
 
-### Semantic Colors
-- **Success**: `#4a7c59` - Revenue, positive
-- **Danger**: `#9b4b4b` - Expenses, negative
-- **Warning**: `#b8860b` - Alerts, pending
-- **Info**: `#4b6b9b` - Neutral info
+All colours are CSS variables in `src/app/globals.css` (light and dark) exposed as Tailwind colours in
+`tailwind.config.ts`. Screen code never uses raw palette classes (`bg-emerald-50`, `text-rose-700`,
+`sage-*`): they ignore dark mode.
 
-### Pastel Accents (for cards/status)
-- **Pastel Green**: `#e8f5e9` / Ink: `#2e7d32`
-- **Pastel Red**: `#ffebee` / Ink: `#c62828`
-- **Pastel Blue**: `#e3f2fd` / Ink: `#1565c0`
-- **Pastel Yellow**: `#fffde7` / Ink: `#f57f17`
+### Neutrals
+| Token | Use |
+|---|---|
+| `background` / `canvas` | Page canvas |
+| `card` / `canvas-raised` | Surfaces (cards, tables, dialogs) |
+| `canvas-sunken`, `muted` | Subtle fills: table headers, icon tiles, hover |
+| `border` | Every hairline |
+| `foreground` / `ink` | Primary text, primary button |
+| `ink-soft` | Secondary text |
+| `muted-foreground` / `ink-mute` | Labels, hints, metadata |
 
-### Neutral Scale
-- **Canvas**: `#fafbf9` - Main background
-- **Canvas Sunken**: `#f5f6f4` - Card backgrounds
-- **Card**: `#ffffff` - Elevated surfaces
-- **Ink**: `#1a1c19` - Primary text
-- **Ink Mute**: `#6b6f69` - Secondary text
-- **Border**: `#d9ddd8` - Subtle borders
+### Status families
+Each family has four steps: `DEFAULT` (strong mark: bars, dots), `soft` (pale fill), `line`
+(hairline on a soft fill), `ink` (text on a soft fill or a coloured figure).
+
+| Family | Meaning |
+|---|---|
+| `success` | Revenue, paid, approved, balanced |
+| `danger` | Expense, overdue, unpaid, destructive |
+| `warning` | Partial, pending approval, needs attention |
+| `info` | Neutral information, transfers |
+| `plum` | Rare secondary category (cards / badges only) |
+
+Rules:
+- Cards, KPI tiles and icon tiles are **neutral** (`bg-card`, `border-border`, icon tile
+  `bg-canvas-sunken text-muted-foreground`). Colour goes on the figure, a badge or a small dot.
+- One primary button (`Button` default: `foreground` on `background`). No green or amber "save"
+  buttons; destructive actions use `variant="destructive"` or `bg-danger`.
+- Charts use `hsl(var(--success))`, `hsl(var(--danger))`, `hsl(var(--info))` and
+  `hsl(var(--border))` for the grid, so they follow dark mode.
+- No gradients, glass/blur or heavy shadows. Floating layers use `shadow-lift`.
 
 ## Typography
 
-### Font Stack
-- **Arabic**: `IBM Plex Sans Arabic`, system-ui
-- **English**: `Inter`, system-ui
-- **Mono**: `JetBrains Mono`, monospace
+- **Cairo** for Arabic and UI text (`font-sans`), Plus Jakarta Sans for Latin fallback.
+- `font-mono` marks numbers, references and codes; it renders in the UI font with tabular digits
+  (no separate monospace face), so columns align and «د.ل» stays in the same typeface.
+- No `tracking-*` letter-spacing and no `uppercase` on Arabic text: spacing breaks joined letters.
+- PDFs use Tajawal (react-pdf), see `src/features/pdf`.
 
-### Scale
-- **Hero**: 2.5rem (40px) - Dashboard big numbers
-- **H1**: 1.75rem (28px) - Page titles
-- **H2**: 1.375rem (22px) - Section headers
-- **H3**: 1.125rem (18px) - Card titles
-- **Body**: 1rem (16px) - Main text
-- **Small**: 0.875rem (14px) - Labels
-- **Tiny**: 0.75rem (12px) - Metadata
+## Money
 
-## Spacing System
+- Always `formatMoney(amount, 'LYD', { compact?, signed? })` → `1,250.5 د.ل`.
+  The result is wrapped in a left-to-right isolate so the order number → currency is stable inside
+  Arabic sentences, right-aligned cells and both themes; it matches the PDFs.
+- Signs go through `signed: true` (`+1,250 د.ل`, `−309 د.ل`). Never type `+` / `−` next to the call:
+  in RTL it lands on the wrong side.
+- In new components prefer `<Amount>` from `src/components/payroll/payroll-ui.tsx` (same format,
+  tabular digits, optional tone).
 
-### Section Spacing
-- **Small**: 1rem (16px)
-- **Medium**: 1.5rem (24px)
-- **Large**: 2rem (32px)
-- **XLarge**: 3rem (48px)
+## Direction (RTL)
 
-### Component Spacing
-- **Tight**: 0.5rem (8px)
-- **Default**: 1rem (16px)
-- **Loose**: 1.5rem (24px)
-
-## Elevation
-
-### Shadows
-- **Level 0**: none - Flat elements
-- **Level 1**: `0 1px 2px rgba(0,0,0,0.05)` - Cards
-- **Level 2**: `0 4px 8px rgba(0,0,0,0.08)` - Dropdowns
-- **Level 3**: `0 8px 16px rgba(0,0,0,0.12)` - Modals
-
-### Border Radius
-- **Small**: 0.375rem (6px) - Buttons, inputs
-- **Medium**: 0.5rem (8px) - Cards
-- **Large**: 0.75rem (12px) - Dialogs
-- **XL**: 1rem (16px) - Large cards
-- **Full**: 9999px - Pills, avatars
+- Use logical utilities: `ms/me`, `ps/pe`, `start/end`, `text-start/text-end`, `border-s/e`.
+- Physical `left/right` only for centring (`left-1/2 -translate-x-1/2`) and inside elements that set
+  `dir="ltr"` (amounts, phone numbers, codes).
+- Arrows that mean "next/back" follow reading direction (`ChevronLeft` = forward in Arabic).
 
 ## Components
 
-### Buttons
-- **Primary**: Sage-700 bg, white text, rounded-md
-- **Secondary**: White bg, sage-700 border, sage-700 text
-- **Ghost**: Transparent, hover sage-100
-- **Danger**: Red-600 bg, white text
+`Button`, `Badge` (`success | warning | danger | info | plum | neutral | outline`), `DataTable`
+(sorting, pagination, totals footer, mobile cards, empty/no-results states), `EmptyState`,
+`ConfirmDialog`, `PageHeader`, `StatStrip`, `Amount`. A live gallery with fictional data runs in
+development at `/ui-kit` and `/ui-kit/payroll`.
 
-### Cards
-- Background: white
-- Border: 1px solid border-color
-- Radius: medium
-- Shadow: level-1
-- Padding: default (16px)
+## Copy
 
-### Forms
-- Input height: 2.5rem (40px)
-- Border radius: small
-- Focus ring: 2px sage-500
-
-## Motion
-
-### Durations
-- **Fast**: 100ms - Hover states
-- **Normal**: 200ms - Transitions
-- **Slow**: 300ms - Page transitions
-
-### Easing
-- **Default**: `cubic-bezier(0.4, 0, 0.2, 1)`
-- **Enter**: `cubic-bezier(0, 0, 0.2, 1)`
-- **Exit**: `cubic-bezier(0.4, 0, 1, 1)`
-
-## Layout Principles
-
-### Mobile First
-- Single column by default
-- Breakpoints: sm(640), md(768), lg(1024), xl(1280)
-- Safe area insets for mobile
-
-### Grid System
-- 12-column grid
-- Gutter: 24px
-- Max width: 1400px
-- Padding: 16px mobile, 24px tablet, 32px desktop
-
-## RTL Considerations
-- All icons must support mirroring
-- Text alignment: right by default
-- Flex direction: row-reverse where needed
-- Navigation: right-aligned
+Short, specific sentences; buttons are verbs («سجّل التحصيل», «اعتمد الكشف»); errors say what
+happened and what to do next; no exclamation marks or emoji.

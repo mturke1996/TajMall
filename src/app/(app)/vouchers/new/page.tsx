@@ -289,7 +289,7 @@ export default function NewVoucherPage() {
             <Button
               type="button"
               size="sm"
-              className="min-h-11 flex-1 gap-1.5 touch-manipulation bg-emerald-700 text-white shadow-sm hover:bg-emerald-800 sm:min-h-9 sm:flex-none"
+              className="min-h-11 flex-1 gap-1.5 touch-manipulation shadow-sm sm:min-h-9 sm:flex-none"
               disabled={createDisbursementVoucher.isPending}
               onClick={handlePersistVoucher}
             >
@@ -346,7 +346,7 @@ export default function NewVoucherPage() {
 
           {datePreview ? (
             <div className="rounded-2xl border border-border bg-canvas-sunken p-5">
-              <p className="mb-3 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-emerald-700/90">
+              <p className="mb-3 text-[10.5px] font-semibold text-success-ink/90">
                 تاريخ الإذن — معاينة الوثيقة
               </p>
               <div className="flex items-end gap-4" dir="rtl">
@@ -357,12 +357,12 @@ export default function NewVoucherPage() {
                   <p className="text-base font-semibold leading-snug text-ink">
                     {datePreview.monthYear}
                   </p>
-                  <p className="mt-0.5 text-xs font-semibold text-emerald-700">
+                  <p className="mt-0.5 text-xs font-semibold text-success-ink">
                     {datePreview.weekday}
                   </p>
                 </div>
               </div>
-              <p className="mt-3 border-t border-emerald-200/60 pt-2 text-[11px] font-medium tracking-wider text-ink-mute">
+              <p className="mt-3 border-t border-success-line/60 pt-2 text-[11px] font-medium text-ink-mute">
                 ميلادي · <span dir="ltr">{datePreview.iso}</span>
               </p>
             </div>
@@ -535,7 +535,7 @@ export default function NewVoucherPage() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="shrink-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+                    className="shrink-0 text-danger hover:bg-danger-soft hover:text-danger-ink"
                     disabled={lines.length <= 1}
                     onClick={() => removeLine(i)}
                     aria-label="حذف السطر"
@@ -560,7 +560,7 @@ export default function NewVoucherPage() {
           {/* شريط الإجمالي + زر الحفظ كنداء فعل أساسي داخل الكرت */}
           <div className="-mx-4 -mb-4 mt-2 flex flex-col gap-3 border-t border-border bg-muted/30 px-4 py-4 sm:-mx-5 sm:-mb-5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex items-baseline gap-3">
-              <span className="text-xs font-medium uppercase tracking-wider text-ink-mute">
+              <span className="text-xs font-medium text-ink-mute">
                 إجمالي الإذن
               </span>
               <span className="text-2xl font-bold tabular-nums text-ink">
@@ -574,7 +574,7 @@ export default function NewVoucherPage() {
                 variant="ghost"
                 size="sm"
                 onClick={handleClearDraft}
-                className="min-h-11 touch-manipulation text-ink-mute hover:text-red-600 sm:min-h-9"
+                className="min-h-11 touch-manipulation text-ink-mute hover:text-danger sm:min-h-9"
               >
                 مسح المحفوظ محلياً
               </Button>
@@ -590,7 +590,7 @@ export default function NewVoucherPage() {
               <Button
                 type="button"
                 size="default"
-                className="min-h-11 flex-1 touch-manipulation gap-1.5 bg-emerald-700 text-white shadow-sm hover:bg-emerald-800 sm:min-h-10 sm:flex-none"
+                className="min-h-11 flex-1 touch-manipulation gap-1.5 shadow-sm sm:min-h-10 sm:flex-none"
                 disabled={createDisbursementVoucher.isPending}
                 onClick={handlePersistVoucher}
               >

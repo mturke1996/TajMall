@@ -107,7 +107,7 @@ function NewCorrespondenceContent() {
           <>
             <Button variant="outline" size="sm" asChild>
               <Link href={`/documents/correspondence?type=${letterType}`}>
-                <ArrowRight className="h-4 w-4 ml-1" />
+                <ArrowRight className="h-4 w-4 me-1" />
                 رجوع
               </Link>
             </Button>
@@ -128,11 +128,11 @@ function NewCorrespondenceContent() {
             />
             <Button
               size="sm"
-              className="bg-sage-700 hover:bg-sage-800 touch-manipulation"
+              className="bg-foreground hover:bg-foreground touch-manipulation"
               disabled={createLetter.isPending}
               onClick={() => void handleSave()}
             >
-              <Save className="h-4 w-4 ml-1" />
+              <Save className="h-4 w-4 me-1" />
               {createLetter.isPending ? 'جاري الحفظ…' : 'حفظ المراسلة'}
             </Button>
           </>

@@ -48,7 +48,7 @@ export function WhatsAppReminderButton({
       type="button"
       variant="outline"
       size={size}
-      className={className ?? 'touch-manipulation gap-1.5 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800'}
+      className={className ?? 'touch-manipulation gap-1.5 text-success-ink hover:bg-success-soft hover:text-success-ink'}
       disabled={!phone}
       onClick={handleClick}
       title={phone ? 'إرسال تذكير عبر واتساب' : 'لا يوجد رقم هاتف'}

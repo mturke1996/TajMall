@@ -132,7 +132,7 @@ export default function NewReceiptPage() {
           <>
             <Button variant="outline" size="sm" asChild>
               <Link href="/documents/receipts">
-                <ArrowRight className="h-4 w-4 ml-1" />
+                <ArrowRight className="h-4 w-4 me-1" />
                 رجوع
               </Link>
             </Button>
@@ -153,11 +153,11 @@ export default function NewReceiptPage() {
             />
             <Button
               size="sm"
-              className="bg-sage-700 hover:bg-sage-800"
+              className="bg-foreground hover:bg-foreground"
               disabled={createReceipt.isPending}
               onClick={() => void handleSave()}
             >
-              <Save className="h-4 w-4 ml-1" />
+              <Save className="h-4 w-4 me-1" />
               حفظ الإيصال
             </Button>
           </>
@@ -245,7 +245,7 @@ export default function NewReceiptPage() {
                 size="sm"
                 onClick={() => setLines((prev) => [...prev, { description: '', amount: '' }])}
               >
-                <Plus className="h-3.5 w-3.5 ml-1" />
+                <Plus className="h-3.5 w-3.5 me-1" />
                 بند
               </Button>
             </div>
@@ -283,7 +283,7 @@ export default function NewReceiptPage() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="shrink-0 text-red-600"
+                    className="shrink-0 text-danger"
                     onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -291,7 +291,7 @@ export default function NewReceiptPage() {
                 ) : null}
               </div>
             ))}
-            <p className="text-sm font-mono font-semibold text-emerald-700">
+            <p className="text-sm font-mono font-semibold text-success-ink">
               الإجمالي: {totalAmount.toLocaleString('ar-LY')} د.ل
             </p>
           </div>

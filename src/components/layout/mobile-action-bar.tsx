@@ -31,7 +31,7 @@ export function MobileActionBar() {
         <div className="flex w-[68px] shrink-0 items-center justify-center -mt-2">
           <button
             onClick={() => openTx('REVENUE')}
-            className="grid h-[52px] w-[52px] place-items-center rounded-full bg-sage-700 text-white shadow-lg active:scale-95 transition-transform duration-150"
+            className="grid h-[52px] w-[52px] place-items-center rounded-full bg-foreground text-background shadow-lg active:scale-95 transition-transform duration-150"
           >
             <Plus className="h-6 w-6" />
           </button>
@@ -53,7 +53,7 @@ function TabLink({ item, active }: { item: typeof NAV[0]; active: boolean }) {
       prefetch={true}
       className={cn(
         'flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] font-medium transition-colors duration-150',
-        active ? 'text-sage-700' : 'text-ink-mute'
+        active ? 'text-foreground' : 'text-ink-mute'
       )}
     >
       <Icon className="h-[18px] w-[18px]" />

@@ -35,9 +35,9 @@ export function JournalSourceBadge({
       variant="outline"
       className={cn(
         'text-[10px] font-normal gap-1 max-w-full truncate',
-        meta.kind === 'auto' && 'border-blue-200 bg-blue-50 text-blue-800',
-        meta.kind === 'transaction' && 'border-sage-200 bg-sage-50 text-sage-800',
-        meta.kind === 'reversal' && 'border-amber-200 bg-amber-50 text-amber-800',
+        meta.kind === 'auto' && 'border-info-line bg-info-soft text-info-ink',
+        meta.kind === 'transaction' && 'border-border bg-canvas-sunken text-foreground',
+        meta.kind === 'reversal' && 'border-warning-line bg-warning-soft text-warning-ink',
         className,
       )}
     >

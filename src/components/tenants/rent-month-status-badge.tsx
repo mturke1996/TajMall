@@ -4,11 +4,11 @@ import { RENT_MONTH_STATUS_LABEL, type RentMonthStatus } from '@/lib/rent-months
 import { cn } from '@/lib/utils';
 
 const BADGE: Record<RentMonthStatus, string> = {
-  paid: 'bg-emerald-100 text-emerald-900 border-emerald-300',
-  partial: 'bg-amber-100 text-amber-950 border-amber-300',
-  unpaid: 'bg-red-100 text-red-900 border-red-300',
-  no_charge: 'bg-slate-100 text-slate-800 border-slate-300',
-  exempt: 'bg-slate-50 text-slate-700 border-dashed border-slate-400',
+  paid: 'bg-success-soft text-success-ink border-success-line',
+  partial: 'bg-warning-soft text-warning-ink border-warning-line',
+  unpaid: 'bg-danger-soft text-danger-ink border-danger-line',
+  no_charge: 'bg-muted text-foreground border-border',
+  exempt: 'bg-canvas-sunken text-ink-soft border-dashed border-ink-mute/50',
   na: 'bg-canvas-sunken text-ink-mute border-border',
 };
 

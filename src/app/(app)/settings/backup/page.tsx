@@ -138,7 +138,7 @@ export default function BackupSettingsPage() {
 
       <div className="flex flex-col gap-5 px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-7">
         <div className="flex gap-3 border border-border bg-canvas-sunken/40 px-4 py-3 text-[13px] leading-relaxed text-ink-mute">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-sage-700" />
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-foreground" />
           <p>
             هذه النسخة للطوارئ فقط ولا يستخدمها التطبيق أثناء التشغيل. البيانات الحية تُقرأ
             وتُكتب من Supabase كالمعتاد. احفظ ملف ZIP خارج الجهاز (USB أو قرص خارجي) عند الحاجة.
@@ -205,7 +205,7 @@ export default function BackupSettingsPage() {
 
             <section className="flex flex-col gap-3">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-mute">
+                <h2 className="text-[11px] font-semibold text-ink-mute">
                   النسخ المحفوظة على هذا الجهاز
                 </h2>
                 <Button

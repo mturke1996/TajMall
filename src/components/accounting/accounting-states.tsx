@@ -31,14 +31,14 @@ export function AccountingError({
   return (
     <div
       className={cn(
-        'flex min-h-[12rem] flex-col items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50/80 p-4 text-center',
+        'flex min-h-[12rem] flex-col items-center justify-center gap-2 rounded-xl border border-danger-line bg-danger-soft/80 p-4 text-center',
         className,
       )}
     >
-      <AlertTriangle className="h-8 w-8 text-red-600" />
-      <p className="font-semibold text-red-900">{title}</p>
-      {message && <p className="text-sm text-red-700 break-words max-w-md">{message}</p>}
-      {hint && <p className="text-xs text-red-600/90 mt-1 max-w-md leading-relaxed">{hint}</p>}
+      <AlertTriangle className="h-8 w-8 text-danger" />
+      <p className="font-semibold text-danger-ink">{title}</p>
+      {message && <p className="text-sm text-danger-ink break-words max-w-md">{message}</p>}
+      {hint && <p className="text-xs text-danger/90 mt-1 max-w-md leading-relaxed">{hint}</p>}
     </div>
   );
 }

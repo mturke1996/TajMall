@@ -33,21 +33,21 @@ export function LedgerMobileList({ lines }: { lines: LedgerLineView[] }) {
               {line.journal_id && (
                 <Link
                   href={`/journals?highlight=${line.journal_id}`}
-                  className="mt-1.5 inline-block text-xs font-semibold text-sage-800 touch-manipulation"
+                  className="mt-1.5 inline-block text-xs font-semibold text-foreground touch-manipulation"
                 >
                   عرض القيد
                 </Link>
               )}
             </div>
-            <div className="shrink-0 text-left space-y-1">
+            <div className="shrink-0 text-end space-y-1">
               {line.debit > 0 && (
-                <p className="text-xs font-mono font-semibold text-emerald-700">
-                  مدين +{formatMoney(line.debit, '')}
+                <p className="text-xs font-mono font-semibold text-success-ink">
+                  مدين {formatMoney(Math.abs(line.debit), '', { signed: true })}
                 </p>
               )}
               {line.credit > 0 && (
-                <p className="text-xs font-mono font-semibold text-red-600">
-                  دائن −{formatMoney(line.credit, '')}
+                <p className="text-xs font-mono font-semibold text-danger">
+                  دائن {formatMoney(-Math.abs(line.credit), '', { signed: true })}
                 </p>
               )}
               <p className="text-[11px] font-mono font-bold text-foreground">
@@ -64,29 +64,29 @@ export function LedgerMobileList({ lines }: { lines: LedgerLineView[] }) {
 export function LedgerDesktopTable({ lines }: { lines: LedgerLineView[] }) {
   return (
     <div className="hidden md:block overflow-x-auto -mx-1 px-1">
-      <table className="w-full min-w-[720px] text-right text-sm">
+      <table className="w-full min-w-[720px] text-start text-sm">
         <thead>
           <tr className="border-b border-border text-muted-foreground font-medium">
-            <th className="pb-3 pr-2 text-right">التاريخ</th>
-            <th className="pb-3 text-right">رقم القيد</th>
-            <th className="pb-3 text-right">المرجع</th>
-            <th className="pb-3 text-right">البيان</th>
-            <th className="pb-3 text-left">مدين</th>
-            <th className="pb-3 text-left">دائن</th>
-            <th className="pb-3 pl-2 text-left">الرصيد</th>
+            <th className="pb-3 ps-2 text-start">التاريخ</th>
+            <th className="pb-3 text-start">رقم القيد</th>
+            <th className="pb-3 text-start">المرجع</th>
+            <th className="pb-3 text-start">البيان</th>
+            <th className="pb-3 text-end">مدين</th>
+            <th className="pb-3 text-end">دائن</th>
+            <th className="pb-3 pe-2 text-end">الرصيد</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
           {lines.map((line, idx) => (
             <tr key={`${line.journal_id}-${idx}`} className="hover:bg-secondary/40">
-              <td className="py-3 pr-2 font-mono text-muted-foreground">
+              <td className="py-3 ps-2 font-mono text-muted-foreground">
                 {line.entry_date ? formatDate(line.entry_date) : '—'}
               </td>
               <td className="py-3 font-mono font-medium">
                 {line.journal_id ? (
                   <Link
                     href={`/journals?highlight=${line.journal_id}`}
-                    className="text-sage-800 hover:underline touch-manipulation"
+                    className="text-foreground hover:underline touch-manipulation"
                   >
                     #{line.journal_number ?? '—'}
                   </Link>
@@ -102,21 +102,21 @@ export function LedgerDesktopTable({ lines }: { lines: LedgerLineView[] }) {
               </td>
               <td
                 className={cn(
-                  'py-3 text-left font-mono font-medium',
-                  line.debit > 0 ? 'text-emerald-700' : 'text-muted-foreground/40',
+                  'py-3 text-end font-mono font-medium',
+                  line.debit > 0 ? 'text-success-ink' : 'text-muted-foreground/40',
                 )}
               >
                 {line.debit > 0 ? `+${formatMoney(line.debit, '')}` : '—'}
               </td>
               <td
                 className={cn(
-                  'py-3 text-left font-mono font-medium',
-                  line.credit > 0 ? 'text-red-600' : 'text-muted-foreground/40',
+                  'py-3 text-end font-mono font-medium',
+                  line.credit > 0 ? 'text-danger' : 'text-muted-foreground/40',
                 )}
               >
-                {line.credit > 0 ? `−${formatMoney(line.credit, '')}` : '—'}
+                {line.credit > 0 ? formatMoney(-Math.abs(line.credit), '', { signed: true }) : '—'}
               </td>
-              <td className="py-3 pl-2 text-left font-mono font-bold">
+              <td className="py-3 pe-2 text-end font-mono font-bold">
                 {formatMoney(line.runningBalance, 'LYD')}
               </td>
             </tr>

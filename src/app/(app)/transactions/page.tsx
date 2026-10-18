@@ -107,16 +107,16 @@ export default function TransactionsPage() {
               <span className="tabular-nums text-[11px] opacity-70">({searched.length})</span>
             </TabsTrigger>
             <TabsTrigger value="revenues" className="gap-1.5">
-              <ArrowDownToLine className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <ArrowDownToLine className="h-3.5 w-3.5 text-success" />
               إيرادات
-              <span className="tabular-nums text-[11px] text-emerald-600 dark:text-emerald-400">
+              <span className="tabular-nums text-[11px] text-success">
                 {revenues.length > 0 && `(${revenues.length})`}
               </span>
             </TabsTrigger>
             <TabsTrigger value="expenses" className="gap-1.5">
-              <ArrowUpFromLine className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+              <ArrowUpFromLine className="h-3.5 w-3.5 text-danger" />
               مصروفات
-              <span className="tabular-nums text-[11px] text-rose-600 dark:text-rose-400">
+              <span className="tabular-nums text-[11px] text-danger">
                 {expenses.length > 0 && `(${expenses.length})`}
               </span>
             </TabsTrigger>
@@ -128,14 +128,14 @@ export default function TransactionsPage() {
               {tab === 'revenues' ? (
                 <>
                   <span className="text-xs text-muted-foreground">إجمالي الإيرادات</span>
-                  <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400 ms-auto">
+                  <span className="font-bold tabular-nums text-success ms-auto">
                     {formatMoney(revTotal, 'LYD', { compact: revTotal >= 100_000 })}
                   </span>
                 </>
               ) : (
                 <>
                   <span className="text-xs text-muted-foreground">إجمالي المصروفات</span>
-                  <span className="font-bold tabular-nums text-rose-600 dark:text-rose-400 ms-auto">
+                  <span className="font-bold tabular-nums text-danger ms-auto">
                     {formatMoney(expTotal, 'LYD', { compact: expTotal >= 100_000 })}
                   </span>
                 </>

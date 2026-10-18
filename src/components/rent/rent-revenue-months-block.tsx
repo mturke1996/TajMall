@@ -161,28 +161,28 @@ export function RentRevenueMonthsBlock({
           showStatus
         />
         {selected.length > 0 && !areConsecutiveMonths(selected) && (
-          <p className="text-xs text-red-700">اختر أشهراً متتالية فقط</p>
+          <p className="text-xs text-danger-ink">اختر أشهراً متتالية فقط</p>
         )}
       </div>
 
       {selected.length > 0 && (
-        <div className="rounded-xl border border-sage-200/80 bg-sage-50/50 px-3 py-2.5 text-sm space-y-1">
-          <p className="font-medium text-sage-900">
+        <div className="rounded-xl border border-border/80 bg-canvas-sunken/50 px-3 py-2.5 text-sm space-y-1">
+          <p className="font-medium text-foreground">
             {multiMonth ? 'مجموع الأشهر' : formatMonthLabelAr(selected[0])}:{' '}
             {formatMoney(totalAmount, 'LYD')}
           </p>
-          <p className="text-sage-800/90 tabular-nums text-[13px]">
+          <p className="text-foreground/90 tabular-nums text-[13px]">
             متبقي للربط:{' '}
             <span className="font-semibold">
               {formatMoney(totalRemaining, 'LYD')}
             </span>
             {totalPaid > 0 && (
-              <span className="text-ink-mute mr-2">
+              <span className="text-ink-mute ms-2">
                 · مدفوع سابقاً {formatMoney(totalPaid, 'LYD')}
               </span>
             )}
           </p>
-          <p className="text-xs text-ink-mute pt-1 border-t border-sage-200/60">
+          <p className="text-xs text-ink-mute pt-1 border-t border-border/60">
             بعد التسجيل يظهر {formatMonthsLabelAr(selected)} في تقويم المستأجر
             <strong> مدفوعاً </strong>
             ومربوطاً بقيد الإيراد في اليومية.

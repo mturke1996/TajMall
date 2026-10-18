@@ -514,7 +514,7 @@ function JournalMonthContent() {
               variant="outline"
               size="sm"
               onClick={() => setPdfModalOpen(true)}
-              className="min-h-11 touch-manipulation gap-1.5 font-semibold text-emerald-800 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-200 dark:border-emerald-800 dark:hover:bg-emerald-950 sm:min-h-9"
+              className="min-h-11 touch-manipulation gap-1.5 font-semibold text-success-ink border-success-line hover:bg-success-soft sm:min-h-9"
             >
               <SlidersHorizontal className="h-4 w-4" />
               خيارات تقرير PDF المتقدمة
@@ -634,9 +634,9 @@ function JournalMonthContent() {
                         value={opt.value}
                         className={cn(
                           'flex min-h-11 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center sm:min-h-10 sm:flex-row sm:gap-1.5',
-                          'data-[state=active]:bg-sage-600 data-[state=active]:text-white data-[state=active]:border-sage-700',
+                          'data-[state=active]:bg-ink-soft data-[state=active]:text-white data-[state=active]:border-foreground',
                           opt.value === PERIOD_JOURNAL_MODE_CASH_COLLECTIONS &&
-                            'data-[state=active]:bg-emerald-700 data-[state=active]:border-emerald-800'
+                            'data-[state=active]:bg-success data-[state=active]:border-success'
                         )}
                       >
                         <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -722,30 +722,30 @@ function JournalMonthContent() {
         {isCashCollectionsView ? (
           <div className="space-y-5">
             {/* Informational Scope Strip */}
-            <div className="rounded-xl border border-emerald-300 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="rounded-xl border border-success-line bg-success-soft/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start sm:items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-700 text-white shrink-0">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-success text-white shrink-0">
                   <Layers className="h-5 w-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-emerald-950 dark:text-emerald-100">
+                  <h4 className="text-sm font-bold text-success-ink">
                     كشف الإيرادات والتحصيلات المسجلة فعلياً خلال {periodLabel}
                   </h4>
-                  <p className="text-xs text-emerald-800/80 dark:text-emerald-300/80 mt-0.5">
+                  <p className="text-xs text-success-ink/80 mt-0.5">
                     الأساس: تاريخ القبض والتسجيل بالدفاتر المالية ({startDate} إلى {endDate}).
                   </p>
                 </div>
               </div>
-              <Badge variant="outline" className="border-emerald-400 text-emerald-800 dark:text-emerald-200 self-start sm:self-auto font-semibold">
+              <Badge variant="outline" className="border-success text-success-ink self-start sm:self-auto font-semibold">
                 {cashCollectionsSummary.totalCount} عملية تحصيل
               </Badge>
             </div>
 
             {/* 4 Stat Cards */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Card className="border-emerald-600/30 bg-emerald-50/30 dark:bg-emerald-950/20">
+              <Card className="border-success/30 bg-success-soft/30">
                 <CardContent className="p-4 space-y-1">
-                  <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                  <p className="text-xs font-semibold text-success-ink">
                     إجمالي المحصل في الفترة
                   </p>
                   <p className="text-lg font-bold text-foreground font-mono">
@@ -757,15 +757,15 @@ function JournalMonthContent() {
                 </CardContent>
               </Card>
 
-              <Card className="border-amber-500/30 bg-amber-50/30 dark:bg-amber-950/20">
+              <Card className="border-warning/30 bg-warning-soft/30">
                 <CardContent className="p-4 space-y-1">
-                  <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                  <div className="flex items-center gap-1.5 text-warning-ink">
                     <Clock className="h-3.5 w-3.5" />
                     <p className="text-xs font-semibold">
                       مستحقات شهور سابقة (متأخرات)
                     </p>
                   </div>
-                  <p className="text-lg font-bold text-amber-900 dark:text-amber-200 font-mono">
+                  <p className="text-lg font-bold text-warning-ink font-mono">
                     {formatMoney(cashCollectionsSummary.priorPeriodAmount, 'LYD')}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
@@ -774,15 +774,15 @@ function JournalMonthContent() {
                 </CardContent>
               </Card>
 
-              <Card className="border-emerald-600/30 bg-emerald-50/20">
+              <Card className="border-success/30 bg-success-soft/20">
                 <CardContent className="p-4 space-y-1">
-                  <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
+                  <div className="flex items-center gap-1.5 text-success-ink">
                     <Calendar className="h-3.5 w-3.5" />
                     <p className="text-xs font-semibold">
                       تحصيلات الشهر الحالي
                     </p>
                   </div>
-                  <p className="text-lg font-bold text-emerald-900 dark:text-emerald-100 font-mono">
+                  <p className="text-lg font-bold text-success-ink font-mono">
                     {formatMoney(cashCollectionsSummary.currentPeriodAmount, 'LYD')}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
@@ -791,15 +791,15 @@ function JournalMonthContent() {
                 </CardContent>
               </Card>
 
-              <Card className="border-indigo-500/30 bg-indigo-50/30 dark:bg-indigo-950/20">
+              <Card className="border-info/30 bg-info-soft/30">
                 <CardContent className="p-4 space-y-1">
-                  <div className="flex items-center gap-1.5 text-indigo-800 dark:text-indigo-300">
+                  <div className="flex items-center gap-1.5 text-info-ink">
                     <ArrowDownLeft className="h-3.5 w-3.5" />
                     <p className="text-xs font-semibold">
                       تحصيلات إيجار مقدم
                     </p>
                   </div>
-                  <p className="text-lg font-bold text-indigo-900 dark:text-indigo-200 font-mono">
+                  <p className="text-lg font-bold text-info-ink font-mono">
                     {formatMoney(cashCollectionsSummary.futurePeriodAmount, 'LYD')}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
@@ -816,7 +816,7 @@ function JournalMonthContent() {
                 <CardHeader className="py-3 px-4 border-b bg-canvas-sunken/40">
                   <CardTitle className="text-xs font-bold flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
-                      <Building2 className="h-4 w-4 text-emerald-700" />
+                      <Building2 className="h-4 w-4 text-success-ink" />
                       مجموع كل مصرف وخزينة مودع بها
                     </span>
                     <span className="text-[11px] text-muted-foreground font-normal">
@@ -836,7 +836,7 @@ function JournalMonthContent() {
                             <p className="font-semibold text-foreground">{b.name}</p>
                             <p className="text-[11px] text-muted-foreground">{b.count} عملية إيداع</p>
                           </div>
-                          <div className="text-left space-y-0.5">
+                          <div className="text-end space-y-0.5">
                             <p className="font-mono font-bold text-foreground">{formatMoney(b.total, 'LYD')}</p>
                             <p className="text-[11px] text-muted-foreground">{pct}%</p>
                           </div>
@@ -852,7 +852,7 @@ function JournalMonthContent() {
                 <CardHeader className="py-3 px-4 border-b bg-canvas-sunken/40">
                   <CardTitle className="text-xs font-bold flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
-                      <Layers className="h-4 w-4 text-emerald-700" />
+                      <Layers className="h-4 w-4 text-success-ink" />
                       مجموع كل بند من بنود الإيرادات
                     </span>
                     <span className="text-[11px] text-muted-foreground font-normal">
@@ -872,7 +872,7 @@ function JournalMonthContent() {
                             <p className="font-semibold text-foreground">{c.name}</p>
                             <p className="text-[11px] font-mono text-muted-foreground">{c.code} · {c.count} عملية</p>
                           </div>
-                          <div className="text-left space-y-0.5">
+                          <div className="text-end space-y-0.5">
                             <p className="font-mono font-bold text-foreground">{formatMoney(c.total, 'LYD')}</p>
                             <p className="text-[11px] text-muted-foreground">{pct}%</p>
                           </div>
@@ -916,7 +916,7 @@ function JournalMonthContent() {
                     className={cn(
                       'px-2.5 py-1 text-xs rounded-md font-medium transition-colors',
                       collectionStatusFilter === 'PRIOR'
-                        ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 font-semibold'
+                        ? 'bg-warning-soft text-warning-ink font-semibold'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -928,7 +928,7 @@ function JournalMonthContent() {
                     className={cn(
                       'px-2.5 py-1 text-xs rounded-md font-medium transition-colors',
                       collectionStatusFilter === 'CURRENT'
-                        ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 font-semibold'
+                        ? 'bg-success-soft text-success-ink font-semibold'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -940,7 +940,7 @@ function JournalMonthContent() {
                     className={cn(
                       'px-2.5 py-1 text-xs rounded-md font-medium transition-colors',
                       collectionStatusFilter === 'FUTURE'
-                        ? 'bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-200 font-semibold'
+                        ? 'bg-info-soft text-info-ink font-semibold'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -971,7 +971,7 @@ function JournalMonthContent() {
             <Card className="border-border overflow-hidden">
               <CardHeader className="py-3 px-4 border-b bg-canvas-sunken/40 flex flex-row items-center justify-between">
                 <CardTitle className="text-xs font-bold flex items-center gap-2">
-                  <Receipt className="h-4 w-4 text-emerald-700" />
+                  <Receipt className="h-4 w-4 text-success-ink" />
                   تفاصيل قيود التحصيل المسجلة ({filteredCollectionItems.length} عملية)
                 </CardTitle>
                 <Badge variant="outline" className="font-mono text-xs">
@@ -990,10 +990,10 @@ function JournalMonthContent() {
                         <th className="px-3.5 py-2.5 text-center font-medium w-16">الرقم</th>
                         <th className="px-3.5 py-2.5 text-center font-medium w-24">تاريخ القبض</th>
                         <th className="px-3.5 py-2.5 text-center font-medium w-36">شهر الاستحقاق المستهدف</th>
-                        <th className="px-3.5 py-2.5 text-right font-medium">المستأجر / المحل</th>
-                        <th className="px-3.5 py-2.5 text-right font-medium">الخزينة / المصرف</th>
-                        <th className="px-3.5 py-2.5 text-left font-medium">المبلغ</th>
-                        <th className="px-3.5 py-2.5 text-right font-medium">البيان</th>
+                        <th className="px-3.5 py-2.5 text-start font-medium">المستأجر / المحل</th>
+                        <th className="px-3.5 py-2.5 text-start font-medium">الخزينة / المصرف</th>
+                        <th className="px-3.5 py-2.5 text-end font-medium">المبلغ</th>
+                        <th className="px-3.5 py-2.5 text-start font-medium">البيان</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border text-xs">
@@ -1014,16 +1014,16 @@ function JournalMonthContent() {
                             </td>
                             <td className="px-3.5 py-2.5 text-center">
                               {it.target_month_status === 'PRIOR' ? (
-                                <Badge variant="outline" className="bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-200 text-[11px] font-medium gap-1">
+                                <Badge variant="outline" className="bg-warning-soft text-warning-ink border-warning-line text-[11px] font-medium gap-1">
                                   <span>⏳</span>
                                   <span>{it.target_rent_month || 'شهر سابق'}</span>
                                 </Badge>
                               ) : it.target_month_status === 'FUTURE' ? (
-                                <Badge variant="outline" className="bg-indigo-50 text-indigo-900 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-200 text-[11px] font-medium gap-1">
+                                <Badge variant="outline" className="bg-info-soft text-info-ink border-info-line text-[11px] font-medium gap-1">
                                   <span>{it.target_rent_month || 'مقدم'}</span>
                                 </Badge>
                               ) : (
-                                <Badge variant="outline" className="bg-emerald-50 text-emerald-900 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-200 text-[11px] font-medium gap-1">
+                                <Badge variant="outline" className="bg-success-soft text-success-ink border-success-line text-[11px] font-medium gap-1">
                                   <span>{it.target_rent_month || 'الشهر الحالي'}</span>
                                 </Badge>
                               )}
@@ -1042,7 +1042,7 @@ function JournalMonthContent() {
                               <p className="font-medium text-foreground">{it.cashbox_name}</p>
                               <p className="text-[10px] text-muted-foreground font-mono">{it.method}</p>
                             </td>
-                            <td className="px-3.5 py-2.5 text-left font-mono font-bold text-emerald-700 dark:text-emerald-300">
+                            <td className="px-3.5 py-2.5 text-end font-mono font-bold text-success-ink">
                               {formatMoney(it.amount, '')}
                             </td>
                             <td className="px-3.5 py-2.5 text-muted-foreground max-w-xs truncate" title={it.description || ''}>
@@ -1053,11 +1053,11 @@ function JournalMonthContent() {
                       )}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-emerald-50/60 dark:bg-emerald-950/40 font-bold border-t border-emerald-300">
-                        <td colSpan={5} className="px-3.5 py-3 text-right text-xs">
+                      <tr className="bg-success-soft/60 font-bold border-t border-success-line">
+                        <td colSpan={5} className="px-3.5 py-3 text-start text-xs">
                           إجمالي المبالغ المعروضة
                         </td>
-                        <td className="px-3.5 py-3 text-left font-mono text-emerald-800 dark:text-emerald-200 font-bold">
+                        <td className="px-3.5 py-3 text-end font-mono text-success-ink font-bold">
                           {formatMoney(
                             filteredCollectionItems.reduce((s, it) => s + it.amount, 0),
                             'LYD'
@@ -1163,11 +1163,11 @@ function JournalMonthContent() {
                 />
 
                 {!(displayModel.categoryFilter && !displayModel.typeGroupFilter) ? (
-                  <Card className="border-sage-600/30">
+                  <Card className="border-ink-soft/30">
                     <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 border-b pb-3">
                       <div>
                         <CardTitle className="flex items-center gap-2 text-base">
-                          <FileSpreadsheet className="h-4 w-4 text-sage-700" />
+                          <FileSpreadsheet className="h-4 w-4 text-foreground" />
                           {displayModel.title}
                         </CardTitle>
                         <p className="mt-1 text-xs text-muted-foreground">
@@ -1190,12 +1190,12 @@ function JournalMonthContent() {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b bg-muted/40 text-muted-foreground">
-                              <th className="px-4 py-2.5 text-right font-medium">الرمز</th>
-                              <th className="px-4 py-2.5 text-right font-medium">البند المحاسبي</th>
-                              <th className="px-4 py-2.5 text-right font-medium">الخزينة</th>
-                              <th className="px-4 py-2.5 text-left font-medium">مدين</th>
-                              <th className="px-4 py-2.5 text-left font-medium">دائن</th>
-                              <th className="px-4 py-2.5 text-left font-medium">الصافي</th>
+                              <th className="px-4 py-2.5 text-start font-medium">الرمز</th>
+                              <th className="px-4 py-2.5 text-start font-medium">البند المحاسبي</th>
+                              <th className="px-4 py-2.5 text-start font-medium">الخزينة</th>
+                              <th className="px-4 py-2.5 text-end font-medium">مدين</th>
+                              <th className="px-4 py-2.5 text-end font-medium">دائن</th>
+                              <th className="px-4 py-2.5 text-end font-medium">الصافي</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1228,30 +1228,30 @@ function JournalMonthContent() {
                                 <td className="px-4 py-2.5 text-xs text-muted-foreground">
                                   {periodLineCashboxKindsLabel(line)}
                                 </td>
-                                <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
+                                <td className="px-4 py-2.5 text-end font-mono tabular-nums text-success-ink font-semibold">
                                   {formatMoney(line.debit, '')}
                                 </td>
-                                <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
+                                <td className="px-4 py-2.5 text-end font-mono tabular-nums text-danger font-semibold">
                                   {formatMoney(line.credit, '')}
                                 </td>
-                                <td className="px-4 py-2.5 text-left font-mono tabular-nums">
+                                <td className="px-4 py-2.5 text-end font-mono tabular-nums">
                                   {formatMoney(Math.abs(line.net), '')}
                                 </td>
                               </tr>
                             ))}
                           </tbody>
                           <tfoot>
-                            <tr className="bg-sage-50/80 font-bold">
-                              <td colSpan={3} className="px-4 py-3 text-right text-sm">
+                            <tr className="bg-canvas-sunken/80 font-bold">
+                              <td colSpan={3} className="px-4 py-3 text-start text-sm">
                                 الإجمالي
                               </td>
-                              <td className="px-4 py-3 text-left font-mono tabular-nums text-emerald-800">
+                              <td className="px-4 py-3 text-end font-mono tabular-nums text-success-ink">
                                 {formatMoney(displayModel.totalDebit, '')}
                               </td>
-                              <td className="px-4 py-3 text-left font-mono tabular-nums text-red-700">
+                              <td className="px-4 py-3 text-end font-mono tabular-nums text-danger-ink">
                                 {formatMoney(displayModel.totalCredit, '')}
                               </td>
-                              <td className="px-4 py-3 text-left font-mono tabular-nums">
+                              <td className="px-4 py-3 text-end font-mono tabular-nums">
                                 {formatMoney(
                                   Math.abs(
                                     displayModel.totalDebit - displayModel.totalCredit,
@@ -1316,7 +1316,7 @@ function JournalMonthContent() {
                       return (
                         <Card
                           key={section.sectionKey}
-                          className="border-sage-600/30 overflow-hidden"
+                          className="border-ink-soft/30 overflow-hidden"
                         >
                           <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 border-b pb-3 bg-muted/20">
                             <div>
@@ -1339,15 +1339,15 @@ function JournalMonthContent() {
                               <table className="w-full text-sm">
                                 <thead>
                                   <tr className="border-b bg-muted/40 text-muted-foreground">
-                                    <th className="px-4 py-2.5 text-right font-medium">الرمز</th>
-                                    <th className="px-4 py-2.5 text-right font-medium">الطرف / الحساب</th>
-                                    <th className="px-4 py-2.5 text-right font-medium">الدور المحاسبي</th>
-                                    <th className="px-4 py-2.5 text-left font-medium">مدين</th>
-                                    <th className="px-4 py-2.5 text-left font-medium">دائن</th>
+                                    <th className="px-4 py-2.5 text-start font-medium">الرمز</th>
+                                    <th className="px-4 py-2.5 text-start font-medium">الطرف / الحساب</th>
+                                    <th className="px-4 py-2.5 text-start font-medium">الدور المحاسبي</th>
+                                    <th className="px-4 py-2.5 text-end font-medium">مدين</th>
+                                    <th className="px-4 py-2.5 text-end font-medium">دائن</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  <tr className="border-b bg-sage-50/40">
+                                  <tr className="border-b bg-canvas-sunken/40">
                                     <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
                                       {focusLine.category_code || '—'}
                                     </td>
@@ -1357,10 +1357,10 @@ function JournalMonthContent() {
                                     <td className="px-4 py-2.5 text-xs text-muted-foreground">
                                       {display.headerFocusLabel}
                                     </td>
-                                    <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
+                                    <td className="px-4 py-2.5 text-end font-mono tabular-nums text-success-ink font-semibold">
                                       {formatMoney(focusLine.debit, '')}
                                     </td>
-                                    <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
+                                    <td className="px-4 py-2.5 text-end font-mono tabular-nums text-danger font-semibold">
                                       {formatMoney(focusLine.credit, '')}
                                     </td>
                                   </tr>
@@ -1382,24 +1382,24 @@ function JournalMonthContent() {
                                             ? `دائن ${cl.cashbox_name || cl.category_name}`
                                             : 'طرف مقابل'}
                                       </td>
-                                      <td className="px-4 py-2.5 text-left font-mono tabular-nums text-emerald-700 font-semibold">
+                                      <td className="px-4 py-2.5 text-end font-mono tabular-nums text-success-ink font-semibold">
                                         {formatMoney(cl.debit, '')}
                                       </td>
-                                      <td className="px-4 py-2.5 text-left font-mono tabular-nums text-red-600 font-semibold">
+                                      <td className="px-4 py-2.5 text-end font-mono tabular-nums text-danger font-semibold">
                                         {formatMoney(cl.credit, '')}
                                       </td>
                                     </tr>
                                   ))}
                                 </tbody>
                                 <tfoot>
-                                  <tr className="bg-sage-50/80 font-bold">
-                                    <td colSpan={3} className="px-4 py-3 text-right text-sm">
+                                  <tr className="bg-canvas-sunken/80 font-bold">
+                                    <td colSpan={3} className="px-4 py-3 text-start text-sm">
                                       {balanced ? 'مجموع القيد — مدين = دائن' : 'مجموع القيد — فرق'}
                                     </td>
-                                    <td className="px-4 py-3 text-left font-mono tabular-nums text-emerald-800">
+                                    <td className="px-4 py-3 text-end font-mono tabular-nums text-success-ink">
                                       {formatMoney(totalDebit, '')}
                                     </td>
-                                    <td className="px-4 py-3 text-left font-mono tabular-nums text-red-700">
+                                    <td className="px-4 py-3 text-end font-mono tabular-nums text-danger-ink">
                                       {formatMoney(totalCredit, '')}
                                     </td>
                                   </tr>

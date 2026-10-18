@@ -119,7 +119,7 @@ function LoginCard() {
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">كلمة المرور</Label>
-              <Link href="/login/forgot-password" className="text-[12px] text-sage-700 hover:underline">
+              <Link href="/login/forgot-password" className="text-[12px] text-foreground hover:underline">
                 نسيت كلمة المرور؟
               </Link>
             </div>
@@ -170,7 +170,7 @@ function LoginCard() {
             href={BRAND.socials.facebook}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 text-[12px] text-ink-mute transition-colors duration-150 hover:text-sage-700"
+            className="inline-flex items-center justify-center gap-1.5 text-[12px] text-ink-mute transition-colors duration-150 hover:text-foreground"
           >
             <Facebook className="h-3.5 w-3.5 stroke-[1.6]" />
             تابعنا على فيسبوك

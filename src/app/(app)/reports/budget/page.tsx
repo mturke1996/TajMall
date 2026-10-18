@@ -84,7 +84,7 @@ export default function BudgetPage() {
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center justify-between text-base font-bold">
             <span>{title}</span>
-            <span className={cn('font-mono text-sm', tone === 'emerald' ? 'text-emerald-700' : 'text-red-700')}>
+            <span className={cn('font-mono text-sm', tone === 'emerald' ? 'text-success-ink' : 'text-danger-ink')}>
               فعلي {formatMoney(t.actual, 'LYD')} / موازنة {formatMoney(t.budgeted, 'LYD')}
             </span>
           </CardTitle>
@@ -110,13 +110,12 @@ export default function BudgetPage() {
                       <span
                         className={cn(
                           'shrink-0 font-mono text-[12px] font-semibold',
-                          isOverBudget ? 'text-red-700' : 'text-emerald-700',
+                          isOverBudget ? 'text-danger-ink' : 'text-success-ink',
                         )}
                       >
-                        {variance >= 0 ? '+' : ''}
-                        {formatMoney(variance, '')}
+                        {formatMoney(variance, '', { signed: true })}
                         {pct !== null && (
-                          <span className="ml-1 text-ink-mute">· {pct.toFixed(0)}%</span>
+                          <span className="me-1 text-ink-mute">· {pct.toFixed(0)}%</span>
                         )}
                       </span>
                     </div>
@@ -149,7 +148,7 @@ export default function BudgetPage() {
                             <button
                               type="button"
                               onClick={() => startEdit(cat.id, budgeted)}
-                              className="mt-0.5 inline-flex items-center gap-1.5 font-mono text-[14px] font-semibold hover:text-sage-700 touch-manipulation"
+                              className="mt-0.5 inline-flex items-center gap-1.5 font-mono text-[14px] font-semibold hover:text-foreground touch-manipulation"
                             >
                               {formatMoney(budgeted, '')}
                               <Pencil className="h-3.5 w-3.5 text-ink-mute" />
@@ -178,11 +177,11 @@ export default function BudgetPage() {
             <table className="w-full min-w-[560px] text-[13px]">
               <thead>
                 <tr className="border-b border-border text-ink-mute">
-                  <th className="py-2 text-right font-semibold">البند</th>
-                  <th className="py-2 text-left font-semibold">الموازنة</th>
-                  <th className="py-2 text-left font-semibold">الفعلي</th>
-                  <th className="py-2 text-left font-semibold">الفارق</th>
-                  <th className="py-2 text-left font-semibold">النسبة</th>
+                  <th className="py-2 text-start font-semibold">البند</th>
+                  <th className="py-2 text-end font-semibold">الموازنة</th>
+                  <th className="py-2 text-end font-semibold">الفعلي</th>
+                  <th className="py-2 text-end font-semibold">الفارق</th>
+                  <th className="py-2 text-end font-semibold">النسبة</th>
                 </tr>
               </thead>
               <tbody>
@@ -191,7 +190,7 @@ export default function BudgetPage() {
                   return (
                     <tr key={cat.id} className="border-b border-border/60 last:border-0">
                       <td className="py-2.5 font-medium">{cat.name_ar}</td>
-                      <td className="py-2.5 text-left font-mono">
+                      <td className="py-2.5 text-end font-mono">
                         {periodType === 'MONTH' && canManage ? (
                           editingId === cat.id ? (
                             <div className="flex items-center gap-1">
@@ -213,7 +212,7 @@ export default function BudgetPage() {
                             <button
                               type="button"
                               onClick={() => startEdit(cat.id, budgeted)}
-                              className="group inline-flex items-center gap-1 hover:text-sage-700"
+                              className="group inline-flex items-center gap-1 hover:text-foreground"
                             >
                               {formatMoney(budgeted, '')}
                               <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100" />
@@ -223,17 +222,16 @@ export default function BudgetPage() {
                           formatMoney(budgeted, '')
                         )}
                       </td>
-                      <td className="py-2.5 text-left font-mono">{formatMoney(actual, '')}</td>
+                      <td className="py-2.5 text-end font-mono">{formatMoney(actual, '')}</td>
                       <td
                         className={cn(
-                          'py-2.5 text-left font-mono font-semibold',
-                          isOverBudget ? 'text-red-700' : 'text-emerald-700',
+                          'py-2.5 text-end font-mono font-semibold',
+                          isOverBudget ? 'text-danger-ink' : 'text-success-ink',
                         )}
                       >
-                        {variance >= 0 ? '+' : ''}
-                        {formatMoney(variance, '')}
+                        {formatMoney(variance, '', { signed: true })}
                       </td>
-                      <td className="py-2.5 text-left font-mono text-ink-mute">
+                      <td className="py-2.5 text-end font-mono text-ink-mute">
                         {pct !== null ? `${pct.toFixed(0)}%` : '—'}
                       </td>
                     </tr>
@@ -276,7 +274,7 @@ export default function BudgetPage() {
                   type="button"
                   variant={periodType === p ? 'default' : 'outline'}
                   size="sm"
-                  className={cn('min-h-10 touch-manipulation', periodType === p && 'bg-sage-700 hover:bg-sage-800')}
+                  className={cn('min-h-10 touch-manipulation', periodType === p && 'bg-foreground hover:bg-foreground')}
                   onClick={() => setPeriodType(p)}
                 >
                   {p === 'MONTH' ? 'شهري' : 'سنوي'}
@@ -294,7 +292,7 @@ export default function BudgetPage() {
                   className={cn(
                     'min-h-9 rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-colors touch-manipulation',
                     month === i + 1
-                      ? 'bg-sage-800 text-white'
+                      ? 'bg-foreground text-background'
                       : 'bg-canvas-sunken text-ink-mute hover:text-foreground',
                   )}
                 >

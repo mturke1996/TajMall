@@ -28,7 +28,7 @@ export function PageHeader({
       <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {eyebrow && (
-            <span className="text-[10.5px] font-semibold uppercase tracking-[0.20em] text-muted-foreground break-words">
+            <span className="text-[10.5px] font-semibold text-muted-foreground break-words">
               {eyebrow}
             </span>
           )}

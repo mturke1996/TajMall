@@ -67,23 +67,23 @@ const STATUS_CONFIG: Record<JournalStatus, {
   POSTED: {
     label: 'مرحل',
     icon: CheckCircle2,
-    color: 'text-green-600',
-    bg: 'bg-green-50',
-    border: 'border-green-200',
+    color: 'text-success',
+    bg: 'bg-success-soft',
+    border: 'border-success-line',
   },
   DRAFT: {
     label: 'مسودة',
     icon: Clock,
-    color: 'text-yellow-600',
-    bg: 'bg-yellow-50',
-    border: 'border-yellow-200',
+    color: 'text-warning',
+    bg: 'bg-warning-soft',
+    border: 'border-warning-line',
   },
   REVERSED: {
     label: 'معكوس',
     icon: RotateCcw,
-    color: 'text-red-600',
-    bg: 'bg-red-50',
-    border: 'border-red-200',
+    color: 'text-danger',
+    bg: 'bg-danger-soft',
+    border: 'border-danger-line',
   },
 };
 
@@ -92,7 +92,7 @@ export default function JournalsPage() {
     <Suspense
       fallback={
         <div className="flex h-48 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-sage-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-ink-soft" />
         </div>
       }
     >
@@ -187,32 +187,32 @@ function JournalsPageInner() {
         label: 'إجمالي القيود',
         value: summary.total_entries,
         icon: BookOpen,
-        color: 'bg-slate-100 text-slate-600',
+        color: 'bg-muted text-ink-soft',
       },
       {
         label: 'قيود مرحلة',
         value: summary.posted_entries,
         icon: CheckCircle2,
-        color: 'bg-green-100 text-green-600',
+        color: 'bg-success-soft text-success',
       },
       {
         label: 'مسودات',
         value: summary.draft_entries,
         icon: Clock,
-        color: 'bg-yellow-100 text-yellow-600',
+        color: 'bg-warning-soft text-warning',
       },
       {
         label: 'إجمالي مدين',
         value: formatMoney(Number(summary.total_debit), 'LYD'),
         icon: FileText,
-        color: 'bg-emerald-100 text-emerald-700',
+        color: 'bg-success-soft text-success-ink',
         isCurrency: true,
       },
       {
         label: 'إجمالي دائن',
         value: formatMoney(Number(summary.total_credit), 'LYD'),
         icon: FileText,
-        color: 'bg-rose-100 text-rose-700',
+        color: 'bg-danger-soft text-danger-ink',
         isCurrency: true,
       },
     ];
@@ -356,15 +356,15 @@ function JournalsPageInner() {
         )}
       >
         {!permLoading && !can('journal.view') && (
-          <Card className="border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <Card className="border-warning-line bg-warning-soft p-4 text-sm text-warning-ink">
             ليس لديك صلاحية عرض دفتر اليومية. تواصل مع المسؤول لتفعيل صلاحية journal.view.
           </Card>
         )}
 
         {(entriesQueryError || summaryQueryError) && (
-          <Card className="border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+          <Card className="border border-danger-line bg-danger-soft p-4 text-sm text-danger-ink">
             <p className="font-semibold">تعذّر تحميل بيانات دفتر اليومية</p>
-            <p className="mt-2 text-red-800/90 leading-relaxed">
+            <p className="mt-2 text-danger-ink/90 leading-relaxed">
               {(entriesQueryErr as Error)?.message ??
                 (summaryQueryErr as Error)?.message ??
                 'طبّق هجرات Supabase بالترتيب: 007 ثم 012 ثم 015–017 (خصوصاً 017_fix_journal_rpc_and_ledger.sql) ثم أعد تحميل الصفحة.'}
@@ -396,12 +396,12 @@ function JournalsPageInner() {
         {/* Search + status chips (always visible on mobile) */}
         <div className="flex flex-col gap-3">
           <div className="relative">
-            <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+            <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
             <Input
               placeholder="بحث: رقم، مرجع، وصف..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pr-10 h-11 touch-manipulation"
+              className="ps-10 h-11 touch-manipulation"
             />
           </div>
           <div className="flex gap-1.5 overflow-x-auto pb-1 snap-x snap-mandatory scroll-smooth-touch">
@@ -410,7 +410,7 @@ function JournalsPageInner() {
               onClick={() => setStatusFilter('ALL')}
               className={cn(
                 'snap-center px-3 py-2.5 text-sm rounded-lg whitespace-nowrap flex items-center gap-1.5 touch-manipulation min-h-11',
-                statusFilter === 'ALL' ? 'bg-sage-700 text-white' : 'bg-canvas-sunken',
+                statusFilter === 'ALL' ? 'bg-foreground text-background' : 'bg-canvas-sunken',
               )}
             >
               <Filter className="h-3.5 w-3.5" />
@@ -425,7 +425,7 @@ function JournalsPageInner() {
                   onClick={() => setStatusFilter(status)}
                   className={cn(
                     'snap-center px-3 py-2.5 text-sm rounded-lg whitespace-nowrap flex items-center gap-1.5 touch-manipulation min-h-11',
-                    statusFilter === status ? 'bg-sage-700 text-white' : 'bg-canvas-sunken',
+                    statusFilter === status ? 'bg-foreground text-background' : 'bg-canvas-sunken',
                   )}
                 >
                   <config.icon className="h-3.5 w-3.5" />
@@ -486,7 +486,7 @@ function JournalsPageInner() {
         {/* Entries List */}
         {isLoadingEntries ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-sage-600" />
+            <Loader2 className="h-8 w-8 animate-spin text-ink-soft" />
           </div>
         ) : filteredEntries.length === 0 ? (
           <Card className="p-8 text-center">
@@ -496,7 +496,7 @@ function JournalsPageInner() {
               ابدأ بإنشاء قيد محاسبي جديد لتسجيل معاملة مزدوجة
             </p>
             <Button className="mt-4" onClick={() => setIsCreateOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" />
+              <Plus className="h-4 w-4 ms-1" />
               إنشاء قيد
             </Button>
           </Card>
@@ -514,7 +514,7 @@ function JournalsPageInner() {
                   id={`journal-entry-${entry.id}`}
                   className={cn(
                     'overflow-hidden transition-shadow',
-                    highlightId === entry.id && 'ring-2 ring-sage-600 shadow-md',
+                    highlightId === entry.id && 'ring-2 ring-ink-soft shadow-md',
                   )}
                 >
                   {/* Header */}
@@ -534,7 +534,7 @@ function JournalsPageInner() {
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium">قيد #{entry.number}</span>
                             {entry.reference && (
-                              <span className="font-mono text-xs text-sage-800 bg-sage-50 border border-sage-200 rounded px-1.5 py-0.5 truncate max-w-[140px] sm:max-w-none">
+                              <span className="font-mono text-xs text-foreground bg-canvas-sunken border border-border rounded px-1.5 py-0.5 truncate max-w-[140px] sm:max-w-none">
                                 {entry.reference}
                               </span>
                             )}
@@ -563,14 +563,14 @@ function JournalsPageInner() {
                         <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
                           <div className="grid grid-cols-2 gap-3 text-start sm:text-left" dir="ltr">
                             <div>
-                              <p className="text-[10px] text-emerald-800">مدين</p>
-                              <p className="font-mono text-sm font-semibold tabular-nums text-emerald-800">
+                              <p className="text-[10px] text-success-ink">مدين</p>
+                              <p className="font-mono text-sm font-semibold tabular-nums text-success-ink">
                                 {formatMoney(Number(entry.total_debit), 'LYD')}
                               </p>
                             </div>
                             <div>
-                              <p className="text-[10px] text-rose-800">دائن</p>
-                              <p className="font-mono text-sm font-semibold tabular-nums text-rose-800">
+                              <p className="text-[10px] text-danger-ink">دائن</p>
+                              <p className="font-mono text-sm font-semibold tabular-nums text-danger-ink">
                                 {formatMoney(Number(entry.total_credit), 'LYD')}
                               </p>
                             </div>
@@ -701,7 +701,7 @@ function JournalsPageInner() {
                                 });
                               }}
                               disabled={deleteEntry.isPending}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-1.5 h-11 col-span-2 sm:col-span-1 touch-manipulation"
+                              className="text-danger hover:text-danger-ink hover:bg-danger-soft gap-1.5 h-11 col-span-2 sm:col-span-1 touch-manipulation"
                             >
                               {deleteEntry.isPending ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -757,7 +757,7 @@ function JournalsPageInner() {
                                 });
                               }}
                               disabled={reverseEntry.isPending}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-1.5 h-11 touch-manipulation"
+                              className="text-danger hover:text-danger-ink hover:bg-danger-soft gap-1.5 h-11 touch-manipulation"
                             >
                               {reverseEntry.isPending ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -835,7 +835,7 @@ function JournalsPageInner() {
         <Button
           size="lg"
           onClick={() => setIsCreateOpen(true)}
-          className="fixed z-40 h-14 w-14 rounded-full shadow-lg bg-sage-700 hover:bg-sage-800 text-white sm:hidden p-0 touch-manipulation left-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))]"
+          className="fixed z-40 h-14 w-14 rounded-full shadow-lg bg-foreground hover:bg-foreground text-background sm:hidden p-0 touch-manipulation end-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))]"
           aria-label="قيد جديد"
         >
           <Plus className="h-6 w-6" />
@@ -867,7 +867,7 @@ function JournalCardLines({ entryId }: { entryId: string }) {
   if (isLoading) {
     return (
       <div className="flex justify-center py-4">
-        <Loader2 className="h-5 w-5 animate-spin text-sage-600" />
+        <Loader2 className="h-5 w-5 animate-spin text-ink-soft" />
       </div>
     );
   }

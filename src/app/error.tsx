@@ -21,7 +21,7 @@ export default function RootError({
     >
       <div className="flex w-full max-w-md flex-col items-center gap-5 text-center">
         <span className="flex h-14 w-14 items-center justify-center rounded-full border border-border bg-card">
-          <AlertTriangle className="h-6 w-6 text-rose-600" strokeWidth={2} />
+          <AlertTriangle className="h-6 w-6 text-danger" strokeWidth={2} />
         </span>
 
         <div className="space-y-1.5">

@@ -26,23 +26,23 @@ const STATUS_CONFIG = {
   POSTED: {
     label: 'مرحل',
     icon: CheckCircle2,
-    color: 'text-green-600',
-    bg: 'bg-green-50',
-    border: 'border-green-200',
+    color: 'text-success',
+    bg: 'bg-success-soft',
+    border: 'border-success-line',
   },
   DRAFT: {
     label: 'مسودة',
     icon: Clock,
-    color: 'text-yellow-600',
-    bg: 'bg-yellow-50',
-    border: 'border-yellow-200',
+    color: 'text-warning',
+    bg: 'bg-warning-soft',
+    border: 'border-warning-line',
   },
   REVERSED: {
     label: 'معكوس',
     icon: RotateCcw,
-    color: 'text-red-600',
-    bg: 'bg-red-50',
-    border: 'border-red-200',
+    color: 'text-danger',
+    bg: 'bg-danger-soft',
+    border: 'border-danger-line',
   },
 };
 
@@ -69,7 +69,7 @@ export function JournalDetailDialog({
         className={cn(
           'absolute inset-0 flex flex-col bg-card sm:inset-x-4 sm:inset-y-auto',
           'sm:top-1/2 sm:left-1/2 sm:right-auto sm:bottom-auto sm:max-h-[90dvh] sm:w-[calc(100%-2rem)] sm:max-w-3xl',
-          'sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:shadow-xl',
+          'sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:shadow-lift',
         )}
         role="dialog"
         aria-modal
@@ -78,11 +78,11 @@ export function JournalDetailDialog({
           className="flex shrink-0 items-center gap-3 border-b px-4 py-3"
           style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
         >
-          <FileText className="h-5 w-5 text-sage-700 shrink-0" />
+          <FileText className="h-5 w-5 text-foreground shrink-0" />
           <div className="min-w-0 flex-1">
             <h2 className="font-semibold text-base truncate">تفاصيل القيد #{entry.number}</h2>
             {entry.reference && (
-              <p className="font-mono text-xs text-sage-800 truncate">{entry.reference}</p>
+              <p className="font-mono text-xs text-foreground truncate">{entry.reference}</p>
             )}
           </div>
           <button
@@ -128,15 +128,15 @@ export function JournalDetailDialog({
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-3 border-t pt-3" dir="ltr">
-              <div className="rounded-lg bg-emerald-50 px-3 py-2 text-start">
-                <p className="text-[10px] font-medium text-emerald-800">إجمالي المدين</p>
-                <p className="font-mono text-lg font-bold tabular-nums text-emerald-900">
+              <div className="rounded-lg bg-success-soft px-3 py-2 text-start">
+                <p className="text-[10px] font-medium text-success-ink">إجمالي المدين</p>
+                <p className="font-mono text-lg font-bold tabular-nums text-success-ink">
                   {formatMoney(Number(entry.total_debit), 'LYD')}
                 </p>
               </div>
-              <div className="rounded-lg bg-rose-50 px-3 py-2 text-start">
-                <p className="text-[10px] font-medium text-rose-800">إجمالي الدائن</p>
-                <p className="font-mono text-lg font-bold tabular-nums text-rose-900">
+              <div className="rounded-lg bg-danger-soft px-3 py-2 text-start">
+                <p className="text-[10px] font-medium text-danger-ink">إجمالي الدائن</p>
+                <p className="font-mono text-lg font-bold tabular-nums text-danger-ink">
                   {formatMoney(Number(entry.total_credit), 'LYD')}
                 </p>
               </div>
@@ -153,7 +153,7 @@ export function JournalDetailDialog({
           <Card className="overflow-hidden p-3 sm:p-4">
             {isLoading ? (
               <div className="flex justify-center py-10">
-                <Loader2 className="h-6 w-6 animate-spin text-sage-600" />
+                <Loader2 className="h-6 w-6 animate-spin text-ink-soft" />
               </div>
             ) : (
               <JournalVoucherTable

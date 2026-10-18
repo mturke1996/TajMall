@@ -186,8 +186,8 @@ function TrialBalanceContent() {
                 className={cn(
                   'flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shrink-0',
                   isBalanced
-                    ? 'bg-green-50 border-green-200 text-green-800'
-                    : 'bg-red-50 border-red-200 text-red-800',
+                    ? 'bg-success-soft border-success-line text-success-ink'
+                    : 'bg-danger-soft border-danger-line text-danger-ink',
                 )}
               >
                 {isBalanced ? (
@@ -212,33 +212,33 @@ function TrialBalanceContent() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:hidden">
             <Card className="p-3">
               <p className="text-[10px] text-muted-foreground">إجمالي افتتاحي مدين</p>
-              <p className="font-mono text-sm font-bold text-emerald-800 mt-0.5">
+              <p className="font-mono text-sm font-bold text-success-ink mt-0.5">
                 {formatMoney(summary.total_opening_debit, 'LYD')}
               </p>
             </Card>
             <Card className="p-3">
               <p className="text-[10px] text-muted-foreground">إجمالي افتتاحي دائن</p>
-              <p className="font-mono text-sm font-bold text-red-700 mt-0.5">
+              <p className="font-mono text-sm font-bold text-danger-ink mt-0.5">
                 {formatMoney(summary.total_opening_credit, 'LYD')}
               </p>
             </Card>
             <Card className="p-3 col-span-2 sm:col-span-1">
               <p className="text-[10px] text-muted-foreground">حركة الفترة (مدين / دائن)</p>
               <p className="font-mono text-sm font-bold mt-0.5">
-                <span className="text-emerald-800">{formatMoney(summary.total_period_debit, '')}</span>
+                <span className="text-success-ink">{formatMoney(summary.total_period_debit, '')}</span>
                 {' / '}
-                <span className="text-red-700">{formatMoney(summary.total_period_credit, '')}</span>
+                <span className="text-danger-ink">{formatMoney(summary.total_period_credit, '')}</span>
               </p>
             </Card>
             <Card className="p-3">
               <p className="text-[10px] text-muted-foreground">إجمالي ختامي مدين</p>
-              <p className="font-mono text-sm font-bold text-emerald-800 mt-0.5">
+              <p className="font-mono text-sm font-bold text-success-ink mt-0.5">
                 {formatMoney(summary.total_closing_debit, 'LYD')}
               </p>
             </Card>
             <Card className="p-3">
               <p className="text-[10px] text-muted-foreground">إجمالي ختامي دائن</p>
-              <p className="font-mono text-sm font-bold text-red-700 mt-0.5">
+              <p className="font-mono text-sm font-bold text-danger-ink mt-0.5">
                 {formatMoney(summary.total_closing_credit, 'LYD')}
               </p>
             </Card>
@@ -247,7 +247,7 @@ function TrialBalanceContent() {
               <p
                 className={cn(
                   'text-sm font-bold mt-0.5',
-                  isBalanced ? 'text-emerald-700' : 'text-red-700',
+                  isBalanced ? 'text-success-ink' : 'text-danger-ink',
                 )}
               >
                 {isBalanced ? 'متوازن' : 'غير متوازن'}

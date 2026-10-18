@@ -68,31 +68,40 @@ export function preferredCashboxId<T extends { id: string; kind: string; code?: 
   return (cash ?? boxes[0]).id;
 }
 
+/** Currency codes shown to people in Arabic; other codes are shown as they are. */
+const CURRENCY_LABEL: Record<string, string> = { LYD: 'د.ل' };
+
+const compactFormatter = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  compactDisplay: 'short',
+  maximumFractionDigits: 1,
+});
+const fullFormatter = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 3,
+});
+
+/**
+ * "1,250.5 د.ل" — the number, then the currency, the same order as the PDFs.
+ * The result is wrapped in a left-to-right isolate (U+2066 … U+2069) so the sign, digits and
+ * currency keep their order inside Arabic sentences and right-aligned cells; without it the
+ * browser moved the currency to the other side of the number in some places and not others.
+ * Pass `signed` to show + / − (inside the isolate); otherwise the absolute value is shown.
+ */
 export function formatMoney(
   amount: number | string | bigint,
   currency: string = 'LYD',
   options?: { compact?: boolean; signed?: boolean },
 ) {
+  const label = CURRENCY_LABEL[currency] ?? currency;
+  const unit = label ? ` ${label}` : '';
   const n = typeof amount === 'string' ? Number(amount) : Number(amount);
-  if (!Number.isFinite(n)) return `0 ${currency}`;
+  if (!Number.isFinite(n)) return `⁦0${unit}⁩`;
 
   const sign = options?.signed ? (n > 0 ? '+' : n < 0 ? '−' : '') : '';
   const abs = Math.abs(n);
-
-  if (options?.compact && abs >= 1000) {
-    const formatter = new Intl.NumberFormat('en-US', {
-      notation: 'compact',
-      compactDisplay: 'short',
-      maximumFractionDigits: 1,
-    });
-    return `${sign}${formatter.format(abs)} ${currency}`;
-  }
-
-  const formatter = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 3,
-  });
-  return `${sign}${formatter.format(abs)} ${currency}`;
+  const digits = options?.compact && abs >= 1000 ? compactFormatter.format(abs) : fullFormatter.format(abs);
+  return `⁦${sign}${digits}${unit}⁩`;
 }
 
 export function formatNumber(n: number | string, fractionDigits: number = 0) {

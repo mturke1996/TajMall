@@ -72,7 +72,7 @@ export function MobileNav({
                     <Icon
                       className={cn(
                         "h-[17px] w-[17px]",
-                        active ? "text-sage-700" : "text-ink-mute",
+                        active ? "text-foreground" : "text-ink-mute",
                       )}
                     />
                     <span>{item.labelAr}</span>

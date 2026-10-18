@@ -90,7 +90,7 @@ export function CommandPalette({
               {can('voucher.create') && (
                 <Item
                   onSelect={() => go("/vouchers/new")}
-                  icon={<Plus className="text-sage-700" />}
+                  icon={<Plus className="text-foreground" />}
                   label="إذن صرف جديد"
                 />
               )}

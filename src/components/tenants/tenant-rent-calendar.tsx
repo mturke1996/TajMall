@@ -29,7 +29,7 @@ export function TenantRentCalendar({
   if (isLoading) {
     return (
       <div className="flex justify-center py-6">
-        <Loader2 className="h-6 w-6 animate-spin text-sage-600" />
+        <Loader2 className="h-6 w-6 animate-spin text-ink-soft" />
       </div>
     );
   }

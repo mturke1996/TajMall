@@ -40,8 +40,8 @@ function MoneyCell({
       className={cn(
         'text-left font-mono tabular-nums whitespace-nowrap',
         density === 'compact' ? 'px-2 py-1.5 text-[12px]' : 'px-3 py-2.5 text-[13px]',
-        !empty && side === 'debit' && 'text-emerald-800',
-        !empty && side === 'credit' && 'text-rose-800',
+        !empty && side === 'debit' && 'text-success-ink',
+        !empty && side === 'credit' && 'text-danger-ink',
         empty && 'text-ink-mute/50',
       )}
       dir="ltr"
@@ -102,7 +102,7 @@ export function JournalVoucherTable({
       <div className="overflow-x-auto rounded-lg border border-border bg-background">
         <table className="w-full min-w-[560px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-ink-mute">
+            <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold text-ink-mute">
               <th
                 className={cn(
                   'text-start font-semibold',
@@ -121,7 +121,7 @@ export function JournalVoucherTable({
               </th>
               <th
                 className={cn(
-                  'text-left font-semibold text-emerald-800',
+                  'text-end font-semibold text-success-ink',
                   density === 'compact' ? 'px-2 py-1.5' : 'px-3 py-2',
                 )}
               >
@@ -129,7 +129,7 @@ export function JournalVoucherTable({
               </th>
               <th
                 className={cn(
-                  'text-left font-semibold text-rose-800',
+                  'text-end font-semibold text-danger-ink',
                   density === 'compact' ? 'px-2 py-1.5' : 'px-3 py-2',
                 )}
               >
@@ -138,7 +138,7 @@ export function JournalVoucherTable({
               {withBalance && (
                 <th
                   className={cn(
-                    'text-left font-semibold',
+                    'text-end font-semibold',
                     density === 'compact' ? 'px-2 py-1.5' : 'px-3 py-2',
                   )}
                 >
@@ -208,8 +208,8 @@ export function JournalVoucherTable({
               className={cn(
                 'border-t-2 font-semibold',
                 balanced
-                  ? 'border-emerald-600/40 bg-emerald-50/50'
-                  : 'border-rose-600/40 bg-rose-50/50',
+                  ? 'border-success/40 bg-success-soft/50'
+                  : 'border-danger/40 bg-danger-soft/50',
               )}
             >
               <td
@@ -221,14 +221,14 @@ export function JournalVoucherTable({
               >
                 الإجمالي
                 {!balanced && (
-                  <span className="ms-2 text-[11px] font-normal text-rose-700">
+                  <span className="ms-2 text-[11px] font-normal text-danger-ink">
                     (المدين ≠ الدائن)
                   </span>
                 )}
               </td>
               <td
                 className={cn(
-                  'text-left font-mono tabular-nums text-emerald-900',
+                  'text-left font-mono tabular-nums text-success-ink',
                   density === 'compact' ? 'px-2 py-2 text-[12px]' : 'px-3 py-2.5 text-[13px]',
                 )}
                 dir="ltr"
@@ -237,7 +237,7 @@ export function JournalVoucherTable({
               </td>
               <td
                 className={cn(
-                  'text-left font-mono tabular-nums text-rose-900',
+                  'text-left font-mono tabular-nums text-danger-ink',
                   density === 'compact' ? 'px-2 py-2 text-[12px]' : 'px-3 py-2.5 text-[13px]',
                 )}
                 dir="ltr"
@@ -247,7 +247,7 @@ export function JournalVoucherTable({
               {withBalance && (
                 <td
                   className={cn(
-                    'text-left text-ink-mute',
+                    'text-end text-ink-mute',
                     density === 'compact' ? 'px-2 py-2 text-[12px]' : 'px-3 py-2.5 text-[13px]',
                   )}
                 >

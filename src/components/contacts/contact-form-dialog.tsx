@@ -54,72 +54,72 @@ export const ROLE_OPTIONS: Array<{
     label: 'مستأجر محل بالمول',
     badge: 'مستأجر محل',
     icon: Building2,
-    color: 'text-emerald-700 dark:text-emerald-300',
-    bg: 'bg-emerald-50 dark:bg-emerald-950/40',
-    border: 'border-emerald-300 dark:border-emerald-800',
+    color: 'text-success-ink',
+    bg: 'bg-success-soft',
+    border: 'border-success-line',
   },
   {
     value: 'LANDLORD',
     label: 'مؤجر للمول (المول مستأجر منه)',
     badge: 'مؤجر للمول',
     icon: Building,
-    color: 'text-amber-700 dark:text-amber-300',
-    bg: 'bg-amber-50 dark:bg-amber-950/40',
-    border: 'border-amber-300 dark:border-amber-800',
+    color: 'text-warning-ink',
+    bg: 'bg-warning-soft',
+    border: 'border-warning-line',
   },
   {
     value: 'SUPPLIER_ELECTRICITY',
     label: 'مورّد كهرباء وطاقة / محروقات',
     badge: 'توريد كهرباء',
     icon: Zap,
-    color: 'text-yellow-700 dark:text-yellow-300',
-    bg: 'bg-yellow-50 dark:bg-yellow-950/40',
-    border: 'border-yellow-300 dark:border-yellow-800',
+    color: 'text-warning-ink',
+    bg: 'bg-warning-soft',
+    border: 'border-warning-line',
   },
   {
     value: 'SUPPLIER_WATER',
     label: 'مورّد مياه وصرف صحي',
     badge: 'توريد مياه',
     icon: Droplets,
-    color: 'text-sky-700 dark:text-sky-300',
-    bg: 'bg-sky-50 dark:bg-sky-950/40',
-    border: 'border-sky-300 dark:border-sky-800',
+    color: 'text-info-ink',
+    bg: 'bg-info-soft',
+    border: 'border-info-line',
   },
   {
     value: 'SUPPLIER_GOODS',
     label: 'مورّد بضاعة ومواد تشغيل',
     badge: 'توريد بضاعة',
     icon: Package,
-    color: 'text-indigo-700 dark:text-indigo-300',
-    bg: 'bg-indigo-50 dark:bg-indigo-950/40',
-    border: 'border-indigo-300 dark:border-indigo-800',
+    color: 'text-info-ink',
+    bg: 'bg-info-soft',
+    border: 'border-info-line',
   },
   {
     value: 'SERVICE_PROVIDER',
     label: 'مقدّم خدمات ومقاولات وصيانة',
     badge: 'خدمات ومقاولات',
     icon: Wrench,
-    color: 'text-cyan-700 dark:text-cyan-300',
-    bg: 'bg-cyan-50 dark:bg-cyan-950/40',
-    border: 'border-cyan-300 dark:border-cyan-800',
+    color: 'text-info-ink',
+    bg: 'bg-info-soft',
+    border: 'border-info-line',
   },
   {
     value: 'EMPLOYEE',
     label: 'موظف / كادر إداري',
     badge: 'موظف',
     icon: Briefcase,
-    color: 'text-purple-700 dark:text-purple-300',
-    bg: 'bg-purple-50 dark:bg-purple-950/40',
-    border: 'border-purple-300 dark:border-purple-800',
+    color: 'text-plum-ink',
+    bg: 'bg-plum-soft',
+    border: 'border-plum-line',
   },
   {
     value: 'CUSTOMER',
     label: 'عميل عام / مستفيد',
     badge: 'عميل عام',
     icon: User,
-    color: 'text-teal-700 dark:text-teal-300',
-    bg: 'bg-teal-50 dark:bg-teal-950/40',
-    border: 'border-teal-300 dark:border-teal-800',
+    color: 'text-success-ink',
+    bg: 'bg-success-soft',
+    border: 'border-success-line',
   },
 ];
 
@@ -206,7 +206,7 @@ export function ContactFormDialog({
                 نوع ودور جهة التعامل *
               </Label>
               {editingId && (
-                <span className="text-[10px] font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                <span className="text-[10px] font-semibold text-success-ink bg-success-soft px-2 py-0.5 rounded-full border border-success-line">
                   قابلة للتغيير والتحويل
                 </span>
               )}
@@ -222,7 +222,7 @@ export function ContactFormDialog({
                     type="button"
                     onClick={() => handleRoleChange(r.value)}
                     className={cn(
-                      'flex items-center gap-2.5 p-2.5 rounded-lg border text-right transition-all cursor-pointer',
+                      'flex items-center gap-2.5 p-2.5 rounded-lg border text-start transition-all cursor-pointer',
                       isSelected
                         ? cn('border-2 font-bold shadow-xs ring-1 ring-primary/20', r.border, r.bg, r.color)
                         : 'border-border bg-card hover:bg-muted/40 text-muted-foreground'
@@ -268,15 +268,15 @@ export function ContactFormDialog({
 
           {/* 3A. Specialized Card: LANDLORD (مؤجر للمول) */}
           {isLandlord && (
-            <div className="rounded-xl border border-amber-300 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/30 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+            <div className="rounded-xl border border-warning-line bg-warning-soft/60 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-warning-ink">
                 <Building className="h-4 w-4 stroke-[2]" />
                 <span className="text-xs font-bold">بيانات عقد الإيجار للمؤجر المستحق</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-[11px] font-semibold text-amber-950 dark:text-amber-200 block mb-1">
+                  <Label className="text-[11px] font-semibold text-warning-ink block mb-1">
                     قيمة الإيجار الشهري المستحق للمؤجر (د.ل) *
                   </Label>
                   <Input
@@ -284,12 +284,12 @@ export function ContactFormDialog({
                     value={formData.monthly_rent}
                     onChange={(e) => onFormChange({ ...formData, monthly_rent: e.target.value })}
                     placeholder="مثال: 5000"
-                    className="h-9 text-xs bg-card font-mono font-bold text-amber-900 dark:text-amber-100"
+                    className="h-9 text-xs bg-card font-mono font-bold text-warning-ink"
                   />
                 </div>
 
                 <div>
-                  <Label className="text-[11px] font-semibold text-amber-950 dark:text-amber-200 block mb-1">
+                  <Label className="text-[11px] font-semibold text-warning-ink block mb-1">
                     اسم العقار / الموقع المستأجر للمول
                   </Label>
                   <Input
@@ -301,7 +301,7 @@ export function ContactFormDialog({
                 </div>
 
                 <div>
-                  <Label className="text-[11px] font-semibold text-amber-950 dark:text-amber-200 block mb-1">
+                  <Label className="text-[11px] font-semibold text-warning-ink block mb-1">
                     تاريخ بداية عقد الإيجار
                   </Label>
                   <Input
@@ -313,7 +313,7 @@ export function ContactFormDialog({
                 </div>
 
                 <div>
-                  <Label className="text-[11px] font-semibold text-amber-950 dark:text-amber-200 block mb-1">
+                  <Label className="text-[11px] font-semibold text-warning-ink block mb-1">
                     تاريخ نهاية عقد الإيجار
                   </Label>
                   <Input
@@ -329,15 +329,15 @@ export function ContactFormDialog({
 
           {/* 3B. Specialized Card: TENANT (مستأجر محل بالمول) */}
           {isTenant && (
-            <div className="rounded-xl border border-emerald-300 bg-emerald-50/60 dark:border-emerald-800 dark:bg-emerald-950/30 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200">
+            <div className="rounded-xl border border-success-line bg-success-soft/60 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-success-ink">
                 <Building2 className="h-4 w-4 stroke-[2]" />
                 <span className="text-xs font-bold">بيانات المحل المستأجر بالمول</span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-[11px] font-semibold text-emerald-950 dark:text-emerald-200 block mb-1">
+                  <Label className="text-[11px] font-semibold text-success-ink block mb-1">
                     رقم المحل
                   </Label>
                   <Input
@@ -349,7 +349,7 @@ export function ContactFormDialog({
                 </div>
 
                 <div>
-                  <Label className="text-[11px] font-semibold text-emerald-950 dark:text-emerald-200 block mb-1">
+                  <Label className="text-[11px] font-semibold text-success-ink block mb-1">
                     الطابق
                   </Label>
                   <Input
@@ -361,7 +361,7 @@ export function ContactFormDialog({
                 </div>
 
                 <div>
-                  <Label className="text-[11px] font-semibold text-emerald-950 dark:text-emerald-200 block mb-1">
+                  <Label className="text-[11px] font-semibold text-success-ink block mb-1">
                     المساحة (م²)
                   </Label>
                   <Input
@@ -373,7 +373,7 @@ export function ContactFormDialog({
                 </div>
 
                 <div className="col-span-2 sm:col-span-3">
-                  <Label className="text-[11px] font-semibold text-emerald-950 dark:text-emerald-200 block mb-1">
+                  <Label className="text-[11px] font-semibold text-success-ink block mb-1">
                     قيمة الإيجار الشهري (د.ل)
                   </Label>
                   <Input
@@ -381,7 +381,7 @@ export function ContactFormDialog({
                     value={formData.monthly_rent}
                     onChange={(e) => onFormChange({ ...formData, monthly_rent: e.target.value })}
                     placeholder="مثال: 3500"
-                    className="h-9 text-xs bg-card font-mono font-bold text-emerald-900 dark:text-emerald-100"
+                    className="h-9 text-xs bg-card font-mono font-bold text-success-ink"
                   />
                 </div>
               </div>
@@ -426,15 +426,15 @@ export function ContactFormDialog({
 
           {/* 3D. Specialized Card: EMPLOYEE (موظف) */}
           {isEmployee && (
-            <div className="rounded-xl border border-purple-200 bg-purple-50/50 dark:border-purple-900 dark:bg-purple-950/30 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-purple-900 dark:text-purple-200">
+            <div className="rounded-xl border border-plum-line bg-plum-soft/50 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-plum-ink">
                 <Briefcase className="h-4 w-4 stroke-[2]" />
                 <span className="text-xs font-bold">بيانات الموظف والمرتب</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-[11px] font-semibold text-purple-950 dark:text-purple-200 block mb-1">
+                  <Label className="text-[11px] font-semibold text-plum-ink block mb-1">
                     المسمى الوظيفي
                   </Label>
                   <Input
@@ -446,7 +446,7 @@ export function ContactFormDialog({
                 </div>
 
                 <div>
-                  <Label className="text-[11px] font-semibold text-purple-950 dark:text-purple-200 block mb-1">
+                  <Label className="text-[11px] font-semibold text-plum-ink block mb-1">
                     القسم
                   </Label>
                   <Input
@@ -458,7 +458,7 @@ export function ContactFormDialog({
                 </div>
 
                 <div>
-                  <Label className="text-[11px] font-semibold text-purple-950 dark:text-purple-200 block mb-1">
+                  <Label className="text-[11px] font-semibold text-plum-ink block mb-1">
                     المرتب الشهري (د.ل)
                   </Label>
                   <Input
@@ -531,7 +531,7 @@ export function ContactFormDialog({
                     type="checkbox"
                     checked={formData.is_active}
                     onChange={(e) => onFormChange({ ...formData, is_active: e.target.checked })}
-                    className="h-5 w-5 accent-emerald-700"
+                    className="h-5 w-5 accent-success"
                     aria-label="الجهة نشطة ويمكن التعامل معها"
                   />
                 </label>
@@ -595,7 +595,7 @@ export function ContactFormDialog({
               type="submit"
               size="sm"
               disabled={isPending || !formData.name.trim()}
-              className="text-xs font-bold gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white min-w-24"
+              className="text-xs font-bold gap-1.5 min-w-24"
             >
               {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {editingId ? 'حفظ التعديلات' : 'إضافة الجهة'}

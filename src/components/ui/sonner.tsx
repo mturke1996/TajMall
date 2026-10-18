@@ -17,7 +17,7 @@ export function Toaster(props: ToasterProps) {
           toast:
             'group rounded-xl border border-border bg-card text-foreground shadow-lift',
           description: 'text-muted-foreground',
-          actionButton: 'bg-sage-700 text-sand-50',
+          actionButton: 'bg-foreground text-sand-50',
           cancelButton: 'bg-secondary text-secondary-foreground',
         },
       }}

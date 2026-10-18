@@ -33,8 +33,8 @@ export function MobileTransactionList({
                 className={cn(
                   'mt-1.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-medium',
                   tx.kind === 'REVENUE'
-                    ? 'bg-green-50 text-green-700'
-                    : 'bg-red-50 text-red-700',
+                    ? 'bg-success-soft text-success-ink'
+                    : 'bg-danger-soft text-danger-ink',
                 )}
               >
                 {tx.kind === 'REVENUE' ? 'إيراد' : 'مصروف'}
@@ -43,7 +43,7 @@ export function MobileTransactionList({
             <p
               className={cn(
                 'shrink-0 font-bold tabular-nums text-sm',
-                tx.kind === 'REVENUE' ? 'text-green-600' : 'text-red-600',
+                tx.kind === 'REVENUE' ? 'text-success' : 'text-danger',
               )}
             >
               {formatMoney(Number(tx.amount), tx.currency)}

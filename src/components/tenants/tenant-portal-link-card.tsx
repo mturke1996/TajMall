@@ -57,7 +57,7 @@ export function TenantPortalLinkCard({
   return (
     <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-center gap-2">
-        <Link2 className="h-4 w-4 text-sage-700" />
+        <Link2 className="h-4 w-4 text-foreground" />
         <h3 className="text-[13px] font-semibold">بوابة المستأجر الذاتية</h3>
       </div>
       <p className="text-[11.5px] leading-relaxed text-ink-mute">
@@ -91,7 +91,7 @@ export function TenantPortalLinkCard({
           <div className="flex flex-wrap gap-1.5">
             <Button size="sm" variant="outline" className="gap-1.5" onClick={handleCopy}>
               {copied ? (
-                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                <Check className="h-3.5 w-3.5 text-success" />
               ) : (
                 <Copy className="h-3.5 w-3.5" />
               )}
@@ -101,7 +101,7 @@ export function TenantPortalLinkCard({
               <Button
                 size="sm"
                 variant="outline"
-                className="gap-1.5 text-emerald-700 hover:bg-emerald-50"
+                className="gap-1.5 text-success-ink hover:bg-success-soft"
                 onClick={handleSendWhatsApp}
               >
                 <MessageCircle className="h-3.5 w-3.5" />

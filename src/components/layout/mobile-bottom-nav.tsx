@@ -35,7 +35,7 @@ export function MobileBottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-canvas md:hidden"
+      className="fixed bottom-0 end-0 start-0 z-50 border-t border-border bg-canvas md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="flex h-16 items-stretch justify-around">
@@ -55,7 +55,7 @@ export function MobileBottomNav() {
             disabled={!canCreate}
             className={cn(
               "grid h-[52px] w-[52px] place-items-center rounded-full ring-4 ring-canvas shadow-lg transition-all",
-              canCreate ? "bg-sage-700 text-white" : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
+              canCreate ? "bg-foreground text-background" : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
             )}
             aria-label="إضافة معاملة"
           >
@@ -89,12 +89,12 @@ function TabLink({
       aria-current={isActive ? "page" : undefined}
       className={cn(
         "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-colors duration-100",
-        isActive ? "text-sage-700" : "text-ink-mute",
+        isActive ? "text-foreground" : "text-ink-mute",
       )}
     >
       <motion.span
         whileTap={{ scale: 0.92 }}
-        className={cn("rounded-lg p-1", isActive && "bg-sage-100")}
+        className={cn("rounded-lg p-1", isActive && "bg-muted")}
       >
         <Icon className="h-[18px] w-[18px]" />
       </motion.span>
@@ -102,7 +102,7 @@ function TabLink({
       <span
         className={cn(
           "mt-0.5 h-1 w-1 rounded-full transition-opacity",
-          isActive ? "bg-sage-700 opacity-100" : "opacity-0",
+          isActive ? "bg-foreground opacity-100" : "opacity-0",
         )}
         aria-hidden
       />

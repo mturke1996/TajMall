@@ -54,14 +54,14 @@ export function CashboxTransfersHistory() {
                   <p className="mt-1.5 text-[13px] font-medium leading-snug">
                     <Link
                       href={`/cashboxes/${t.from_cashbox_id}`}
-                      className="text-foreground hover:text-sage-700 underline-offset-2 hover:underline"
+                      className="text-foreground hover:text-foreground underline-offset-2 hover:underline"
                     >
                       {fromName}
                     </Link>
                     <span className="mx-1.5 text-ink-mute">←</span>
                     <Link
                       href={`/cashboxes/${t.to_cashbox_id}`}
-                      className="text-foreground hover:text-sage-700 underline-offset-2 hover:underline"
+                      className="text-foreground hover:text-foreground underline-offset-2 hover:underline"
                     >
                       {toName}
                     </Link>
@@ -70,7 +70,7 @@ export function CashboxTransfersHistory() {
                     <p className="mt-1 line-clamp-2 text-[12px] text-ink-mute">{t.description}</p>
                   ) : null}
                 </div>
-                <span className={cn('num shrink-0 text-[15px] font-bold tabular-nums text-sage-800')}>
+                <span className={cn('num shrink-0 text-[15px] font-bold tabular-nums text-foreground')}>
                   {formatMoney(amount, t.currency || 'LYD')}
                 </span>
               </div>

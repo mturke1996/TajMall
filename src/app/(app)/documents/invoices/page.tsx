@@ -42,7 +42,7 @@ export default function InvoicesPage() {
           </div>
         ) : isError ? (
           <Card>
-            <CardContent className="py-10 text-center text-sm text-red-600">
+            <CardContent className="py-10 text-center text-sm text-danger">
               تعذّر تحميل المطالبات
             </CardContent>
           </Card>

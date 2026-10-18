@@ -64,40 +64,24 @@ export function EmployeesDirectory({
       label: 'عدد الموظفين',
       value: String(stats.total),
       icon: Users,
-      iconBg: 'bg-purple-100',
-      iconColor: 'text-purple-600',
-      valueColor: 'text-purple-700',
-      cardClass: 'border-purple-200 bg-purple-50/80',
     },
     {
       key: 'salary',
       label: 'إجمالي الرواتب',
       value: formatMoney(stats.totalSalary, 'LYD'),
       icon: DollarSign,
-      iconBg: 'bg-blue-100',
-      iconColor: 'text-blue-600',
-      valueColor: 'text-blue-700',
-      cardClass: 'border-blue-200 bg-blue-50/80',
     },
     {
       key: 'paid',
       label: 'المدفوع (12 شهر)',
       value: formatMoney(stats.totalPaid, 'LYD'),
       icon: TrendingUp,
-      iconBg: 'bg-green-100',
-      iconColor: 'text-green-600',
-      valueColor: 'text-green-700',
-      cardClass: 'border-green-200 bg-green-50/80',
     },
     {
       key: 'avg',
       label: 'متوسط شهور الدفع',
       value: stats.avgMonths.toFixed(1),
       icon: Calendar,
-      iconBg: 'bg-sage-100',
-      iconColor: 'text-sage-600',
-      valueColor: 'text-sage-700',
-      cardClass: 'border-sage-200 bg-sage-50/80',
     },
   ];
 
@@ -110,28 +94,15 @@ export function EmployeesDirectory({
             return (
               <Card
                 key={card.key}
-                className={cn(
-                  'min-w-[10rem] shrink-0 snap-center p-3 md:min-w-0',
-                  card.cardClass,
-                )}
+                className="min-w-[10rem] shrink-0 snap-center p-3 md:min-w-0"
               >
                 <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-12 sm:w-12',
-                      card.iconBg,
-                    )}
-                  >
-                    <Icon className={cn('h-5 w-5 sm:h-6 sm:w-6', card.iconColor)} />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-canvas-sunken text-muted-foreground">
+                    <Icon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-[11px] text-ink-mute sm:text-sm">{card.label}</p>
-                    <p
-                      className={cn(
-                        'text-base font-bold tabular-nums leading-tight sm:text-xl',
-                        card.valueColor,
-                      )}
-                    >
+                    <p className="text-base font-semibold tabular-nums leading-tight sm:text-xl">
                       {card.value}
                     </p>
                   </div>
@@ -142,17 +113,23 @@ export function EmployeesDirectory({
         </div>
       </div>
 
-      <div className="sticky top-0 z-20 -mx-4 space-y-2 border-b border-border bg-canvas px-4 py-3 md:static md:mx-0 md:z-auto md:space-y-3 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+      <div className="sticky top-0 z-20 -mx-4 space-y-2 border-b border-border bg-canvas px-4 py-3 md:static md:mx-0 md:z-auto md:space-y-3 md:border-0 md:bg-transparent md:px-0 md:py-0">
         <div className="relative">
-          <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
           <Input
             placeholder="بحث: الاسم، المسمى، القسم، الهاتف…"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="h-11 pr-10 text-base md:h-10 md:text-sm"
+            className="h-11 ps-10 text-base md:h-10 md:text-sm"
           />
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5" asChild>
+            <Link href="/payroll">
+              <DollarSign className="h-3.5 w-3.5" />
+              الرواتب وكشف الشهر
+            </Link>
+          </Button>
           <Button size="sm" variant="outline" className="gap-1.5" asChild>
             <Link href="/reports/employee-spend">
               <TrendingUp className="h-3.5 w-3.5" />
@@ -168,7 +145,7 @@ export function EmployeesDirectory({
 
       {isLoading ? (
         <div className="flex flex-col items-center gap-2 py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-sage-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-ink-soft" />
           <p className="text-sm text-ink-mute">جارٍ التحميل…</p>
         </div>
       ) : filteredEmployees.length === 0 ? (
@@ -204,8 +181,8 @@ export function EmployeesDirectory({
                     href={`/contacts/${emp.id}`}
                     className="flex min-h-[72px] items-center gap-3 px-3 py-3.5 active:bg-secondary/50 touch-manipulation"
                   >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-100">
-                      <Briefcase className="h-6 w-6 text-purple-600" />
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-canvas-sunken text-muted-foreground">
+                      <Briefcase className="h-5 w-5" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-[15px]">{emp.name}</p>
@@ -218,7 +195,7 @@ export function EmployeesDirectory({
                           <span className="text-ink-mute">راتب </span>
                           <span className="font-medium">{formatMoney(salary, 'LYD')}</span>
                           {avgMonthlyPaid > 0 && (
-                            <span className="text-green-600 mr-1">
+                            <span className="text-success ms-1">
                               {' '}
                               · متوسط {formatMoney(avgMonthlyPaid, 'LYD')}
                             </span>
@@ -270,7 +247,7 @@ export function EmployeesDirectory({
                       className="h-10 flex-1 min-w-[5rem] gap-1.5 text-[13px] touch-manipulation"
                       asChild
                     >
-                      <Link href={`/contacts/${emp.id}`}>الملف</Link>
+                      <Link href={`/payroll/employees/${emp.id}`}>ملف الراتب</Link>
                     </Button>
                   </div>
                 </li>
@@ -309,16 +286,16 @@ function EmployeeCard({
   const avgMonthlyPaid = monthsPaid > 0 ? paidLastYear / monthsPaid : 0;
 
   return (
-    <Card className="overflow-hidden transition-shadow hover:shadow-md">
+    <Card className="overflow-hidden">
       <div className="p-4">
         <div className="mb-4 flex items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-100">
-            <Briefcase className="h-6 w-6 text-purple-600" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-canvas-sunken text-muted-foreground">
+            <Briefcase className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
             <Link
               href={`/contacts/${emp.id}`}
-              className="block truncate text-lg font-semibold hover:text-sage-700"
+              className="block truncate text-lg font-semibold hover:text-foreground"
             >
               {emp.name}
             </Link>
@@ -341,7 +318,7 @@ function EmployeeCard({
             <span
               className={cn(
                 'font-medium tabular-nums',
-                avgMonthlyPaid > 0 && 'text-green-600',
+                avgMonthlyPaid > 0 && 'text-success',
               )}
             >
               {avgMonthlyPaid > 0 ? formatMoney(avgMonthlyPaid, 'LYD') : '—'}
@@ -349,7 +326,7 @@ function EmployeeCard({
           </div>
           <div className="flex justify-between py-1">
             <span className="text-ink-mute">المدفوع (12 شهر)</span>
-            <span className="font-medium text-sage-600 tabular-nums">
+            <span className="font-medium text-ink-soft tabular-nums">
               {formatMoney(paidLastYear, 'LYD')}
             </span>
           </div>
@@ -371,7 +348,7 @@ function EmployeeCard({
             disabled={salary === 0}
             onClick={() => onRecordSalary(emp)}
           >
-            <Plus className="h-4 w-4 ml-1" />
+            <Plus className="h-4 w-4 me-1" />
             تسجيل راتب
           </Button>
           {canExpense ? (
@@ -387,12 +364,12 @@ function EmployeeCard({
                 })
               }
             >
-              <DollarSign className="h-4 w-4 ml-1" />
+              <DollarSign className="h-4 w-4 me-1" />
               مصروف
             </Button>
           ) : null}
           <Button size="sm" variant="outline" className="h-10 flex-1 touch-manipulation" asChild>
-            <Link href={`/contacts/${emp.id}`}>الملف</Link>
+            <Link href={`/payroll/employees/${emp.id}`}>ملف الراتب</Link>
           </Button>
         </div>
       </div>

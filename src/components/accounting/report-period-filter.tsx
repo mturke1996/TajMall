@@ -40,7 +40,7 @@ export function ReportPeriodFilter({
               className={cn(
                 'min-h-10 touch-manipulation',
                 value.mode === 'year' &&
-                  'bg-sage-700 hover:bg-sage-800 text-white border-sage-700',
+                  'bg-foreground hover:bg-foreground text-background border-foreground',
               )}
             >
               السنة كاملة
@@ -59,7 +59,7 @@ export function ReportPeriodFilter({
                 }
                 className={cn(
                   'min-h-10 min-w-[4.5rem] touch-manipulation',
-                  active && 'bg-sage-700 hover:bg-sage-800 text-white border-sage-700',
+                  active && 'bg-foreground hover:bg-foreground text-background border-foreground',
                 )}
               >
                 {m.label}

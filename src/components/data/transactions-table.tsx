@@ -195,7 +195,7 @@ export function TransactionsTable({
               className={cn('font-mono font-semibold', positive ? 'text-pastel-greenInk' : 'text-pastel-redInk')}
               dir="ltr"
             >
-              {positive ? '+' : '−'} {formatMoney(Number(row.original.amount), currency)}
+              {formatMoney(positive ? Number(row.original.amount) : -Number(row.original.amount), currency, { signed: true })}
             </span>
           );
         },
@@ -208,7 +208,7 @@ export function TransactionsTable({
               dir="ltr"
             >
               {label && <span className="font-sans text-muted-foreground">{label}</span>}
-              {formatMoney(kindFilter ? Math.abs(total) : total, currency)}
+              {formatMoney(kindFilter ? Math.abs(total) : total, currency, { signed: !kindFilter })}
             </span>
           );
         },
@@ -350,7 +350,7 @@ function TransactionCard({
           )}
           dir="ltr"
         >
-          {positive ? '+' : '−'} {formatMoney(Number(r.amount), currency, { compact: true })}
+          {formatMoney(positive ? Number(r.amount) : -Number(r.amount), currency, { compact: true, signed: true })}
         </span>
       </div>
       <div className="flex min-w-0 items-center justify-between gap-2 border-t border-border/50 pt-2 text-xs text-muted-foreground">

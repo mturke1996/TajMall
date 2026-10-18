@@ -478,7 +478,7 @@ export function JournalEntryDialog({
         className={cn(
           'absolute inset-0 flex flex-col bg-card sm:inset-x-4 sm:inset-y-auto',
           'sm:top-1/2 sm:left-1/2 sm:right-auto sm:bottom-auto sm:max-h-[92dvh] sm:w-[calc(100%-2rem)] sm:max-w-3xl',
-          'sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:shadow-xl',
+          'sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:shadow-lift',
         )}
         role="dialog"
         aria-modal
@@ -489,7 +489,7 @@ export function JournalEntryDialog({
           className="flex shrink-0 items-start gap-3 border-b px-4 py-3"
           style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
         >
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-sage-100 text-sage-800">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-muted text-foreground">
             <Calculator className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
@@ -528,7 +528,7 @@ export function JournalEntryDialog({
                     key={d.id}
                     className={cn(
                       'flex gap-1 rounded-lg border bg-card/90',
-                      editingDraftId === d.id && 'ring-1 ring-sage-400',
+                      editingDraftId === d.id && 'ring-1 ring-ink-mute/50',
                     )}
                   >
                     <button
@@ -583,16 +583,16 @@ export function JournalEntryDialog({
                   className="mt-1 h-12"
                 />
               ) : (
-                <div className="mt-1 flex min-h-12 items-center gap-2 rounded-lg border border-dashed border-sage-300 bg-sage-50/80 px-3">
+                <div className="mt-1 flex min-h-12 items-center gap-2 rounded-lg border border-dashed border-border bg-canvas-sunken/80 px-3">
                   {refLoading && yearCount == null ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-sage-600" />
+                    <Loader2 className="h-4 w-4 animate-spin text-ink-soft" />
                   ) : (
                     <>
                       <Hash className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="font-mono text-sm font-semibold text-sage-900 truncate">
+                      <span className="font-mono text-sm font-semibold text-foreground truncate">
                         {autoReference || '—'}
                       </span>
-                      <Badge variant="outline" className="mr-auto text-[10px] shrink-0">
+                      <Badge variant="outline" className="ms-auto text-[10px] shrink-0">
                         تلقائي
                       </Badge>
                     </>
@@ -619,8 +619,8 @@ export function JournalEntryDialog({
             </div>
 
             {!isEdit && (
-              <div className="rounded-xl border border-dashed border-sage-200 bg-sage-50/50 p-3 space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-sage-900">
+              <div className="rounded-xl border border-dashed border-border bg-canvas-sunken/50 p-3 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                   <LayoutTemplate className="h-3.5 w-3.5" />
                   قوالب جاهزة
                 </div>
@@ -643,7 +643,7 @@ export function JournalEntryDialog({
                       className={cn(
                         'snap-center shrink-0 rounded-full border px-2.5 py-1.5 text-[11px] touch-manipulation',
                         templateCategory === c.id
-                          ? 'bg-sage-700 text-white border-sage-700'
+                          ? 'bg-foreground text-background border-foreground'
                           : 'bg-card text-muted-foreground',
                       )}
                     >
@@ -668,12 +668,12 @@ export function JournalEntryDialog({
 
             {/* بحث البنود — مهم على الهاتف مع قوائم طويلة */}
             <div className="relative">
-              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={categorySearch}
                 onChange={(e) => setCategorySearch(e.target.value)}
                 placeholder="بحث عن بند محاسبي..."
-                className="h-11 pr-10"
+                className="h-11 ps-10"
               />
             </div>
 
@@ -712,7 +712,7 @@ export function JournalEntryDialog({
                       className={cn(
                         'rounded-lg py-3 text-sm font-semibold touch-manipulation active:scale-[0.98]',
                         line.side === 'debit'
-                          ? 'bg-green-600 text-white shadow-sm'
+                          ? 'bg-success text-white shadow-sm'
                           : 'text-muted-foreground',
                       )}
                     >
@@ -724,7 +724,7 @@ export function JournalEntryDialog({
                       className={cn(
                         'rounded-lg py-3 text-sm font-semibold touch-manipulation active:scale-[0.98]',
                         line.side === 'credit'
-                          ? 'bg-red-600 text-white shadow-sm'
+                          ? 'bg-danger text-white shadow-sm'
                           : 'text-muted-foreground',
                       )}
                     >
@@ -739,7 +739,7 @@ export function JournalEntryDialog({
                     value={line.amount}
                     onChange={(e) => updateLine(line.id, { amount: e.target.value })}
                     placeholder="0.000"
-                    className="text-left text-xl font-bold h-14 touch-manipulation"
+                    className="text-end text-xl font-bold h-14 touch-manipulation"
                   />
                 </div>
 
@@ -823,15 +823,15 @@ export function JournalEntryDialog({
             className={cn(
               'rounded-xl px-3 py-2.5',
               isBalanced
-                ? 'bg-green-50 border border-green-200'
-                : 'bg-amber-50 border border-amber-200',
+                ? 'bg-success-soft border border-success-line'
+                : 'bg-warning-soft border border-warning-line',
             )}
           >
             <div className="flex items-center gap-2">
               {isBalanced ? (
-                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
               ) : (
-                <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                <AlertCircle className="h-4 w-4 text-warning shrink-0" />
               )}
               <span className="font-medium text-xs">
                 {isBalanced ? 'القيد متوازن ✓' : 'غير متوازن'}
@@ -840,11 +840,11 @@ export function JournalEntryDialog({
             <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
               <span>
                 مدين:{' '}
-                <strong className="text-green-700">{formatMoney(totals.debit, 'LYD')}</strong>
+                <strong className="text-success-ink">{formatMoney(totals.debit, 'LYD')}</strong>
               </span>
               <span>
                 دائن:{' '}
-                <strong className="text-red-700">{formatMoney(totals.credit, 'LYD')}</strong>
+                <strong className="text-danger-ink">{formatMoney(totals.credit, 'LYD')}</strong>
               </span>
             </div>
             {!isBalanced && difference !== 0 && (

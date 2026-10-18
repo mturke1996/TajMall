@@ -61,11 +61,10 @@ function PnLLineList({
           <span
             className={cn(
               'shrink-0 font-mono text-sm font-bold tabular-nums',
-              tone === 'revenue' ? 'text-emerald-700' : 'text-red-600',
+              tone === 'revenue' ? 'text-success-ink' : 'text-danger',
             )}
           >
-            {tone === 'revenue' ? '+' : '−'}
-            {formatMoney(item.amount, '')}
+            {formatMoney(tone === 'revenue' ? Math.abs(item.amount) : -Math.abs(item.amount), '', { signed: true })}
           </span>
         </li>
       ))}
@@ -238,7 +237,7 @@ function ProfitLossContent() {
                     size="sm"
                     className={cn(
                       'min-h-10 touch-manipulation',
-                      periodType === key && 'bg-sage-700 hover:bg-sage-800',
+                      periodType === key && 'bg-foreground hover:bg-foreground',
                     )}
                     onClick={() => setPeriodType(key)}
                   >
@@ -313,8 +312,8 @@ function ProfitLossContent() {
             <Card
               className={cn(
                 netIncome >= 0
-                  ? 'border-emerald-200/80 bg-emerald-50/30'
-                  : 'border-red-200/80 bg-red-50/30',
+                  ? 'border-success-line/80 bg-success-soft/30'
+                  : 'border-danger-line/80 bg-danger-soft/30',
               )}
             >
               <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
@@ -326,7 +325,7 @@ function ProfitLossContent() {
                   <p
                     className={cn(
                       'text-2xl sm:text-3xl font-mono font-bold tabular-nums mt-0.5',
-                      netIncome >= 0 ? 'text-emerald-800' : 'text-red-700',
+                      netIncome >= 0 ? 'text-success-ink' : 'text-danger-ink',
                     )}
                   >
                     {formatMoney(netIncome, 'LYD')}
@@ -336,8 +335,8 @@ function ProfitLossContent() {
                   className={cn(
                     'self-start rounded-full p-3',
                     netIncome >= 0
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-red-100 text-red-700',
+                      ? 'bg-success-soft text-success-ink'
+                      : 'bg-danger-soft text-danger-ink',
                   )}
                 >
                   {netIncome >= 0 ? (
@@ -353,8 +352,8 @@ function ProfitLossContent() {
               <Card>
                 <CardHeader className="flex flex-col gap-2 border-b border-border sm:flex-row sm:items-center sm:justify-between py-4">
                   <CardTitle className="text-base font-bold">الإيرادات</CardTitle>
-                  <span className="font-mono text-sm font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md w-fit">
-                    +{formatMoney(totalRevenues, 'LYD')}
+                  <span className="font-mono text-sm font-bold text-success-ink bg-success-soft px-2.5 py-1 rounded-md w-fit">
+                    {formatMoney(Math.abs(totalRevenues), 'LYD', { signed: true })}
                   </span>
                 </CardHeader>
                 <CardContent className="pt-4 pb-5">
@@ -365,8 +364,8 @@ function ProfitLossContent() {
               <Card>
                 <CardHeader className="flex flex-col gap-2 border-b border-border sm:flex-row sm:items-center sm:justify-between py-4">
                   <CardTitle className="text-base font-bold">المصروفات</CardTitle>
-                  <span className="font-mono text-sm font-bold text-red-700 bg-red-50 px-2.5 py-1 rounded-md w-fit">
-                    −{formatMoney(totalExpenses, 'LYD')}
+                  <span className="font-mono text-sm font-bold text-danger-ink bg-danger-soft px-2.5 py-1 rounded-md w-fit">
+                    {formatMoney(-Math.abs(totalExpenses), 'LYD', { signed: true })}
                   </span>
                 </CardHeader>
                 <CardContent className="pt-4 pb-5">

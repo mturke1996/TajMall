@@ -135,7 +135,7 @@ export default function CorrespondenceDetailPage() {
   if (isError || !row) {
     return (
       <AccountingPageBody>
-        <Card className="p-8 text-center text-sm text-red-600">
+        <Card className="p-8 text-center text-sm text-danger">
           لم تُعثر على المراسلة أو تعذّر التحميل.
           <Button variant="link" asChild className="block mx-auto mt-2">
             <Link href="/documents/correspondence">العودة للقائمة</Link>
@@ -155,7 +155,7 @@ export default function CorrespondenceDetailPage() {
           <>
             <Button variant="outline" size="sm" asChild>
               <Link href={`/documents/correspondence?type=${letterType}`}>
-                <ArrowRight className="h-4 w-4 ml-1" />
+                <ArrowRight className="h-4 w-4 me-1" />
                 رجوع
               </Link>
             </Button>
@@ -178,22 +178,22 @@ export default function CorrespondenceDetailPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                className="text-danger hover:bg-danger-soft hover:text-danger-ink"
                 disabled={deleteLetter.isPending}
                 onClick={() => setConfirmDelete(true)}
               >
-                <Trash2 className="h-4 w-4 ml-1" />
+                <Trash2 className="h-4 w-4 me-1" />
                 حذف
               </Button>
             ) : null}
             {canEdit ? (
               <Button
                 size="sm"
-                className="bg-sage-700 hover:bg-sage-800"
+                className="bg-foreground hover:bg-foreground"
                 disabled={updateLetter.isPending}
                 onClick={() => void handleSave()}
               >
-                <Save className="h-4 w-4 ml-1" />
+                <Save className="h-4 w-4 me-1" />
                 حفظ التعديلات
               </Button>
             ) : null}

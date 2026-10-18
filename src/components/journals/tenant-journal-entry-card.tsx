@@ -19,7 +19,7 @@ import { cn, formatDate, formatMoney } from '@/lib/utils';
 
 function VoidBadge() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white shrink-0">
+    <span className="inline-flex items-center gap-1 rounded-full bg-danger px-2 py-0.5 text-[10px] font-bold text-white shrink-0">
       <Ban className="h-3 w-3" aria-hidden />
       ملغى
     </span>
@@ -46,7 +46,7 @@ export function TenantJournalEntryCard({
         compact ? 'py-2.5' : 'py-3',
         voided
           ? JOURNAL_VOID_ROW_CLASS
-          : 'border-border/70 bg-card hover:border-sage-200/80',
+          : 'border-border/70 bg-card hover:border-border/80',
       )}
       aria-label={voided ? `قيد ملغى رقم ${entry.number}` : `قيد رقم ${entry.number}`}
     >
@@ -55,15 +55,15 @@ export function TenantJournalEntryCard({
           className={cn(
             'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
             voided
-              ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
-              : 'bg-sage-100 dark:bg-sage-900/40',
+              ? 'bg-danger-soft text-danger-ink'
+              : 'bg-muted',
           )}
         >
           {voided ? (
             <Ban className="h-4 w-4" aria-hidden />
           ) : (
             <FileText
-              className="h-4 w-4 text-sage-700 dark:text-sage-300"
+              className="h-4 w-4 text-foreground"
               aria-hidden
             />
           )}
@@ -121,7 +121,7 @@ export function TenantJournalEntryCard({
             variant={voided ? 'ghost' : 'outline'}
             className={cn(
               'h-8 text-xs',
-              voided && 'text-red-700 hover:text-red-800 hover:bg-red-100/80',
+              voided && 'text-danger-ink hover:text-danger-ink hover:bg-danger-soft/80',
             )}
             asChild
           >
@@ -160,7 +160,7 @@ export function VoidedJournalLinkChip({
       className={cn(
         'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-medium',
         compact ? 'text-[9px]' : 'text-[10px]',
-        'bg-red-100 text-red-800 line-through decoration-red-600 dark:bg-red-950/60 dark:text-red-300',
+        'bg-danger-soft text-danger-ink line-through decoration-danger',
       )}
       title="تم عكس القيد أو حذفه — لا يُحسب كتحصيل"
     >

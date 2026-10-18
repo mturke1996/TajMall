@@ -79,24 +79,22 @@ function KpiTile({
   sub?: string;
   accent?: 'emerald' | 'rose' | 'blue' | 'amber';
 }) {
-  const ring = {
-    emerald:
-      'border-emerald-200/70 bg-emerald-50/40 dark:border-emerald-800/50 dark:bg-emerald-950/20',
-    rose: 'border-rose-200/70 bg-rose-50/40 dark:border-rose-800/50 dark:bg-rose-950/20',
-    blue: 'border-blue-200/70 bg-blue-50/40 dark:border-blue-800/50 dark:bg-blue-950/20',
-    amber:
-      'border-amber-200/70 bg-amber-50/40 dark:border-amber-800/50 dark:bg-amber-950/20',
+  // A neutral tile; a small dot beside the label says what the figure means.
+  const dot = {
+    emerald: 'bg-success',
+    rose: 'bg-danger',
+    blue: 'bg-info',
+    amber: 'bg-warning',
   }[accent ?? 'blue'];
 
   return (
-    <div className={cn('rounded-xl border p-3 md:p-4', ring)}>
-      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-      <p className="text-lg md:text-xl font-bold tabular-nums tracking-tight mt-1">
-        {value}
+    <div className="rounded-xl border border-border bg-card p-3 md:p-4">
+      <p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dot)} aria-hidden />
+        {label}
       </p>
-      {sub && (
-        <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{sub}</p>
-      )}
+      <p className="mt-1 text-lg font-semibold tabular-nums md:text-xl">{value}</p>
+      {sub && <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{sub}</p>}
     </div>
   );
 }
@@ -126,7 +124,7 @@ function PeriodBlock({
   return (
     <div className="space-y-2.5">
       <div className="flex items-center gap-2 flex-wrap">
-        <Icon className="h-4 w-4 text-sage-600 shrink-0" />
+        <Icon className="h-4 w-4 text-ink-soft shrink-0" />
         <h4 className="text-xs font-semibold text-foreground">{title}</h4>
         <span className="text-[10px] text-muted-foreground">{monthHint}</span>
       </div>
@@ -161,7 +159,7 @@ function PeriodBlock({
         />
       </div>
       {gap && (
-        <p className="text-[10px] text-amber-800 dark:text-amber-300 flex items-start gap-1.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/30 px-2.5 py-2">
+        <p className="text-[10px] text-warning-ink flex items-start gap-1.5 rounded-lg bg-warning-soft/80 px-2.5 py-2">
           <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
           <span>
             تقدير العقود لهذه الفترة ≈{' '}
@@ -172,7 +170,7 @@ function PeriodBlock({
       )}
       <div className="h-1.5 rounded-full bg-muted overflow-hidden">
         <div
-          className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+          className="h-full rounded-full bg-success transition-all duration-500"
           style={{ width: `${Math.min(100, kpis.rate)}%` }}
         />
       </div>
@@ -243,7 +241,7 @@ export function MallRentCollectionSection({
     <Wrapper {...wrapperProps} className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-          <Building2 className="h-4.5 w-4.5 text-sage-600" />
+          <Building2 className="h-4.5 w-4.5 text-ink-soft" />
           مؤشرات الإيجار والتحصيل للمول — {year}
         </h3>
         <Link href="/mall?tab=tenants" prefetch>
@@ -254,12 +252,12 @@ export function MallRentCollectionSection({
         </Link>
       </div>
 
-      <Card className="overflow-hidden border-sage-200/50 dark:border-sage-800/40">
+      <Card className="overflow-hidden border-border/50">
         <CardHeader className="pb-3 border-b border-border/60 bg-canvas-sunken">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle className="text-base flex items-center gap-2">
-                <CalendarRange className="h-4 w-4 text-sage-600" />
+                <CalendarRange className="h-4 w-4 text-ink-soft" />
                 تحصيل إيجار {year}
               </CardTitle>
               <CardDescription>
@@ -268,11 +266,11 @@ export function MallRentCollectionSection({
             </div>
             {!loading && (
               <div className="flex flex-wrap gap-2 text-xs">
-                <span className="inline-flex items-center gap-1 rounded-full bg-blue-100/80 dark:bg-blue-900/30 px-2.5 py-1 font-medium text-blue-800 dark:text-blue-300">
+                <span className="inline-flex items-center gap-1 rounded-full bg-info-soft/80 px-2.5 py-1 font-medium text-info-ink">
                   <Building2 className="h-3 w-3" />
                   {lifetime.totalTenants} مستأجر نشط
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 dark:bg-emerald-900/30 px-2.5 py-1 font-medium text-emerald-800 dark:text-emerald-300">
+                <span className="inline-flex items-center gap-1 rounded-full bg-success-soft/80 px-2.5 py-1 font-medium text-success-ink">
                   <TrendingUp className="h-3 w-3" />
                   {lifetime.currentMonthPaidCount} مكتمل الشهر الحالي
                 </span>
@@ -290,7 +288,7 @@ export function MallRentCollectionSection({
           ) : (
             <>
               {model.duplicateCount > 0 && (
-                <p className="text-xs text-amber-800 dark:text-amber-200 rounded-lg border border-amber-200/80 bg-amber-50/90 dark:bg-amber-950/40 px-3 py-2">
+                <p className="text-xs text-warning-ink rounded-lg border border-warning-line/80 bg-warning-soft/90 px-3 py-2">
                   تم تجاهل {model.duplicateCount} مطالبة مكررة (نفس العقد والشهر)
                   عند الحساب — كان المجموع الخام {model.rawChargeCount} سجلّاً.
                 </p>
@@ -366,14 +364,14 @@ export function MallRentCollectionSection({
                           yAxisId="amount"
                           dataKey="مسدّد"
                           stackId="rent"
-                          fill="#10b981"
+                          fill="hsl(var(--success))"
                           maxBarSize={28}
                         />
                         <Bar
                           yAxisId="amount"
                           dataKey="متبقي"
                           stackId="rent"
-                          fill="#fda4af"
+                          fill="hsl(var(--danger-line))"
                           radius={[4, 4, 0, 0]}
                           maxBarSize={28}
                         />
@@ -381,9 +379,9 @@ export function MallRentCollectionSection({
                           yAxisId="rate"
                           type="monotone"
                           dataKey="معدل %"
-                          stroke="#2563eb"
+                          stroke="hsl(var(--info))"
                           strokeWidth={2.5}
-                          dot={{ r: 3, fill: '#2563eb' }}
+                          dot={{ r: 3, fill: 'hsl(var(--info))' }}
                           name="معدل التحصيل %"
                         />
                       </ComposedChart>
@@ -402,8 +400,8 @@ export function MallRentCollectionSection({
                     >
                       <defs>
                         <linearGradient id="rentRateFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
-                          <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                          <stop offset="0%" stopColor="hsl(var(--success))" stopOpacity={0.35} />
+                          <stop offset="100%" stopColor="hsl(var(--success))" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid
@@ -435,7 +433,7 @@ export function MallRentCollectionSection({
                         type="monotone"
                         dataKey="rate"
                         name="معدل التحصيل %"
-                        stroke="#059669"
+                        stroke="hsl(var(--success))"
                         strokeWidth={2}
                         fill="url(#rentRateFill)"
                       />

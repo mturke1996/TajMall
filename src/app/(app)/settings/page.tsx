@@ -97,7 +97,7 @@ export default function SettingsPage() {
       <div className="flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-6 md:gap-7 md:px-8 md:py-7">
         {GROUPS.map((group) => (
           <section key={group.title} className="flex flex-col gap-3">
-            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-mute">
+            <h2 className="text-[11px] font-semibold text-ink-mute">
               {group.title}
             </h2>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -109,7 +109,7 @@ export default function SettingsPage() {
                     href={it.href}
                     className="surface group flex items-start gap-3 p-4 transition-shadow duration-200 hover:shadow-whisper sm:gap-4 sm:p-5"
                   >
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-border bg-canvas-sunken text-sage-700">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-border bg-canvas-sunken text-foreground">
                       <Icon className="h-[16px] w-[16px] stroke-[1.5]" />
                     </span>
                     <div className="flex min-w-0 flex-1 flex-col gap-1">

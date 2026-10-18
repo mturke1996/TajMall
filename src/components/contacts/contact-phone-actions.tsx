@@ -58,7 +58,7 @@ export function ContactPhoneActions({
         type="button"
         variant="outline"
         size={compact ? 'icon-sm' : 'sm'}
-        className="touch-manipulation gap-1.5 text-sage-800 hover:bg-sage-50"
+        className="touch-manipulation gap-1.5 text-foreground hover:bg-canvas-sunken"
         onClick={openTel}
         title="اتصال"
       >
@@ -69,7 +69,7 @@ export function ContactPhoneActions({
         type="button"
         variant="outline"
         size={compact ? 'icon-sm' : 'sm'}
-        className="touch-manipulation gap-1.5 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+        className="touch-manipulation gap-1.5 text-success-ink hover:bg-success-soft hover:text-success-ink"
         onClick={openWhatsApp}
         title="واتساب"
       >

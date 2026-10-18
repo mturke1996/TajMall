@@ -46,7 +46,7 @@ export function RecentTransactions({ currency = 'LYD' }: { currency?: string }) 
         </p>
         <Link
           href="/revenues"
-          className="mt-1 inline-flex items-center gap-1 text-[12.5px] font-medium text-sage-700 hover:underline"
+          className="mt-1 inline-flex items-center gap-1 text-[12.5px] font-medium text-foreground hover:underline"
         >
           إضافة معاملة
           <ArrowLeft className="h-3.5 w-3.5 stroke-[1.6]" />
@@ -57,7 +57,7 @@ export function RecentTransactions({ currency = 'LYD' }: { currency?: string }) 
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
-      <div className="hidden grid-cols-[110px_110px_1fr_110px_140px] items-center gap-3 border-b border-border bg-canvas-sunken px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-mute md:grid">
+      <div className="hidden grid-cols-[110px_110px_1fr_110px_140px] items-center gap-3 border-b border-border bg-canvas-sunken px-4 py-2 text-[10px] font-semibold text-ink-mute md:grid">
         <span>التاريخ</span>
         <span>رقم القيد</span>
         <span>البيان</span>
@@ -109,7 +109,7 @@ export function RecentTransactions({ currency = 'LYD' }: { currency?: string }) 
                     positive ? 'text-pastel-greenInk' : 'text-pastel-redInk',
                   )}
                 >
-                  {positive ? '+' : '−'} {formatMoney(amount, currency)}
+                  {formatMoney(positive ? Math.abs(amount) : -Math.abs(amount), currency, { signed: true })}
                 </span>
               </div>
 

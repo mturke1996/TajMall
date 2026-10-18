@@ -29,19 +29,14 @@ export function AccountingSummaryGrid({
       {stats.map((stat) => (
         <Card
           key={stat.label}
-          className={cn(
-            stat.tone === 'positive' && 'border-emerald-200/80 bg-emerald-50/40',
-            stat.tone === 'negative' && 'border-red-200/80 bg-red-50/30',
-            stat.tone === 'default' && 'bg-secondary/30',
-          )}
         >
           <CardHeader className="py-4">
             <span className="text-xs font-medium text-muted-foreground">{stat.label}</span>
             <CardTitle
               className={cn(
-                'mt-1 text-xl font-mono font-bold tabular-nums sm:text-2xl',
-                stat.tone === 'positive' && 'text-emerald-900',
-                stat.tone === 'negative' && 'text-red-800',
+                'mt-1 text-xl font-semibold tabular-nums sm:text-2xl',
+                stat.tone === 'positive' && 'text-success-ink',
+                stat.tone === 'negative' && 'text-danger-ink',
               )}
             >
               {formatMoney(stat.value, stat.currency ?? 'LYD')}

@@ -108,7 +108,7 @@ function ContactRoleSubtitle({ contact }: { contact: ContactRow }) {
 
   if (role === 'LANDLORD') {
     return (
-      <span className="text-amber-800 dark:text-amber-300 font-medium">
+      <span className="text-warning-ink font-medium">
         {contact.shop_number ? `موقع: ${contact.shop_number}` : 'عقار مؤجر للمول'}
         {contact.monthly_rent && Number(contact.monthly_rent) > 0 ? ` · إيجار: ${formatMoney(Number(contact.monthly_rent), 'د.ل')}/شهر` : ''}
       </span>
@@ -117,7 +117,7 @@ function ContactRoleSubtitle({ contact }: { contact: ContactRow }) {
 
   if (role === 'TENANT') {
     return (
-      <span className="text-emerald-800 dark:text-emerald-300 font-medium">
+      <span className="text-success-ink font-medium">
         محل {contact.shop_number || '—'}
         {contact.floor ? ` · ط${contact.floor}` : ''}
         {contact.monthly_rent && Number(contact.monthly_rent) > 0 ? ` · إيجار: ${formatMoney(Number(contact.monthly_rent), 'د.ل')}/شهر` : ''}
@@ -136,7 +136,7 @@ function ContactRoleSubtitle({ contact }: { contact: ContactRow }) {
 
   if (role === 'EMPLOYEE') {
     return (
-      <span className="text-purple-800 dark:text-purple-300 font-medium">
+      <span className="text-plum-ink font-medium">
         {contact.job_title || 'موظف'}
         {contact.department ? ` · ${contact.department}` : ''}
       </span>
@@ -198,19 +198,19 @@ export function ContactsDirectory({
       {/* 1. Header Toolbar with Search & Add */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border">
         <div className="relative flex-1">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="بحث بالاسم، رقم المحل/العقار، الهاتف، المسمى، أو الكود…"
-            className="pr-9 text-xs h-9 bg-canvas"
+            className="ps-9 text-xs h-9 bg-canvas"
           />
         </div>
 
         {allowMutate && canWrite && (
           <Button
             onClick={() => onAdd(roleFilter !== 'ALL' ? roleFilter : undefined)}
-            className="gap-1.5 h-9 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs shrink-0"
+            className="gap-1.5 h-9 text-xs font-bold shadow-xs shrink-0"
           >
             <Plus className="h-4 w-4" />
             إضافة جهة جديدة
@@ -265,7 +265,7 @@ export function ContactsDirectory({
       ) : (
         <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-right" dir="rtl">
+            <table className="w-full text-xs text-start" dir="rtl">
               <thead>
                 <tr className="bg-canvas-sunken text-muted-foreground font-semibold border-b border-border">
                   <th className="py-3 px-4">الاسم وجهة التعامل</th>
@@ -273,7 +273,7 @@ export function ContactsDirectory({
                   <th className="py-3 px-4">بيانات الموقع / العقد / العداد</th>
                   <th className="py-3 px-4">الهاتف والتواصل</th>
                   <th className="py-3 px-4 text-center">الإجراء السريع</th>
-                  <th className="py-3 px-4 text-left">إدارة</th>
+                  <th className="py-3 px-4 text-end">إدارة</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -325,7 +325,7 @@ export function ContactsDirectory({
                         <QuickTxButton contact={contact} />
                       </td>
 
-                      <td className="py-3 px-4 text-left" onClick={(e) => e.stopPropagation()}>
+                      <td className="py-3 px-4 text-end" onClick={(e) => e.stopPropagation()}>
                         {allowMutate && canWrite && (
                           <div className="flex items-center justify-end gap-1">
                             <Button
@@ -339,7 +339,7 @@ export function ContactsDirectory({
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="h-7 w-7 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                              className="h-7 w-7 text-danger hover:bg-danger-soft"
                               onClick={() => onDelete(contact.id)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />

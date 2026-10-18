@@ -207,7 +207,7 @@ export function SetRentExemptMonthsDialog({
       >
         <DialogHeader className="shrink-0 px-5 pt-5 pb-3 pe-12 border-b border-border bg-canvas-sunken/50">
           <DialogTitle className="flex items-center gap-2.5 text-start">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-200/80 text-slate-700">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-border/80 text-ink-soft">
               <CalendarOff className="h-4 w-4" />
             </span>
             أشهر بدون مطالبة
@@ -262,7 +262,7 @@ export function SetRentExemptMonthsDialog({
             </div>
 
             {previewAutoExempt.length > 0 && (
-              <p className="text-[11px] text-slate-700 bg-slate-50 rounded-lg px-2.5 py-2 border border-dashed border-slate-300">
+              <p className="text-[11px] text-ink-soft bg-canvas-sunken rounded-lg px-2.5 py-2 border border-dashed border-border">
                 سيُعفى:{' '}
                 <span className="font-medium">
                   {formatMonthsLabelAr(previewAutoExempt)}
@@ -332,10 +332,10 @@ export function SetRentExemptMonthsDialog({
                     }}
                     className={cn(
                       'rounded-xl px-2 py-2.5 text-center touch-manipulation transition-all border-2',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-600/40',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-soft/40',
                       isPaid && 'opacity-45 cursor-not-allowed',
                       isExempt
-                        ? 'border-dashed border-slate-400 bg-slate-50 text-slate-700 shadow-none'
+                        ? 'border-dashed border-ink-mute/50 bg-canvas-sunken text-ink-soft shadow-none'
                         : 'border-border bg-card hover:bg-canvas-sunken active:scale-[0.98]',
                     )}
                   >

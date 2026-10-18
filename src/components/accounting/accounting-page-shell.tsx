@@ -19,9 +19,9 @@ export function AccountingPageShell({ children }: { children: React.ReactNode })
       <AccountingSubNav />
       {!loading && !canSeeAccounting && (
         <div className="px-4 py-6 sm:px-5 md:px-8">
-          <Card className="border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <Card className="border-warning-line bg-warning-soft p-4 text-sm text-warning-ink">
             <p className="font-semibold">لا توجد صلاحية للمحاسبة والتقارير</p>
-            <p className="mt-1 text-xs text-amber-800">
+            <p className="mt-1 text-xs text-warning-ink">
               اطلب من المسؤول تفعيل journal.view أو account.view.
             </p>
             <Button variant="outline" size="sm" className="mt-3 min-h-10 touch-manipulation" asChild>

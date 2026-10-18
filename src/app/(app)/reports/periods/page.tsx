@@ -121,7 +121,7 @@ export default function FiscalPeriodsPage() {
         actions={
           <Button
             variant="outline"
-            className="gap-2 w-full sm:w-auto min-h-11 touch-manipulation border-sage-200 text-sage-800"
+            className="gap-2 w-full sm:w-auto min-h-11 touch-manipulation border-border text-foreground"
             onClick={handleBackfill}
             disabled={backfillTx.isPending}
           >
@@ -136,7 +136,7 @@ export default function FiscalPeriodsPage() {
       />
 
       <AccountingPageBody>
-        <Card className="border-sage-200/80 bg-sage-50/40">
+        <Card className="border-border/80 bg-canvas-sunken/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-bold sm:text-lg">
               إقفال السنة المالية
@@ -167,7 +167,7 @@ export default function FiscalPeriodsPage() {
               <Button
                 type="button"
                 variant="outline"
-                className="gap-2 min-h-11 touch-manipulation w-full sm:w-auto border-sage-300"
+                className="gap-2 min-h-11 touch-manipulation w-full sm:w-auto border-border"
                 onClick={handlePreviewYear}
                 disabled={previewYear.isPending}
               >
@@ -185,45 +185,45 @@ export default function FiscalPeriodsPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-semibold">نتيجة التحقق — سنة {yearPreview.year}</p>
                   {yearPreview.already_closed ? (
-                    <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">
+                    <Badge variant="outline" className="border-warning-line bg-warning-soft text-warning-ink">
                       مُقفلة مسبقاً
                     </Badge>
                   ) : yearPreview.can_close ? (
-                    <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+                    <Badge variant="outline" className="border-success-line bg-success-soft text-success-ink">
                       جاهزة للإقفال
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600">
+                    <Badge variant="outline" className="border-border bg-canvas-sunken text-ink-soft">
                       لا أرصدة للإقفال
                     </Badge>
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-sm">
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-ink-mute">الإيرادات</p>
-                    <p className="num mt-0.5 font-semibold text-emerald-800">
+                    <p className="text-[10px] text-ink-mute">الإيرادات</p>
+                    <p className="num mt-0.5 font-semibold text-success-ink">
                       {formatMoney(yearPreview.total_revenue, 'LYD')}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-ink-mute">المصروفات</p>
-                    <p className="num mt-0.5 font-semibold text-rose-800">
+                    <p className="text-[10px] text-ink-mute">المصروفات</p>
+                    <p className="num mt-0.5 font-semibold text-danger-ink">
                       {formatMoney(yearPreview.total_expense, 'LYD')}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-ink-mute">الصافي</p>
+                    <p className="text-[10px] text-ink-mute">الصافي</p>
                     <p
                       className={cn(
                         'num mt-0.5 font-bold',
-                        yearPreview.net_income >= 0 ? 'text-emerald-800' : 'text-rose-800',
+                        yearPreview.net_income >= 0 ? 'text-success-ink' : 'text-danger-ink',
                       )}
                     >
                       {formatMoney(yearPreview.net_income, 'LYD')}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-ink-mute">الفترات</p>
+                    <p className="text-[10px] text-ink-mute">الفترات</p>
                     <p className="mt-0.5 text-[13px] font-medium">
                       {yearPreview.open_periods} مفتوحة · {yearPreview.closed_periods} مغلقة
                     </p>
@@ -315,7 +315,7 @@ export default function FiscalPeriodsPage() {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full gap-2 min-h-11 touch-manipulation bg-sage-700 hover:bg-sage-800"
+                  className="w-full gap-2 min-h-11 touch-manipulation bg-foreground hover:bg-foreground"
                 >
                   {isSubmitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -367,8 +367,8 @@ export default function FiscalPeriodsPage() {
                               className={cn(
                                 'text-xs',
                                 period.is_closed
-                                  ? 'border-red-200 bg-red-50 text-red-700'
-                                  : 'border-green-200 bg-green-50 text-green-700',
+                                  ? 'border-danger-line bg-danger-soft text-danger-ink'
+                                  : 'border-success-line bg-success-soft text-success-ink',
                               )}
                             >
                               {period.is_closed ? 'مغلقة' : 'مفتوحة'}

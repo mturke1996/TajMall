@@ -79,7 +79,7 @@ function StatusFilterChip({
       className={cn(
         'inline-flex shrink-0 snap-center items-center gap-1.5 rounded-full border px-3 py-2 text-[13px] font-medium touch-manipulation',
         active
-          ? 'border-sage-700 bg-sage-700 text-white'
+          ? 'border-foreground bg-foreground text-background'
           : 'border-border bg-card hover:bg-secondary',
       )}
     >
@@ -180,9 +180,9 @@ export function TenantsDirectory({
                 type="button"
                 onClick={() => onStatusFilterChange(chip.key)}
                 className={cn(
-                  'flex min-w-[9.5rem] shrink-0 snap-center flex-col gap-1 rounded-xl border p-3 text-right sm:min-w-0 sm:flex-row sm:items-center sm:gap-3',
+                  'flex min-w-[9.5rem] shrink-0 snap-center flex-col gap-1 rounded-xl border p-3 text-start sm:min-w-0 sm:flex-row sm:items-center sm:gap-3',
                   statusFilter === chip.key
-                    ? 'border-sage-600 bg-sage-50 ring-1 ring-sage-600/20'
+                    ? 'border-ink-soft bg-canvas-sunken ring-1 ring-ink-soft/20'
                     : 'border-border bg-card',
                   cfg.bg,
                   cfg.border,
@@ -203,9 +203,9 @@ export function TenantsDirectory({
               </button>
             );
           })}
-          <div className="flex min-w-[10rem] shrink-0 snap-center flex-col justify-center rounded-xl border border-sage-200 bg-sage-50 p-3 sm:min-w-0">
+          <div className="flex min-w-[10rem] shrink-0 snap-center flex-col justify-center rounded-xl border border-border bg-canvas-sunken p-3 sm:min-w-0">
             <p className="text-[11px] text-ink-mute">تحصيل {periodShort}</p>
-            <p className="text-sm font-bold text-sage-800 leading-snug tabular-nums">
+            <p className="text-sm font-bold text-foreground leading-snug tabular-nums">
               {formatMoney(stats.collectedTotal, 'LYD')}
             </p>
             <p className="text-[10px] text-ink-mute tabular-nums">
@@ -217,12 +217,12 @@ export function TenantsDirectory({
 
       <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-border bg-canvas px-4 py-3 md:static md:mx-0 md:z-auto md:border-0 md:bg-transparent md:px-0 md:py-0">
         <div className="relative">
-          <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
           <Input
             placeholder="بحث: الاسم، المحل، الهاتف…"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="h-11 pr-10 text-base md:h-10 md:text-sm"
+            className="h-11 ps-10 text-base md:h-10 md:text-sm"
           />
         </div>
 
@@ -266,7 +266,7 @@ export function TenantsDirectory({
         <p className="text-[12px] text-ink-mute">
           {filteredTenants.length} مستأجر · {periodLabel}
           {isMultiMonth && (
-            <span className="mr-1 text-ink-mute/80">
+            <span className="ms-1 text-ink-mute/80">
               {' '}
               (مجموع {periodMonthCount} أشهر)
             </span>
@@ -276,7 +276,7 @@ export function TenantsDirectory({
 
       {isLoading ? (
         <div className="flex flex-col items-center py-16 gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-sage-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-ink-soft" />
           <p className="text-sm text-ink-mute">جارٍ التحميل…</p>
         </div>
       ) : filteredTenants.length === 0 ? (
@@ -294,7 +294,7 @@ export function TenantsDirectory({
           <div className="hidden lg:block overflow-hidden rounded-xl border border-border bg-card">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-canvas-sunken/80 text-right text-[12px] text-ink-mute">
+                <tr className="border-b bg-canvas-sunken/80 text-start text-[12px] text-ink-mute">
                   <th className="px-4 py-3 font-semibold">المستأجر</th>
                   <th className="px-4 py-3 font-semibold">
                     {isMultiMonth ? `الفترة (${periodShort})` : `شهر (${periodShort})`}
@@ -391,14 +391,14 @@ function TenantTableRow({
       className={cn(
         'border-b border-border/60',
         striped && 'bg-canvas-sunken/20',
-        tenant.current_month_status === 'unpaid' && 'bg-red-50/25',
-        tenant.current_month_status === 'paid_partial' && 'bg-amber-50/20',
+        tenant.current_month_status === 'unpaid' && 'bg-danger-soft/25',
+        tenant.current_month_status === 'paid_partial' && 'bg-warning-soft/20',
       )}
     >
       <td className="px-4 py-3">
         <Link
           href={`/contacts/${tenant.id}`}
-          className="font-medium hover:text-sage-700 hover:underline"
+          className="font-medium hover:text-foreground hover:underline"
         >
           {tenant.name}
         </Link>
@@ -412,12 +412,12 @@ function TenantTableRow({
       <td className="px-4 py-3 tabular-nums font-medium">
         {rent > 0 ? formatMoney(rent, 'LYD') : '—'}
         {isMultiMonth && paid > 0 && paid < rent && (
-          <p className="text-[10px] text-amber-700 font-normal">
+          <p className="text-[10px] text-warning-ink font-normal">
             مسدّد {formatMoney(paid, 'LYD')}
           </p>
         )}
       </td>
-      <td className="px-4 py-3 tabular-nums font-medium text-sage-800">
+      <td className="px-4 py-3 tabular-nums font-medium text-foreground">
         {journals}
       </td>
       <td className="px-4 py-3 tabular-nums">{formatMoney(totalPaid, 'LYD')}</td>
@@ -441,8 +441,8 @@ function TenantCard({
     <Card
       className={cn(
         'overflow-hidden',
-        tenant.current_month_status === 'unpaid' && 'border-red-300/80',
-        tenant.current_month_status === 'paid_partial' && 'border-amber-300/80',
+        tenant.current_month_status === 'unpaid' && 'border-danger-line/80',
+        tenant.current_month_status === 'paid_partial' && 'border-warning-line/80',
       )}
     >
       <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
@@ -450,7 +450,7 @@ function TenantCard({
       </div>
       <div className="p-4">
         <Link href={`/contacts/${tenant.id}`} className="block group">
-          <h3 className="font-semibold group-hover:text-sage-700">{tenant.name}</h3>
+          <h3 className="font-semibold group-hover:text-foreground">{tenant.name}</h3>
           <p className="text-sm text-ink-mute">
             {tenant.shop_number ? `محل ${tenant.shop_number}` : '—'}
           </p>

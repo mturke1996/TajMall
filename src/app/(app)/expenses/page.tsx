@@ -108,7 +108,7 @@ export default function ExpensesPage() {
               variant="outline"
               size="sm"
               onClick={() => setPdfModalOpen(true)}
-              className="min-h-11 touch-manipulation gap-1.5 font-semibold text-sage-800 border-sage-300 hover:bg-sage-50 dark:text-sage-200 dark:border-sage-800 dark:hover:bg-sage-950 sm:min-h-9"
+              className="min-h-11 touch-manipulation gap-1.5 font-semibold text-foreground border-border hover:bg-canvas-sunken sm:min-h-9"
               disabled={rows.length === 0}
             >
               <SlidersHorizontal className="h-4 w-4" />
@@ -215,7 +215,7 @@ export default function ExpensesPage() {
           <select
             value={selectedCategoryId}
             onChange={(e) => setSelectedCategoryId(e.target.value)}
-            className="h-9 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-semibold focus:ring-1 focus:ring-sage-700 outline-none select-none max-w-[180px] cursor-pointer"
+            className="h-9 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-semibold focus:ring-1 focus:ring-foreground outline-none select-none max-w-[180px] cursor-pointer"
           >
             <option value="ALL">جميع بنود المصروفات</option>
             {categories.map((cat) => (

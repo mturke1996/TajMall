@@ -115,9 +115,9 @@ export function MallUnitsPanel() {
 
   const getStatusBadge = (s: MallUnitRow['status']) => {
     const configs = {
-      AVAILABLE: { label: 'متاح للإيجار', className: 'border-green-200 bg-green-50 text-green-700' },
-      OCCUPIED: { label: 'مؤجر', className: 'border-blue-200 bg-blue-50 text-blue-700' },
-      MAINTENANCE: { label: 'تحت الصيانة', className: 'border-yellow-200 bg-yellow-50 text-yellow-700' },
+      AVAILABLE: { label: 'متاح للإيجار', className: 'border-success-line bg-success-soft text-success-ink' },
+      OCCUPIED: { label: 'مؤجر', className: 'border-info-line bg-info-soft text-info-ink' },
+      MAINTENANCE: { label: 'تحت الصيانة', className: 'border-warning-line bg-warning-soft text-warning-ink' },
     };
     const c = configs[s] || configs.AVAILABLE;
     return (
@@ -133,7 +133,7 @@ export function MallUnitsPanel() {
         <WriteGuard permission="document.create">
           <Button
             onClick={handleOpenCreate}
-            className="h-11 gap-2 bg-sage-700 hover:bg-sage-800 text-white touch-manipulation md:h-9"
+            className="h-11 gap-2 bg-foreground hover:bg-foreground text-background touch-manipulation md:h-9"
           >
             <Plus className="h-4 w-4" />
             إضافة محل جديد
@@ -144,19 +144,19 @@ export function MallUnitsPanel() {
       {/* Grid of Units */}
       {isLoading ? (
         <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : isError ? (
-        <div className="flex h-64 flex-col items-center justify-center gap-2 text-red-600 bg-red-50 rounded-lg p-4">
+        <div className="flex h-64 flex-col items-center justify-center gap-2 text-danger bg-danger-soft rounded-lg p-4">
           <AlertTriangle className="h-8 w-8" />
           <p className="font-semibold">فشل تحميل الوحدات</p>
-          <p className="text-sm text-red-500">{(error as any)?.message}</p>
+          <p className="text-sm text-danger">{(error as any)?.message}</p>
         </div>
       ) : units.length === 0 ? (
-        <div className="flex h-64 flex-col items-center justify-center text-slate-400">
-          <Store className="h-12 w-12 mb-2 opacity-50 text-slate-400" />
-          <p className="font-medium text-slate-600">لا توجد محلات تجارية مسجلة بعد</p>
-          <Button onClick={handleOpenCreate} variant="link" className="text-emerald-700 font-bold">
+        <div className="flex h-64 flex-col items-center justify-center text-muted-foreground">
+          <Store className="h-12 w-12 mb-2 opacity-50 text-muted-foreground" />
+          <p className="font-medium text-ink-soft">لا توجد محلات تجارية مسجلة بعد</p>
+          <Button onClick={handleOpenCreate} variant="link" className="text-success-ink font-bold">
             اضغط هنا لإضافة أول محل
           </Button>
         </div>
@@ -167,29 +167,29 @@ export function MallUnitsPanel() {
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <div className="space-y-0.5">
-                    <span className="text-xs text-slate-400 font-mono">الدور {unit.floor}</span>
-                    <CardTitle className="text-lg font-bold text-slate-900">محل {unit.unit_number}</CardTitle>
+                    <span className="text-xs text-muted-foreground font-mono">الدور {unit.floor}</span>
+                    <CardTitle className="text-lg font-bold text-foreground">محل {unit.unit_number}</CardTitle>
                   </div>
                   {getStatusBadge(unit.status)}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500">المساحة:</span>
-                  <span className="font-mono font-bold text-slate-800">{unit.area_sqm} م²</span>
+                  <span className="text-muted-foreground">المساحة:</span>
+                  <span className="font-mono font-bold text-foreground">{unit.area_sqm} م²</span>
                 </div>
                 {unit.notes && (
-                  <div className="text-xs text-slate-500 bg-slate-50 p-2 rounded flex gap-1.5 items-start">
-                    <Info className="h-3.5 w-3.5 mt-0.5 text-slate-400 flex-shrink-0" />
+                  <div className="text-xs text-muted-foreground bg-canvas-sunken p-2 rounded flex gap-1.5 items-start">
+                    <Info className="h-3.5 w-3.5 mt-0.5 text-muted-foreground flex-shrink-0" />
                     <p className="line-clamp-2">{unit.notes}</p>
                   </div>
                 )}
                 <WriteGuard permission="document.create">
-                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                  <div className="flex justify-end gap-2 pt-2 border-t border-border">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-slate-500 hover:text-slate-700"
+                      className="h-8 w-8 text-muted-foreground hover:text-ink-soft"
                       onClick={() => handleOpenEdit(unit)}
                     >
                       <Edit2 className="h-4 w-4" />
@@ -198,7 +198,7 @@ export function MallUnitsPanel() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="h-8 w-8 text-danger hover:text-danger-ink hover:bg-danger-soft"
                         onClick={() => handleDelete(unit.id, unit.unit_number)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -283,7 +283,7 @@ export function MallUnitsPanel() {
             </div>
 
             <DialogFooter className="gap-2 pt-4">
-              <Button type="submit" disabled={isSubmitting} className="bg-emerald-700 hover:bg-emerald-800 text-white">
+              <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (

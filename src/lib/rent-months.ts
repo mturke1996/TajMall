@@ -94,15 +94,15 @@ export function formatMonthLabelAr(monthKeyStr: string): string {
 }
 
 /** لون نص اسم الشهر — محايد (ليس أخضر/أحمر الحالة) */
-export const RENT_MONTH_NAME_CLASS = 'text-sage-900';
-export const RENT_MONTH_YEAR_CLASS = 'text-sage-600';
+export const RENT_MONTH_NAME_CLASS = 'text-foreground';
+export const RENT_MONTH_YEAR_CLASS = 'text-ink-soft';
 
 export const RENT_MONTH_STATUS_TEXT_CLASS: Record<RentMonthStatus, string> = {
-  paid: 'text-emerald-700',
-  partial: 'text-amber-700',
-  unpaid: 'text-red-700',
-  no_charge: 'text-slate-600',
-  exempt: 'text-slate-500',
+  paid: 'text-success-ink',
+  partial: 'text-warning-ink',
+  unpaid: 'text-danger-ink',
+  no_charge: 'text-ink-soft',
+  exempt: 'text-muted-foreground',
   na: 'text-ink-mute',
 };
 
@@ -178,20 +178,20 @@ export const RENT_MONTH_STATUS_LABEL: Record<RentMonthStatus, string> = {
 
 /** إطار الخلية فقط — نص الشهر يُلوَّن عبر RENT_MONTH_NAME_CLASS */
 export const RENT_MONTH_STATUS_CLASS: Record<RentMonthStatus, string> = {
-  paid: 'bg-white border-2 border-emerald-400/80',
-  partial: 'bg-white border-2 border-amber-400/80',
-  unpaid: 'bg-white border-2 border-red-400/80',
-  no_charge: 'bg-white border-2 border-slate-300',
-  exempt: 'bg-slate-50 border-2 border-dashed border-slate-300',
+  paid: 'bg-white border-2 border-success/80',
+  partial: 'bg-white border-2 border-warning/80',
+  unpaid: 'bg-white border-2 border-danger/80',
+  no_charge: 'bg-white border-2 border-border',
+  exempt: 'bg-canvas-sunken border-2 border-dashed border-border',
   na: 'bg-canvas-sunken border border-border',
 };
 
 export const RENT_MONTH_CELL_FRAME: Record<RentMonthStatus, string> = {
-  paid: 'bg-white border-2 border-emerald-500 shadow-sm',
-  partial: 'bg-white border-2 border-amber-500 shadow-sm',
-  unpaid: 'bg-white border-2 border-red-500 shadow-sm',
-  no_charge: 'bg-white border-2 border-slate-400',
-  exempt: 'bg-slate-50/90 border-2 border-dashed border-slate-400',
+  paid: 'bg-white border-2 border-success shadow-sm',
+  partial: 'bg-white border-2 border-warning shadow-sm',
+  unpaid: 'bg-white border-2 border-danger shadow-sm',
+  no_charge: 'bg-white border-2 border-ink-mute/50',
+  exempt: 'bg-canvas-sunken/90 border-2 border-dashed border-ink-mute/50',
   na: 'bg-canvas-sunken border border-border',
 };
 
@@ -200,9 +200,9 @@ export const RENT_MONTH_LEGEND_SWATCH: Record<
   Exclude<RentMonthStatus, 'na'>,
   string
 > = {
-  paid: 'bg-white border-2 border-emerald-500',
-  partial: 'bg-white border-2 border-amber-500',
-  unpaid: 'bg-white border-2 border-red-500',
-  no_charge: 'bg-white border-2 border-slate-400',
-  exempt: 'bg-slate-50 border-2 border-dashed border-slate-400',
+  paid: 'bg-white border-2 border-success',
+  partial: 'bg-white border-2 border-warning',
+  unpaid: 'bg-white border-2 border-danger',
+  no_charge: 'bg-white border-2 border-ink-mute/50',
+  exempt: 'bg-canvas-sunken border-2 border-dashed border-ink-mute/50',
 };

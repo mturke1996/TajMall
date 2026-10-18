@@ -11,7 +11,6 @@ export function Stat({
   loading,
   trend,
   trendLabel,
-  color = 'neutral',
   onClick,
   active = false,
 }: {
@@ -23,17 +22,11 @@ export function Stat({
   loading?: boolean;
   trend?: number;
   trendLabel?: string;
+  /** Kept for existing callers; icons are neutral so colour only marks figures that carry meaning. */
   color?: 'neutral' | 'emerald' | 'rose' | 'amber' | 'blue';
   onClick?: () => void;
   active?: boolean;
 }) {
-  const iconColors: Record<string, string> = {
-    neutral: 'bg-canvas-sunken text-muted-foreground',
-    emerald: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
-    rose:    'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400',
-    amber:   'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
-    blue:    'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
-  };
 
   if (loading) {
     return (
@@ -58,22 +51,21 @@ export function Stat({
 
   const classes = cn(
     'surface flex flex-col gap-2 p-4',
-    interactive && 'cursor-pointer text-start transition-all duration-200 hover:shadow-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-700/40',
-    active && 'ring-2 ring-sage-700/40 shadow-lift',
+    interactive && 'cursor-pointer text-start transition-all duration-200 hover:shadow-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40',
+    active && 'ring-2 ring-foreground/40 shadow-lift',
     className,
   );
 
   const inner = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className="text-[11px] font-semibold text-muted-foreground">
           {label}
         </span>
         {Icon && (
           <span
             className={cn(
-              'grid h-8 w-8 shrink-0 place-items-center rounded-md',
-              iconColors[color],
+              'grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border bg-canvas-sunken text-muted-foreground',
             )}
           >
             <Icon className="h-4 w-4" />
@@ -81,7 +73,7 @@ export function Stat({
         )}
       </div>
 
-      <span className="text-xl font-bold tracking-tight text-foreground tabular-nums sm:text-2xl">
+      <span className="text-xl font-semibold text-foreground tabular-nums sm:text-2xl">
         {display}
       </span>
 
@@ -91,8 +83,8 @@ export function Stat({
             className={cn(
               'font-semibold',
               trend >= 0
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-rose-600 dark:text-rose-400',
+                ? 'text-success'
+                : 'text-danger',
             )}
           >
             {trend >= 0 ? '▲' : '▼'} {Math.abs(trend).toFixed(1)}%

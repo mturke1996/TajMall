@@ -100,7 +100,7 @@ function EmployeeSpendContent() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-ink-mute">إجمالي المدفوع</CardTitle>
             </CardHeader>
-            <CardContent className="text-xl font-bold text-purple-800">
+            <CardContent className="text-xl font-bold text-plum-ink">
               {formatMoney(total, 'LYD')}
             </CardContent>
           </Card>
@@ -122,10 +122,10 @@ function EmployeeSpendContent() {
 
         {isLoading ? (
           <div className="flex justify-center py-16">
-            <Loader2 className="h-7 w-7 animate-spin text-sage-600" />
+            <Loader2 className="h-7 w-7 animate-spin text-ink-soft" />
           </div>
         ) : isError ? (
-          <p className="text-sm text-red-700 py-8 text-center">
+          <p className="text-sm text-danger-ink py-8 text-center">
             {(error as Error)?.message ?? 'تعذّر تحميل التقرير'}
           </p>
         ) : rows.length === 0 ? (
@@ -137,11 +137,11 @@ function EmployeeSpendContent() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b bg-muted/30 text-ink-mute text-right">
+                  <tr className="border-b bg-muted/30 text-ink-mute text-start">
                     <th className="px-4 py-3 font-medium">الموظف</th>
                     <th className="px-4 py-3 font-medium">تواصل</th>
                     <th className="px-4 py-3 font-medium">المعاملات</th>
-                    <th className="px-4 py-3 font-medium text-left">الإجمالي</th>
+                    <th className="px-4 py-3 font-medium text-end">الإجمالي</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -150,7 +150,7 @@ function EmployeeSpendContent() {
                       <td className="px-4 py-3">
                         <Link
                           href={`/contacts/${row.contactId}`}
-                          className="font-medium text-sage-800 hover:underline inline-flex items-center gap-1.5"
+                          className="font-medium text-foreground hover:underline inline-flex items-center gap-1.5"
                         >
                           <Briefcase className="h-3.5 w-3.5 text-ink-mute" />
                           {row.contactName}
@@ -173,7 +173,7 @@ function EmployeeSpendContent() {
                         />
                       </td>
                       <td className="px-4 py-3 tabular-nums">{row.txCount}</td>
-                      <td className="px-4 py-3 text-left font-semibold tabular-nums text-purple-800">
+                      <td className="px-4 py-3 text-end font-semibold tabular-nums text-plum-ink">
                         {formatMoney(row.total, 'LYD')}
                       </td>
                     </tr>
@@ -193,7 +193,7 @@ export default function EmployeeSpendPage() {
     <Suspense
       fallback={
         <div className="flex justify-center py-24">
-          <Loader2 className="h-7 w-7 animate-spin text-sage-600" />
+          <Loader2 className="h-7 w-7 animate-spin text-ink-soft" />
         </div>
       }
     >

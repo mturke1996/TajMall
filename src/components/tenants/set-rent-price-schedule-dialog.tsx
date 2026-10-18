@@ -236,11 +236,11 @@ export function SetRentPriceScheduleDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-right">
-            <Banknote className="h-5 w-5 text-sage-700" />
+          <DialogTitle className="flex items-center gap-2 text-start">
+            <Banknote className="h-5 w-5 text-foreground" />
             جدول أسعار الإيجار
           </DialogTitle>
-          <DialogDescription className="text-right leading-relaxed">
+          <DialogDescription className="text-start leading-relaxed">
             حدّد سعراً مختلفاً لكل فترة شهور لـ «{tenantName}».
             مثال: أول ثلاثة أشهر 1000 د.ل ثم يرتفع أو ينخفض لاحقاً.
             السعر الافتراضي الحالي:{' '}
@@ -250,7 +250,7 @@ export function SetRentPriceScheduleDialog({
 
         {isLoading ? (
           <div className="flex justify-center py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-sage-600" />
+            <Loader2 className="h-6 w-6 animate-spin text-ink-soft" />
           </div>
         ) : (
           <div className="space-y-4">
@@ -260,14 +260,14 @@ export function SetRentPriceScheduleDialog({
                 className="rounded-xl border border-border bg-secondary/30 p-3 space-y-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-sage-900">
+                  <p className="text-sm font-semibold text-foreground">
                     نطاق {idx + 1}
                   </p>
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="h-8 text-red-700 hover:text-red-800"
+                    className="h-8 text-danger-ink hover:text-danger-ink"
                     disabled={drafts.length <= 1 || saveBands.isPending}
                     onClick={() => removeBand(d.key)}
                   >
@@ -330,8 +330,8 @@ export function SetRentPriceScheduleDialog({
             </Button>
 
             {preview.length > 0 && (
-              <div className="rounded-lg border border-sage-200 bg-sage-50/60 p-3 text-sm space-y-1.5">
-                <p className="font-semibold text-sage-900 text-xs">معاينة</p>
+              <div className="rounded-lg border border-border bg-canvas-sunken/60 p-3 text-sm space-y-1.5">
+                <p className="font-semibold text-foreground text-xs">معاينة</p>
                 {preview.map((p) => (
                   <div
                     key={p.label}
@@ -350,7 +350,7 @@ export function SetRentPriceScheduleDialog({
             )}
 
             {!validation.ok && drafts.length > 0 && (
-              <p className="text-xs text-red-700">{validation.error}</p>
+              <p className="text-xs text-danger-ink">{validation.error}</p>
             )}
 
             <p className="text-[11px] text-muted-foreground leading-relaxed">

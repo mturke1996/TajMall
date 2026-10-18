@@ -88,7 +88,7 @@ export function RentMonthPicker({
               className={cn(
                 'rounded-lg px-2 py-2 text-[11px] touch-manipulation transition-colors border-2',
                 statusClass,
-                isSelected && 'ring-2 ring-sage-600 ring-offset-1',
+                isSelected && 'ring-2 ring-ink-soft ring-offset-1',
               )}
             >
               <RentMonthLabel
@@ -101,7 +101,7 @@ export function RentMonthPicker({
         })}
       </div>
       {selected.length > 0 && (
-        <p className="text-xs font-medium text-sage-800">
+        <p className="text-xs font-medium text-foreground">
           المحدد: {selected.map(formatMonthLabelAr).join(' · ')}
         </p>
       )}

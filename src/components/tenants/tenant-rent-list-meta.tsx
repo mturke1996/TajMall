@@ -74,7 +74,7 @@ export function TenantRentListStats({
             {rent > 0 ? formatMoney(rent, 'LYD') : '—'}
           </span>
         </span>
-        <span className="inline-flex items-center gap-0.5 text-sage-800">
+        <span className="inline-flex items-center gap-0.5 text-foreground">
           <FileText className="h-3 w-3" />
           {journals} قيد
         </span>
@@ -101,7 +101,7 @@ export function TenantRentListStats({
           <FileText className="h-3 w-3" />
           قيود مربوطة
         </dt>
-        <dd className="font-semibold tabular-nums text-sage-800">{journals}</dd>
+        <dd className="font-semibold tabular-nums text-foreground">{journals}</dd>
       </div>
       <div>
         <dt className="text-ink-mute inline-flex items-center gap-1">

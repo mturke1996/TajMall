@@ -36,12 +36,29 @@ jobs:
       - name: Lint (next lint)
         run: npm run lint
 
+      - name: Design system guard
+        run: npm run verify:design
+
+      - name: Offline checks (lists, contacts, rent periods, PDFs)
+        run: |
+          npm run verify:lists
+          npm run verify:contacts
+          npm run verify:tenant-period
+          npm run verify:tenant-pdf
+          npm run verify:pdf-adaptive
+          npm run verify:payroll-pdf
+          npm run verify:audit-safe
+
       - name: Build (next build)
         run: npm run build
         env:
           # لا حاجة لأسرار حقيقية — البناء يتسامح مع غياب متغيرات Supabase
           # (راجع isBuildTime() في src/lib/supabase/env.ts) وهذا يتحقق فقط
           # من أن الكود يُبنى بلا أخطاء، لا من الاتصال الفعلي بقاعدة البيانات.
+          # Static pages create a Supabase browser client while prerendering, which throws on an
+          # empty URL; placeholder values let the build finish without contacting anything.
+          NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
           NEXT_PUBLIC_APP_NAME: "Fluxen"
           NEXT_PUBLIC_DEFAULT_LOCALE: "ar"
           NEXT_PUBLIC_DEFAULT_CURRENCY: "LYD"

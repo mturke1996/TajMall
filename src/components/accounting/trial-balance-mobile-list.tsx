@@ -46,7 +46,7 @@ export function TrialBalanceMobileList({
             <div className="min-w-0 flex-1">
               <Link
                 href={ledgerUrl(row.category_id, year)}
-                className="font-semibold text-sm text-foreground hover:text-sage-800 touch-manipulation"
+                className="font-semibold text-sm text-foreground hover:text-foreground touch-manipulation"
               >
                 {row.name_ar}
               </Link>
@@ -72,11 +72,11 @@ export function TrialBalanceMobileList({
             <div className="rounded-md bg-secondary/40 px-2 py-1">
               <p className="text-muted-foreground">حركة</p>
               <p className="tabular-nums">
-                <span className="text-emerald-700">
+                <span className="text-success-ink">
                   {row.period_debit > 0 ? formatMoney(row.period_debit, '') : '—'}
                 </span>
                 {' / '}
-                <span className="text-red-600">
+                <span className="text-danger">
                   {row.period_credit > 0 ? formatMoney(row.period_credit, '') : '—'}
                 </span>
               </p>
@@ -84,11 +84,11 @@ export function TrialBalanceMobileList({
             <div className="rounded-md bg-secondary/40 px-2 py-1">
               <p className="text-muted-foreground">ختامي</p>
               <p className="tabular-nums">
-                <span className="text-emerald-700">
+                <span className="text-success-ink">
                   {row.total_debit > 0 ? formatMoney(row.total_debit, '') : '—'}
                 </span>
                 {' / '}
-                <span className="text-red-600">
+                <span className="text-danger">
                   {row.total_credit > 0 ? formatMoney(row.total_credit, '') : '—'}
                 </span>
               </p>
@@ -116,12 +116,12 @@ export function TrialBalanceDesktopTable({
   const num = (v: number) => (v > 0 ? formatMoney(v, '') : '—');
   return (
     <div className="hidden md:block overflow-x-auto -mx-1 px-1">
-      <table className="w-full min-w-[960px] text-right text-sm">
+      <table className="w-full min-w-[960px] text-start text-sm">
         <thead>
           <tr className="border-b border-border text-muted-foreground font-semibold">
-            <th className="pb-3 pr-2 text-right">رمز الحساب</th>
-            <th className="pb-3 text-right">اسم الحساب</th>
-            <th className="pb-3 text-right">النوع</th>
+            <th className="pb-3 ps-2 text-start">رمز الحساب</th>
+            <th className="pb-3 text-start">اسم الحساب</th>
+            <th className="pb-3 text-start">النوع</th>
             <th className="pb-3 text-center" colSpan={2}>
               رصيد افتتاحي
             </th>
@@ -133,71 +133,71 @@ export function TrialBalanceDesktopTable({
             </th>
           </tr>
           <tr className="border-b border-border text-[11px] text-muted-foreground">
-            <th className="pb-2 pr-2" />
+            <th className="pb-2 ps-2" />
             <th className="pb-2" />
             <th className="pb-2" />
-            <th className="pb-2 text-left text-emerald-700">مدين</th>
-            <th className="pb-2 text-left text-red-600">دائن</th>
-            <th className="pb-2 text-left text-emerald-700">مدين</th>
-            <th className="pb-2 text-left text-red-600">دائن</th>
-            <th className="pb-2 text-left text-emerald-700">مدين</th>
-            <th className="pb-2 pl-2 text-left text-red-600">دائن</th>
+            <th className="pb-2 text-end text-success-ink">مدين</th>
+            <th className="pb-2 text-end text-danger">دائن</th>
+            <th className="pb-2 text-end text-success-ink">مدين</th>
+            <th className="pb-2 text-end text-danger">دائن</th>
+            <th className="pb-2 text-end text-success-ink">مدين</th>
+            <th className="pb-2 pe-2 text-end text-danger">دائن</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
           {rows.map((row) => (
             <tr key={row.category_id} className="hover:bg-secondary/40">
-              <td className="py-3 pr-2 font-mono text-muted-foreground">{row.code}</td>
+              <td className="py-3 ps-2 font-mono text-muted-foreground">{row.code}</td>
               <td className="py-3 font-semibold">
                 <Link
                   href={ledgerUrl(row.category_id, year)}
-                  className="hover:text-sage-800 hover:underline touch-manipulation"
+                  className="hover:text-foreground hover:underline touch-manipulation"
                 >
                   {row.name_ar}
                 </Link>
               </td>
               <td className="py-3 text-muted-foreground">{accountTypeLabelAr(row.type)}</td>
-              <td className="py-3 text-left font-mono text-emerald-700">{num(row.opening_debit)}</td>
-              <td className="py-3 text-left font-mono text-red-600">{num(row.opening_credit)}</td>
-              <td className="py-3 text-left font-mono text-emerald-700">{num(row.period_debit)}</td>
-              <td className="py-3 text-left font-mono text-red-600">{num(row.period_credit)}</td>
-              <td className="py-3 text-left font-mono font-semibold text-emerald-700">
+              <td className="py-3 text-end font-mono text-success-ink">{num(row.opening_debit)}</td>
+              <td className="py-3 text-end font-mono text-danger">{num(row.opening_credit)}</td>
+              <td className="py-3 text-end font-mono text-success-ink">{num(row.period_debit)}</td>
+              <td className="py-3 text-end font-mono text-danger">{num(row.period_credit)}</td>
+              <td className="py-3 text-end font-mono font-semibold text-success-ink">
                 {num(row.total_debit)}
               </td>
-              <td className="py-3 pl-2 text-left font-mono font-semibold text-red-600">
+              <td className="py-3 pe-2 text-end font-mono font-semibold text-danger">
                 {num(row.total_credit)}
               </td>
             </tr>
           ))}
           <tr className="border-t-2 border-border bg-secondary/50 font-bold">
-            <td className="py-4 pr-2 text-right" colSpan={3}>
+            <td className="py-4 ps-2 text-start" colSpan={3}>
               الإجمالي العام
             </td>
-            <td className="py-4 text-left font-mono text-emerald-800">
+            <td className="py-4 text-end font-mono text-success-ink">
               {formatMoney(summary.total_opening_debit, '')}
             </td>
-            <td className="py-4 text-left font-mono text-red-700">
+            <td className="py-4 text-end font-mono text-danger-ink">
               {formatMoney(summary.total_opening_credit, '')}
             </td>
-            <td className="py-4 text-left font-mono text-emerald-800">
+            <td className="py-4 text-end font-mono text-success-ink">
               {formatMoney(summary.total_period_debit, '')}
             </td>
-            <td className="py-4 text-left font-mono text-red-700">
+            <td className="py-4 text-end font-mono text-danger-ink">
               {formatMoney(summary.total_period_credit, '')}
             </td>
-            <td className="py-4 text-left font-mono text-emerald-800">
+            <td className="py-4 text-end font-mono text-success-ink">
               {formatMoney(summary.total_closing_debit, 'LYD')}
             </td>
-            <td className="py-4 pl-2 text-left font-mono text-red-700">
+            <td className="py-4 pe-2 text-end font-mono text-danger-ink">
               {formatMoney(summary.total_closing_credit, 'LYD')}
             </td>
           </tr>
           <tr className="bg-secondary/30 text-sm">
-            <td className="py-3 pr-2 text-right text-muted-foreground" colSpan={7}>
+            <td className="py-3 ps-2 text-start text-muted-foreground" colSpan={7}>
               حالة التوازن (على الأرصدة الختامية)
             </td>
             <td
-              className={`py-3 pl-2 text-left font-mono font-bold ${isBalanced ? 'text-emerald-700' : 'text-red-700'}`}
+              className={`py-3 pe-2 text-end font-mono font-bold ${isBalanced ? 'text-success-ink' : 'text-danger-ink'}`}
               colSpan={2}
             >
               {isBalanced ? 'متوازن ✓' : `غير متوازن — فارق ${formatMoney(difference, 'LYD')}`}

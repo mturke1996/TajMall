@@ -80,13 +80,13 @@ export function LandlordProfilePanel({
       <div className="rounded-2xl border border-border bg-pastel-yellow/60 p-5 dark:bg-canvas-sunken">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-canvas-sunken text-muted-foreground">
               <Building className="h-6 w-6 stroke-[1.8]" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg font-bold text-foreground">{contact.name}</h2>
-                <Badge variant="outline" className="border-amber-400 bg-amber-100/60 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+                <Badge variant="outline" className="border-warning bg-warning-soft/60 text-warning-ink">
                   مؤجر للمول (المول مستأجر منه)
                 </Badge>
               </div>
@@ -102,7 +102,7 @@ export function LandlordProfilePanel({
             {mayRecordPayment && (
               <Button
                 onClick={() => handleRecordLandlordPayment()}
-                className="gap-1.5 bg-amber-700 hover:bg-amber-800 text-white font-semibold text-xs h-9 shadow-xs"
+                className="gap-1.5 font-semibold text-xs h-9 shadow-xs"
               >
                 <Plus className="h-4 w-4" />
                 تسجيل سداد إيجار للمؤجر
@@ -119,7 +119,7 @@ export function LandlordProfilePanel({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="p-4 border-border bg-card">
           <span className="text-xs text-muted-foreground block mb-1">الإيجار الشهري المستحق</span>
-          <p className="text-xl font-bold text-amber-900 dark:text-amber-200 font-mono">
+          <p className="text-xl font-bold text-warning-ink font-mono">
             {formatMoney(schedule.monthlyRent, 'LYD')}
           </p>
           <span className="text-[11px] text-muted-foreground block mt-1">حسب عقد الإيجار</span>
@@ -135,10 +135,10 @@ export function LandlordProfilePanel({
 
         <Card className="p-4 border-border bg-card">
           <span className="text-xs text-muted-foreground block mb-1">المدفوع للمؤجر ({selectedYear})</span>
-          <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300 font-mono">
+          <p className="text-xl font-bold text-success-ink font-mono">
             {formatMoney(schedule.totalPaid, 'LYD')}
           </p>
-          <span className="text-[11px] text-emerald-700 dark:text-emerald-400 block mt-1">
+          <span className="text-[11px] text-success-ink block mt-1">
             سُدّد {schedule.paidMonthsCount} شهراً بالكامل
           </span>
         </Card>
@@ -147,7 +147,7 @@ export function LandlordProfilePanel({
           <span className="text-xs text-muted-foreground block mb-1">المتبقي / المتأخرات ({selectedYear})</span>
           <p className={cn(
             'text-xl font-bold font-mono',
-            schedule.totalOutstanding > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600'
+            schedule.totalOutstanding > 0 ? 'text-danger' : 'text-success'
           )}>
             {formatMoney(schedule.totalOutstanding, 'LYD')}
           </p>
@@ -161,7 +161,7 @@ export function LandlordProfilePanel({
       <Card className="border-border shadow-xs overflow-hidden">
         <CardHeader className="bg-canvas-sunken/40 border-b border-border py-3.5 px-4 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-amber-700" />
+            <Calendar className="h-4 w-4 text-warning-ink" />
             <CardTitle className="text-sm font-bold">
               جدول استحقاقات وسداد إيجار المؤجر لعام {selectedYear}
             </CardTitle>
@@ -188,7 +188,7 @@ export function LandlordProfilePanel({
 
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-right" dir="rtl">
+            <table className="w-full text-xs text-start" dir="rtl">
               <thead>
                 <tr className="bg-muted/40 text-muted-foreground font-semibold border-b border-border">
                   <th className="py-3 px-4">الشهر المستهدف</th>
@@ -206,8 +206,8 @@ export function LandlordProfilePanel({
                       key={m.monthKey}
                       className={cn(
                         'hover:bg-muted/30 transition-colors',
-                        m.status === 'paid_full' && 'bg-emerald-50/20 dark:bg-emerald-950/10',
-                        m.status === 'unpaid' && m.expectedAmount > 0 && 'bg-red-50/10 dark:bg-red-950/10'
+                        m.status === 'paid_full' && 'bg-success-soft/20',
+                        m.status === 'unpaid' && m.expectedAmount > 0 && 'bg-danger-soft/10'
                       )}
                     >
                       <td className="py-3 px-4 font-bold text-foreground">
@@ -216,28 +216,28 @@ export function LandlordProfilePanel({
                       <td className="py-3 px-4 font-mono font-semibold text-foreground">
                         {formatMoney(m.expectedAmount, '')}
                       </td>
-                      <td className="py-3 px-4 font-mono font-semibold text-emerald-700 dark:text-emerald-400">
+                      <td className="py-3 px-4 font-mono font-semibold text-success-ink">
                         {formatMoney(m.paidAmount, '')}
                       </td>
                       <td className={cn(
                         'py-3 px-4 font-mono font-semibold',
-                        m.remainingAmount > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
+                        m.remainingAmount > 0 ? 'text-danger' : 'text-muted-foreground'
                       )}>
                         {formatMoney(m.remainingAmount, '')}
                       </td>
                       <td className="py-3 px-4 text-center">
                         {m.status === 'paid_full' ? (
-                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 gap-1 text-[10px]">
+                          <Badge className="bg-success-soft text-success-ink hover:bg-success-soft gap-1 text-[10px]">
                             <CheckCircle2 className="h-3 w-3" />
                             مدفوع بالكامل
                           </Badge>
                         ) : m.status === 'paid_partial' ? (
-                          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-300 gap-1 text-[10px]">
+                          <Badge className="bg-warning-soft text-warning-ink hover:bg-warning-soft gap-1 text-[10px]">
                             <Clock className="h-3 w-3" />
                             مسدد جزئياً
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-red-700 border-red-300 bg-red-50/50 dark:border-red-800 dark:bg-red-950 dark:text-red-300 text-[10px]">
+                          <Badge variant="outline" className="text-danger-ink border-danger-line bg-danger-soft/50 text-[10px]">
                             غير مدفوع
                           </Badge>
                         )}
@@ -248,7 +248,7 @@ export function LandlordProfilePanel({
                             size="sm"
                             variant="outline"
                             onClick={() => handleRecordLandlordPayment(m)}
-                            className="h-7 text-[11px] font-semibold text-amber-800 border-amber-300 hover:bg-amber-50 dark:text-amber-200 dark:border-amber-800"
+                            className="h-7 text-[11px] font-semibold text-warning-ink border-warning-line hover:bg-warning-soft"
                           >
                             سداد شهر {m.monthNameAr}
                           </Button>
@@ -264,8 +264,8 @@ export function LandlordProfilePanel({
                 <tr className="bg-canvas-sunken font-bold border-t-2 border-border text-foreground">
                   <td className="py-3 px-4">الإجمالي السنوي</td>
                   <td className="py-3 px-4 font-mono">{formatMoney(schedule.totalExpected, '')}</td>
-                  <td className="py-3 px-4 font-mono text-emerald-700 dark:text-emerald-300">{formatMoney(schedule.totalPaid, '')}</td>
-                  <td className="py-3 px-4 font-mono text-red-600 dark:text-red-400">{formatMoney(schedule.totalOutstanding, '')}</td>
+                  <td className="py-3 px-4 font-mono text-success-ink">{formatMoney(schedule.totalPaid, '')}</td>
+                  <td className="py-3 px-4 font-mono text-danger">{formatMoney(schedule.totalOutstanding, '')}</td>
                   <td colSpan={2} className="py-3 px-4 text-center text-xs text-muted-foreground">
                     تم سداد {schedule.paidMonthsCount} من أصل 12 شهراً
                   </td>
@@ -280,7 +280,7 @@ export function LandlordProfilePanel({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="p-4 border-border">
           <div className="flex items-center gap-2 mb-3">
-            <MapPin className="h-4 w-4 text-amber-700" />
+            <MapPin className="h-4 w-4 text-warning-ink" />
             <h3 className="text-xs font-bold text-foreground">بيانات الموقع والعقار المستأجر</h3>
           </div>
           <div className="space-y-2 text-xs">
@@ -305,7 +305,7 @@ export function LandlordProfilePanel({
 
         <Card className="p-4 border-border">
           <div className="flex items-center gap-2 mb-3">
-            <ShieldCheck className="h-4 w-4 text-amber-700" />
+            <ShieldCheck className="h-4 w-4 text-warning-ink" />
             <h3 className="text-xs font-bold text-foreground">شروط العقد والتواريخ</h3>
           </div>
           <div className="space-y-2 text-xs">
@@ -327,7 +327,7 @@ export function LandlordProfilePanel({
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-muted-foreground">حالة العقد:</span>
-              <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+              <Badge className="bg-success-soft text-success-ink">
                 ساري المفعول
               </Badge>
             </div>
@@ -338,7 +338,7 @@ export function LandlordProfilePanel({
       {/* 5. Complete Financial Ledger & Journal Entries */}
       <div className="pt-2">
         <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-          <Receipt className="h-4 w-4 text-amber-700" />
+          <Receipt className="h-4 w-4 text-warning-ink" />
           كشف الحساب المالي وسجل القيود والدفعات للمؤجر
         </h3>
         <ContactLedgerPanel

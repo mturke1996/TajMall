@@ -22,7 +22,7 @@ export function CategoryBreakdown({
       <div className="relative mx-auto h-[160px] w-[160px] sm:mx-0">
         {isEmpty ? (
           <div className="grid h-full w-full place-items-center rounded-full border border-dashed border-border">
-            <span className="text-center text-[11px] uppercase tracking-[0.16em] text-ink-mute">
+            <span className="text-center text-[11px] text-ink-mute">
               لا توجد
               <br />
               بيانات
@@ -37,7 +37,7 @@ export function CategoryBreakdown({
                   innerRadius={52}
                   outerRadius={76}
                   dataKey="value"
-                  stroke="#FFFFFF"
+                  stroke="hsl(var(--card))"
                   strokeWidth={3}
                   paddingAngle={1.5}
                   isAnimationActive
@@ -50,7 +50,7 @@ export function CategoryBreakdown({
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-center">
-              <span className="text-[9.5px] uppercase tracking-[0.18em] text-ink-mute">
+              <span className="text-[9.5px] text-ink-mute">
                 الإجمالي
               </span>
               <span className="num text-[14px] font-semibold tabular-nums text-foreground">

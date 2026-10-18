@@ -168,28 +168,24 @@ export function AdvancedDashboard() {
       label: 'إيراد جديد',
       onClick: () => openTx('REVENUE'),
       icon: ArrowDownToLine,
-      color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
       description: 'تسجيل عملية دخول أموال للمنظومة',
     },
     {
       label: 'مصروف جديد',
       onClick: () => openTx('EXPENSE'),
       icon: ArrowUpFromLine,
-      color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
       description: 'تسجيل عملية خروج أموال ومصاريف تشغيلية',
     },
     {
       label: 'إذن صرف',
       href: '/vouchers',
       icon: Receipt,
-      color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
       description: 'إصدار أو عرض سندات وأذونات الصرف المعتمدة',
     },
     {
       label: 'قيود اليومية',
       href: '/journals',
       icon: Calendar,
-      color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
       description: 'عرض القيود المحاسبية المزدوجة وإدخالها',
     },
   ];
@@ -226,7 +222,6 @@ export function AdvancedDashboard() {
                   ? `الشهر الحالي: ${formatMoney(Number(currentMonth.revenue_total), 'LYD', { compact: true })}`
                   : undefined
               }
-              color="emerald"
               isLoading={statsLoading}
             />
           </motion.div>
@@ -236,7 +231,6 @@ export function AdvancedDashboard() {
               title="مصروفات العام"
               value={s.totalExpense}
               icon={ArrowUpFromLine}
-              color="rose"
               isLoading={statsLoading}
             />
           </motion.div>
@@ -246,8 +240,7 @@ export function AdvancedDashboard() {
               title="صافي ربح العام"
               value={s.netProfit}
               icon={s.netProfit >= 0 ? TrendingUp : TrendingDown}
-              subtitle={s.netProfit >= 0 ? 'النشاط رابح ✓' : 'النشاط خاسر'}
-              color={s.netProfit >= 0 ? 'emerald' : 'rose'}
+              subtitle={s.netProfit >= 0 ? 'النشاط رابح' : 'النشاط خاسر'}
               isLoading={statsLoading}
               highlight
             />
@@ -258,7 +251,6 @@ export function AdvancedDashboard() {
               title="رصيد الخزائن"
               value={s.totalCashboxBalance}
               icon={Wallet}
-              color="amber"
               isLoading={statsLoading}
             />
           </motion.div>
@@ -268,13 +260,13 @@ export function AdvancedDashboard() {
         <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {quickActions.map((action) => {
             const cardContent = (
-              <div className="flex items-center gap-3.5 p-4 rounded-xl border border-border bg-card text-card-foreground shadow-sm hover:shadow-lift transition-all duration-200 hover:border-border/60 group w-full text-start cursor-pointer h-full">
-                <div className={cn('p-2.5 rounded-lg transition-transform duration-200 group-hover:scale-110 shrink-0', action.color)}>
+              <div className="flex items-center gap-3 p-3 sm:gap-3.5 sm:p-4 rounded-xl border border-border bg-card text-card-foreground transition-colors duration-150 hover:bg-canvas-sunken/60 group w-full text-start cursor-pointer h-full">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border bg-canvas-sunken text-ink-soft transition-colors group-hover:text-foreground">
                   <action.icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-semibold group-hover:text-primary transition-colors">{action.label}</h4>
-                  <p className="text-[11px] text-muted-foreground truncate leading-normal mt-0.5">
+                  <h4 className="truncate text-sm font-semibold transition-colors">{action.label}</h4>
+                  <p className="mt-0.5 hidden truncate text-[11px] leading-normal text-muted-foreground sm:block">
                     {action.description}
                   </p>
                 </div>
@@ -314,14 +306,14 @@ export function AdvancedDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Activity className="h-4 w-4 text-sage-600" />
+                      <Activity className="h-4 w-4 text-ink-soft" />
                       الأداء الشهري
                     </CardTitle>
                     <CardDescription>مقارنة الإيرادات والمصروفات — أشهر السنة الحالية</CardDescription>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" />إيرادات</span>
-                    <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-rose-400" />مصروفات</span>
+                    <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-success" />إيرادات</span>
+                    <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-danger" />مصروفات</span>
                   </div>
                 </div>
               </CardHeader>
@@ -347,8 +339,8 @@ export function AdvancedDashboard() {
                         tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}
                       />
                       <RechartsTooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--muted))', radius: 4 }} />
-                      <Bar dataKey="إيرادات" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={36} />
-                      <Bar dataKey="مصروفات" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                      <Bar dataKey="إيرادات" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                      <Bar dataKey="مصروفات" fill="hsl(var(--danger))" radius={[4, 4, 0, 0]} maxBarSize={36} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -361,7 +353,7 @@ export function AdvancedDashboard() {
             <Card className="h-full">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Landmark className="h-4 w-4 text-sage-600" />
+                  <Landmark className="h-4 w-4 text-ink-soft" />
                   حالة الخزائن
                 </CardTitle>
               </CardHeader>
@@ -383,7 +375,7 @@ export function AdvancedDashboard() {
                       <div className="flex items-center gap-2.5">
                         <div
                           className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: box.color || '#D94841' }}
+                          style={{ backgroundColor: box.color || 'hsl(var(--ink-mute))' }}
                         />
                         <span className="text-sm font-medium truncate max-w-[120px]">{box.name_ar}</span>
                       </div>
@@ -413,7 +405,7 @@ export function AdvancedDashboard() {
             <Card className="h-full">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <ArrowUpFromLine className="h-4 w-4 text-rose-500" />
+                  <ArrowUpFromLine className="h-4 w-4 text-danger" />
                   توزيع المصروفات
                 </CardTitle>
                 <CardDescription>أعلى بنود الإنفاق هذا العام</CardDescription>
@@ -465,7 +457,7 @@ export function AdvancedDashboard() {
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <div>
                   <CardTitle className="text-base flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-sage-600" />
+                    <CreditCard className="h-4 w-4 text-ink-soft" />
                     آخر المعاملات
                   </CardTitle>
                   <CardDescription>آخر 6 معاملات تم تسجيلها</CardDescription>
@@ -504,8 +496,8 @@ export function AdvancedDashboard() {
                             className={cn(
                               'h-9 w-9 rounded-lg flex items-center justify-center shrink-0',
                               tx.kind === 'REVENUE'
-                                ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                : 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400'
+                                ? 'bg-success-soft text-success'
+                                : 'bg-danger-soft text-danger'
                             )}
                           >
                             {tx.kind === 'REVENUE' ? (
@@ -520,12 +512,12 @@ export function AdvancedDashboard() {
                                 {tx.category?.name_ar || 'بدون بند'}
                               </p>
                               {isVoided && (
-                                <span className="shrink-0 rounded-full bg-rose-100 px-1.5 py-0.5 text-[9px] font-semibold text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                                <span className="shrink-0 rounded-full bg-danger-soft px-1.5 py-0.5 text-[9px] font-semibold text-danger-ink">
                                   ملغى
                                 </span>
                               )}
                               {isDraft && (
-                                <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                <span className="shrink-0 rounded-full bg-warning-soft px-1.5 py-0.5 text-[9px] font-semibold text-warning-ink">
                                   مسودة
                                 </span>
                               )}
@@ -541,10 +533,10 @@ export function AdvancedDashboard() {
                               'font-bold text-sm',
                               isVoided
                                 ? 'text-muted-foreground line-through'
-                                : tx.kind === 'REVENUE' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                                : tx.kind === 'REVENUE' ? 'text-success' : 'text-danger'
                             )}
                           >
-                            {tx.kind === 'REVENUE' ? '+' : '−'} {formatMoney(Number(tx.amount), tx.currency ?? 'LYD', { compact: true })}
+                            {formatMoney(tx.kind === 'REVENUE' ? Number(tx.amount) : -Number(tx.amount), tx.currency ?? 'LYD', { compact: true, signed: true })}
                           </p>
                         </div>
                       </div>
@@ -581,7 +573,6 @@ function StatCard({
   trend,
   trendLabel,
   subtitle,
-  color,
   isLoading,
   highlight,
   formatType = 'money',
@@ -592,35 +583,13 @@ function StatCard({
   trend?: number;
   trendLabel?: string;
   subtitle?: string;
-  color: 'emerald' | 'rose' | 'amber' | 'blue';
   isLoading?: boolean;
   highlight?: boolean;
   formatType?: 'money' | 'percentage' | 'number';
 }) {
-  const configs = {
-    emerald: {
-      icon: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400',
-      accent: 'stat-accent-emerald',
-      border: 'border-emerald-200/60 dark:border-emerald-800/40',
-    },
-    rose: {
-      icon: 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400',
-      accent: 'stat-accent-rose',
-      border: 'border-rose-200/60 dark:border-rose-800/40',
-    },
-    amber: {
-      icon: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400',
-      accent: 'stat-accent-amber',
-      border: 'border-amber-200/60 dark:border-amber-800/40',
-    },
-    blue: {
-      icon: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400',
-      accent: 'stat-accent-blue',
-      border: 'border-blue-200/60 dark:border-blue-800/40',
-    },
-  };
+  // Colour carries meaning only: the figure of a loss is red, everything else stays neutral.
+  const valueTone = formatType === 'money' && value < 0 ? 'text-danger-ink' : 'text-foreground';
 
-  const cfg = configs[color];
 
   if (isLoading) {
     return (
@@ -639,17 +608,12 @@ function StatCard({
   }
 
   return (
-    <Card
-      className={cn(
-        'h-full overflow-hidden transition-all duration-200 hover:shadow-lift',
-        highlight && `${cfg.accent} ${cfg.border}`
-      )}
-    >
+    <Card className={cn('h-full overflow-hidden', highlight && 'bg-canvas-sunken/60')}>
       <CardContent className="p-4 md:p-5">
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-2 min-w-0 flex-1">
             <p className="text-xs font-medium text-muted-foreground leading-none">{title}</p>
-            <p className="text-xl md:text-2xl font-bold tracking-tight tabular-nums leading-none">
+            <p className={cn('text-xl md:text-2xl font-semibold tabular-nums leading-none', valueTone)}>
               {formatType === 'money'
                 ? formatMoney(value, 'LYD', { compact: value >= 100_000 })
                 : formatType === 'percentage'
@@ -657,22 +621,20 @@ function StatCard({
                 : value.toLocaleString('ar-LY')}
             </p>
             {subtitle && (
-              <p className={cn('text-xs font-medium truncate', value >= 0 || formatType !== 'money' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}>
+              <p className={cn('text-xs truncate', formatType === 'money' && value < 0 ? 'text-danger-ink' : 'text-muted-foreground')}>
                 {subtitle}
               </p>
             )}
             {trend !== undefined && (
               <div className="flex items-center gap-1 text-xs">
-                <span className={cn('font-semibold', trend >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}>
+                <span className={cn('font-semibold', trend >= 0 ? 'text-success' : 'text-danger')}>
                   {trend >= 0 ? '▲' : '▼'} {Math.abs(trend).toFixed(1)}%
                 </span>
                 <span className="text-muted-foreground">{trendLabel}</span>
               </div>
             )}
           </div>
-          <div className={cn('p-2.5 rounded-xl shrink-0', cfg.icon)}>
-            <Icon className="h-5 w-5" />
-          </div>
+          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         </div>
       </CardContent>
     </Card>
@@ -693,16 +655,16 @@ function InfoCard({
 }) {
   return (
     <Link href={href} prefetch>
-      <Card className="h-full cursor-pointer group hover:shadow-lift transition-all duration-200 hover:border-sage-300">
+      <Card className="h-full cursor-pointer group hover:shadow-lift transition-all duration-200 hover:border-border">
         <CardContent className="p-4 flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-canvas-sunken text-ink-mute group-hover:bg-sage-100 group-hover:text-sage-700 transition-colors shrink-0">
+          <div className="p-2.5 rounded-xl bg-canvas-sunken text-ink-mute group-hover:bg-muted group-hover:text-foreground transition-colors shrink-0">
             <Icon className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-sm truncate">{title}</p>
             <p className="text-xs text-muted-foreground truncate">{description}</p>
           </div>
-          <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-x-0.5 group-hover:text-sage-700" />
+          <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-x-0.5 group-hover:text-foreground" />
         </CardContent>
       </Card>
     </Link>

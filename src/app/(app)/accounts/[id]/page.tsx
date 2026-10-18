@@ -276,7 +276,7 @@ export default function CategoryDetailPage() {
               tone === 'negative' &&
                 'border-pastel-redInk/15 bg-pastel-red text-pastel-redInk',
               tone === 'neutral' &&
-                'border-sage-300/50 bg-sage-50 text-sage-700',
+                'border-border/50 bg-canvas-sunken text-foreground',
             )}
           >
             {tone === 'positive' ? (
@@ -313,7 +313,7 @@ export default function CategoryDetailPage() {
                 className={cn(
                   'inline-flex shrink-0 snap-center items-center justify-center rounded-lg border px-3 py-2 text-[12.5px] font-semibold touch-manipulation min-w-[3.5rem]',
                   active
-                    ? 'border-sage-700 bg-sage-700 text-white'
+                    ? 'border-foreground bg-foreground text-background'
                     : 'border-border bg-card text-ink hover:bg-secondary',
                 )}
               >
@@ -331,7 +331,7 @@ export default function CategoryDetailPage() {
             className={cn(
               'min-h-10 flex-1 rounded-lg px-3 py-2 text-[13px] font-semibold touch-manipulation',
               viewMode === 'journal'
-                ? 'bg-sage-700 text-white'
+                ? 'bg-foreground text-background'
                 : 'text-ink-mute hover:bg-secondary',
             )}
           >
@@ -343,7 +343,7 @@ export default function CategoryDetailPage() {
             className={cn(
               'min-h-10 flex-1 rounded-lg px-3 py-2 text-[13px] font-semibold touch-manipulation',
               viewMode === 'cash'
-                ? 'bg-sage-700 text-white'
+                ? 'bg-foreground text-background'
                 : 'text-ink-mute hover:bg-secondary',
             )}
           >
@@ -426,8 +426,8 @@ export default function CategoryDetailPage() {
                     <th className="px-3 py-2.5 text-start">التاريخ</th>
                     <th className="px-3 py-2.5 text-start">القيد</th>
                     <th className="px-3 py-2.5 text-start">البيان</th>
-                    <th className="px-3 py-2.5 text-left text-emerald-800">مدين</th>
-                    <th className="px-3 py-2.5 text-left text-rose-800">دائن</th>
+                    <th className="px-3 py-2.5 text-end text-success-ink">مدين</th>
+                    <th className="px-3 py-2.5 text-end text-danger-ink">دائن</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -442,7 +442,7 @@ export default function CategoryDetailPage() {
                       <td className="px-3 py-2.5">
                         <Link
                           href={`/journals?highlight=${line.journal_id}`}
-                          className="font-medium text-sage-800 underline-offset-2 hover:underline"
+                          className="font-medium text-foreground underline-offset-2 hover:underline"
                         >
                           قيد #{line.journal_number}
                         </Link>
@@ -456,13 +456,13 @@ export default function CategoryDetailPage() {
                         {line.description?.trim() || '—'}
                       </td>
                       <td
-                        className="px-3 py-2.5 text-left font-mono tabular-nums text-emerald-800"
+                        className="px-3 py-2.5 text-left font-mono tabular-nums text-success-ink"
                         dir="ltr"
                       >
                         {line.debit > 0 ? formatMoney(line.debit, 'LYD') : '—'}
                       </td>
                       <td
-                        className="px-3 py-2.5 text-left font-mono tabular-nums text-rose-800"
+                        className="px-3 py-2.5 text-left font-mono tabular-nums text-danger-ink"
                         dir="ltr"
                       >
                         {line.credit > 0 ? formatMoney(line.credit, 'LYD') : '—'}
@@ -471,14 +471,14 @@ export default function CategoryDetailPage() {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-sage-600/40 bg-sage-50/80 font-semibold">
+                  <tr className="border-t-2 border-ink-soft/40 bg-canvas-sunken/80 font-semibold">
                     <td className="px-3 py-3 text-start" colSpan={3}>
                       إجمالي الفترة · {journalLines.length} حركة
                     </td>
-                    <td className="px-3 py-3 text-left font-mono tabular-nums text-emerald-900" dir="ltr">
+                    <td className="px-3 py-3 text-left font-mono tabular-nums text-success-ink" dir="ltr">
                       {formatMoney(periodDebit, 'LYD')}
                     </td>
-                    <td className="px-3 py-3 text-left font-mono tabular-nums text-rose-900" dir="ltr">
+                    <td className="px-3 py-3 text-left font-mono tabular-nums text-danger-ink" dir="ltr">
                       {formatMoney(periodCredit, 'LYD')}
                     </td>
                   </tr>
@@ -503,14 +503,14 @@ export default function CategoryDetailPage() {
             <div className="hidden overflow-hidden rounded-xl border border-border bg-card lg:block">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b bg-canvas-sunken/80 text-right text-[12px] text-ink-mute">
+                  <tr className="border-b bg-canvas-sunken/80 text-start text-[12px] text-ink-mute">
                     <th className="px-4 py-3 font-semibold">البيان</th>
                     <th className="px-4 py-3 font-semibold">الجهة</th>
                     <th className="px-4 py-3 font-semibold">الخزينة</th>
                     <th className="px-4 py-3 font-semibold">الطريقة</th>
                     <th className="px-4 py-3 font-semibold">الحالة</th>
                     <th className="px-4 py-3 font-semibold">التاريخ</th>
-                    <th className="px-4 py-3 font-semibold text-left">المبلغ</th>
+                    <th className="px-4 py-3 font-semibold text-end">المبلغ</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -543,9 +543,9 @@ export default function CategoryDetailPage() {
                           variant="outline"
                           className={cn(
                             'text-[10px]',
-                            t.status === 'POSTED' && 'border-emerald-300 text-emerald-800',
-                            t.status === 'DRAFT' && 'border-amber-300 text-amber-800',
-                            t.status === 'VOIDED' && 'border-red-300 text-red-800',
+                            t.status === 'POSTED' && 'border-success-line text-success-ink',
+                            t.status === 'DRAFT' && 'border-warning-line text-warning-ink',
+                            t.status === 'VOIDED' && 'border-danger-line text-danger-ink',
                           )}
                         >
                           {STATUS_AR[t.status] ?? t.status}
@@ -554,18 +554,18 @@ export default function CategoryDetailPage() {
                       <td className="px-4 py-3 text-[12.5px] tabular-nums text-ink-mute">
                         {t.tx_date}
                       </td>
-                      <td className="px-4 py-3 text-left font-semibold tabular-nums">
+                      <td className="px-4 py-3 text-end font-semibold tabular-nums">
                         {formatMoney(Number(t.amount), 'LYD')}
                       </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-sage-600 bg-sage-50">
+                  <tr className="border-t-2 border-ink-soft bg-canvas-sunken">
                     <td className="px-4 py-3 font-bold" colSpan={6}>
                       إجمالي {typeLabel} — {monthName} {year}
                     </td>
-                    <td className="px-4 py-3 text-left font-bold tabular-nums">
+                    <td className="px-4 py-3 text-end font-bold tabular-nums">
                       {formatMoney(cashTotal, 'LYD')}
                     </td>
                   </tr>
@@ -584,8 +584,8 @@ export default function CategoryDetailPage() {
                       variant="outline"
                       className={cn(
                         'shrink-0 text-[10px]',
-                        t.status === 'POSTED' && 'border-emerald-300 text-emerald-800',
-                        t.status === 'DRAFT' && 'border-amber-300 text-amber-800',
+                        t.status === 'POSTED' && 'border-success-line text-success-ink',
+                        t.status === 'DRAFT' && 'border-warning-line text-warning-ink',
                       )}
                     >
                       {STATUS_AR[t.status] ?? t.status}
@@ -623,18 +623,18 @@ function SummaryCard({
     <div
       className={cn(
         'surface flex flex-col gap-1 p-4',
-        tone === 'positive' && 'border-emerald-200 bg-emerald-50/50',
-        tone === 'negative' && 'border-red-200 bg-red-50/50',
-        tone === 'warning' && 'border-amber-200 bg-amber-50/50',
+        tone === 'positive' && 'border-success-line bg-success-soft/50',
+        tone === 'negative' && 'border-danger-line bg-danger-soft/50',
+        tone === 'warning' && 'border-warning-line bg-warning-soft/50',
       )}
     >
       <span className="text-[11px] text-ink-mute">{label}</span>
       <span
         className={cn(
           'text-[16px] font-bold tabular-nums',
-          tone === 'positive' && 'text-emerald-800',
-          tone === 'negative' && 'text-red-800',
-          tone === 'warning' && 'text-amber-800',
+          tone === 'positive' && 'text-success-ink',
+          tone === 'negative' && 'text-danger-ink',
+          tone === 'warning' && 'text-warning-ink',
         )}
       >
         {value}

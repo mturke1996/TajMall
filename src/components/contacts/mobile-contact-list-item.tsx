@@ -11,11 +11,11 @@ const KIND_STYLES: Record<
   string,
   { bg: string; icon: string; badge: string }
 > = {
-  TENANT: { bg: 'bg-blue-100', icon: 'text-blue-600', badge: 'text-blue-700 bg-blue-50 border-blue-200' },
-  EMPLOYEE: { bg: 'bg-purple-100', icon: 'text-purple-600', badge: 'text-purple-700 bg-purple-50 border-purple-200' },
-  CUSTOMER: { bg: 'bg-green-100', icon: 'text-green-600', badge: 'text-green-700 bg-green-50 border-green-200' },
-  VENDOR: { bg: 'bg-orange-100', icon: 'text-orange-600', badge: 'text-orange-700 bg-orange-50 border-orange-200' },
-  OTHER: { bg: 'bg-slate-100', icon: 'text-slate-600', badge: 'text-slate-700 bg-slate-50 border-slate-200' },
+  TENANT: { bg: 'bg-info-soft', icon: 'text-info', badge: 'text-info-ink bg-info-soft border-info-line' },
+  EMPLOYEE: { bg: 'bg-plum-soft', icon: 'text-plum', badge: 'text-plum-ink bg-plum-soft border-plum-line' },
+  CUSTOMER: { bg: 'bg-success-soft', icon: 'text-success', badge: 'text-success-ink bg-success-soft border-success-line' },
+  VENDOR: { bg: 'bg-warning-soft', icon: 'text-warning', badge: 'text-warning-ink bg-warning-soft border-warning-line' },
+  OTHER: { bg: 'bg-muted', icon: 'text-ink-soft', badge: 'text-ink-soft bg-canvas-sunken border-border' },
 };
 
 function ContactSubtitle({ contact }: { contact: ContactRow }) {
@@ -96,7 +96,7 @@ export function MobileContactListItem({
             </Button>
             <Button
               variant="ghost"
-              className="flex-1 h-11 rounded-none gap-1.5 text-[13px] text-red-600 touch-manipulation"
+              className="flex-1 h-11 rounded-none gap-1.5 text-[13px] text-danger touch-manipulation"
               onClick={() => onDelete(contact.id)}
             >
               <Trash2 className="h-4 w-4" />

@@ -29,10 +29,10 @@ export function TenantCurrentMonthBanner({
       className={cn(
         'rounded-2xl border px-4 py-3.5 sm:px-5',
         pres.tone === 'emerald' &&
-          'border-emerald-200/80 bg-emerald-50/60 dark:bg-emerald-950/25',
+          'border-success-line/80 bg-success-soft/60',
         pres.tone === 'amber' &&
-          'border-amber-200/80 bg-amber-50/70 dark:bg-amber-950/25',
-        pres.tone === 'rose' && 'border-rose-200/80 bg-rose-50/60 dark:bg-rose-950/20',
+          'border-warning-line/80 bg-warning-soft/70',
+        pres.tone === 'rose' && 'border-danger-line/80 bg-danger-soft/60',
         pres.tone === 'neutral' && 'border-border/80 bg-card',
         className,
       )}
@@ -42,9 +42,9 @@ export function TenantCurrentMonthBanner({
           <div
             className={cn(
               'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
-              pres.tone === 'emerald' && 'bg-emerald-100 text-emerald-800',
-              pres.tone === 'amber' && 'bg-amber-100 text-amber-900',
-              pres.tone === 'rose' && 'bg-rose-100 text-rose-800',
+              pres.tone === 'emerald' && 'bg-success-soft text-success-ink',
+              pres.tone === 'amber' && 'bg-warning-soft text-warning-ink',
+              pres.tone === 'rose' && 'bg-danger-soft text-danger-ink',
               pres.tone === 'neutral' && 'bg-muted text-muted-foreground',
             )}
           >
@@ -57,9 +57,9 @@ export function TenantCurrentMonthBanner({
             <p
               className={cn(
                 'font-bold text-base sm:text-lg leading-tight',
-                pres.tone === 'emerald' && 'text-emerald-900 dark:text-emerald-200',
-                pres.tone === 'amber' && 'text-amber-950 dark:text-amber-100',
-                pres.tone === 'rose' && 'text-rose-900 dark:text-rose-200',
+                pres.tone === 'emerald' && 'text-success-ink',
+                pres.tone === 'amber' && 'text-warning-ink',
+                pres.tone === 'rose' && 'text-danger-ink',
               )}
             >
               {pres.headline}
@@ -72,25 +72,25 @@ export function TenantCurrentMonthBanner({
 
         {pres.amount > 0 && (
           <dl className="flex gap-4 text-xs shrink-0">
-            <div className="text-right">
+            <div className="text-start">
               <dt className="text-muted-foreground">المستحق</dt>
               <dd className="font-bold tabular-nums">{formatMoney(pres.amount, 'LYD')}</dd>
             </div>
-            <div className="text-right">
+            <div className="text-start">
               <dt className="text-muted-foreground">المسدّد</dt>
               <dd
                 className={cn(
                   'font-bold tabular-nums',
-                  pres.paid > 0 && 'text-emerald-700 dark:text-emerald-400',
+                  pres.paid > 0 && 'text-success-ink',
                 )}
               >
                 {formatMoney(pres.paid, 'LYD')}
               </dd>
             </div>
             {pres.remaining > 0 && (
-              <div className="text-right">
+              <div className="text-start">
                 <dt className="text-muted-foreground">المتبقي</dt>
-                <dd className="font-bold tabular-nums text-amber-800 dark:text-amber-300">
+                <dd className="font-bold tabular-nums text-warning-ink">
                   {formatMoney(pres.remaining, 'LYD')}
                 </dd>
               </div>
@@ -109,7 +109,7 @@ export function TenantCurrentMonthBanner({
             <div
               className={cn(
                 'h-full rounded-full transition-all duration-500',
-                pres.status === 'paid_full' ? 'bg-emerald-500' : 'bg-amber-500',
+                pres.status === 'paid_full' ? 'bg-success' : 'bg-warning',
               )}
               style={{ width: `${pres.percentPaid}%` }}
             />
@@ -147,14 +147,14 @@ export function TenantCurrentMonthHeroBadge({
       {pres.amount > 0 && pres.status === 'paid_partial' && (
         <div className="mt-2 h-1.5 rounded-full bg-black/15 overflow-hidden">
           <div
-            className="h-full rounded-full bg-amber-100"
+            className="h-full rounded-full bg-warning-soft"
             style={{ width: `${pres.percentPaid}%` }}
           />
         </div>
       )}
       {pres.status === 'paid_full' && pres.amount > 0 && (
         <div className="mt-2 h-1.5 rounded-full bg-black/15 overflow-hidden">
-          <div className="h-full w-full rounded-full bg-emerald-200" />
+          <div className="h-full w-full rounded-full bg-success-line" />
         </div>
       )}
     </div>

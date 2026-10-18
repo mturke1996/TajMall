@@ -139,15 +139,15 @@ export const TENANT_MONTH_TONE_STYLES: Record<
   { hero: string; tile: 'emerald' | 'amber' | 'rose' | 'neutral' | 'sage' }
 > = {
   emerald: {
-    hero: 'bg-emerald-500/30 ring-1 ring-emerald-200/50 text-white',
+    hero: 'bg-success/30 ring-1 ring-success-line/50 text-white',
     tile: 'emerald',
   },
   amber: {
-    hero: 'bg-amber-400/35 ring-1 ring-amber-100/60 text-white',
+    hero: 'bg-warning-line/35 ring-1 ring-warning-line/60 text-white',
     tile: 'amber',
   },
   rose: {
-    hero: 'bg-rose-500/30 ring-1 ring-rose-200/40 text-white',
+    hero: 'bg-danger/30 ring-1 ring-danger-line/40 text-white',
     tile: 'rose',
   },
   neutral: {

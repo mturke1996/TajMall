@@ -129,7 +129,7 @@ export function ChangePasswordForm({ email }: Props) {
         placeholder="أعد إدخال كلمة المرور"
       />
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
 
       <Button
         type="submit"
@@ -142,7 +142,7 @@ export function ChangePasswordForm({ email }: Props) {
       </Button>
       <p className="text-[11px] text-ink-mute">
         لا تتذكر كلمة المرور الحالية؟{' '}
-        <a href="/login/forgot-password" className="text-sage-700 underline underline-offset-2">
+        <a href="/login/forgot-password" className="text-foreground underline underline-offset-2">
           استعدها من صفحة الدخول
         </a>{' '}
         (بدون الحاجة للكلمة القديمة).

@@ -198,7 +198,7 @@ export function RecordRentPaymentDialog({
         </DialogHeader>
 
         <div className="px-5 py-4 space-y-4">
-          <div className="rounded-lg bg-sage-50 p-3">
+          <div className="rounded-lg bg-canvas-sunken p-3">
             <p className="font-medium">{tenant.name}</p>
             <p className="text-sm text-ink-mute">
               محل {tenant.shop_number || '—'} · إيجار شهري{' '}

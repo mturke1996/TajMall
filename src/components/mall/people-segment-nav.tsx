@@ -38,7 +38,7 @@ export function PeopleSegmentNav({
             className={cn(
               'inline-flex shrink-0 snap-center items-center gap-1.5 rounded-full border px-3 py-2 text-[13px] font-medium touch-manipulation',
               active === seg.id
-                ? 'border-sage-700 bg-sage-700 text-white'
+                ? 'border-foreground bg-foreground text-background'
                 : 'border-border bg-card hover:bg-secondary',
             )}
           >

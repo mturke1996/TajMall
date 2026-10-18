@@ -120,7 +120,7 @@ export default function AccountsPage() {
               className={cn(
                 'snap-center shrink-0 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors touch-manipulation min-h-10',
                 tab === key
-                  ? 'border-sage-300 bg-sage-50 text-sage-700'
+                  ? 'border-border bg-canvas-sunken text-foreground'
                   : 'border-border bg-card text-ink-mute hover:text-foreground',
               )}
             >
@@ -186,7 +186,7 @@ export default function AccountsPage() {
                           c.type === 'REVENUE' && 'border-pastel-greenInk/15 bg-pastel-green text-pastel-greenInk',
                           c.type === 'EXPENSE' && 'border-pastel-redInk/15 bg-pastel-red text-pastel-redInk',
                           ['ASSET', 'LIABILITY', 'EQUITY'].includes(c.type) &&
-                            'border-sage-200 bg-sage-50 text-sage-800',
+                            'border-border bg-canvas-sunken text-foreground',
                         )}
                       >
                         {c.type === 'REVENUE' ? (
@@ -214,7 +214,7 @@ export default function AccountsPage() {
                       <Link
                         href={ledgerUrl(c.id, year)}
                         title="كشف دفتر الأستاذ"
-                        className="grid h-7 w-7 place-items-center rounded-md border border-border text-ink-mute transition-colors hover:bg-sage-50 hover:text-sage-700 touch-manipulation"
+                        className="grid h-7 w-7 place-items-center rounded-md border border-border text-ink-mute transition-colors hover:bg-canvas-sunken hover:text-foreground touch-manipulation"
                       >
                         <BookMarked className="h-3.5 w-3.5 stroke-[1.6]" />
                       </Link>
@@ -227,7 +227,7 @@ export default function AccountsPage() {
                               setEditingRow(c);
                               setDialogOpen(true);
                             }}
-                            className="grid h-7 w-7 place-items-center rounded-md border border-border text-ink-mute transition-colors hover:bg-sage-50 hover:text-sage-700 touch-manipulation"
+                            className="grid h-7 w-7 place-items-center rounded-md border border-border text-ink-mute transition-colors hover:bg-canvas-sunken hover:text-foreground touch-manipulation"
                           >
                             <Pencil className="h-3.5 w-3.5 stroke-[1.6]" />
                           </button>

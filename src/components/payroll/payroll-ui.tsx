@@ -36,8 +36,8 @@ export function Amount({
       dir="ltr"
       className={cn(
         'inline-block whitespace-nowrap font-medium tabular-nums',
-        tone === 'positive' && 'text-pastel-greenInk dark:text-emerald-400',
-        tone === 'negative' && 'text-pastel-redInk dark:text-rose-400',
+        tone === 'positive' && 'text-pastel-greenInk',
+        tone === 'negative' && 'text-pastel-redInk',
         muted && 'font-normal text-ink-mute',
         className,
       )}
@@ -272,7 +272,7 @@ export function PayrollSchemaMissing() {
 /** A quiet inline message for a failed load that is not the missing schema. */
 export function PayrollLoadError({ message }: { message: string }) {
   return (
-    <div className="rounded-lg border border-pastel-redInk/20 bg-pastel-red px-4 py-3 text-[13px] text-pastel-redInk dark:bg-rose-950/30 dark:text-rose-300">
+    <div className="rounded-lg border border-pastel-redInk/20 bg-pastel-red px-4 py-3 text-[13px] text-pastel-redInk">
       {message}
     </div>
   );

@@ -157,7 +157,7 @@ export default function VouchersPage() {
         {isLoading ? (
           <p className="text-sm text-ink-mute">جاري تحميل الإذونات…</p>
         ) : isError ? (
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-danger">
             تعذّر قراءة الإذونات. إذا كانت الترحيلات غير مطبّقة على المشروع، نفّذ ملف{' '}
             <code className="rounded bg-muted px-1 text-xs">009_disbursement_vouchers.sql</code>{' '}
             من مجلد ترحيلات Supabase.
@@ -180,7 +180,7 @@ export default function VouchersPage() {
                   id={voucherHighlightDomId(row.id)}
                   className={cn(
                     'flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm scroll-mt-24 sm:flex-row sm:items-center sm:justify-between',
-                    isHighlighted(highlightId, row.id) && 'ring-2 ring-sage-600 shadow-md',
+                    isHighlighted(highlightId, row.id) && 'ring-2 ring-ink-soft shadow-md',
                   )}
                 >
                   <div className="min-w-0 space-y-1">
@@ -220,7 +220,7 @@ export default function VouchersPage() {
                       <>
                         <Button
                           size="sm"
-                          className="gap-1.5 bg-emerald-700 hover:bg-emerald-800"
+                          className="gap-1.5"
                           disabled={decideApproval.isPending}
                           onClick={() => handleApprove(row.id)}
                         >
@@ -230,7 +230,7 @@ export default function VouchersPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="gap-1.5 text-rose-700 hover:bg-rose-50"
+                          className="gap-1.5 text-danger-ink hover:bg-danger-soft"
                           disabled={decideApproval.isPending}
                           onClick={() => setRejectId(row.id)}
                         >
@@ -250,7 +250,7 @@ export default function VouchersPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="gap-1.5 text-rose-700 hover:bg-rose-50"
+                        className="gap-1.5 text-danger-ink hover:bg-danger-soft"
                         disabled={deleteVoucher.isPending}
                         onClick={() => handleDelete(row)}
                       >
@@ -289,7 +289,7 @@ export default function VouchersPage() {
               إلغاء
             </Button>
             <Button
-              className="bg-rose-700 hover:bg-rose-800"
+              className="bg-danger hover:bg-danger/90"
               disabled={decideApproval.isPending}
               onClick={confirmReject}
             >

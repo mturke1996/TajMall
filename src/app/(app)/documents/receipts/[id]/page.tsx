@@ -180,7 +180,7 @@ export default function EditReceiptPage() {
   if (isError || !row) {
     return (
       <AccountingPageBody>
-        <Card className="p-8 text-center text-sm text-red-600">
+        <Card className="p-8 text-center text-sm text-danger">
           لم يُعثر على الإيصال أو تعذّر التحميل.
           <Button variant="link" asChild className="block mx-auto mt-2">
             <Link href="/documents/receipts">العودة للقائمة</Link>
@@ -200,7 +200,7 @@ export default function EditReceiptPage() {
           <>
             <Button variant="outline" size="sm" asChild>
               <Link href="/documents/receipts">
-                <ArrowRight className="h-4 w-4 ml-1" />
+                <ArrowRight className="h-4 w-4 me-1" />
                 رجوع
               </Link>
             </Button>
@@ -223,22 +223,22 @@ export default function EditReceiptPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                className="text-danger hover:bg-danger-soft hover:text-danger-ink"
                 disabled={deleteReceipt.isPending}
                 onClick={() => setConfirmDelete(true)}
               >
-                <Trash2 className="h-4 w-4 ml-1" />
+                <Trash2 className="h-4 w-4 me-1" />
                 حذف
               </Button>
             ) : null}
             {canEdit ? (
               <Button
                 size="sm"
-                className="bg-sage-700 hover:bg-sage-800"
+                className="bg-foreground hover:bg-foreground"
                 disabled={updateReceipt.isPending}
                 onClick={() => void handleSave()}
               >
-                <Save className="h-4 w-4 ml-1" />
+                <Save className="h-4 w-4 me-1" />
                 حفظ التعديلات
               </Button>
             ) : null}
@@ -359,7 +359,7 @@ export default function EditReceiptPage() {
                   size="sm"
                   onClick={() => setLines((prev) => [...prev, { description: '', amount: '' }])}
                 >
-                  <Plus className="h-3.5 w-3.5 ml-1" />
+                  <Plus className="h-3.5 w-3.5 me-1" />
                   بند
                 </Button>
               ) : null}
@@ -400,7 +400,7 @@ export default function EditReceiptPage() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="shrink-0 text-red-600"
+                    className="shrink-0 text-danger"
                     onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -408,7 +408,7 @@ export default function EditReceiptPage() {
                 ) : null}
               </div>
             ))}
-            <p className="text-sm font-mono font-semibold text-emerald-700">
+            <p className="text-sm font-mono font-semibold text-success-ink">
               الإجمالي: {totalAmount.toLocaleString('ar-LY')} د.ل
             </p>
           </div>

@@ -37,7 +37,7 @@ export function JournalNativeSelect({
           required={required}
           className={cn(
             'flex h-12 w-full appearance-none rounded-lg border border-border bg-card px-3 pe-10 text-sm',
-            'touch-manipulation focus:outline-none focus-visible:border-sage-500 focus-visible:shadow-focus',
+            'touch-manipulation focus:outline-none focus-visible:border-ring focus-visible:shadow-focus',
           )}
         >
           {placeholder && (

@@ -30,28 +30,28 @@ const QUICK_LINKS: {
     title: 'المستأجرين والتحصيل',
     description: 'الشهور المدفوعة وغير المدفوعة وتسجيل التحصيل',
     icon: Building2,
-    tone: 'border-sage-200 bg-sage-50/80',
+    tone: 'border-border bg-card',
   },
   {
     tab: 'contracts',
     title: 'عقود الإيجار',
     description: 'توثيق العقد ومبلغ الإيجار الشهري',
     icon: FileText,
-    tone: 'border-violet-200 bg-violet-50/80',
+    tone: 'border-border bg-card',
   },
   {
     tab: 'charges',
     title: 'المطالبات والرسوم',
     description: 'فواتير الإيجار الشهرية وتوليدها',
     icon: Coins,
-    tone: 'border-amber-200 bg-amber-50/80',
+    tone: 'border-border bg-card',
   },
   {
     tab: 'people',
     title: 'الجهات والدليل',
     description: 'مستأجرين، موظفين، موردين، وعملاء',
     icon: Users,
-    tone: 'border-slate-200 bg-slate-50/80',
+    tone: 'border-border bg-card',
   },
 ];
 
@@ -99,11 +99,11 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
           <p className="text-[11px] text-ink-mute md:text-xs">عقود نشطة</p>
           <p className="text-xl font-bold tabular-nums md:text-2xl">{activeContracts}</p>
         </Card>
-        <Card className="p-3 md:p-4 border-sage-200 bg-sage-50/50">
+        <Card className="p-3 md:p-4 border-border bg-canvas-sunken/50">
           <p className="text-[11px] text-ink-mute md:text-xs">
             {rentKpis.basis === 'charges' ? 'تحصيل الإيجار' : 'تحصيل الشهر'}
           </p>
-          <p className="text-base font-bold text-sage-800 tabular-nums md:text-lg">
+          <p className="text-base font-bold text-foreground tabular-nums md:text-lg">
             {rentKpis.collectionRate.toFixed(1)}%
           </p>
           <p className="text-[10px] text-ink-mute">
@@ -125,11 +125,11 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
               key={a.text}
               type="button"
               onClick={() => onNavigate(a.tab)}
-              className="flex w-full items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/90 px-3 py-3 text-right text-sm touch-manipulation active:bg-amber-100"
+              className="flex w-full items-center gap-3 rounded-xl border border-warning-line bg-warning-soft/90 px-3 py-3 text-start text-sm touch-manipulation active:bg-warning-soft"
             >
-              <AlertCircle className="h-5 w-5 shrink-0 text-amber-700" />
-              <span className="flex-1 font-medium text-amber-900">{a.text}</span>
-              <ArrowLeft className="h-4 w-4 shrink-0 text-amber-700" />
+              <AlertCircle className="h-5 w-5 shrink-0 text-warning-ink" />
+              <span className="flex-1 font-medium text-warning-ink">{a.text}</span>
+              <ArrowLeft className="h-4 w-4 shrink-0 text-warning-ink" />
             </button>
           ))}
         </div>
@@ -146,12 +146,12 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
                 type="button"
                 onClick={() => onNavigate(item.tab)}
                 className={cn(
-                  'flex flex-col items-start gap-2 rounded-xl border p-4 text-right transition-shadow touch-manipulation active:scale-[0.99]',
+                  'flex flex-col items-start gap-2 rounded-xl border p-4 text-start transition-shadow touch-manipulation active:scale-[0.99]',
                   item.tone,
                   'hover:shadow-md',
                 )}
               >
-                <Icon className="h-6 w-6 text-sage-700" />
+                <Icon className="h-6 w-6 text-foreground" />
                 <div>
                   <p className="font-semibold">{item.title}</p>
                   <p className="mt-0.5 text-[12px] text-ink-mute leading-snug">

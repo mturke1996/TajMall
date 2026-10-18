@@ -224,7 +224,7 @@ export default function ContactDetailPage() {
           <div className="flex w-full items-center gap-2 sm:w-auto">
             <Button variant="outline" size="sm" className="h-10 touch-manipulation" asChild>
               <Link href={backHref}>
-                <ArrowRight className="h-4 w-4 ml-1" />
+                <ArrowRight className="h-4 w-4 me-1" />
                 رجوع
               </Link>
             </Button>
@@ -241,18 +241,18 @@ export default function ContactDetailPage() {
                     })
                   }
                 >
-                  <Plus className="h-4 w-4 ml-1" />
+                  <Plus className="h-4 w-4 me-1" />
                   معاملة جديدة
                 </Button>
               ) : null}
               {canRecordRent && (
                 <Button size="sm" onClick={() => setIsPayOpen(true)}>
-                  <Plus className="h-4 w-4 ml-1" />
+                  <Plus className="h-4 w-4 me-1" />
                   تسجيل دفع
                 </Button>
               )}
               <Button size="sm" variant="outline" onClick={openEdit}>
-                <Edit2 className="h-4 w-4 ml-1" />
+                <Edit2 className="h-4 w-4 me-1" />
                 تعديل
               </Button>
             </div>
@@ -269,7 +269,7 @@ export default function ContactDetailPage() {
         {!contact.is_active && (
           <div
             role="status"
-            className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+            className="rounded-xl border border-warning-line bg-warning-soft px-4 py-3 text-sm text-warning-ink"
           >
             هذا الملف غير نشط. تظل بياناته وحركاته السابقة متاحة، لكن لا يمكن بدء معاملة جديدة قبل إعادة تفعيله من تعديل الملف.
           </div>

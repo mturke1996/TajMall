@@ -69,7 +69,7 @@ export function RentMonthLabel({
         {year}
       </span>
       {partialProgress && (
-        <span className="text-[8px] sm:text-[9px] font-semibold text-amber-800 mt-0.5 tabular-nums">
+        <span className="text-[8px] sm:text-[9px] font-semibold text-warning-ink mt-0.5 tabular-nums">
           {partialProgress}
         </span>
       )}

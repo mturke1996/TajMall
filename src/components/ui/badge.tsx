@@ -11,7 +11,7 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default:    'bg-sage-100 text-sage-700',
+        default:    'bg-muted text-foreground',
         neutral:    'bg-canvas-sunken text-ink-mute border border-border',
         success:    'bg-pastel-green text-pastel-greenInk',
         warning:    'bg-pastel-yellow text-pastel-yellowInk',

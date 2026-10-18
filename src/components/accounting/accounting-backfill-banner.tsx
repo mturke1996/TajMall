@@ -18,13 +18,13 @@ export function AccountingBackfillBanner({
   if (!can('journal.post') && !can('journal.create')) return null;
 
   return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-center space-y-2 w-full">
-      <p className="font-semibold text-amber-950 text-sm">{title}</p>
-      <p className="text-xs text-amber-800/90 max-w-lg mx-auto leading-relaxed">{description}</p>
+    <div className="rounded-xl border border-warning-line bg-warning-soft/80 p-4 text-center space-y-2 w-full">
+      <p className="font-semibold text-warning-ink text-sm">{title}</p>
+      <p className="text-xs text-warning-ink/90 max-w-lg mx-auto leading-relaxed">{description}</p>
       <Button
         onClick={() => backfill.mutate()}
         disabled={backfill.isPending}
-        className="mt-2 bg-emerald-700 hover:bg-emerald-800 text-white gap-2 touch-manipulation min-h-11"
+        className="mt-2 gap-2 touch-manipulation min-h-11"
       >
         {backfill.isPending ? (
           <Loader2 className="h-4 w-4 animate-spin" />

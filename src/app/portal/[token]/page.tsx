@@ -42,17 +42,17 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_TONE: Record<string, string> = {
-  UNPAID: 'bg-rose-50 text-rose-700 border-rose-200',
-  PARTIAL: 'bg-amber-50 text-amber-800 border-amber-200',
-  PAID: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  UNPAID: 'bg-danger-soft text-danger-ink border-danger-line',
+  PARTIAL: 'bg-warning-soft text-warning-ink border-warning-line',
+  PAID: 'bg-success-soft text-success-ink border-success-line',
 };
 
 const CAL_CELL: Record<RentMonthStatus, string> = {
-  paid: 'border-emerald-500 bg-emerald-50/40 text-emerald-800',
-  partial: 'border-amber-500 bg-amber-50/40 text-amber-800',
-  unpaid: 'border-rose-500 bg-rose-50/40 text-rose-800',
-  no_charge: 'border-slate-300 bg-white text-slate-600',
-  exempt: 'border-dashed border-slate-300 bg-slate-50 text-slate-500',
+  paid: 'border-success bg-success-soft/40 text-success-ink',
+  partial: 'border-warning bg-warning-soft/40 text-warning-ink',
+  unpaid: 'border-danger bg-danger-soft/40 text-danger-ink',
+  no_charge: 'border-border bg-white text-ink-soft',
+  exempt: 'border-dashed border-border bg-canvas-sunken text-muted-foreground',
   na: 'border-[#ECEAE3] bg-[#FBFBFA] text-[#9a9a9a]',
 };
 
@@ -221,7 +221,7 @@ export default async function TenantPortalPage({ params }: { params: { token: st
               <p className="text-[11px] text-[#6b6f68]">إجمالي المستحق</p>
               <p
                 className={`mt-0.5 text-[15px] font-bold ${
-                  totalOutstanding > 0 ? 'text-rose-700' : 'text-emerald-700'
+                  totalOutstanding > 0 ? 'text-danger-ink' : 'text-success-ink'
                 }`}
               >
                 {formatMoney(totalOutstanding, 'LYD')}
@@ -315,13 +315,13 @@ export default async function TenantPortalPage({ params }: { params: { token: st
                         {formatDate(c.due_date)}
                       </p>
                       {c.status === 'PARTIAL' && (
-                        <p className="mt-0.5 text-[11px] text-amber-700">
+                        <p className="mt-0.5 text-[11px] text-warning-ink">
                           مدفوع {formatMoney(Number(c.total_paid), '')} · متبقي{' '}
                           {formatMoney(remaining, '')}
                         </p>
                       )}
                     </div>
-                    <div className="shrink-0 text-left">
+                    <div className="shrink-0 text-end">
                       <p className="font-mono text-[13px] font-semibold text-[#15171A]">
                         {formatMoney(displayAmount, '')}
                       </p>

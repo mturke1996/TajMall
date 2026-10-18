@@ -319,22 +319,22 @@ export function SetRentMonthStatusDialog({
           </div>
 
           {selected.length > 0 && monthAmount > 0 && (
-            <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 px-3 py-2.5 text-sm space-y-1">
-              <p className="font-medium text-amber-950">
+            <div className="rounded-xl border border-warning-line/80 bg-warning-soft/50 px-3 py-2.5 text-sm space-y-1">
+              <p className="font-medium text-warning-ink">
                 {multiMonth ? 'مجموع الشهرين' : 'مطالبة الشهر'}:{' '}
                 {formatMoney(monthAmount, 'LYD')}
               </p>
-              <p className="text-amber-900/90 tabular-nums">
+              <p className="text-warning-ink/90 tabular-nums">
                 مدفوع: {formatMoney(paidSoFar, 'LYD')} · متبقي:{' '}
                 <span className="font-semibold">{formatMoney(remaining, 'LYD')}</span>
               </p>
               {multiMonth && (
-                <p className="text-xs text-amber-900/80 pt-1">
+                <p className="text-xs text-warning-ink/80 pt-1">
                   سيُربط القيد بـ {formatMonthsLabelAr(selected)} ويظهر كل شهر{' '}
                   <strong>مدفوع</strong> في التقويم.
                 </p>
               )}
-              <ul className="text-xs text-amber-900/80 pt-1 space-y-1 border-t border-amber-200/60 mt-2">
+              <ul className="text-xs text-warning-ink/80 pt-1 space-y-1 border-t border-warning-line/60 mt-2">
                 {selected.map((m) => {
                   const c = chargesByMonth.get(m);
                   const amt = Math.max(Number(c?.amount) || monthlyRent || 0, 0);
@@ -344,7 +344,7 @@ export function SetRentMonthStatusDialog({
                       {formatMonthLabelAr(m)}: {formatMoney(paid, 'LYD')} /{' '}
                       {formatMoney(amt, 'LYD')}
                       {(c?.rent_journal_links ?? []).map((l) => (
-                        <span key={l.id} className="mr-1 text-ink-mute">
+                        <span key={l.id} className="ms-1 text-ink-mute">
                           · قيد #{l.journal?.number ?? '—'}
                         </span>
                       ))}
@@ -454,7 +454,7 @@ export function SetRentMonthStatusDialog({
               </p>
             ) : journalsBusy ? (
               <div className="flex justify-center py-6">
-                <Loader2 className="h-6 w-6 animate-spin text-sage-600" />
+                <Loader2 className="h-6 w-6 animate-spin text-ink-soft" />
               </div>
             ) : journals.length === 0 ? (
               <p className="text-sm text-ink-mute rounded-xl border border-border px-3 py-4 text-center">
@@ -484,7 +484,7 @@ export function SetRentMonthStatusDialog({
                         className={cn(
                           'w-full text-start px-3 py-2.5 transition-colors touch-manipulation',
                           isSelected
-                            ? 'bg-sage-50 ring-1 ring-inset ring-sage-600'
+                            ? 'bg-canvas-sunken ring-1 ring-inset ring-ink-soft'
                             : 'hover:bg-canvas-sunken',
                         )}
                       >
@@ -496,12 +496,12 @@ export function SetRentMonthStatusDialog({
                           {formatMoney(Number(je.total_debit), 'LYD')}
                         </p>
                         {linkedElsewhere && (
-                          <p className="text-[10px] text-amber-800 mt-1">
+                          <p className="text-[10px] text-warning-ink mt-1">
                             {formatJournalLinkedHint(linkedElsewhere)}
                           </p>
                         )}
                         {onSelectedMonth && !linkedElsewhere && (
-                          <p className="text-[10px] text-sage-700 mt-1">
+                          <p className="text-[10px] text-foreground mt-1">
                             مربوط بأحد الشهور المحددة
                           </p>
                         )}

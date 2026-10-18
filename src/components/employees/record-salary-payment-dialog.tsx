@@ -131,7 +131,7 @@ export function RecordSalaryPaymentDialog({
         </DialogHeader>
         {employee && (
           <div className="space-y-4 py-2">
-            <div className="rounded-lg bg-purple-50 p-3">
+            <div className="rounded-lg bg-plum-soft p-3">
               <p className="font-medium">{employee.name}</p>
               <p className="text-sm text-ink-mute">
                 {employee.job_title || '—'}

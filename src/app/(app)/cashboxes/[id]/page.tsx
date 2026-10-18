@@ -79,7 +79,7 @@ export default function CashboxLedgerPage() {
   if (isLoading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-sage-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-ink-soft" />
       </div>
     );
   }
@@ -150,7 +150,7 @@ export default function CashboxLedgerPage() {
               <Button
                 variant={reconcileMode ? 'default' : 'outline'}
                 size="sm"
-                className={cn('gap-1.5', reconcileMode && 'bg-sage-700 hover:bg-sage-800')}
+                className={cn('gap-1.5', reconcileMode && 'bg-foreground hover:bg-foreground')}
                 onClick={() => setReconcileMode((v) => !v)}
               >
                 <ScanLine className="h-4 w-4" />
@@ -181,7 +181,7 @@ export default function CashboxLedgerPage() {
                 <Icon className="h-4 w-4" style={{ color: balanceRow?.color ?? undefined }} />
               </span>
               <div>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-ink-mute">الرصيد الحالي</p>
+                <p className="text-[10px] text-ink-mute">الرصيد الحالي</p>
                 <p className="num text-[22px] font-bold tabular-nums">
                   {formatMoney(ledger.current_balance, currency)}
                 </p>
@@ -189,23 +189,23 @@ export default function CashboxLedgerPage() {
             </div>
           </div>
           <div className="surface p-4">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-ink-mute">افتتاحي</p>
+            <p className="text-[10px] text-ink-mute">افتتاحي</p>
             <p className="num mt-1 text-[16px] font-semibold">{formatMoney(ledger.opening_balance, currency)}</p>
           </div>
           <div className="surface p-4">
-            <p className="flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-pastel-greenInk">
+            <p className="flex items-center gap-1 text-[10px] text-pastel-greenInk">
               <ArrowDownToLine className="h-3 w-3" /> وارد
             </p>
             <p className="num mt-1 text-[16px] font-semibold text-pastel-greenInk">
-              + {formatMoney(totalIn, currency, { compact: true })}
+              {formatMoney(Math.abs(totalIn), currency, { compact: true, signed: true })}
             </p>
           </div>
           <div className="surface p-4">
-            <p className="flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-pastel-redInk">
+            <p className="flex items-center gap-1 text-[10px] text-pastel-redInk">
               <ArrowUpFromLine className="h-3 w-3" /> صادر
             </p>
             <p className="num mt-1 text-[16px] font-semibold text-pastel-redInk">
-              − {formatMoney(totalOut, currency, { compact: true })}
+              {formatMoney(-Math.abs(totalOut), currency, { compact: true, signed: true })}
             </p>
           </div>
         </div>
@@ -213,7 +213,7 @@ export default function CashboxLedgerPage() {
         {reconcileMode && (
           <div className="surface flex flex-col gap-4 p-4 sm:p-5">
             <div className="flex items-center gap-2">
-              <ScanLine className="h-4 w-4 text-sage-700" />
+              <ScanLine className="h-4 w-4 text-foreground" />
               <h2 className="text-[14px] font-semibold">تسوية بنكية</h2>
             </div>
             <p className="text-[12.5px] leading-relaxed text-ink-mute">
@@ -223,13 +223,13 @@ export default function CashboxLedgerPage() {
             </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-ink-mute">الرصيد المطابَق</p>
+                <p className="text-[10px] text-ink-mute">الرصيد المطابَق</p>
                 <p className="num mt-1 text-[16px] font-semibold">
                   {formatMoney(reconciledBalance, currency)}
                 </p>
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="stmt-balance" className="text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+                <Label htmlFor="stmt-balance" className="text-[10px] text-ink-mute">
                   رصيد كشف الحساب البنكي
                 </Label>
                 <Input
@@ -245,11 +245,11 @@ export default function CashboxLedgerPage() {
               </div>
               {reconcileDiff !== null && (
                 <div className="col-span-2 sm:col-span-2">
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-ink-mute">الفارق</p>
+                  <p className="text-[10px] text-ink-mute">الفارق</p>
                   <p
                     className={cn(
                       'num mt-1 text-[16px] font-bold',
-                      Math.abs(reconcileDiff) < 0.01 ? 'text-emerald-700' : 'text-rose-700',
+                      Math.abs(reconcileDiff) < 0.01 ? 'text-success-ink' : 'text-danger-ink',
                     )}
                   >
                     {formatMoney(reconcileDiff, currency)}
@@ -264,7 +264,7 @@ export default function CashboxLedgerPage() {
         <div className="surface overflow-hidden">
           <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-sage-700" />
+              <BookOpen className="h-4 w-4 text-foreground" />
               <div>
                 <h2 className="text-[14px] font-semibold">سجل الحركات</h2>
                 <p className="text-[11.5px] text-ink-mute">{filteredRows.length} حركة</p>
@@ -279,7 +279,7 @@ export default function CashboxLedgerPage() {
                   className={cn(
                     'rounded-full px-3 py-1.5 text-[11.5px] font-semibold transition-colors',
                     filter === chip.key
-                      ? 'bg-sage-800 text-white'
+                      ? 'bg-foreground text-background'
                       : 'bg-canvas-sunken text-ink-mute hover:text-foreground',
                   )}
                 >
@@ -312,14 +312,14 @@ export default function CashboxLedgerPage() {
               <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-[12.5px]">
                   <thead>
-                    <tr className="border-b border-border bg-canvas-sunken/50 text-[10px] uppercase tracking-[0.14em] text-ink-mute">
-                      {reconcileMode && <th className="px-4 py-2.5 text-right font-semibold">مطابَق</th>}
-                      <th className="px-4 py-2.5 text-right font-semibold">التاريخ</th>
-                      <th className="px-4 py-2.5 text-right font-semibold">المرجع</th>
-                      <th className="px-4 py-2.5 text-right font-semibold">النوع</th>
-                      <th className="px-4 py-2.5 text-right font-semibold">البيان</th>
-                      <th className="px-4 py-2.5 text-left font-semibold">المبلغ</th>
-                      <th className="px-4 py-2.5 text-left font-semibold">الرصيد</th>
+                    <tr className="border-b border-border bg-canvas-sunken/50 text-[10px] text-ink-mute">
+                      {reconcileMode && <th className="px-4 py-2.5 text-start font-semibold">مطابَق</th>}
+                      <th className="px-4 py-2.5 text-start font-semibold">التاريخ</th>
+                      <th className="px-4 py-2.5 text-start font-semibold">المرجع</th>
+                      <th className="px-4 py-2.5 text-start font-semibold">النوع</th>
+                      <th className="px-4 py-2.5 text-start font-semibold">البيان</th>
+                      <th className="px-4 py-2.5 text-end font-semibold">المبلغ</th>
+                      <th className="px-4 py-2.5 text-end font-semibold">الرصيد</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -332,7 +332,7 @@ export default function CashboxLedgerPage() {
                           key={`${row.source_type}-${row.event_id}-${row.event_kind}`}
                           className={cn(
                             'border-b border-border/70 hover:bg-canvas-sunken/30',
-                            reconcileMode && row.reconciled_at && 'bg-emerald-50/40',
+                            reconcileMode && row.reconciled_at && 'bg-success-soft/40',
                           )}
                         >
                           {reconcileMode && (
@@ -341,7 +341,7 @@ export default function CashboxLedgerPage() {
                                 type="button"
                                 onClick={() => toggleReconciled(row)}
                                 disabled={setReconciled.isPending}
-                                className="text-sage-700 disabled:opacity-40"
+                                className="text-foreground disabled:opacity-40"
                                 aria-label={row.reconciled_at ? 'إلغاء المطابقة' : 'تعليم كمطابَق'}
                               >
                                 {row.reconciled_at ? (
@@ -369,7 +369,7 @@ export default function CashboxLedgerPage() {
                               <p className="mt-0.5 text-[11px] text-ink-mute">
                                 {isIn ? 'من' : 'إلى'}:{' '}
                                 {href ? (
-                                  <Link href={href} className="font-medium text-sage-700 hover:underline">
+                                  <Link href={href} className="font-medium text-foreground hover:underline">
                                     {row.counter_name_ar}
                                   </Link>
                                 ) : (
@@ -378,10 +378,10 @@ export default function CashboxLedgerPage() {
                               </p>
                             ) : null}
                           </td>
-                          <td className={cn('num px-4 py-3 text-left font-bold tabular-nums', isIn ? 'text-pastel-greenInk' : 'text-pastel-redInk')}>
-                            {isIn ? '+' : '−'} {formatMoney(Math.abs(row.signed_amount), currency)}
+                          <td className={cn('num px-4 py-3 text-end font-bold tabular-nums', isIn ? 'text-pastel-greenInk' : 'text-pastel-redInk')}>
+                            {formatMoney(isIn ? Math.abs(row.signed_amount) : -Math.abs(row.signed_amount), currency, { signed: true })}
                           </td>
-                          <td className="num px-4 py-3 text-left font-semibold tabular-nums text-ink-mute">
+                          <td className="num px-4 py-3 text-end font-semibold tabular-nums text-ink-mute">
                             {formatMoney(row.balance_after, currency)}
                           </td>
                         </tr>
@@ -420,14 +420,14 @@ function LedgerMobileRow({
   const isIn = row.direction === 'in';
 
   return (
-    <article className={cn('px-4 py-3.5', reconcileMode && row.reconciled_at && 'bg-emerald-50/40')}>
+    <article className={cn('px-4 py-3.5', reconcileMode && row.reconciled_at && 'bg-success-soft/40')}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           {reconcileMode && (
             <button
               type="button"
               onClick={onToggleReconciled}
-              className="text-sage-700"
+              className="text-foreground"
               aria-label={row.reconciled_at ? 'إلغاء المطابقة' : 'تعليم كمطابَق'}
             >
               {row.reconciled_at ? (
@@ -442,7 +442,7 @@ function LedgerMobileRow({
           </Badge>
         </div>
         <span className={cn('num text-[15px] font-bold tabular-nums', isIn ? 'text-pastel-greenInk' : 'text-pastel-redInk')}>
-          {isIn ? '+' : '−'} {formatMoney(Math.abs(row.signed_amount), currency)}
+          {formatMoney(isIn ? Math.abs(row.signed_amount) : -Math.abs(row.signed_amount), currency, { signed: true })}
         </span>
       </div>
       <p className="mt-2 text-[13px] font-medium leading-snug">{row.description ?? '—'}</p>
@@ -450,7 +450,7 @@ function LedgerMobileRow({
         <p className="mt-1 text-[12px] text-ink-mute">
           {isIn ? 'من' : 'إلى'}:{' '}
           {href ? (
-            <Link href={href} className="font-semibold text-sage-700">
+            <Link href={href} className="font-semibold text-foreground">
               {row.counter_name_ar}
             </Link>
           ) : (

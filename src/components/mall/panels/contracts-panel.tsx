@@ -115,11 +115,11 @@ export function MallContractsPanel() {
 
   const getStatusBadge = (s: string) => {
     const configs: Record<string, { label: string; className: string }> = {
-      ACTIVE: { label: 'ساري وموثق', className: 'border-green-200 bg-green-50 text-green-700' },
-      EXPIRED: { label: 'منتهي الصلاحية', className: 'border-slate-200 bg-slate-50 text-slate-600' },
-      TERMINATED: { label: 'مفسوخ / ملغي', className: 'border-red-200 bg-red-50 text-red-700' },
+      ACTIVE: { label: 'ساري وموثق', className: 'border-success-line bg-success-soft text-success-ink' },
+      EXPIRED: { label: 'منتهي الصلاحية', className: 'border-border bg-canvas-sunken text-ink-soft' },
+      TERMINATED: { label: 'مفسوخ / ملغي', className: 'border-danger-line bg-danger-soft text-danger-ink' },
     };
-    const c = configs[s] || { label: s, className: 'border-slate-200 bg-slate-50 text-slate-700' };
+    const c = configs[s] || { label: s, className: 'border-border bg-canvas-sunken text-ink-soft' };
     return (
       <Badge variant="outline" className={`${c.className} font-semibold`}>
         {c.label}
@@ -133,7 +133,7 @@ export function MallContractsPanel() {
         <WriteGuard permission="document.create">
           <Button
             onClick={handleOpenCreate}
-            className="h-11 gap-2 bg-sage-700 hover:bg-sage-800 text-white touch-manipulation md:h-9"
+            className="h-11 gap-2 bg-foreground hover:bg-foreground text-background touch-manipulation md:h-9"
           >
             <Plus className="h-4 w-4" />
             توثيق عقد جديد
@@ -146,19 +146,19 @@ export function MallContractsPanel() {
         <CardContent className="pt-6">
           {isLoading ? (
             <div className="flex h-64 items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : isError ? (
-            <div className="flex h-64 flex-col items-center justify-center gap-2 text-red-600 bg-red-50 rounded-lg p-4">
+            <div className="flex h-64 flex-col items-center justify-center gap-2 text-danger bg-danger-soft rounded-lg p-4">
               <AlertTriangle className="h-8 w-8" />
               <p className="font-semibold">فشل تحميل عقود الإيجار</p>
-              <p className="text-sm text-red-500">{(error as any)?.message}</p>
+              <p className="text-sm text-danger">{(error as any)?.message}</p>
             </div>
           ) : contracts.length === 0 ? (
-            <div className="flex h-64 flex-col items-center justify-center text-slate-400">
-              <FileText className="h-12 w-12 mb-2 opacity-50 text-slate-400" />
-              <p className="font-medium text-slate-600">لا توجد عقود إيجار موثقة بعد</p>
-              <Button onClick={handleOpenCreate} variant="link" className="text-emerald-700 font-bold">
+            <div className="flex h-64 flex-col items-center justify-center text-muted-foreground">
+              <FileText className="h-12 w-12 mb-2 opacity-50 text-muted-foreground" />
+              <p className="font-medium text-ink-soft">لا توجد عقود إيجار موثقة بعد</p>
+              <Button onClick={handleOpenCreate} variant="link" className="text-success-ink font-bold">
                 اضغط هنا لتوثيق أول عقد إيجار
               </Button>
             </div>
@@ -172,7 +172,7 @@ export function MallContractsPanel() {
                       {contract.tenant_id ? (
                         <Link
                           href={`/contacts/${contract.tenant_id}`}
-                          className="font-semibold text-[15px] hover:text-sage-700"
+                          className="font-semibold text-[15px] hover:text-foreground"
                         >
                           {contract.tenant?.name || 'مستأجر'}
                         </Link>
@@ -188,18 +188,18 @@ export function MallContractsPanel() {
                   <p className="text-[12px] text-ink-mute mt-2">
                     {formatDate(contract.start_date)} — {formatDate(contract.end_date)}
                   </p>
-                  <p className="mt-1 font-bold tabular-nums text-sage-800">
+                  <p className="mt-1 font-bold tabular-nums text-foreground">
                     {formatMoney(Number(contract.monthly_rent), 'LYD')} / شهر
                   </p>
                   {contract.status === 'ACTIVE' && (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="mt-3 h-9 w-full text-red-600 touch-manipulation"
+                      className="mt-3 h-9 w-full text-danger touch-manipulation"
                       onClick={() => handleTerminate(contract.id, contract.unit_id)}
                       disabled={terminateContract.isPending}
                     >
-                      <Ban className="h-3.5 w-3.5 ml-1" />
+                      <Ban className="h-3.5 w-3.5 me-1" />
                       فسخ العقد
                     </Button>
                   )}
@@ -207,38 +207,38 @@ export function MallContractsPanel() {
               ))}
             </ul>
             <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-right text-sm">
+              <table className="w-full text-start text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 pb-3 text-slate-500 font-medium">
-                    <th className="pb-3 pr-2 text-right">رقم العقد</th>
-                    <th className="pb-3 text-right">المستأجر</th>
-                    <th className="pb-3 text-right">المحل</th>
-                    <th className="pb-3 text-right">فترة التعاقد</th>
-                    <th className="pb-3 text-left">الإيجار الشهري</th>
-                    <th className="pb-3 text-left">الصيانة والخدمات</th>
-                    <th className="pb-3 text-left">مبلغ التأمين</th>
-                    <th className="pb-3 text-right">الحالة</th>
-                    <th className="pb-3 pl-2 text-left">الإجراءات</th>
+                  <tr className="border-b border-border pb-3 text-muted-foreground font-medium">
+                    <th className="pb-3 ps-2 text-start">رقم العقد</th>
+                    <th className="pb-3 text-start">المستأجر</th>
+                    <th className="pb-3 text-start">المحل</th>
+                    <th className="pb-3 text-start">فترة التعاقد</th>
+                    <th className="pb-3 text-end">الإيجار الشهري</th>
+                    <th className="pb-3 text-end">الصيانة والخدمات</th>
+                    <th className="pb-3 text-end">مبلغ التأمين</th>
+                    <th className="pb-3 text-start">الحالة</th>
+                    <th className="pb-3 pe-2 text-end">الإجراءات</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-border">
                   {contracts.map((contract) => (
-                    <tr key={contract.id} className="hover:bg-slate-50/50">
-                      <td className="py-4 pr-2 font-mono text-xs text-slate-500" title={contract.id}>
+                    <tr key={contract.id} className="hover:bg-canvas-sunken/50">
+                      <td className="py-4 ps-2 font-mono text-xs text-muted-foreground" title={contract.id}>
                         {contract.id.slice(0, 8)}...
                       </td>
                       <td className="py-4">
                         <div className="flex items-center gap-2">
-                          <User className="h-3.5 w-3.5 text-slate-400" />
+                          <User className="h-3.5 w-3.5 text-muted-foreground" />
                           {contract.tenant_id ? (
                             <Link
                               href={`/contacts/${contract.tenant_id}`}
-                              className="font-bold text-slate-900 hover:text-sage-700 hover:underline"
+                              className="font-bold text-foreground hover:text-foreground hover:underline"
                             >
                               {contract.tenant?.name || 'مستأجر'}
                             </Link>
                           ) : (
-                            <span className="font-bold text-slate-900">
+                            <span className="font-bold text-foreground">
                               {contract.tenant?.name || 'مستأجر غير معروف'}
                             </span>
                           )}
@@ -246,29 +246,29 @@ export function MallContractsPanel() {
                       </td>
                       <td className="py-4">
                         <div className="flex items-center gap-2">
-                          <Store className="h-3.5 w-3.5 text-slate-400" />
-                          <span className="font-medium text-slate-700">محل {contract.unit?.unit_number || '-'}</span>
+                          <Store className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="font-medium text-ink-soft">محل {contract.unit?.unit_number || '-'}</span>
                         </div>
                       </td>
-                      <td className="py-4 text-xs text-slate-600 font-mono">
+                      <td className="py-4 text-xs text-ink-soft font-mono">
                         من {formatDate(contract.start_date)} إلى {formatDate(contract.end_date)}
                       </td>
-                      <td className="py-4 text-left font-mono font-bold text-slate-900">
+                      <td className="py-4 text-end font-mono font-bold text-foreground">
                         {formatMoney(Number(contract.monthly_rent), 'LYD')}
                       </td>
-                      <td className="py-4 text-left font-mono text-slate-600">
+                      <td className="py-4 text-end font-mono text-ink-soft">
                         {Number(contract.services_amount) > 0 ? formatMoney(Number(contract.services_amount), 'LYD') : '-'}
                       </td>
-                      <td className="py-4 text-left font-mono text-emerald-800 font-medium">
+                      <td className="py-4 text-end font-mono text-success-ink font-medium">
                         {Number(contract.deposit_amount) > 0 ? formatMoney(Number(contract.deposit_amount), 'LYD') : '-'}
                       </td>
                       <td className="py-4">{getStatusBadge(contract.status)}</td>
-                      <td className="py-4 pl-2 text-left">
+                      <td className="py-4 pe-2 text-end">
                         {contract.status === 'ACTIVE' && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-1"
+                            className="text-danger hover:text-danger-ink hover:bg-danger-soft gap-1"
                             onClick={() => handleTerminate(contract.id, contract.unit_id)}
                             disabled={terminateContract.isPending}
                           >
@@ -358,10 +358,10 @@ export function MallContractsPanel() {
                   placeholder="0.00"
                   value={monthlyRent}
                   onChange={(e) => setMonthlyRent(e.target.value)}
-                  className="pr-8"
+                  className="ps-8"
                   required
                 />
-                <DollarSign className="absolute right-3 top-2.5 h-4.5 w-4.5 text-slate-400" />
+                <DollarSign className="absolute start-3 top-2.5 h-4.5 w-4.5 text-muted-foreground" />
               </div>
             </div>
 
@@ -389,7 +389,7 @@ export function MallContractsPanel() {
             </div>
 
             <DialogFooter className="gap-2 pt-4">
-              <Button type="submit" disabled={isSubmitting} className="bg-emerald-700 hover:bg-emerald-800 text-white">
+              <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (

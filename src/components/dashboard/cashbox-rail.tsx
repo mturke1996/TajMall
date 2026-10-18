@@ -33,7 +33,7 @@ export function CashboxRail({ currency = 'LYD' }: { currency?: string }) {
         </div>
         <Link
           href="/cashboxes"
-          className="mt-1 inline-flex items-center gap-1 text-[12.5px] font-medium text-sage-700 hover:underline"
+          className="mt-1 inline-flex items-center gap-1 text-[12.5px] font-medium text-foreground hover:underline"
         >
           إنشاء خزينة
           <ArrowLeft className="h-3.5 w-3.5 stroke-[1.6]" />
@@ -71,7 +71,7 @@ export function CashboxRail({ currency = 'LYD' }: { currency?: string }) {
                   />
                 </span>
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-mute">
+                  <span className="text-[10px] font-semibold text-ink-mute">
                     {c.kind === 'CASH' ? 'خزينة' : 'مصرف'}
                   </span>
                   <span className="text-[13px] font-medium">{c.name_ar}</span>
@@ -79,7 +79,7 @@ export function CashboxRail({ currency = 'LYD' }: { currency?: string }) {
               </div>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+              <span className="text-[10px] text-ink-mute">
                 الرصيد الحالي
               </span>
               <span className="num text-[20px] font-semibold tracking-tight">
@@ -94,8 +94,7 @@ export function CashboxRail({ currency = 'LYD' }: { currency?: string }) {
                   net >= 0 ? 'text-pastel-greenInk' : 'text-pastel-redInk',
                 )}
               >
-                {net >= 0 ? '+' : '−'}{' '}
-                {formatMoney(Math.abs(net), c.currency || currency, { compact: true })}
+                {formatMoney(net, c.currency || currency, { compact: true, signed: true })}
               </span>
             </div>
           </motion.div>

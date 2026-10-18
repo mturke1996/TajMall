@@ -70,9 +70,9 @@ function CorrespondenceListContent() {
             <Button variant="outline" size="sm" asChild className="touch-manipulation">
               <Link href="/documents">العودة للمركز</Link>
             </Button>
-            <Button size="sm" asChild className="touch-manipulation bg-sage-700 hover:bg-sage-800">
+            <Button size="sm" asChild className="touch-manipulation bg-foreground hover:bg-foreground">
               <Link href={`/documents/correspondence/new${type ? `?type=${type}` : ''}`}>
-                <Plus className="h-4 w-4 ml-1" />
+                <Plus className="h-4 w-4 me-1" />
                 مراسلة جديدة
               </Link>
             </Button>
@@ -87,7 +87,7 @@ function CorrespondenceListContent() {
           </div>
         ) : isError ? (
           <Card>
-            <CardContent className="py-10 text-center text-sm text-red-600">
+            <CardContent className="py-10 text-center text-sm text-danger">
               تعذّر تحميل المراسلات. طبّق هجرة 058 على Supabase.
             </CardContent>
           </Card>
@@ -129,7 +129,7 @@ function CorrespondenceListContent() {
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <Link
                         href={`/documents/correspondence/${row.id}`}
-                        className="font-bold text-sm hover:text-sage-800 hover:underline"
+                        className="font-bold text-sm hover:text-foreground hover:underline"
                       >
                         {row.subject}
                       </Link>
@@ -145,7 +145,7 @@ function CorrespondenceListContent() {
                     {canEdit ? (
                       <Button variant="outline" size="sm" asChild className="touch-manipulation">
                         <Link href={`/documents/correspondence/${row.id}`}>
-                          <Pencil className="h-3.5 w-3.5 ml-1" />
+                          <Pencil className="h-3.5 w-3.5 me-1" />
                           تعديل
                         </Link>
                       </Button>
@@ -154,11 +154,11 @@ function CorrespondenceListContent() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="touch-manipulation text-red-600 hover:bg-red-50 hover:text-red-700"
+                        className="touch-manipulation text-danger hover:bg-danger-soft hover:text-danger-ink"
                         disabled={deleteLetter.isPending}
                         onClick={() => setDeleteId(row.id)}
                       >
-                        <Trash2 className="h-3.5 w-3.5 ml-1" />
+                        <Trash2 className="h-3.5 w-3.5 me-1" />
                         حذف
                       </Button>
                     ) : null}

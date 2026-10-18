@@ -393,7 +393,7 @@ export function NewTransactionDialog() {
   return (
     <div className="fixed inset-0 z-50" dir="rtl">
       <div className="absolute inset-0 bg-black/30" onClick={close} />
-      <div className="absolute bottom-0 left-0 right-0 mx-auto max-w-lg rounded-t-2xl bg-card sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl border shadow-xl">
+      <div className="absolute bottom-0 end-0 start-0 mx-auto max-w-lg rounded-t-2xl bg-card sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl border shadow-xl">
         {/* Header */}
         <div className="flex items-center gap-3 border-b p-4">
           <div className={cn(
@@ -408,7 +408,7 @@ export function NewTransactionDialog() {
               مسودة محفوظة
             </span>
           ) : null}
-          <button onClick={close} className="mr-auto rounded p-1 hover:bg-secondary">
+          <button onClick={close} className="ms-auto rounded p-1 hover:bg-secondary">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -554,7 +554,7 @@ export function NewTransactionDialog() {
                 ))}
               </select>
               {!boxLoading && cashboxes.length === 0 && (
-                <p className="mt-1 text-[11px] text-red-600">
+                <p className="mt-1 text-[11px] text-danger">
                   لا توجد خزينة نشطة — أضف خزينة من صفحة الخزائن أولاً.
                 </p>
               )}
@@ -627,7 +627,7 @@ export function NewTransactionDialog() {
                       className={cn(
                         'inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] rounded',
                         contactKind === chip.id
-                          ? 'bg-sage-100 text-sage-700'
+                          ? 'bg-muted text-foreground'
                           : 'text-ink-mute hover:bg-secondary',
                       )}
                     >
@@ -717,7 +717,7 @@ export function NewTransactionDialog() {
             />
           )}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
 
           {/* Buttons */}
           <div className="flex flex-wrap gap-2 pt-2">

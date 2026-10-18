@@ -35,7 +35,7 @@ export function TenantRentHistory({
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-sage-600" />
+        <Loader2 className="h-6 w-6 animate-spin text-ink-soft" />
       </div>
     );
   }
@@ -75,7 +75,7 @@ export function TenantRentHistory({
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <p className="font-semibold text-green-600 tabular-nums">
+            <p className="font-semibold text-success tabular-nums">
               {formatMoney(Number(tx.amount), tx.currency)}
             </p>
             {contact && (

@@ -324,7 +324,7 @@ export function PayrollRunPanel({
           </div>
         </div>
         {employeesWithoutStructure > 0 && canManage && (!run || status === 'DRAFT') && (
-          <p className="rounded-lg border border-pastel-yellowInk/20 bg-pastel-yellow px-3 py-2 text-[12.5px] text-pastel-yellowInk dark:bg-amber-950/30 dark:text-amber-300">
+          <p className="rounded-lg border border-pastel-yellowInk/20 bg-pastel-yellow px-3 py-2 text-[12.5px] text-pastel-yellowInk">
             {employeesWithoutStructure === 1 ? 'موظف واحد نشط' : `${employeesWithoutStructure} موظفين نشطين`} بلا هيكل راتب لن
             {employeesWithoutStructure === 1 ? ' يدخل' : ' يدخلوا'} الكشف. حدّد هياكلهم من تبويب «هياكل الرواتب».
           </p>

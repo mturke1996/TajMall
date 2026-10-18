@@ -15,10 +15,10 @@ import {
 } from '@/lib/db/notification-queries';
 
 const SEVERITY: Record<string, string> = {
-  info: 'border-slate-200 bg-slate-50',
-  warning: 'border-amber-200 bg-amber-50',
-  danger: 'border-red-200 bg-red-50',
-  success: 'border-green-200 bg-green-50',
+  info: 'border-border bg-canvas-sunken',
+  warning: 'border-warning-line bg-warning-soft',
+  danger: 'border-danger-line bg-danger-soft',
+  success: 'border-success-line bg-success-soft',
 };
 
 export default function NotificationsPage() {

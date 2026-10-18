@@ -137,9 +137,9 @@ export default function TenantArAgingPage() {
               className="w-44"
             />
           </div>
-          <div className="text-sm text-slate-600">
-            <span className="font-semibold text-slate-900">{tenantCount}</span> مستأجر · إجمالي{' '}
-            <span className="font-mono font-bold text-red-700">
+          <div className="text-sm text-ink-soft">
+            <span className="font-semibold text-foreground">{tenantCount}</span> مستأجر · إجمالي{' '}
+            <span className="font-mono font-bold text-danger-ink">
               {formatMoney(totalOutstanding, 'LYD')}
             </span>
           </div>
@@ -153,16 +153,16 @@ export default function TenantArAgingPage() {
         <CardContent>
           {isLoading ? (
             <div className="flex h-48 items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : isError ? (
-            <div className="flex flex-col items-center gap-2 text-red-600 py-8">
+            <div className="flex flex-col items-center gap-2 text-danger py-8">
               <AlertTriangle className="h-8 w-8" />
               <p>{(error as Error)?.message}</p>
               <p className="text-xs">طبّق هجرة 018 على Supabase</p>
             </div>
           ) : rows.length === 0 ? (
-            <div className="flex flex-col items-center py-12 text-slate-500 gap-2">
+            <div className="flex flex-col items-center py-12 text-muted-foreground gap-2">
               <Users className="h-10 w-10 opacity-50" />
               <p>لا توجد ذمم مستحقة — ممتاز!</p>
             </div>
@@ -179,30 +179,30 @@ export default function TenantArAgingPage() {
                     <div className="min-w-0 flex-1">
                       <Link
                         href={`/contacts/${row.tenant_id}`}
-                        className="block truncate font-semibold hover:text-emerald-800 hover:underline touch-manipulation"
+                        className="block truncate font-semibold hover:text-success-ink hover:underline touch-manipulation"
                       >
                         {row.tenant_name}
                       </Link>
-                      <p className="text-[12px] text-slate-500">
+                      <p className="text-[12px] text-muted-foreground">
                         {row.shop_number ? `محل ${row.shop_number}` : '—'}
                         {row.phone && (
                           <span dir="ltr" className="mr-1">· {row.phone}</span>
                         )}
                       </p>
                     </div>
-                    <div className="shrink-0 text-left">
-                      <p className="text-[10px] text-slate-500">إجمالي المتأخر</p>
-                      <p className="font-mono text-base font-bold text-red-700">
+                    <div className="shrink-0 text-end">
+                      <p className="text-[10px] text-muted-foreground">إجمالي المتأخر</p>
+                      <p className="font-mono text-base font-bold text-danger-ink">
                         {formatMoney(row.total_outstanding, 'LYD')}
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-3 grid grid-cols-4 gap-1.5 text-center">
-                    <BucketCell label="جاري" value={row.bucket_current} className="text-slate-700" />
-                    <BucketCell label="1–30" value={row.bucket_30} className="text-amber-700" />
-                    <BucketCell label="31–60" value={row.bucket_60} className="text-orange-700" />
-                    <BucketCell label="+60" value={row.bucket_90_plus} className="text-red-700" />
+                    <BucketCell label="جاري" value={row.bucket_current} className="text-ink-soft" />
+                    <BucketCell label="1–30" value={row.bucket_30} className="text-warning-ink" />
+                    <BucketCell label="31–60" value={row.bucket_60} className="text-warning-ink" />
+                    <BucketCell label="+60" value={row.bucket_90_plus} className="text-danger-ink" />
                   </div>
 
                   <div className="mt-3">
@@ -213,7 +213,7 @@ export default function TenantArAgingPage() {
                       shopNumber={row.shop_number}
                       asOf={asOf}
                       size="sm"
-                      className="h-11 w-full touch-manipulation gap-1.5 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                      className="h-11 w-full touch-manipulation gap-1.5 text-success-ink hover:bg-success-soft hover:text-success-ink"
                     />
                   </div>
                 </li>
@@ -222,47 +222,47 @@ export default function TenantArAgingPage() {
 
             {/* Desktop: table */}
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full text-right text-sm min-w-[640px]">
+              <table className="w-full text-start text-sm min-w-[640px]">
                 <thead>
-                  <tr className="border-b text-slate-500 font-semibold">
-                    <th className="pb-3 pr-2 text-right">المستأجر</th>
-                    <th className="pb-3 text-right">المحل</th>
-                    <th className="pb-3 text-left">جاري</th>
-                    <th className="pb-3 text-left">1–30</th>
-                    <th className="pb-3 text-left">31–60</th>
-                    <th className="pb-3 text-left">+60</th>
-                    <th className="pb-3 pl-2 text-left">الإجمالي</th>
-                    <th className="pb-3 text-left">تذكير</th>
+                  <tr className="border-b text-muted-foreground font-semibold">
+                    <th className="pb-3 ps-2 text-start">المستأجر</th>
+                    <th className="pb-3 text-start">المحل</th>
+                    <th className="pb-3 text-end">جاري</th>
+                    <th className="pb-3 text-end">1–30</th>
+                    <th className="pb-3 text-end">31–60</th>
+                    <th className="pb-3 text-end">+60</th>
+                    <th className="pb-3 pe-2 text-end">الإجمالي</th>
+                    <th className="pb-3 text-end">تذكير</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-border">
                   {rows.map((row: AgingRow) => (
-                    <tr key={row.tenant_id} className="hover:bg-slate-50/50">
-                      <td className="py-3 pr-2 font-medium">
+                    <tr key={row.tenant_id} className="hover:bg-canvas-sunken/50">
+                      <td className="py-3 ps-2 font-medium">
                         <Link
                           href={`/contacts/${row.tenant_id}`}
-                          className="hover:text-emerald-800 hover:underline touch-manipulation"
+                          className="hover:text-success-ink hover:underline touch-manipulation"
                         >
                           {row.tenant_name}
                         </Link>
                       </td>
-                      <td className="py-3 text-slate-600">{row.shop_number ?? '—'}</td>
-                      <td className="py-3 text-left font-mono text-slate-700">
+                      <td className="py-3 text-ink-soft">{row.shop_number ?? '—'}</td>
+                      <td className="py-3 text-end font-mono text-ink-soft">
                         {row.bucket_current > 0 ? formatMoney(row.bucket_current, '') : '—'}
                       </td>
-                      <td className="py-3 text-left font-mono text-amber-700">
+                      <td className="py-3 text-end font-mono text-warning-ink">
                         {row.bucket_30 > 0 ? formatMoney(row.bucket_30, '') : '—'}
                       </td>
-                      <td className="py-3 text-left font-mono text-orange-700">
+                      <td className="py-3 text-end font-mono text-warning-ink">
                         {row.bucket_60 > 0 ? formatMoney(row.bucket_60, '') : '—'}
                       </td>
-                      <td className="py-3 text-left font-mono text-red-700 font-semibold">
+                      <td className="py-3 text-end font-mono text-danger-ink font-semibold">
                         {row.bucket_90_plus > 0 ? formatMoney(row.bucket_90_plus, '') : '—'}
                       </td>
-                      <td className="py-3 pl-2 text-left font-mono font-bold">
+                      <td className="py-3 pe-2 text-end font-mono font-bold">
                         {formatMoney(row.total_outstanding, 'LYD')}
                       </td>
-                      <td className="py-3 text-left">
+                      <td className="py-3 text-end">
                         <WhatsAppReminderButton
                           tenantName={row.tenant_name}
                           phone={row.phone}
@@ -297,7 +297,7 @@ function BucketCell({
 }) {
   return (
     <div className="rounded-lg bg-canvas-sunken/60 px-1 py-1.5">
-      <p className="text-[10px] text-slate-500">{label}</p>
+      <p className="text-[10px] text-muted-foreground">{label}</p>
       <p className={cn('font-mono text-[12px] font-semibold', className)}>
         {value > 0 ? formatMoney(value, '') : '—'}
       </p>

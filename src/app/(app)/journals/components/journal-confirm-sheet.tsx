@@ -34,7 +34,7 @@ export function JournalConfirmSheet({
       <div className="absolute inset-0 bg-black/45" onClick={onCancel} aria-hidden />
       <div
         className={cn(
-          'absolute inset-x-0 bottom-0 rounded-t-2xl border bg-card p-5 shadow-xl',
+          'absolute inset-x-0 bottom-0 rounded-t-2xl border bg-card p-5 shadow-lift',
           'sm:left-1/2 sm:right-auto sm:bottom-auto sm:top-1/2 sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl',
         )}
         role="alertdialog"
@@ -57,7 +57,7 @@ export function JournalConfirmSheet({
           <Button
             className={cn(
               'h-12 touch-manipulation',
-              variant === 'danger' && 'bg-red-600 hover:bg-red-700 text-white',
+              variant === 'danger' && 'bg-danger hover:bg-danger text-white',
             )}
             onClick={onConfirm}
             disabled={loading}

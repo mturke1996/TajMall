@@ -199,12 +199,12 @@ export default function UsersPage() {
 
       <div className="flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-7 md:px-8 md:py-10">
         <div className="relative">
-          <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
           <Input
             placeholder="البحث بالاسم أو المعرّف..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pr-10"
+            className="ps-10"
           />
         </div>
 
@@ -250,10 +250,10 @@ export default function UsersPage() {
                           className="h-8 text-[13px]"
                           autoFocus
                         />
-                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-emerald-600" onClick={() => saveEditName(p.id)}>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-success" onClick={() => saveEditName(p.id)}>
                           <Check className="h-4 w-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-rose-600" onClick={cancelEditName}>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-danger" onClick={cancelEditName}>
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
@@ -325,10 +325,10 @@ export default function UsersPage() {
                             className="h-8 w-48 text-[13px]"
                             autoFocus
                           />
-                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-emerald-600" onClick={() => saveEditName(p.id)}>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-success" onClick={() => saveEditName(p.id)}>
                             <Check className="h-4 w-4" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-rose-600" onClick={cancelEditName}>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-danger" onClick={cancelEditName}>
                             <X className="h-4 w-4" />
                           </Button>
                         </div>

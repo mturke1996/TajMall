@@ -140,7 +140,7 @@ export default function CashboxCountPage() {
   if (roleLoading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-sage-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-ink-soft" />
       </div>
     );
   }
@@ -174,7 +174,7 @@ export default function CashboxCountPage() {
 
       <div className="flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-7 md:px-8 md:py-10">
         <div className="surface flex gap-3 p-4 text-[13px] leading-relaxed text-ink-mute">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink" />
           <p>
             الفائض يُسجَّل إيراداً (فائض جرد)، والعجز مصروفاً (عجز جرد). لا يُغيَّر رصيد
             الافتتاح — التسوية قيد يومية يمكن عكسه لاحقاً من دفتر القيود.
@@ -183,7 +183,7 @@ export default function CashboxCountPage() {
 
         <section className="surface flex flex-col gap-4 p-4 sm:p-5">
           <div className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-sage-700" />
+            <KeyRound className="h-4 w-4 text-foreground" />
             <h2 className="text-[14px] font-semibold">
               {pinSet ? 'تغيير الرقم السري' : 'ضبط الرقم السري (مرة أولى)'}
             </h2>
@@ -243,7 +243,7 @@ export default function CashboxCountPage() {
 
         <section className="surface flex flex-col gap-4 p-4 sm:p-5">
           <div className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-sage-700" />
+            <ClipboardList className="h-4 w-4 text-foreground" />
             <h2 className="text-[14px] font-semibold">العدّ الفعلي</h2>
           </div>
 
@@ -256,7 +256,7 @@ export default function CashboxCountPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-[13px]">
                 <thead>
-                  <tr className="border-b border-border text-right text-[11px] uppercase tracking-wide text-ink-mute">
+                  <tr className="border-b border-border text-start text-[11px] text-ink-mute">
                     <th className="py-2 font-medium">الخزينة</th>
                     <th className="py-2 font-medium">رصيد النظام</th>
                     <th className="py-2 font-medium">العدّ الفعلي</th>
@@ -295,7 +295,7 @@ export default function CashboxCountPage() {
                       >
                         {!Number.isFinite(counted)
                           ? '—'
-                          : `${diff > 0 ? '+' : ''}${formatMoney(diff, row.currency || 'LYD')}`}
+                          : formatMoney(diff, row.currency || 'LYD', { signed: true })}
                       </td>
                     </tr>
                   ))}
@@ -343,7 +343,7 @@ export default function CashboxCountPage() {
               <p className="text-[12px] text-ink-mute">
                 {diffs.length === 0
                   ? 'لا فروقات ظاهرة'
-                  : `فروقات: ${diffs.length} · صافي ${net >= 0 ? '+' : ''}${formatMoney(net, 'LYD')}`}
+                  : `فروقات: ${diffs.length} · صافي ${formatMoney(net, 'LYD', { signed: true })}`}
               </p>
               <Button
                 disabled={!pinSet || apply.isPending || isLoading || rows.length === 0}
@@ -358,7 +358,7 @@ export default function CashboxCountPage() {
 
         {runs.length > 0 ? (
           <section className="flex flex-col gap-3">
-            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-mute">
+            <h2 className="text-[11px] font-semibold text-ink-mute">
               آخر عمليات الجرد
             </h2>
             <div className="space-y-2">
@@ -372,8 +372,7 @@ export default function CashboxCountPage() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-semibold">{run.run_date}</span>
                       <span className="num tabular-nums text-ink-mute">
-                        صافي {netRun >= 0 ? '+' : ''}
-                        {formatMoney(netRun, 'LYD')}
+                        صافي {formatMoney(netRun, 'LYD', { signed: true })}
                       </span>
                     </div>
                     {run.notes ? <p className="text-[12px] text-ink-mute">{run.notes}</p> : null}

@@ -43,7 +43,7 @@ function PeriodChip({
       className={cn(
         'inline-flex shrink-0 snap-center flex-col items-center justify-center rounded-lg border px-3 py-2 touch-manipulation min-w-[4.5rem]',
         active
-          ? 'border-sage-700 bg-sage-700 text-white shadow-sm'
+          ? 'border-foreground bg-foreground text-background shadow-sm'
           : 'border-border bg-card text-ink hover:bg-secondary',
         className,
       )}
@@ -79,7 +79,7 @@ function ModeTab({
       className={cn(
         'inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-[12px] font-semibold touch-manipulation transition-colors',
         active
-          ? 'bg-sage-800 text-white shadow-sm'
+          ? 'bg-foreground text-background shadow-sm'
           : 'text-ink-mute hover:bg-secondary hover:text-ink',
       )}
     >

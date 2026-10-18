@@ -71,7 +71,7 @@ export default function BalanceSheetPage() {
   }) {
     const total = rows.reduce((s, r) => s + Number(r.balance), 0);
     const color =
-      tone === 'emerald' ? 'text-emerald-800' : tone === 'amber' ? 'text-amber-800' : 'text-violet-800';
+      tone === 'emerald' ? 'text-success-ink' : tone === 'amber' ? 'text-warning-ink' : 'text-plum-ink';
 
     return (
       <Card>
@@ -80,34 +80,34 @@ export default function BalanceSheetPage() {
         </CardHeader>
         <CardContent>
           {rows.length === 0 ? (
-            <p className="text-sm text-slate-500 py-4 text-center">لا توجد أرصدة</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">لا توجد أرصدة</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-right text-sm">
-                <tbody className="divide-y divide-slate-100">
+              <table className="w-full text-start text-sm">
+                <tbody className="divide-y divide-border">
                   {rows.map((row) => (
-                    <tr key={row.category_id} className="hover:bg-slate-50/50">
-                      <td className="py-2 font-mono text-xs text-slate-500">{row.category_code}</td>
+                    <tr key={row.category_id} className="hover:bg-canvas-sunken/50">
+                      <td className="py-2 font-mono text-xs text-muted-foreground">{row.category_code}</td>
                       <td className="py-2 font-medium">
                         {row.is_net_income || row.category_code === 'NI-CY' ? (
                           <span>{row.category_name}</span>
                         ) : (
                           <Link
                             href={ledgerUrl(row.category_id)}
-                            className="hover:text-emerald-800 hover:underline touch-manipulation"
+                            className="hover:text-success-ink hover:underline touch-manipulation"
                           >
                             {row.category_name}
                           </Link>
                         )}
                       </td>
-                      <td className={`py-2 text-left font-mono font-semibold ${color}`}>
+                      <td className={`py-2 text-end font-mono font-semibold ${color}`}>
                         {formatMoney(row.balance, 'LYD')}
                       </td>
                     </tr>
                   ))}
-                  <tr className="border-t-2 font-bold bg-slate-50/70">
-                    <td colSpan={2} className="py-3 pr-2">الإجمالي</td>
-                    <td className={`py-3 text-left font-mono ${color}`}>{formatMoney(total, 'LYD')}</td>
+                  <tr className="border-t-2 font-bold bg-canvas-sunken/70">
+                    <td colSpan={2} className="py-3 ps-2">الإجمالي</td>
+                    <td className={`py-3 text-end font-mono ${color}`}>{formatMoney(total, 'LYD')}</td>
                   </tr>
                 </tbody>
               </table>
@@ -192,8 +192,8 @@ export default function BalanceSheetPage() {
             <div
               className={`flex items-start gap-2 px-3 py-1.5 rounded-2xl border text-xs font-semibold ${
                 isBalanced
-                  ? 'bg-green-50 border-green-200 text-green-700'
-                  : 'bg-amber-50 border-amber-200 text-amber-800'
+                  ? 'bg-success-soft border-success-line text-success-ink'
+                  : 'bg-warning-soft border-warning-line text-warning-ink'
               }`}
             >
               {isBalanced ? (
@@ -218,43 +218,43 @@ export default function BalanceSheetPage() {
 
       {isLoading ? (
         <div className="flex h-48 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : isError ? (
-        <div className="flex flex-col items-center gap-2 text-red-600 bg-red-50 rounded-lg p-6">
+        <div className="flex flex-col items-center gap-2 text-danger bg-danger-soft rounded-lg p-6">
           <AlertTriangle className="h-8 w-8" />
           <p className="font-semibold">فشل تحميل الميزانية</p>
           <p className="text-sm">{(error as Error)?.message}</p>
-          <p className="text-xs text-red-400">طبّق هجرة 018_accounting_completion.sql</p>
+          <p className="text-xs text-danger">طبّق هجرة 018_accounting_completion.sql</p>
         </div>
       ) : !hasData ? (
         <div className="px-4">
-          <Landmark className="mx-auto h-10 w-10 text-slate-400 mb-2" />
+          <Landmark className="mx-auto h-10 w-10 text-muted-foreground mb-2" />
           <AccountingBackfillBanner title="لا توجد أرصدة للميزانية" />
         </div>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-3">
-            <Card className="bg-emerald-50/40 border-emerald-100">
+            <Card className="bg-success-soft/40 border-success-line">
               <CardContent className="pt-5">
-                <p className="text-xs text-emerald-800">إجمالي الأصول</p>
-                <p className="text-2xl font-mono font-bold text-emerald-950">
+                <p className="text-xs text-success-ink">إجمالي الأصول</p>
+                <p className="text-2xl font-mono font-bold text-success-ink">
                   {formatMoney(summary.totalAssets, 'LYD')}
                 </p>
               </CardContent>
             </Card>
-            <Card className="bg-amber-50/40 border-amber-100">
+            <Card className="bg-warning-soft/40 border-warning-line">
               <CardContent className="pt-5">
-                <p className="text-xs text-amber-800">إجمالي الخصوم</p>
-                <p className="text-2xl font-mono font-bold text-amber-950">
+                <p className="text-xs text-warning-ink">إجمالي الخصوم</p>
+                <p className="text-2xl font-mono font-bold text-warning-ink">
                   {formatMoney(summary.totalLiab, 'LYD')}
                 </p>
               </CardContent>
             </Card>
-            <Card className="bg-violet-50/40 border-violet-100">
+            <Card className="bg-plum-soft/40 border-plum-line">
               <CardContent className="pt-5">
-                <p className="text-xs text-violet-800">حقوق الملكية</p>
-                <p className="text-2xl font-mono font-bold text-violet-950">
+                <p className="text-xs text-plum-ink">حقوق الملكية</p>
+                <p className="text-2xl font-mono font-bold text-plum-ink">
                   {formatMoney(summary.totalEquity, 'LYD')}
                 </p>
               </CardContent>

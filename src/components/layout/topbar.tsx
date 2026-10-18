@@ -20,7 +20,7 @@ function NotificationBell() {
       <Link href="/notifications" prefetch aria-label="الإشعارات">
         <Bell className="h-4 w-4" />
         {unread > 0 && (
-          <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-none text-white">
+          <span className="absolute start-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold leading-none text-white">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
@@ -45,7 +45,7 @@ function ThemeToggle() {
       className="hidden md:flex"
     >
       {theme === 'dark' ? (
-        <Sun className="h-4 w-4 text-amber-400" />
+        <Sun className="h-4 w-4 text-warning" />
       ) : (
         <Moon className="h-4 w-4" />
       )}
