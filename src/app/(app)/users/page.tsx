@@ -29,7 +29,7 @@ import { SYSTEM_ROLES } from '@/lib/constants';
 import { useUser } from '@/lib/supabase/use-user';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 
 export default function UsersPage() {
   const { user } = useUser();
@@ -200,7 +200,7 @@ export default function UsersPage() {
         <div className="relative">
           <Search className="absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
           <Input
-            placeholder="البحث بالاسم أو المعرّف..."
+            placeholder="البحث بالاسم…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="ps-10"
@@ -268,7 +268,7 @@ export default function UsersPage() {
                         </button>
                       </div>
                     )}
-                    <p className="truncate font-mono text-[11px] text-ink-mute">{p.id.slice(0, 8)}…</p>
+                    <p className="truncate text-[12px] text-ink-mute">انضم في {formatDate(p.created_at)}</p>
                   </div>
                   {p.id === user?.id ? (
                     <Badge variant="neutral">أنت</Badge>
@@ -305,7 +305,7 @@ export default function UsersPage() {
               <thead>
                 <tr className="border-b border-border bg-canvas-sunken text-start">
                   <th className="px-4 py-3 font-semibold text-ink-mute">الاسم</th>
-                  <th className="px-4 py-3 font-semibold text-ink-mute">المعرّف</th>
+                  <th className="px-4 py-3 font-semibold text-ink-mute">انضم في</th>
                   <th className="px-4 py-3 font-semibold text-ink-mute">الدور</th>
                 </tr>
               </thead>
@@ -347,9 +347,7 @@ export default function UsersPage() {
                         </Badge>
                       ) : null}
                     </td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-ink-mute">
-                      {p.id.slice(0, 8)}…
-                    </td>
+                    <td className="px-4 py-3 text-[12.5px] text-ink-mute">{formatDate(p.created_at)}</td>
                     <td className="px-4 py-3">
                       <Select
                         value={p.role ?? 'viewer'}

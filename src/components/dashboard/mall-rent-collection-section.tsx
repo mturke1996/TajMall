@@ -21,7 +21,7 @@ function RentTooltip({ active, payload, label }: { active?: boolean; payload?: {
   if (!active || !payload?.length) return null;
   const row = payload[0].payload;
   return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2 text-[12.5px] shadow-lift">
+    <div dir="rtl" className="rounded-lg border border-border bg-card px-3 py-2 text-[12.5px] shadow-lift">
       <p className="mb-1 font-semibold">{label}</p>
       <p className="tabular-nums text-success-ink">مسدّد {formatMoney(row['مسدّد'], 'LYD')}</p>
       <p className="tabular-nums text-danger-ink">متبقٍ {formatMoney(row['متبقي'], 'LYD')}</p>
@@ -164,7 +164,7 @@ export function MallRentCollectionSection() {
                   role="img"
                   aria-label={`التحصيل الشهري: ${chartData.map((r) => `${r.month} مسدّد ${formatMoney(r['مسدّد'], 'LYD')} ومتبقٍ ${formatMoney(r['متبقي'], 'LYD')}`).join('، ')}`}
                 >
-                  <div aria-hidden>
+                  <div aria-hidden dir="ltr">
                     <ResponsiveContainer width="100%" height={220}>
                       <BarChart data={chartData} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
