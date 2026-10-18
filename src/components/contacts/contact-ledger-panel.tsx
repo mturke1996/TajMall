@@ -1,32 +1,23 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import Link from 'next/link';
+import { useState, useMemo } from 'react';
 import {
   Receipt,
   BookOpen,
   Plus,
   Search,
   Loader2,
-  FileText,
   CheckCircle2,
   Clock,
-  RotateCcw,
   ChevronDown,
   ChevronUp,
   ArrowDownLeft,
   ArrowUpRight,
-  TrendingDown,
-  TrendingUp,
-  Layers,
-  Printer,
-  ExternalLink,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn, formatMoney, formatDate } from '@/lib/utils';
 import type { ContactRow, TransactionWithRelations } from '@/lib/db/types';
 import type { JournalEntryRow } from '@/lib/db/journal-queries';
@@ -41,6 +32,7 @@ import { buildJournalEntriesForPdf } from '@/lib/journal-pdf';
 import { useTxDialog } from '@/stores/transaction-dialog';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { extractContactBusinessRole } from '@/lib/contacts/contact-roles';
+import { matchesSearch } from '@/lib/arabic-search';
 
 type Props = {
   contact: ContactRow;
@@ -204,48 +196,30 @@ export function ContactLedgerPanel({
   const { can } = usePermission();
   const role = extractContactBusinessRole(contact);
 
-  const revenueTxs = useMemo(
-    () => transactions.filter((t) => t.kind === 'REVENUE'),
+  // Totals count money that actually moved; drafts and voided transactions stay listed but are not added.
+  const counted = useMemo(
+    () => transactions.filter((t) => t.status === 'POSTED' || t.status === 'RECONCILED'),
     [transactions]
   );
-  const expenseTxs = useMemo(
-    () => transactions.filter((t) => t.kind === 'EXPENSE' || t.kind == null),
-    [transactions]
+  const excludedCount = transactions.length - counted.length;
+  const revenueTxs = useMemo(() => counted.filter((t) => t.kind === 'REVENUE'), [counted]);
+  const expenseTxs = useMemo(() => counted.filter((t) => t.kind === 'EXPENSE'), [counted]);
+  const totalInflow = useMemo(() => revenueTxs.reduce((s, t) => s + Number(t.amount || 0), 0), [revenueTxs]);
+  const totalOutflow = useMemo(() => expenseTxs.reduce((s, t) => s + Number(t.amount || 0), 0), [expenseTxs]);
+  const net = totalInflow - totalOutflow;
+
+  const filteredTransactions = useMemo(
+    () =>
+      transactions.filter((t) =>
+        matchesSearch(searchQuery, [t.description, t.category?.name_ar, t.cashbox?.name_ar, t.number, t.amount, t.reference])
+      ),
+    [transactions, searchQuery]
   );
 
-  const totalInflow = useMemo(
-    () => revenueTxs.reduce((s, t) => s + Number(t.amount || 0), 0),
-    [revenueTxs]
+  const filteredJournalEntries = useMemo(
+    () => journalEntries.filter((je) => matchesSearch(searchQuery, [je.description, je.number, je.total_debit])),
+    [journalEntries, searchQuery]
   );
-  const totalOutflow = useMemo(
-    () => expenseTxs.reduce((s, t) => s + Number(t.amount || 0), 0),
-    [expenseTxs]
-  );
-  const netBalance = totalInflow - totalOutflow;
-
-  const filteredTransactions = useMemo(() => {
-    if (!searchQuery.trim()) return transactions;
-    const q = searchQuery.toLowerCase();
-    return transactions.filter(
-      (t) =>
-        t.description?.toLowerCase().includes(q) ||
-        t.category?.name_ar?.toLowerCase().includes(q) ||
-        t.cashbox?.name_ar?.toLowerCase().includes(q) ||
-        String(t.number).includes(q) ||
-        String(t.amount).includes(q)
-    );
-  }, [transactions, searchQuery]);
-
-  const filteredJournalEntries = useMemo(() => {
-    if (!searchQuery.trim()) return journalEntries;
-    const q = searchQuery.toLowerCase();
-    return journalEntries.filter(
-      (je) =>
-        je.description?.toLowerCase().includes(q) ||
-        String(je.number).includes(q) ||
-        String(je.total_debit).includes(q)
-    );
-  }, [journalEntries, searchQuery]);
 
   const isPayable =
     role === 'LANDLORD' ||
@@ -254,168 +228,97 @@ export function ContactLedgerPanel({
     role === 'SUPPLIER_GOODS' ||
     role === 'SERVICE_PROVIDER' ||
     role === 'EMPLOYEE';
+  const txKind = isPayable ? 'EXPENSE' : 'REVENUE';
+  const mayCreate = contact.is_active && can(isPayable ? 'expense.create' : 'revenue.create');
+
+  const tabs = [
+    { id: 'transactions' as const, label: 'المعاملات', count: transactions.length, icon: Receipt },
+    { id: 'journals' as const, label: 'القيود', count: journalEntries.length, icon: BookOpen },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* 1. Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="p-4 border-border bg-card">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-muted-foreground">إجمالي المقبوضات</span>
-            <ArrowDownLeft className="h-4 w-4 text-success" />
+    <div className="space-y-4">
+      <Card className="overflow-hidden">
+        <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3">
+          <div className="bg-card p-4">
+            <p className="flex items-center gap-1.5 text-[12.5px] text-ink-mute">
+              <ArrowDownLeft className="h-3.5 w-3.5 text-success-ink" aria-hidden />
+              المقبوض منها
+            </p>
+            <p className="mt-0.5 text-[18px] font-semibold tabular-nums text-foreground">{formatMoney(totalInflow, 'LYD')}</p>
+            <p className="text-[12px] text-ink-mute">{revenueTxs.length} سند قبض</p>
           </div>
-          <p className="text-lg font-bold text-success-ink font-mono">
-            {formatMoney(totalInflow, 'LYD')}
-          </p>
-          <span className="text-[11px] text-muted-foreground mt-0.5 block">
-            {revenueTxs.length} سند قبض
-          </span>
-        </Card>
-
-        <Card className="p-4 border-border bg-card">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-muted-foreground">إجمالي المدفوعات</span>
-            <ArrowUpRight className="h-4 w-4 text-danger" />
+          <div className="bg-card p-4">
+            <p className="flex items-center gap-1.5 text-[12.5px] text-ink-mute">
+              <ArrowUpRight className="h-3.5 w-3.5 text-danger-ink" aria-hidden />
+              المدفوع لها
+            </p>
+            <p className="mt-0.5 text-[18px] font-semibold tabular-nums text-foreground">{formatMoney(totalOutflow, 'LYD')}</p>
+            <p className="text-[12px] text-ink-mute">{expenseTxs.length} سند صرف</p>
           </div>
-          <p className="text-lg font-bold text-danger-ink font-mono">
-            {formatMoney(totalOutflow, 'LYD')}
-          </p>
-          <span className="text-[11px] text-muted-foreground mt-0.5 block">
-            {expenseTxs.length} سند صرف
-          </span>
-        </Card>
-
-        <Card className="p-4 border-border bg-card">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-muted-foreground">صافي رصيد الحركة</span>
-            {netBalance >= 0 ? (
-              <TrendingUp className="h-4 w-4 text-success" />
-            ) : (
-              <TrendingDown className="h-4 w-4 text-warning" />
-            )}
+          <div className="col-span-2 bg-card p-4 sm:col-span-1">
+            <p className="text-[12.5px] text-ink-mute">صافي الحركة النقدية</p>
+            <p className="mt-0.5 text-[18px] font-semibold tabular-nums text-foreground">
+              {formatMoney(net, 'LYD', { signed: true })}
+            </p>
+            <p className="text-[12px] text-ink-mute">المقبوض ناقص المدفوع</p>
           </div>
-          <p
-            className={cn(
-              'text-lg font-bold font-mono',
-              netBalance >= 0
-                ? 'text-success-ink'
-                : 'text-warning-ink'
-            )}
-          >
-            {formatMoney(netBalance, 'LYD')}
+        </div>
+        {excludedCount > 0 && (
+          <p className="border-t border-border px-4 py-2 text-[12px] text-ink-mute">
+            لا تشمل الإجماليات {excludedCount} {excludedCount === 1 ? 'معاملة' : 'معاملات'} مسودة أو ملغاة (تظهر في القائمة).
           </p>
-          <span className="text-[11px] text-muted-foreground mt-0.5 block">
-            {netBalance >= 0 ? 'رصيد دائن لصالح المول' : 'رصيد مدين مستحق للجهة'}
-          </span>
-        </Card>
+        )}
+      </Card>
 
-        <Card className="p-4 border-border bg-card">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-muted-foreground">قيود اليومية</span>
-            <BookOpen className="h-4 w-4 text-primary" />
-          </div>
-          <p className="text-lg font-bold text-foreground font-mono">
-            {journalEntries.length} قيد
-          </p>
-          <span className="text-[11px] text-muted-foreground mt-0.5 block">
-            حسابات مزدوجة مرحلة
-          </span>
-        </Card>
-      </div>
-
-      {/* 2. Main Ledger Tabs & Toolbar */}
-      <Card className="border-border overflow-hidden">
-        <div className="border-b border-border bg-canvas-sunken/40 px-4 py-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            {/* Tabs Header */}
-            <div className="flex items-center gap-1.5 bg-card p-1 rounded-lg border border-border w-fit">
-              <button
-                type="button"
-                onClick={() => setActiveTab('transactions')}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all',
-                  activeTab === 'transactions'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <Receipt className="h-3.5 w-3.5" />
-                <span>سندات القبض والصرف والدفعات</span>
-                <span className={cn(
-                  'px-1.5 py-0.2 rounded-full text-[11px] font-mono',
-                  activeTab === 'transactions' ? 'bg-primary-foreground/20' : 'bg-muted'
-                )}>
-                  {transactions.length}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('journals')}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all',
-                  activeTab === 'journals'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                <span>قيود اليومية المحاسبية</span>
-                <span className={cn(
-                  'px-1.5 py-0.2 rounded-full text-[11px] font-mono',
-                  activeTab === 'journals' ? 'bg-primary-foreground/20' : 'bg-muted'
-                )}>
-                  {journalEntries.length}
-                </span>
-              </button>
-            </div>
-
-            {/* Quick Actions & Search */}
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute inset-s-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="بحث في الحركات والبيان…"
-                  className="ps-8 text-xs h-8 w-44 sm:w-56 bg-card"
-                />
-              </div>
-
-              {can('expense.create') && isPayable && (
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    openTx({
-                      kind: 'EXPENSE',
-                      contactId: contact.id,
-                      contactKind: contact.kind,
-                    })
-                  }
-                  className="gap-1 text-xs h-8 bg-danger hover:bg-danger/90 text-white font-semibold"
+      <Card className="overflow-hidden">
+        <div className="flex flex-col gap-2 border-b border-border bg-canvas-sunken/40 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+          <div className="flex w-fit items-center gap-1 rounded-lg border border-border bg-card p-1" role="tablist" aria-label="سجل الجهة">
+            {tabs.map((tab) => {
+              const TabIcon = tab.icon;
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    'flex h-8 items-center gap-1.5 rounded-md px-3 text-[13px] font-medium transition-colors',
+                    active ? 'bg-foreground text-background' : 'text-ink-mute hover:text-foreground'
+                  )}
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  سند صرف
-                </Button>
-              )}
+                  <TabIcon className="h-3.5 w-3.5" aria-hidden />
+                  {tab.label}
+                  <span className="tabular-nums opacity-75">{tab.count}</span>
+                </button>
+              );
+            })}
+          </div>
 
-              {can('revenue.create') && !isPayable && (
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    openTx({
-                      kind: 'REVENUE',
-                      contactId: contact.id,
-                      contactKind: contact.kind,
-                    })
-                  }
-                  className="gap-1 text-xs h-8 font-semibold"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  سند قبض
-                </Button>
-              )}
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1 sm:flex-none">
+              <Search className="pointer-events-none absolute inset-s-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-mute" aria-hidden />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="بحث في البيان أو الرقم…"
+                aria-label="بحث في سجل الجهة"
+                className="h-9 w-full ps-8 text-[13px] sm:w-56"
+              />
             </div>
+            {mayCreate && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => openTx({ kind: txKind, contactId: contact.id, contactKind: contact.kind })}
+                className="h-9 shrink-0 gap-1 bg-card text-[13px]"
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                {isPayable ? 'سند صرف' : 'سند قبض'}
+              </Button>
+            )}
           </div>
         </div>
 

@@ -111,17 +111,6 @@ export default function ContactDetailPage() {
     return rent ?? fallbackTenantRentFromContact(contact);
   }, [contact, rent]);
 
-
-  const totals = useMemo(() => {
-    const revenue = postedTransactions
-      .filter((t) => t.kind === 'REVENUE')
-      .reduce((s, t) => s + Number(t.amount || 0), 0);
-    const expense = postedTransactions
-      .filter((t) => t.kind === 'EXPENSE')
-      .reduce((s, t) => s + Number(t.amount || 0), 0);
-    return { revenue, expense, net: revenue - expense };
-  }, [postedTransactions]);
-
   function openCollect(months?: string[]) {
     setPayMonths(months);
     setIsPayOpen(true);
@@ -315,19 +304,11 @@ export default function ContactDetailPage() {
           />
         ) : (
           <OtherContactDetailBody
-            contactId={id}
             contact={contactRecord}
-            isTenant={false}
-            rent={rent}
-            monthlyRent={monthlyRent}
-            totals={totals}
             transactions={transactions}
             txLoading={txLoading}
             journalEntries={journalEntries}
             jeLoading={jeLoading}
-            rentPaymentsCount={rentPaymentsCount}
-            canRecordRent={false}
-            onRecordPayment={() => setIsPayOpen(true)}
             kindLabel={roleMeta?.label || kindInfo?.label}
             kindColor={roleMeta?.color || kindInfo?.color}
             KindIcon={roleMeta?.icon || Icon}

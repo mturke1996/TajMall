@@ -31,6 +31,8 @@ type PartyTxRow = {
 };
 
 const PAGE = 1000;
+/** money that actually moved: drafts and voided transactions are not counted */
+const COUNTED_STATUSES = ['POSTED', 'RECONCILED'];
 
 async function fetchPartyLinkedTransactions(
   kind: 'REVENUE' | 'EXPENSE',
@@ -49,6 +51,7 @@ async function fetchPartyLinkedTransactions(
         'id, amount, contact_id, contact:contacts(id, name, kind, phone), category:categories(id, code, name_ar)',
       )
       .eq('kind', kind)
+      .in('status', COUNTED_STATUSES)
       .not('contact_id', 'is', null)
       .gte('tx_date', startDate)
       .lte('tx_date', endDate)
@@ -106,5 +109,51 @@ export function useEmployeeSpendReport(period: ReportPeriod) {
       period.mode,
     ],
     queryFn: () => fetchPartyLinkedTransactions('EXPENSE', 'EMPLOYEE', period),
+  });
+}
+
+export type PartyActivity = { revenue: number; expense: number; count: number; lastDate: string | null };
+
+/**
+ * Last 12 months of posted money per contact (received from them, paid to them, how many movements,
+ * the latest date), for the directory's activity column.
+ */
+export function usePartyActivity() {
+  return useQuery({
+    queryKey: ['party_report', 'activity_12m'],
+    staleTime: 60_000,
+    queryFn: async (): Promise<Map<string, PartyActivity>> => {
+      const supabase = createSupabaseBrowserClient();
+      const since = new Date();
+      since.setFullYear(since.getFullYear() - 1);
+      const sinceIso = since.toISOString().slice(0, 10);
+      const out = new Map<string, PartyActivity>();
+      let from = 0;
+      for (;;) {
+        const { data, error } = await supabase
+          .from('transactions')
+          .select('amount, kind, tx_date, contact_id')
+          .in('status', COUNTED_STATUSES)
+          .not('contact_id', 'is', null)
+          .gte('tx_date', sinceIso)
+          .order('tx_date', { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        const page = (data ?? []) as { amount: string | number; kind: string; tx_date: string; contact_id: string | null }[];
+        for (const row of page) {
+          if (!row.contact_id) continue;
+          const a = out.get(row.contact_id) ?? { revenue: 0, expense: 0, count: 0, lastDate: null };
+          const amount = Number(row.amount) || 0;
+          if (row.kind === 'REVENUE') a.revenue += amount;
+          else if (row.kind === 'EXPENSE') a.expense += amount;
+          a.count += 1;
+          if (!a.lastDate || row.tx_date > a.lastDate) a.lastDate = row.tx_date;
+          out.set(row.contact_id, a);
+        }
+        if (page.length < PAGE) break;
+        from += PAGE;
+      }
+      return out;
+    },
   });
 }

@@ -1,27 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import {
-  Briefcase,
-  Search,
-  Loader2,
-  DollarSign,
-  Plus,
-  ChevronLeft,
-  Users,
-  TrendingUp,
-  Calendar,
-} from 'lucide-react';
+import { Briefcase, Search, Loader2, DollarSign, Plus, ChevronLeft, TrendingUp, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { ContactPhoneActions } from '@/components/contacts/contact-phone-actions';
 import { cn, formatMoney } from '@/lib/utils';
 import type { EmployeeSummary } from '@/lib/db/queries';
-import {
-  MobilePageActionBar,
-  MOBILE_PAGE_ACTION_PADDING,
-} from '@/components/layout/mobile-page-action-bar';
+import { MobilePageActionBar, MOBILE_PAGE_ACTION_PADDING } from '@/components/layout/mobile-page-action-bar';
 import { useTxDialog } from '@/stores/transaction-dialog';
 import { usePermission } from '@/lib/supabase/use-permission';
 
@@ -43,12 +30,21 @@ export type EmployeesDirectoryProps = {
     total: number;
     totalSalary: number;
     totalPaid: number;
-    avgMonths: number;
   };
   onRecordSalary: (emp: EnrichedEmployee) => void;
   onAddEmployee: () => void;
 };
 
+const monthsAr = (n: number) => (n === 1 ? 'شهر واحد' : n === 2 ? 'شهران' : n <= 10 ? `${n} أشهر` : `${n} شهراً`);
+
+function figures(emp: EnrichedEmployee) {
+  const salary = Number(emp.salary) || 0;
+  const paid = Number(emp.last_12_months_salary_paid) || 0;
+  const months = emp.months_with_payment || 0;
+  return { salary, paid, months };
+}
+
+/** Employees with what they earn and what was actually paid to them over the last year. */
 export function EmployeesDirectory({
   filteredEmployees,
   isLoading,
@@ -58,197 +54,205 @@ export function EmployeesDirectory({
   onRecordSalary,
   onAddEmployee,
 }: EmployeesDirectoryProps) {
-  const statCards = [
-    {
-      key: 'total',
-      label: 'عدد الموظفين',
-      value: String(stats.total),
-      icon: Users,
-    },
-    {
-      key: 'salary',
-      label: 'إجمالي الرواتب',
-      value: formatMoney(stats.totalSalary, 'LYD'),
-      icon: DollarSign,
-    },
-    {
-      key: 'paid',
-      label: 'المدفوع (12 شهر)',
-      value: formatMoney(stats.totalPaid, 'LYD'),
-      icon: TrendingUp,
-    },
-    {
-      key: 'avg',
-      label: 'متوسط شهور الدفع',
-      value: stats.avgMonths.toFixed(1),
-      icon: Calendar,
-    },
-  ];
+  const openTx = useTxDialog((s) => s.open);
+  const { can, loading: permLoading } = usePermission();
+  const canExpense = !permLoading && can('expense.create');
+  const canAdd = !permLoading && can('document.create');
 
   return (
-    <div className={cn('flex flex-col gap-4 md:gap-6', MOBILE_PAGE_ACTION_PADDING)}>
-      <div className="-mx-4 px-4 md:mx-0 md:px-0">
-        <div className="flex gap-2.5 overflow-x-auto pb-1 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-2 md:gap-3 md:overflow-visible lg:grid-cols-4">
-          {statCards.map((card) => {
-            const Icon = card.icon;
-            return (
-              <Card
-                key={card.key}
-                className="min-w-40 shrink-0 snap-center p-3 md:min-w-0"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-canvas-sunken text-muted-foreground">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[11px] text-ink-mute sm:text-sm">{card.label}</p>
-                    <p className="text-base font-semibold tabular-nums leading-tight sm:text-xl">
-                      {card.value}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+    <div className={cn('flex flex-col gap-4', MOBILE_PAGE_ACTION_PADDING)}>
+      <Card className="overflow-hidden">
+        <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3">
+          <div className="bg-card p-4">
+            <p className="text-[12.5px] text-ink-mute">عدد الموظفين</p>
+            <p className="mt-0.5 text-[20px] font-semibold tabular-nums">{stats.total}</p>
+          </div>
+          <div className="bg-card p-4">
+            <p className="text-[12.5px] text-ink-mute">الرواتب الشهرية</p>
+            <p className="mt-0.5 text-[20px] font-semibold tabular-nums">{formatMoney(stats.totalSalary, 'LYD')}</p>
+          </div>
+          <div className="col-span-2 bg-card p-4 sm:col-span-1">
+            <p className="text-[12.5px] text-ink-mute">المدفوع آخر 12 شهراً</p>
+            <p className="mt-0.5 text-[20px] font-semibold tabular-nums">{formatMoney(stats.totalPaid, 'LYD')}</p>
+          </div>
         </div>
-      </div>
+      </Card>
 
-      <div className="sticky top-0 z-20 -mx-4 space-y-2 border-b border-border bg-canvas px-4 py-3 md:static md:mx-0 md:z-auto md:space-y-3 md:border-0 md:bg-transparent md:px-0 md:py-0">
-        <div className="relative">
-          <Search className="pointer-events-none absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" aria-hidden />
           <Input
-            placeholder="بحث: الاسم، المسمى، القسم، الهاتف…"
+            placeholder="بحث بالاسم أو المسمى أو القسم أو الهاتف…"
+            aria-label="بحث في الموظفين"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="h-11 ps-10 text-base md:h-10 md:text-sm"
+            className="h-10 ps-9"
           />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" className="gap-1.5" asChild>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="h-10 flex-1 gap-1.5 sm:flex-none" asChild>
             <Link href="/payroll">
-              <DollarSign className="h-3.5 w-3.5" />
-              الرواتب وكشف الشهر
+              <DollarSign className="h-4 w-4" aria-hidden />
+              الرواتب الشهرية
             </Link>
           </Button>
-          <Button size="sm" variant="outline" className="gap-1.5" asChild>
+          <Button size="sm" variant="outline" className="h-10 flex-1 gap-1.5 sm:flex-none" asChild>
             <Link href="/reports/employee-spend">
-              <TrendingUp className="h-3.5 w-3.5" />
-              تقرير إنفاق الموظفين
+              <TrendingUp className="h-4 w-4" aria-hidden />
+              تقرير الإنفاق
             </Link>
           </Button>
+          {canAdd && (
+            <Button size="sm" className="hidden h-10 gap-1.5 md:inline-flex" onClick={onAddEmployee}>
+              <Plus className="h-4 w-4" aria-hidden />
+              إضافة موظف
+            </Button>
+          )}
         </div>
       </div>
-
-      {!isLoading && (
-        <p className="text-[12px] text-ink-mute">{filteredEmployees.length} موظف</p>
-      )}
 
       {isLoading ? (
         <div className="flex flex-col items-center gap-2 py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-ink-soft" />
+          <Loader2 className="h-7 w-7 animate-spin text-ink-soft" aria-hidden />
           <p className="text-sm text-ink-mute">جارٍ التحميل…</p>
         </div>
       ) : filteredEmployees.length === 0 ? (
         <Card className="p-8 text-center">
-          <Briefcase className="mx-auto h-8 w-8 text-ink-mute" />
-          <p className="mt-2 text-ink-mute">لا يوجد موظفين</p>
-          <Button className="mt-4" size="sm" onClick={onAddEmployee}>
-            إضافة موظف
-          </Button>
+          <Briefcase className="mx-auto h-8 w-8 text-ink-mute" aria-hidden />
+          <p className="mt-2 text-ink-mute">{searchQuery ? 'لا أحد يطابق البحث' : 'لا يوجد موظفون بعد'}</p>
+          {canAdd && !searchQuery && (
+            <Button className="mt-4" size="sm" onClick={onAddEmployee}>
+              إضافة موظف
+            </Button>
+          )}
         </Card>
       ) : (
         <>
-          <div className="hidden gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-3">
-            {filteredEmployees.map((emp) => (
-              <EmployeeCard
-                key={emp.id}
-                emp={emp}
-                onRecordSalary={onRecordSalary}
-              />
-            ))}
+          <p className="px-1 text-[12.5px] text-ink-mute">
+            {filteredEmployees.length} موظف · المدفوع من المعاملات المُرحّلة آخر 12 شهراً
+          </p>
+
+          <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-border bg-canvas-sunken text-[12.5px] text-ink-mute">
+                  <th scope="col" className="px-4 py-2.5 text-start font-medium">الموظف</th>
+                  <th scope="col" className="px-4 py-2.5 text-start font-medium">الراتب الشهري</th>
+                  <th scope="col" className="px-4 py-2.5 text-start font-medium">المدفوع (12 شهراً)</th>
+                  <th scope="col" className="px-4 py-2.5 text-start font-medium">التواصل</th>
+                  <th scope="col" className="px-4 py-2.5 text-end font-medium">
+                    <span className="sr-only">إجراءات</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredEmployees.map((emp) => {
+                  const { salary, paid, months } = figures(emp);
+                  return (
+                    <tr key={emp.id} className="align-top hover:bg-canvas-sunken/50">
+                      <td className="px-4 py-3">
+                        <Link href={`/contacts/${emp.id}`} className="font-semibold text-foreground hover:underline">
+                          {emp.name}
+                        </Link>
+                        <p className="mt-0.5 text-[12px] text-ink-mute">
+                          {[emp.job_title, emp.department].filter(Boolean).join(' · ') || '—'}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3 font-medium tabular-nums">{salary > 0 ? formatMoney(salary, 'LYD') : '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className="font-medium tabular-nums">{formatMoney(paid, 'LYD')}</span>
+                        <p className="mt-0.5 text-[12px] text-ink-mute">
+                          {months > 0 ? `${monthsAr(months)} فيها دفع` : 'لا دفعات'}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        {emp.phone ? (
+                          <ContactPhoneActions name={emp.name} phone={emp.phone} kind="EMPLOYEE" compact />
+                        ) : (
+                          <span className="text-ink-mute">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          {canExpense && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 gap-1 px-2.5 text-[12.5px]"
+                              disabled={salary === 0}
+                              title={salary === 0 ? 'حدّد الراتب في ملف الموظف أولاً' : undefined}
+                              onClick={() => onRecordSalary(emp)}
+                            >
+                              <Plus className="h-3.5 w-3.5" aria-hidden />
+                              راتب
+                            </Button>
+                          )}
+                          {canExpense && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 px-2.5 text-[12.5px]"
+                              onClick={() => openTx({ kind: 'EXPENSE', contactId: emp.id, contactKind: 'EMPLOYEE' })}
+                            >
+                              مصروف
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" className="h-8 gap-1 px-2.5 text-[12.5px]" asChild>
+                            <Link href={`/payroll/employees/${emp.id}`}>
+                              <FileText className="h-3.5 w-3.5" aria-hidden />
+                              ملف الراتب
+                            </Link>
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
 
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border sm:hidden">
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border md:hidden">
             {filteredEmployees.map((emp) => {
-              const salary = Number(emp.salary) || 0;
-              const paidLastYear = Number(emp.last_12_months_salary_paid) || 0;
-              const monthsPaid = emp.months_with_payment || 0;
-              const avgMonthlyPaid = monthsPaid > 0 ? paidLastYear / monthsPaid : 0;
-
+              const { salary, paid, months } = figures(emp);
               return (
                 <li key={emp.id} className="bg-card">
-                  <Link
-                    href={`/contacts/${emp.id}`}
-                    className="flex min-h-[72px] items-center gap-3 px-3 py-3.5 active:bg-secondary/50 touch-manipulation"
-                  >
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-canvas-sunken text-muted-foreground">
+                  <Link href={`/contacts/${emp.id}`} className="flex items-center gap-3 px-3 py-3 touch-manipulation active:bg-canvas-sunken">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border bg-canvas-sunken text-ink-mute" aria-hidden>
                       <Briefcase className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold text-[15px]">{emp.name}</p>
-                      <p className="mt-0.5 line-clamp-1 text-[13px] text-ink-mute">
-                        {emp.job_title || '—'}
-                        {emp.department ? ` · ${emp.department}` : ''}
-                      </p>
-                      {salary > 0 && (
-                        <p className="mt-1 text-[12px] tabular-nums">
-                          <span className="text-ink-mute">راتب </span>
-                          <span className="font-medium">{formatMoney(salary, 'LYD')}</span>
-                          {avgMonthlyPaid > 0 && (
-                            <span className="text-success ms-1">
-                              {' '}
-                              · متوسط {formatMoney(avgMonthlyPaid, 'LYD')}
-                            </span>
-                          )}
-                        </p>
-                      )}
-                    </div>
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-semibold">{emp.name}</span>
+                      <span className="mt-0.5 block truncate text-[12.5px] text-ink-mute">
+                        {[emp.job_title, emp.department].filter(Boolean).join(' · ') || '—'}
+                      </span>
+                      <span className="mt-1 block text-[12.5px] tabular-nums text-ink-mute">
+                        راتب <span className="font-medium text-foreground">{salary > 0 ? formatMoney(salary, 'LYD') : '—'}</span>
+                        {' · '}مدفوع {formatMoney(paid, 'LYD')}
+                        {months > 0 && ` (${monthsAr(months)})`}
+                      </span>
+                    </span>
                     <ChevronLeft className="h-5 w-5 shrink-0 text-ink-mute" aria-hidden />
                   </Link>
-                  <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
-                    {emp.phone ? (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
-                      >
-                        <ContactPhoneActions
-                          name={emp.name}
-                          phone={emp.phone}
-                          kind="EMPLOYEE"
-                          compact
-                        />
-                      </div>
-                    ) : null}
-                    <Button
-                      variant="ghost"
-                      className="h-10 flex-1 min-w-20 gap-1.5 text-[13px] touch-manipulation"
-                      disabled={salary === 0}
-                      onClick={() => onRecordSalary(emp)}
-                    >
-                      <Plus className="h-4 w-4" />
-                      راتب
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="h-10 flex-1 min-w-20 gap-1.5 text-[13px] touch-manipulation"
-                      onClick={() =>
-                        useTxDialog.getState().open({
-                          kind: 'EXPENSE',
-                          contactId: emp.id,
-                          contactKind: 'EMPLOYEE',
-                        })
-                      }
-                    >
-                      <DollarSign className="h-4 w-4" />
-                      مصروف
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="h-10 flex-1 min-w-20 gap-1.5 text-[13px] touch-manipulation"
-                      asChild
-                    >
-                      <Link href={`/payroll/employees/${emp.id}`}>ملف الراتب</Link>
-                    </Button>
+                  <div className="flex items-center gap-2 border-t border-border px-3 py-2">
+                    {emp.phone && <ContactPhoneActions name={emp.name} phone={emp.phone} kind="EMPLOYEE" compact />}
+                    <div className="ms-auto flex gap-1.5">
+                      {canExpense && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9 gap-1 text-[13px] touch-manipulation"
+                          disabled={salary === 0}
+                          onClick={() => onRecordSalary(emp)}
+                        >
+                          <Plus className="h-4 w-4" aria-hidden />
+                          راتب
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" className="h-9 text-[13px] touch-manipulation" asChild>
+                        <Link href={`/payroll/employees/${emp.id}`}>ملف الراتب</Link>
+                      </Button>
+                    </div>
                   </div>
                 </li>
               );
@@ -257,122 +261,14 @@ export function EmployeesDirectory({
         </>
       )}
 
-      <MobilePageActionBar>
-        <Button
-          className="h-12 w-full gap-2 text-base font-semibold shadow-xs touch-manipulation"
-          onClick={onAddEmployee}
-        >
-          <Plus className="h-5 w-5" />
-          إضافة موظف
-        </Button>
-      </MobilePageActionBar>
+      {canAdd && (
+        <MobilePageActionBar>
+          <Button className="h-12 w-full gap-2 text-base font-semibold touch-manipulation" onClick={onAddEmployee}>
+            <Plus className="h-5 w-5" aria-hidden />
+            إضافة موظف
+          </Button>
+        </MobilePageActionBar>
+      )}
     </div>
-  );
-}
-
-function EmployeeCard({
-  emp,
-  onRecordSalary,
-}: {
-  emp: EnrichedEmployee;
-  onRecordSalary: (e: EnrichedEmployee) => void;
-}) {
-  const openTx = useTxDialog((s) => s.open);
-  const { can, loading: permLoading } = usePermission();
-  const canExpense = !permLoading && can('expense.create');
-  const salary = Number(emp.salary) || 0;
-  const paidLastYear = Number(emp.last_12_months_salary_paid) || 0;
-  const monthsPaid = emp.months_with_payment || 0;
-  const avgMonthlyPaid = monthsPaid > 0 ? paidLastYear / monthsPaid : 0;
-
-  return (
-    <Card className="overflow-hidden">
-      <div className="p-4">
-        <div className="mb-4 flex items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-canvas-sunken text-muted-foreground">
-            <Briefcase className="h-5 w-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <Link
-              href={`/contacts/${emp.id}`}
-              className="block truncate text-lg font-semibold hover:text-foreground"
-            >
-              {emp.name}
-            </Link>
-            <p className="text-sm text-ink-mute">
-              {emp.job_title || '—'}
-              {emp.department ? ` · ${emp.department}` : ''}
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between border-b border-dashed border-border py-1">
-            <span className="text-ink-mute">الراتب الشهري</span>
-            <span className="font-medium tabular-nums">
-              {salary > 0 ? formatMoney(salary, 'LYD') : '—'}
-            </span>
-          </div>
-          <div className="flex justify-between border-b border-dashed border-border py-1">
-            <span className="text-ink-mute">متوسط الدفع الفعلي</span>
-            <span
-              className={cn(
-                'font-medium tabular-nums',
-                avgMonthlyPaid > 0 && 'text-success',
-              )}
-            >
-              {avgMonthlyPaid > 0 ? formatMoney(avgMonthlyPaid, 'LYD') : '—'}
-            </span>
-          </div>
-          <div className="flex justify-between py-1">
-            <span className="text-ink-mute">المدفوع (12 شهر)</span>
-            <span className="font-medium text-ink-soft tabular-nums">
-              {formatMoney(paidLastYear, 'LYD')}
-            </span>
-          </div>
-          {emp.phone ? (
-            <div className="pt-1" onClick={(e) => e.stopPropagation()}>
-              <ContactPhoneActions
-                name={emp.name}
-                phone={emp.phone}
-                kind="EMPLOYEE"
-              />
-            </div>
-          ) : null}
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3">
-          <Button
-            size="sm"
-            className="h-10 flex-1 touch-manipulation"
-            disabled={salary === 0}
-            onClick={() => onRecordSalary(emp)}
-          >
-            <Plus className="h-4 w-4 me-1" />
-            تسجيل راتب
-          </Button>
-          {canExpense ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-10 flex-1 touch-manipulation"
-              onClick={() =>
-                openTx({
-                  kind: 'EXPENSE',
-                  contactId: emp.id,
-                  contactKind: 'EMPLOYEE',
-                })
-              }
-            >
-              <DollarSign className="h-4 w-4 me-1" />
-              مصروف
-            </Button>
-          ) : null}
-          <Button size="sm" variant="outline" className="h-10 flex-1 touch-manipulation" asChild>
-            <Link href={`/payroll/employees/${emp.id}`}>ملف الراتب</Link>
-          </Button>
-        </div>
-      </div>
-    </Card>
   );
 }

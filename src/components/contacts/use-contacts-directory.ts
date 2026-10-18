@@ -24,6 +24,8 @@ import {
 import type { PeopleSegment } from '@/lib/mall/routes';
 import { mallTabHref } from '@/lib/mall/routes';
 import { usePermission } from '@/lib/supabase/use-permission';
+import { matchesSearch } from '@/lib/arabic-search';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 export function useContactsDirectory(options?: {
   segment?: PeopleSegment;
@@ -33,7 +35,11 @@ export function useContactsDirectory(options?: {
   const router = useRouter();
   const { canWrite, loading: permissionLoading } = usePermission();
   const segment = options?.segment ?? 'all';
-  const { data: contacts = [], isLoading } = useContacts();
+  const confirm = useConfirm();
+  // Inactive files stay reachable (to read their history or reactivate them) but are hidden by default.
+  const { data: allContacts = [], isLoading } = useContacts(undefined, { includeInactive: true });
+  const [showInactive, setShowInactive] = useState(false);
+  const contacts = useMemo(() => allContacts.filter((c) => c.is_active), [allContacts]);
   const createContact = useCreateContact();
   const updateContact = useUpdateContact();
   const deleteContact = useDeleteContact();
@@ -45,8 +51,13 @@ export function useContactsDirectory(options?: {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<ContactFormState>(defaultContactFormState());
 
+  const inactiveCount = useMemo(
+    () => allContacts.filter((c) => !c.is_active && (segment === 'all' || c.kind === segment)).length,
+    [allContacts, segment],
+  );
+
   const filteredContacts = useMemo(() => {
-    return contacts.filter((c) => {
+    return (showInactive ? allContacts : contacts).filter((c) => {
       const cRole = extractContactBusinessRole(c);
 
       // Filter by role if set
@@ -55,18 +66,20 @@ export function useContactsDirectory(options?: {
       // Filter by legacy segment if applicable
       if (segment !== 'all' && c.kind !== segment) return false;
 
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        c.name.toLowerCase().includes(q) ||
-        c.phone?.toLowerCase().includes(q) ||
-        c.shop_number?.toLowerCase().includes(q) ||
-        c.job_title?.toLowerCase().includes(q) ||
-        c.department?.toLowerCase().includes(q) ||
-        c.code?.toLowerCase().includes(q)
-      );
+      return matchesSearch(searchQuery, [
+        c.name,
+        c.name_en,
+        c.phone,
+        c.phone2,
+        c.shop_number,
+        c.job_title,
+        c.department,
+        c.code,
+        c.email,
+        c.address,
+      ]);
     });
-  }, [contacts, roleFilter, segment, searchQuery]);
+  }, [allContacts, contacts, showInactive, roleFilter, segment, searchQuery]);
 
   const stats = useMemo(() => {
     let tenants = 0;
@@ -205,12 +218,24 @@ export function useContactsDirectory(options?: {
       toast.error('صلاحية القراءة فقط');
       return;
     }
-    if (!confirm('هل تريد حذف هذا السجل نهائياً؟')) return;
+    const contact = allContacts.find((c) => c.id === id);
+    const ok = await confirm({
+      title: `حذف ${contact?.name ?? 'الجهة'} نهائياً`,
+      description:
+        'يُحذف الملف إن لم تكن له معاملات أو قيود أو عقود. جهة لها حركات لا تُحذف — اجعلها «غير نشطة» من التعديل لتبقى حركاتها في الدفاتر.',
+      confirmLabel: 'احذف',
+    });
+    if (!ok) return;
     try {
       await deleteContact.mutateAsync(id);
       toast.success('تم الحذف');
-    } catch {
-      toast.error('فشل الحذف');
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      toast.error(
+        code === '23503'
+          ? 'لا يمكن حذف جهة لها معاملات أو قيود أو عقود — اجعلها «غير نشطة» من التعديل.'
+          : 'تعذّر الحذف',
+      );
     }
   }
 
@@ -219,6 +244,9 @@ export function useContactsDirectory(options?: {
     contacts,
     filteredContacts,
     isLoading,
+    showInactive,
+    setShowInactive,
+    inactiveCount,
     searchQuery,
     setSearchQuery,
     roleFilter,

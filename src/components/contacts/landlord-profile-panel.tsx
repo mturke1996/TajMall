@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { cn, formatMoney, formatDate } from '@/lib/utils';
 import type { ContactRow, TransactionWithRelations } from '@/lib/db/types';
 import type { JournalEntryRow } from '@/lib/db/journal-queries';
-import {
+import { visibleContactNotes,
   buildLandlordRentSchedule,
   type LandlordRentSchedule,
   type LandlordRentMonth,
@@ -323,7 +323,7 @@ export function LandlordProfilePanel({
             </div>
             <div className="flex justify-between py-1.5 border-b border-border/60">
               <span className="text-muted-foreground">ملاحظات العقد:</span>
-              <span className="font-medium text-foreground">{contact.notes || 'لا توجد ملاحظات'}</span>
+              <span className="font-medium text-foreground">{visibleContactNotes(contact.notes) || 'لا توجد ملاحظات'}</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-muted-foreground">حالة العقد:</span>

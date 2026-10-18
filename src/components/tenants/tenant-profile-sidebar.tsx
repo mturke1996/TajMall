@@ -10,6 +10,7 @@ import { useTenantLeaseContracts } from '@/lib/db/mall-queries';
 import { mallTabHref } from '@/lib/mall/routes';
 import { formatDate, formatMoney } from '@/lib/utils';
 import type { ContactRow } from '@/lib/db/types';
+import { visibleContactNotes } from '@/lib/contacts/contact-roles';
 
 function Row({ label, children, ltr }: { label: string; children: React.ReactNode; ltr?: boolean }) {
   return (
@@ -33,6 +34,7 @@ export function TenantProfileSidebar({
   onEdit: () => void;
 }) {
   const { data: contracts = [], isLoading } = useTenantLeaseContracts(contact.id);
+  const notes = visibleContactNotes(contact.notes);
   const active = contracts.find((c) => c.status === 'ACTIVE');
   const shop = [contact.shop_number && `محل ${contact.shop_number}`, contact.floor && `الطابق ${contact.floor}`]
     .filter(Boolean)
@@ -70,9 +72,9 @@ export function TenantProfileSidebar({
         {!contact.phone && !contact.shop_number && (
           <p className="mt-2 text-[12.5px] text-ink-mute">بيانات ناقصة — أكملها من «تعديل».</p>
         )}
-        {contact.notes && (
+        {notes && (
           <p className="mt-3 whitespace-pre-line rounded-lg bg-canvas-sunken/70 px-3 py-2 text-[12.5px] leading-relaxed text-ink-mute">
-            {contact.notes}
+            {notes}
           </p>
         )}
       </Card>

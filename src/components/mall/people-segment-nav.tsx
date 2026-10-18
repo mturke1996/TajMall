@@ -2,6 +2,7 @@
 
 import { Building2, Briefcase, Landmark, User, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useActiveInView } from '@/lib/hooks/use-active-in-view';
 import type { PeopleSegment } from '@/lib/mall/routes';
 
 const SEGMENTS: {
@@ -25,8 +26,9 @@ export function PeopleSegmentNav({
   counts?: Partial<Record<PeopleSegment, number>>;
   onChange: (segment: PeopleSegment) => void;
 }) {
+  const rowRef = useActiveInView<HTMLDivElement>(active);
   return (
-    <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1 no-scrollbar snap-x snap-mandatory">
+    <div ref={rowRef} className="mb-4 flex gap-1.5 overflow-x-auto pb-1 no-scrollbar snap-x snap-mandatory" role="group" aria-label="نوع الجهة">
       {SEGMENTS.map((seg) => {
         const Icon = seg.icon;
         const count = counts?.[seg.id];
@@ -34,6 +36,7 @@ export function PeopleSegmentNav({
           <button
             key={seg.id}
             type="button"
+            aria-pressed={active === seg.id}
             onClick={() => onChange(seg.id)}
             className={cn(
               'inline-flex shrink-0 snap-center items-center gap-1.5 rounded-full border px-3 py-2 text-[13px] font-medium touch-manipulation',

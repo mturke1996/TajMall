@@ -236,6 +236,14 @@ export function extractContactBusinessRole(contact: Partial<ContactRow> | null |
   return 'OTHER';
 }
 
+/** Notes as the user wrote them: without the stored role tag. Empty string when nothing is left. */
+export function visibleContactNotes(notes: string | null | undefined): string {
+  return (notes || '')
+    .replace(/\[\s*role:[a-z_]+\s*\]/gi, '')
+    .replace(/role:[a-z_]+/gi, '')
+    .trim();
+}
+
 /**
  * تجهيز وسم الدور للتخزين في الملاحظات والمسمى مع تنظيف الوسوم السابقة
  */

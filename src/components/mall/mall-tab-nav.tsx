@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useActiveInView } from '@/lib/hooks/use-active-in-view';
 import type { MallTab } from '@/lib/mall/routes';
 
 export const MALL_TAB_META: {
@@ -62,9 +63,11 @@ export function MallTabNav({
   active: MallTab;
   onChange: (tab: MallTab) => void;
 }) {
+  const rowRef = useActiveInView<HTMLDivElement>(active);
   return (
     <div className="sticky top-0 z-30 border-b border-border bg-canvas">
       <div
+        ref={rowRef}
         className="flex gap-1 overflow-x-auto px-4 py-2 no-scrollbar snap-x snap-mandatory md:gap-1.5 md:px-8"
         role="tablist"
         aria-label="أقسام إدارة المول"

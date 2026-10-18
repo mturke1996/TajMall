@@ -19,6 +19,14 @@ import {
 import type { ContactKind } from '@/lib/db/types';
 import { WriteGuard } from '@/components/auth/write-guard';
 
+const ADD_LABEL: Record<PeopleSegment, string> = {
+  all: 'إضافة جهة',
+  TENANT: 'إضافة مستأجر',
+  EMPLOYEE: 'إضافة موظف',
+  VENDOR: 'إضافة مورد',
+  CUSTOMER: 'إضافة عميل',
+};
+
 export function MallPeoplePanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -106,7 +114,7 @@ export function MallPeoplePanel() {
             }
           >
             <Plus className="h-4 w-4 me-1" />
-            إضافة
+            {ADD_LABEL[segment]}
           </Button>
         </WriteGuard>
       </MallPanelToolbar>
@@ -125,6 +133,9 @@ export function MallPeoplePanel() {
         onEdit={directory.startEdit}
         onDelete={directory.handleDelete}
         allowMutate={directory.canWrite}
+        showInactive={directory.showInactive}
+        onShowInactiveChange={directory.setShowInactive}
+        inactiveCount={directory.inactiveCount}
       />
 
       <ContactFormDialog

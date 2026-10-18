@@ -357,16 +357,17 @@ export function useUpdateProfile() {
 }
 
 // ── contacts (customers, tenants, employees, vendors) ─────────────
-export function useContacts(kind?: ContactKind) {
+export function useContacts(kind?: ContactKind, options?: { includeInactive?: boolean }) {
+  const includeInactive = options?.includeInactive ?? false;
   return useQuery<ContactRow[]>({
-    queryKey: qk.contacts(kind),
+    queryKey: includeInactive ? [...qk.contacts(kind), "with-inactive"] : qk.contacts(kind),
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       let q = supabase
         .from("contacts")
         .select(CONTACT_LIST_COLUMNS)
-        .eq("is_active", true)
         .order("name", { ascending: true });
+      if (!includeInactive) q = q.eq("is_active", true);
       if (kind) q = q.eq("kind", kind);
       const { data, error } = await q;
       if (error) throw error;

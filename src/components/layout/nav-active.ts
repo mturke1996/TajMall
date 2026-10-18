@@ -37,5 +37,8 @@ export function isNavActive(pathname: string, href: string): boolean {
   for (const [key, value] of target.entries()) {
     if (current.get(key) !== value) return false;
   }
+  // "/mall?tab=people" is the whole directory; with a segment selected the segment's own item is active.
+  const segment = current.get('segment');
+  if (!target.has('segment') && segment && segment !== 'all') return false;
   return true;
 }

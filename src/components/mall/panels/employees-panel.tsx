@@ -8,6 +8,7 @@ import type { EnrichedEmployee } from '@/components/employees/employees-director
 import { RecordSalaryPaymentDialog } from '@/components/employees/record-salary-payment-dialog';
 import { peopleSegmentHref } from '@/lib/mall/routes';
 import { cn } from '@/lib/utils';
+import { matchesSearch } from '@/lib/arabic-search';
 import { MOBILE_PAGE_ACTION_PADDING } from '@/components/layout/mobile-page-action-bar';
 
 export function MallEmployeesPanel({
@@ -39,30 +40,19 @@ export function MallEmployeesPanel({
   }, [employees, contacts]);
 
   const filteredEmployees = useMemo(() => {
-    return enrichedEmployees.filter((e) => {
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        e.name?.toLowerCase().includes(q) ||
-        e.job_title?.toLowerCase().includes(q) ||
-        e.department?.toLowerCase().includes(q) ||
-        e.phone?.toLowerCase().includes(q)
-      );
-    });
+    return enrichedEmployees.filter((e) =>
+      matchesSearch(searchQuery, [e.name, e.job_title, e.department, e.phone]),
+    );
   }, [enrichedEmployees, searchQuery]);
 
   const stats = useMemo(() => {
     const total = employees.length;
     const totalSalary = employees.reduce((sum, e) => sum + (Number(e.salary) || 0), 0);
     const totalPaid = employees.reduce(
-      (sum, e) => sum + Number(e.last_12_months_salary_paid),
+      (sum, e) => sum + (Number(e.last_12_months_salary_paid) || 0),
       0,
     );
-    const avgMonths =
-      employees.length > 0
-        ? employees.reduce((sum, e) => sum + e.months_with_payment, 0) / employees.length
-        : 0;
-    return { total, totalSalary, totalPaid, avgMonths };
+    return { total, totalSalary, totalPaid };
   }, [employees]);
 
   return (
