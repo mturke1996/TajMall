@@ -25,6 +25,8 @@ type Props = {
   singleMonth?: boolean;
   /** حد أقصى لأشهر متتالية (مثلاً 2) */
   maxMonths?: number;
+  /** لكل شهر: سبب يمنع اختياره (مثل «مُسدَّد بالكامل»)، أو تقدّم السداد «1,250 / 2,500» */
+  monthHints?: Map<string, { disabledReason?: string; progress?: string }>;
   className?: string;
 };
 
@@ -37,6 +39,7 @@ export function RentMonthPicker({
   fullYear = false,
   singleMonth = false,
   maxMonths,
+  monthHints,
   className,
 }: Props) {
   const keys = fullYear ? yearMonthsAll(year) : yearMonthsThroughCurrent(year);
@@ -65,6 +68,8 @@ export function RentMonthPicker({
         {visibleKeys.map((key) => {
           const isSelected = selected.includes(key);
           const status = statusByMonth.get(key);
+          const hint = monthHints?.get(key);
+          const disabledReason = hint?.disabledReason;
           const statusClass =
             showStatus && status
               ? RENT_MONTH_STATUS_CLASS[status]
@@ -74,6 +79,10 @@ export function RentMonthPicker({
             <button
               key={key}
               type="button"
+              disabled={Boolean(disabledReason) && !isSelected}
+              title={disabledReason}
+              aria-label={disabledReason ? `${formatMonthLabelAr(key)} — ${disabledReason}` : undefined}
+              aria-pressed={isSelected}
               onClick={() => {
                 if (singleMonth) {
                   onChange(selected.includes(key) ? [] : [key]);
@@ -89,11 +98,13 @@ export function RentMonthPicker({
                 'rounded-lg px-2 py-2 text-[11px] touch-manipulation transition-colors border-2',
                 statusClass,
                 isSelected && 'ring-2 ring-ink-soft ring-offset-1',
+                disabledReason && !isSelected && 'cursor-not-allowed opacity-55',
               )}
             >
               <RentMonthLabel
                 monthKey={key}
                 status={status}
+                partialProgress={hint?.progress ?? null}
                 layout="stacked"
               />
             </button>

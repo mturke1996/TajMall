@@ -53,6 +53,7 @@ jobs:
         run: |
           npm run test:payroll:local
           npm run test:rollback
+          npm run verify:rent-allocation
 
       - name: Build (next build)
         run: npm run build

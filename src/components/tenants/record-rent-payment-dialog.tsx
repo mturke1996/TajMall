@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Loader2, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -18,15 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  RentRevenueMonthsBlock,
-  parseRentPartialAmount,
-  type RentLinkMode,
-} from '@/components/rent/rent-revenue-months-block';
+import { RentRevenueMonthsBlock } from '@/components/rent/rent-revenue-months-block';
+import { useRentPaymentPlan } from '@/components/rent/use-rent-payment-plan';
 import { useCashboxes, useRecordRentPayment, type TenantRentSummary } from '@/lib/db/queries';
 import { useTenantChargesForTenant } from '@/lib/db/mall-queries';
-import { rentChargesByMonth, sumRentMonthsRemaining } from '@/lib/rent-journal-link';
-import { areConsecutiveMonths, formatMonthsLabelAr } from '@/lib/rent-months';
+import { describeRentIssue, resolveRentAmount } from '@/lib/rent-allocation';
+import { currentMonthKey, formatMonthLabelAr, formatMonthsLabelAr } from '@/lib/rent-months';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import type { PaymentMethod } from '@/lib/db/types';
 import { formatMoney, preferredCashboxId, todayISODate } from '@/lib/utils';
@@ -44,6 +42,18 @@ type RecordRentPaymentDialogProps = {
   onSuccess?: () => void;
 };
 
+/** Default description: names the months, and says when the last one is only partly paid. */
+function describePayment(months: string[], lastPartial: boolean) {
+  if (months.length === 0) return 'تحصيل إيجار';
+  const sorted = [...months].sort();
+  if (!lastPartial) return `تحصيل إيجار: ${formatMonthsLabelAr(sorted)}`;
+  const last = sorted[sorted.length - 1];
+  const full = sorted.slice(0, -1);
+  return full.length
+    ? `تحصيل إيجار: ${formatMonthsLabelAr(full)} وجزء من ${formatMonthLabelAr(last)}`
+    : `تحصيل إيجار: جزء من ${formatMonthLabelAr(last)}`;
+}
+
 export function RecordRentPaymentDialog({
   tenant,
   open,
@@ -52,132 +62,79 @@ export function RecordRentPaymentDialog({
 }: RecordRentPaymentDialogProps) {
   const { data: cashboxes = [] } = useCashboxes();
   const recordPayment = useRecordRentPayment();
-  const { data: charges = [] } = useTenantChargesForTenant(tenant?.id ?? '');
+  const chargesQuery = useTenantChargesForTenant(tenant?.id ?? '');
+  const charges = useMemo(() => chargesQuery.data ?? [], [chargesQuery.data]);
 
-  const [paymentAmount, setPaymentAmount] = useState('');
+  const [amountText, setAmountText] = useState('');
   const [paymentDate, setPaymentDate] = useState(() => todayISODate());
   const [cashboxId, setCashboxId] = useState('');
-  const [description, setDescription] = useState('تحصيل إيجار');
+  const [description, setDescription] = useState('');
+  const [descriptionEdited, setDescriptionEdited] = useState(false);
   const [rentMonths, setRentMonths] = useState<string[]>([]);
   const [method, setMethod] = useState<PaymentMethod>('CASH');
-  const [linkMode, setLinkMode] = useState<RentLinkMode>('full');
-  const [partialAmount, setPartialAmount] = useState('');
 
-  const rentFromCharges = useMemo(() => {
-    const amounts = charges
-      .map((c) => Number(c.amount) || 0)
-      .filter((n) => n > 0);
-    return amounts.length ? Math.max(...amounts) : 0;
-  }, [charges]);
-  const rent = Number(tenant?.monthly_rent) || rentFromCharges || 0;
+  const amount = Number(amountText.replace(/,/g, '')) || 0;
+  const { plan, basis, basisFor, pricing, loading: pricingLoading } = useRentPaymentPlan({
+    tenantId: tenant?.id ?? '',
+    contactRent: Number(tenant?.monthly_rent) || 0,
+    charges,
+    months: rentMonths,
+    amount,
+  });
+  const ready = Boolean(tenant) && !pricingLoading && chargesQuery.isFetched;
+  const thisMonthRent = resolveRentAmount(currentMonthKey(), pricing);
   const selectedCashbox = cashboxes.find((c) => c.id === cashboxId);
-
-  const chargesByMonth = useMemo(
-    () => (tenant ? rentChargesByMonth(charges, tenant.id) : new Map()),
-    [charges, tenant],
-  );
-
-  const { totalRemaining } = useMemo(
-    () =>
-      tenant
-        ? sumRentMonthsRemaining(chargesByMonth, rentMonths, rent)
-        : { totalRemaining: 0, totalAmount: 0, totalPaid: 0 },
-    [chargesByMonth, rentMonths, rent, tenant],
-  );
+  const lastPartial = plan.lines.length > 0 && plan.lines[plan.lines.length - 1].status === 'partial';
 
   useEffect(() => {
-    if (open && tenant) {
-      const now = new Date();
-      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      setRentMonths([currentMonth]);
-      setPaymentDate(todayISODate());
-      setDescription('تحصيل إيجار');
-      setLinkMode('full');
-      setPartialAmount('');
-      const preferred = preferredCashboxId(cashboxes);
-      const box = cashboxes.find((c) => c.id === preferred);
-      setCashboxId(preferred);
-      setMethod(box?.kind === 'BANK' ? 'TRANSFER' : 'CASH');
-    }
+    if (!open || !tenant) return;
+    setRentMonths([]);
+    setAmountText('');
+    setPaymentDate(todayISODate());
+    setDescription('');
+    setDescriptionEdited(false);
+    const preferred = preferredCashboxId(cashboxes);
+    const box = cashboxes.find((c) => c.id === preferred);
+    setCashboxId(preferred);
+    setMethod(box?.kind === 'BANK' ? 'TRANSFER' : 'CASH');
   }, [open, tenant, cashboxes]);
 
   useEffect(() => {
-    if (selectedCashbox?.kind === 'BANK') {
-      setMethod('TRANSFER');
-    }
+    if (selectedCashbox?.kind === 'BANK') setMethod('TRANSFER');
   }, [selectedCashbox?.kind, selectedCashbox?.id]);
 
   useEffect(() => {
-    if (rentMonths.length === 0 || linkMode === 'partial') return;
-    const suggested =
-      totalRemaining > 0 ? totalRemaining : rentMonths.length * rent;
-    if (suggested > 0) setPaymentAmount(String(suggested));
-  }, [rentMonths, totalRemaining, rent, linkMode]);
+    if (!descriptionEdited) setDescription(describePayment(rentMonths, lastPartial));
+  }, [rentMonths, lastPartial, descriptionEdited]);
+
+  const setAmount = useCallback((n: number) => setAmountText(n > 0 ? String(n) : ''), []);
 
   async function handleSubmit() {
     if (!tenant) return;
-    if (rentMonths.length === 0) {
-      toast.error('اختر شهر إيجار واحداً على الأقل');
+    if (!plan.ok) {
+      toast.error(describeRentIssue(plan.issues[0], formatMonthLabelAr));
       return;
     }
-    if (!areConsecutiveMonths(rentMonths)) {
-      toast.error('اختر أشهراً متتالية');
-      return;
-    }
-
-    let amount: number;
-    if (linkMode === 'partial') {
-      const partial = parseRentPartialAmount(partialAmount);
-      if (partial == null) {
-        toast.error('أدخل مبلغ الجزء');
-        return;
-      }
-      if (partial > totalRemaining + 0.001) {
-        toast.error(`المبلغ أكبر من المتبقي (${formatMoney(totalRemaining, 'LYD')})`);
-        return;
-      }
-      amount = partial;
-    } else {
-      amount = Number(paymentAmount);
-      if (!Number.isFinite(amount) || amount <= 0) {
-        toast.error('أدخل مبلغ الإيراد');
-        return;
-      }
-      if (totalRemaining > 0 && amount + 0.001 < totalRemaining) {
-        toast.error(
-          `المبلغ أقل من المتبقي للأشهر المحددة (${formatMoney(totalRemaining, 'LYD')}) — اختر «جزئي» أو زِد المبلغ`,
-        );
-        return;
-      }
-    }
-
     try {
-      const result = await recordPayment.mutateAsync({
+      await recordPayment.mutateAsync({
         tenant_id: tenant.id,
         amount,
         payment_date: paymentDate,
         cashbox_id: cashboxId || undefined,
-        description:
-          description.trim() ||
-          `تحصيل إيجار: ${formatMonthsLabelAr(rentMonths)}`,
-        rent_months: rentMonths,
+        description: description.trim() || describePayment(rentMonths, lastPartial),
+        rent_months: [...rentMonths].sort(),
         payment_method: method,
       });
-      const journalHint =
-        result?.journal_entry_id != null
-          ? ' وربطها بقيد اليومية'
-          : '';
-      toast.success(
-        `تم تسجيل الإيراد${journalHint} — ${formatMonthsLabelAr(rentMonths)} في التقويم`,
-      );
+      toast.success('سُجّلت الدفعة', {
+        description: plan.lines
+          .map((l) => `${formatMonthLabelAr(l.month)}: ${l.status === 'paid' ? 'مُسدَّد' : `جزئي ${formatMoney(l.paidAfter, 'LYD')} من ${formatMoney(l.amount, 'LYD')}`}`)
+          .join(' · '),
+      });
       onOpenChange(false);
-      setPaymentAmount('');
       onSuccess?.();
     } catch (err) {
       console.error('[rent-payment]', err);
-      toast.error(
-        err instanceof Error ? err.message : 'فشل تسجيل الإيراد',
-      );
+      toast.error(err instanceof Error ? err.message : 'تعذّر تسجيل الدفعة');
     }
   }
 
@@ -186,134 +143,135 @@ export function RecordRentPaymentDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-lg w-[calc(100%-1.5rem)] max-h-[90dvh] overflow-y-auto rounded-2xl p-0 gap-0"
+        className="max-w-xl w-[calc(100%-1.5rem)] max-h-[92dvh] overflow-y-auto rounded-2xl p-0 gap-0"
         dir="rtl"
       >
-        <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
-          <DialogTitle>تسجيل إيراد إيجار</DialogTitle>
-          <p className="text-sm text-ink-mute text-start leading-relaxed pt-1">
-            يُسجَّل الإيراد في الخزينة واليومية، ويُحدَّث تقويم المستأجر تلقائياً
-            (بدون تخصيص مطالبات يدوي).
-          </p>
+        <DialogHeader className="px-5 pt-5 pb-3 border-b border-border text-start">
+          <DialogTitle>تحصيل إيجار</DialogTitle>
+          <DialogDescription className="text-[13px] leading-relaxed">
+            تُسجَّل الدفعة في الخزينة واليومية وتُربط بالأشهر المحددة في قيد واحد. يظهر التوزيع قبل الحفظ.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="px-5 py-4 space-y-4">
-          <div className="rounded-lg bg-canvas-sunken p-3">
-            <p className="font-medium">{tenant.name}</p>
-            <p className="text-sm text-ink-mute">
-              محل {tenant.shop_number || '—'} · إيجار شهري{' '}
-              {rent > 0 ? formatMoney(rent, 'LYD') : '—'}
-            </p>
-          </div>
-
-          <RentRevenueMonthsBlock
-            tenantId={tenant.id}
-            monthlyRent={rent}
-            charges={charges}
-            selected={rentMonths}
-            onSelectedChange={setRentMonths}
-            linkMode={linkMode}
-            onLinkModeChange={setLinkMode}
-            partialAmount={partialAmount}
-            onPartialAmountChange={setPartialAmount}
-          />
-
-          <div>
-            <Label>مبلغ الإيراد (الخزينة)</Label>
-            <Input
-              type="number"
-              inputMode="decimal"
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
-              className="text-lg h-11 tabular-nums"
-              disabled={linkMode === 'partial'}
-            />
-            {linkMode === 'partial' && (
-              <p className="text-[11px] text-ink-mute mt-1">
-                في وضع الجزء يُستخدم مبلغ الجزء أعلاه كمبلغ الإيراد.
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-canvas-sunken/60 p-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border bg-card text-ink-mute">
+              <Store className="h-4 w-4" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold text-foreground">{tenant.name}</p>
+              <p className="text-[12.5px] text-ink-mute">
+                محل {tenant.shop_number || '—'} · إيجار {formatMonthLabelAr(currentMonthKey())}{' '}
+                <span className="tabular-nums text-foreground">{thisMonthRent > 0 ? formatMoney(thisMonthRent, 'LYD') : '—'}</span>
               </p>
-            )}
+            </div>
           </div>
 
-          <div>
-            <Label>تاريخ الإيراد</Label>
-            <Input
-              type="date"
-              value={paymentDate}
-              onChange={(e) => setPaymentDate(e.target.value)}
-              className="h-11"
+          {!ready ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-ink-mute">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> جارٍ تحميل أشهر المستأجر وأسعاره…
+            </div>
+          ) : (
+            <RentRevenueMonthsBlock
+              tenantId={tenant.id}
+              monthlyRent={thisMonthRent}
+              charges={charges}
+              selected={rentMonths}
+              onSelectedChange={setRentMonths}
+              plan={plan}
+              basis={basis}
+              basisFor={basisFor}
+              onAmountChange={setAmount}
+              ready={ready}
+              autoSelectFirstDue
             />
-          </div>
+          )}
 
-          {cashboxes.length > 0 && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <Label htmlFor="rent-amount">مبلغ الدفعة (د.ل)</Label>
+              <Input
+                id="rent-amount"
+                type="text"
+                inputMode="decimal"
+                dir="ltr"
+                value={amountText}
+                onChange={(e) => setAmountText(e.target.value.replace(/[^\d.,]/g, ''))}
+                className="mt-1.5 h-12 text-lg font-semibold tabular-nums text-end"
+                aria-describedby="rent-amount-hint"
+              />
+              <p id="rent-amount-hint" className="mt-1 text-[12px] text-ink-mute">
+                يُوزَّع على الأشهر بالترتيب: الأقدم أولاً، والأخير قد يُسدَّد جزئياً.
+              </p>
+            </div>
             <div>
-              <Label>الخزينة</Label>
-              <Select value={cashboxId} onValueChange={setCashboxId}>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="اختر الخزينة" />
+              <Label htmlFor="rent-date">تاريخ الدفعة</Label>
+              <Input id="rent-date" type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className="mt-1.5 h-11" />
+            </div>
+            {cashboxes.length > 0 && (
+              <div>
+                <Label>الخزينة</Label>
+                <Select value={cashboxId} onValueChange={setCashboxId}>
+                  <SelectTrigger className="mt-1.5 h-11">
+                    <SelectValue placeholder="اختر الخزينة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cashboxes.map((cb) => (
+                      <SelectItem key={cb.id} value={cb.id}>
+                        {cb.name_ar}
+                        {cb.bank_name ? ` · ${cb.bank_name}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <Label>طريقة الدفع</Label>
+              <Select value={method} onValueChange={(v) => setMethod(v as PaymentMethod)}>
+                <SelectTrigger className="mt-1.5 h-11">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {cashboxes.map((cb) => (
-                    <SelectItem key={cb.id} value={cb.id}>
-                      {cb.name_ar}
-                      {cb.bank_name ? ` · ${cb.bank_name}` : ''}
+                  {PAYMENT_METHODS.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>
+                      {m.labelAr}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
-
-          <div>
-            <Label>نوع الدفع</Label>
-            <Select
-              value={method}
-              onValueChange={(v) => setMethod(v as PaymentMethod)}
-            >
-              <SelectTrigger className="h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PAYMENT_METHODS.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>
-                    {m.labelAr}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label>البيان</Label>
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
+            <div className="sm:col-span-2">
+              <Label htmlFor="rent-desc">البيان</Label>
+              <Input
+                id="rent-desc"
+                value={description}
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                  setDescriptionEdited(true);
+                }}
+                className="mt-1.5"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="flex gap-2 border-t border-border px-5 py-4 bg-canvas-sunken/30">
-          <Button
-            type="button"
-            variant="outline"
-            className="flex-1 h-11"
-            onClick={() => onOpenChange(false)}
-          >
+        <div className="sticky bottom-0 flex gap-2 border-t border-border bg-card px-5 py-3.5">
+          <Button type="button" variant="outline" className="h-11 flex-1" onClick={() => onOpenChange(false)}>
             إلغاء
           </Button>
           <Button
             type="button"
-            className="flex-1 h-11"
+            className="h-11 flex-[2]"
             onClick={handleSubmit}
-            disabled={
-              recordPayment.isPending ||
-              rentMonths.length === 0
-            }
+            disabled={recordPayment.isPending || !ready || !plan.ok}
           >
             {recordPayment.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : plan.ok ? (
+              <>تسجيل الدفعة · <span className="tabular-nums">{formatMoney(amount, 'LYD')}</span></>
             ) : (
-              'تسجيل الإيراد وربط الشهور'
+              'راجع التوزيع أعلاه'
             )}
           </Button>
         </div>

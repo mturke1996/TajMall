@@ -33,6 +33,7 @@
     "verify:lists": "npx tsx scripts/verify-list-utilities.mjs",
     "verify:payroll-pdf": "npx tsx scripts/verify-payroll-pdf.mjs",
     "verify:design": "node scripts/verify-design-tokens.mjs",
+    "verify:rent-allocation": "npx tsx scripts/verify-rent-allocation.mjs",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",

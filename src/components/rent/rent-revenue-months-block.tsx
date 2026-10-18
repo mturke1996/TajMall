@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { PieChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -14,35 +12,40 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RentMonthPicker } from '@/components/rent/rent-month-picker';
+import { RentAllocationPreview } from '@/components/rent/rent-allocation-preview';
 import { buildRentCalendarFromCharges } from '@/lib/rent-calendar-from-charges';
 import { useTenantRentExemptMonths } from '@/lib/db/rent-queries';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
-import { rentChargesByMonth, sumRentMonthsRemaining } from '@/lib/rent-journal-link';
-import {
-  areConsecutiveMonths,
-  currentYear,
-  formatMonthLabelAr,
-  formatMonthsLabelAr,
-} from '@/lib/rent-months';
+import { currentMonthKey, currentYear, formatMonthLabelAr, yearMonthsAll } from '@/lib/rent-months';
+import { roundLyd, type RentAllocation, type RentMonthBasis } from '@/lib/rent-allocation';
 import type { TenantChargeWithRelations } from '@/lib/db/types';
 import type { RentCalendarMonth } from '@/lib/rent-months';
 import { formatMoney } from '@/lib/utils';
 
-export type RentLinkMode = 'full' | 'partial';
-
 type Props = {
   tenantId: string;
+  /** used only to colour months that have no charge yet */
   monthlyRent: number;
   charges: TenantChargeWithRelations[];
   years?: number[];
   selected: string[];
   onSelectedChange: (months: string[]) => void;
-  linkMode: RentLinkMode;
-  onLinkModeChange: (mode: RentLinkMode) => void;
-  partialAmount: string;
-  onPartialAmountChange: (value: string) => void;
+  /** from useRentPaymentPlan */
+  plan: RentAllocation;
+  basis: RentMonthBasis[];
+  basisFor: (month: string) => RentMonthBasis;
+  onAmountChange: (amount: number) => void;
+  /** charges and prices have loaded: months can be suggested and the amount filled in */
+  ready: boolean;
+  /** pick the oldest month still owing when nothing is selected */
+  autoSelectFirstDue?: boolean;
   maxMonths?: number;
   claimStart?: string | null;
+};
+
+const nextMonthKey = (key: string) => {
+  const [y, m] = key.split('-').map(Number);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
 };
 
 export function RentRevenueMonthsBlock({
@@ -52,10 +55,12 @@ export function RentRevenueMonthsBlock({
   years: yearsProp,
   selected,
   onSelectedChange,
-  linkMode,
-  onLinkModeChange,
-  partialAmount,
-  onPartialAmountChange,
+  plan,
+  basis,
+  basisFor,
+  onAmountChange,
+  ready,
+  autoSelectFirstDue = false,
   maxMonths,
   claimStart = null,
 }: Props) {
@@ -77,23 +82,7 @@ export function RentRevenueMonthsBlock({
     },
   });
   const resolvedClaimStart = claimStart ?? contactClaim ?? null;
-
   const years = yearsProp ?? [currentYear(), currentYear() - 1];
-
-  const chargesByMonth = useMemo(
-    () => rentChargesByMonth(charges, tenantId),
-    [charges, tenantId],
-  );
-
-  const { totalRemaining, totalAmount, totalPaid } = useMemo(
-    () => sumRentMonthsRemaining(chargesByMonth, selected, monthlyRent),
-    [chargesByMonth, selected, monthlyRent],
-  );
-
-  const multiMonth = selected.length > 1;
-  // مفتاح نصي مستقر لمحتوى selected — يمنع إعادة تشغيل الأثر أدناه لمجرد
-  // تغيّر مرجع المصفوفة دون تغيّر محتواها فعلياً.
-  const selectedKey = selected.join(',');
 
   const calendarMonths: RentCalendarMonth[] = useMemo(
     () =>
@@ -104,171 +93,126 @@ export function RentRevenueMonthsBlock({
     [tenantId, year, monthlyRent, charges, resolvedClaimStart, exemptRows],
   );
 
-  useEffect(() => {
-    if (multiMonth && linkMode === 'partial') {
-      onLinkModeChange('full');
+  // Months the database would mishandle cannot be picked; partly paid months show their progress.
+  const monthHints = useMemo(() => {
+    const hints = new Map<string, { disabledReason?: string; progress?: string }>();
+    const statusByMonth = new Map(calendarMonths.map((m) => [m.month, m.status]));
+    for (const key of yearMonthsAll(year)) {
+      const status = statusByMonth.get(key);
+      if (status === 'exempt') continue;
+      const b = basisFor(key);
+      if (b.amount <= 0) {
+        hints.set(key, { disabledReason: 'لا يوجد سعر إيجار لهذا الشهر' });
+      } else if (b.remaining <= 0) {
+        hints.set(key, {
+          disabledReason: status === 'paid' ? 'مُسدَّد بالكامل' : 'مسجَّل مسدداً في المطالبة بينما الربط ناقص — راجع المطالبة',
+        });
+      } else if (status === 'paid') {
+        hints.set(key, { disabledReason: 'يظهر مسدداً بينما المطالبة تُظهر متبقياً — راجع المطالبة قبل التحصيل' });
+      } else if (b.paid > 0) {
+        hints.set(key, {
+          progress: `${formatMoney(b.paid, '')} من ${formatMoney(b.amount, '')}`,
+        });
+      }
     }
-  }, [multiMonth, linkMode, onLinkModeChange]);
+    return hints;
+  }, [calendarMonths, year, basisFor]);
 
+  // Suggest the oldest month still owing (this year, up to now), else the first owing month after it.
+  const autoSelected = useRef(false);
   useEffect(() => {
-    if (!selectedKey) return;
-    onPartialAmountChange(totalRemaining > 0 ? String(totalRemaining) : '');
-  }, [selectedKey, totalRemaining, onPartialAmountChange]);
+    if (!autoSelectFirstDue || !ready || autoSelected.current || selected.length > 0) return;
+    autoSelected.current = true;
+    const now = currentMonthKey(currentYear());
+    const owing = calendarMonths
+      .filter((m) => m.status !== 'exempt' && !monthHints.get(m.month)?.disabledReason)
+      .map((m) => m.month)
+      .filter((m) => basisFor(m).remaining > 0);
+    const first = owing.find((m) => m <= now) ?? owing.find((m) => m > now);
+    if (first) onSelectedChange([first]);
+  }, [autoSelectFirstDue, ready, selected.length, calendarMonths, monthHints, basisFor, onSelectedChange]);
 
-  // أزل من التحديد أي شهر أصبح بدون مطالبة
+  // A new selection fills in what those months still owe; the user can then change it.
+  const selectedKey = selected.join(',');
+  const owedForSelection = roundLyd(basis.reduce((s, b) => s + b.remaining, 0));
   useEffect(() => {
-    const exemptSet = new Set(
-      calendarMonths.filter((m) => m.status === 'exempt').map((m) => m.month),
-    );
+    if (!selectedKey || !ready) return;
+    onAmountChange(owedForSelection);
+  }, [selectedKey, owedForSelection, ready, onAmountChange]);
+
+  // Drop months that turned out to be exempt (no claim for them).
+  useEffect(() => {
+    const exemptSet = new Set(calendarMonths.filter((m) => m.status === 'exempt').map((m) => m.month));
     if (!exemptSet.size || !selected.some((m) => exemptSet.has(m))) return;
     onSelectedChange(selected.filter((m) => !exemptSet.has(m)));
   }, [calendarMonths, selected, onSelectedChange]);
 
-  const suggestedFull = useMemo(() => {
-    if (selected.length === 0) return 0;
-    return totalRemaining > 0 ? totalRemaining : selected.length * monthlyRent;
-  }, [selected.length, totalRemaining, monthlyRent]);
+  const sorted = [...selected].sort();
+  const last = sorted[sorted.length - 1];
+  const lastBasis = basis.find((b) => b.month === last);
+  const owedBeforeLast = roundLyd(basis.filter((b) => b.month !== last).reduce((s, b) => s + b.remaining, 0));
+  const halfOfLast = lastBasis && lastBasis.remaining > 0 ? roundLyd(owedBeforeLast + lastBasis.remaining / 2) : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="space-y-2">
-        <Label className="text-ink">شهور الإيجار</Label>
-        <Select
-          value={String(year)}
-          onValueChange={(v) => {
-            setYear(Number(v));
-            onSelectedChange([]);
-          }}
-        >
-          <SelectTrigger className="h-10">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {years.map((y) => (
-              <SelectItem key={y} value={String(y)}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center justify-between gap-2">
+          <Label className="text-ink">الأشهر التي تُسدّدها الدفعة</Label>
+          <Select
+            value={String(year)}
+            onValueChange={(v) => {
+              setYear(Number(v));
+              onSelectedChange([]);
+            }}
+          >
+            <SelectTrigger className="h-9 w-28" aria-label="السنة">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {years.map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <RentMonthPicker
           year={year}
           selected={selected}
           onChange={onSelectedChange}
           calendarMonths={calendarMonths}
+          monthHints={monthHints}
           fullYear
           maxMonths={maxMonths}
           showStatus
         />
-        {selected.length > 0 && !areConsecutiveMonths(selected) && (
-          <p className="text-xs text-danger-ink">اختر أشهراً متتالية فقط</p>
-        )}
       </div>
 
-      {selected.length > 0 && (
-        <div className="rounded-xl border border-border/80 bg-canvas-sunken/50 px-3 py-2.5 text-sm space-y-1">
-          <p className="font-medium text-foreground">
-            {multiMonth ? 'مجموع الأشهر' : formatMonthLabelAr(selected[0])}:{' '}
-            {formatMoney(totalAmount, 'LYD')}
-          </p>
-          <p className="text-foreground/90 tabular-nums text-[13px]">
-            متبقي للربط:{' '}
-            <span className="font-semibold">
-              {formatMoney(totalRemaining, 'LYD')}
-            </span>
-            {totalPaid > 0 && (
-              <span className="text-ink-mute ms-2">
-                · مدفوع سابقاً {formatMoney(totalPaid, 'LYD')}
-              </span>
-            )}
-          </p>
-          <p className="text-xs text-ink-mute pt-1 border-t border-border/60">
-            بعد التسجيل يظهر {formatMonthsLabelAr(selected)} في تقويم المستأجر
-            <strong> مدفوعاً </strong>
-            ومربوطاً بقيد الإيراد في اليومية.
-          </p>
+      {selected.length > 0 && ready && (
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="مبالغ جاهزة">
+          <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => onAmountChange(owedForSelection)}>
+            كامل المستحق · {formatMoney(owedForSelection, 'LYD')}
+          </Button>
+          {halfOfLast != null && (
+            <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => onAmountChange(halfOfLast)}>
+              {selected.length === 1 ? 'نصف الشهر' : `مع نصف ${formatMonthLabelAr(last)}`} · {formatMoney(halfOfLast, 'LYD')}
+            </Button>
+          )}
         </div>
       )}
 
-      <div className="space-y-2">
-        <Label className="text-ink">نوع التحصيل</Label>
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant={linkMode === 'full' ? 'default' : 'outline'}
-            className="h-10 touch-manipulation"
-            onClick={() => onLinkModeChange('full')}
-          >
-            شهر كامل
-            <span className="block text-[11px] font-normal opacity-90">
-              {suggestedFull > 0
-                ? formatMoney(suggestedFull, 'LYD')
-                : '—'}
-            </span>
-          </Button>
-          <Button
-            type="button"
-            variant={linkMode === 'partial' ? 'default' : 'outline'}
-            className="h-10 gap-1 touch-manipulation"
-            onClick={() => onLinkModeChange('partial')}
-            disabled={selected.length === 0 || multiMonth}
-          >
-            <PieChart className="h-4 w-4 shrink-0" />
-            جزء من شهر
-          </Button>
-        </div>
-        {multiMonth && (
-          <p className="text-[11px] text-ink-mute">
-            عدة أشهر: يُوزَّع مبلغ الإيراد على الشهور بالترتيب حتى ينفد المبلغ.
-          </p>
-        )}
-      </div>
-
-      {linkMode === 'partial' && selected.length === 1 && totalRemaining > 0 && (
-        <div className="space-y-2">
-          <Label htmlFor="rent-partial-amount">مبلغ هذا الجزء</Label>
-          <Input
-            id="rent-partial-amount"
-            type="number"
-            min={0}
-            step="0.001"
-            inputMode="decimal"
-            value={partialAmount}
-            onChange={(e) => onPartialAmountChange(e.target.value)}
-            className="h-10 tabular-nums"
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs"
-              onClick={() =>
-                onPartialAmountChange(
-                  String(Math.round(totalRemaining * 50) / 100),
-                )
-              }
-            >
-              نصف المتبقي
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs"
-              onClick={() => onPartialAmountChange(String(totalRemaining))}
-            >
-              كل المتبقي
-            </Button>
-          </div>
-        </div>
+      {selected.length > 0 && ready && (
+        <RentAllocationPreview
+          plan={plan}
+          basis={basis}
+          onRemoveMonth={(month, andLater) =>
+            onSelectedChange(selected.filter((m) => (andLater ? m < month : m !== month)))
+          }
+          onAddNextMonth={() => last && onSelectedChange([...selected, nextMonthKey(last)])}
+          onSetAmount={onAmountChange}
+        />
       )}
     </div>
   );
-}
-
-export function parseRentPartialAmount(value: string): number | null {
-  const n = Number(String(value).replace(/,/g, '').trim());
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return n;
 }

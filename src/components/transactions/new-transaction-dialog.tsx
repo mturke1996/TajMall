@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { ArrowDownToLine, ArrowUpFromLine, Loader2, X, User, Building2, Briefcase, Plus, FileStack, Trash2, Landmark, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,11 +11,9 @@ import { cn, preferredCashboxId, todayISODate } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCategories, useCashboxes, useCreateTransaction, useContacts, useCreateContact, useTransactionFormDrafts, useSaveTransactionFormDraft, useDeleteTransactionFormDraft, useRecordRentPayment } from '@/lib/db/queries';
 import type { TransactionFormDraftRow, PaymentMethod } from '@/lib/db/types';
-import {
-  RentRevenueMonthsBlock,
-  parseRentPartialAmount,
-  type RentLinkMode,
-} from '@/components/rent/rent-revenue-months-block';
+import { RentRevenueMonthsBlock } from '@/components/rent/rent-revenue-months-block';
+import { useRentPaymentPlan } from '@/components/rent/use-rent-payment-plan';
+import { describeRentIssue } from '@/lib/rent-allocation';
 import { isRentCategoryCode } from '@/lib/charge-invoice';
 import {
   contactKindLabelAr,
@@ -26,7 +24,7 @@ import {
   type PartyContactFilter,
 } from '@/lib/party-contacts';
 import { useTenantChargesForTenant } from '@/lib/db/mall-queries';
-import { areConsecutiveMonths, formatMonthsLabelAr } from '@/lib/rent-months';
+import { formatMonthLabelAr, formatMonthsLabelAr } from '@/lib/rent-months';
 import { invalidateRentCalendarQueries } from '@/lib/db/rent-queries';
 import { toast } from 'sonner';
 import { usePermission } from '@/lib/supabase/use-permission';
@@ -78,8 +76,6 @@ export function NewTransactionDialog() {
   const [error, setError] = useState<string | null>(null);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const [rentMonths, setRentMonths] = useState<string[]>([]);
-  const [rentLinkMode, setRentLinkMode] = useState<RentLinkMode>('full');
-  const [rentPartialAmount, setRentPartialAmount] = useState('');
   const qc = useQueryClient();
 
   const { data: drafts = [], isLoading: draftsLoading } = useTransactionFormDrafts(kind, isOpen);
@@ -129,8 +125,6 @@ export function NewTransactionDialog() {
       setError(null);
       setEditingDraftId(null);
       setRentMonths([]);
-      setRentLinkMode('full');
-      setRentPartialAmount('');
     }
   }, [isOpen, defaultKind, cashboxes, prefillContactId, prefillContactKind]);
 
@@ -162,51 +156,25 @@ export function NewTransactionDialog() {
     selectedContact?.kind === 'TENANT' &&
     isRentCategoryCode(selectedCategory?.code);
 
-  const { data: tenantCharges = [] } = useTenantChargesForTenant(
-    showRentAllocation ? contactId : '',
-  );
-
+  const tenantChargesQuery = useTenantChargesForTenant(showRentAllocation ? contactId : '');
+  const tenantCharges = useMemo(() => tenantChargesQuery.data ?? [], [tenantChargesQuery.data]);
   const tenantMonthlyRent = Number(selectedContact?.monthly_rent) || 0;
-
-  const rentMonthsRemaining = useMemo(() => {
-    if (!showRentAllocation || rentMonths.length === 0) return 0;
-    return rentMonths.reduce((sum, month) => {
-      const due = `${month}-01`;
-      const charge = tenantCharges.find(
-        (c) => c.type === 'RENT' && String(c.due_date).slice(0, 10) === due,
-      );
-      if (charge) {
-        return (
-          sum +
-          Math.max(0, Number(charge.amount) - Number(charge.total_paid || 0))
-        );
-      }
-      return sum + (tenantMonthlyRent > 0 ? tenantMonthlyRent : 0);
-    }, 0);
-  }, [
-    showRentAllocation,
-    rentMonths,
-    tenantCharges,
-    tenantMonthlyRent,
-  ]);
+  const amountNumber = Number(amount.replace(/[^\d.-]/g, '')) || 0;
+  // The rent split is the same one the tenant payment dialog shows (src/lib/rent-allocation.ts).
+  const rentPlan = useRentPaymentPlan({
+    tenantId: showRentAllocation ? contactId : '',
+    contactRent: tenantMonthlyRent,
+    charges: tenantCharges,
+    months: rentMonths,
+    amount: amountNumber,
+  });
+  const rentReady = showRentAllocation && !rentPlan.loading && tenantChargesQuery.isFetched;
+  const setRentAmount = useCallback((n: number) => setAmount(n > 0 ? String(n) : ''), []);
 
   useEffect(() => {
     if (!showRentAllocation || rentMonths.length === 0) return;
-    if (rentLinkMode === 'partial') return;
-    if (rentMonthsRemaining > 0) {
-      setAmount(String(rentMonthsRemaining));
-      setDescription(`تحصيل إيجار: ${formatMonthsLabelAr(rentMonths)}`);
-    } else if (tenantMonthlyRent > 0) {
-      setAmount(String(rentMonths.length * tenantMonthlyRent));
-      setDescription(`تحصيل إيجار: ${formatMonthsLabelAr(rentMonths)}`);
-    }
-  }, [
-    rentMonths,
-    showRentAllocation,
-    tenantMonthlyRent,
-    rentLinkMode,
-    rentMonthsRemaining,
-  ]);
+    setDescription(`تحصيل إيجار: ${formatMonthsLabelAr([...rentMonths].sort())}`);
+  }, [rentMonths, showRentAllocation]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -232,31 +200,12 @@ export function NewTransactionDialog() {
     }
 
     if (showRentAllocation) {
-      if (rentMonths.length === 0) {
-        setError('اختر شهر إيجار واحداً على الأقل');
+      if (!rentReady) {
+        setError('انتظر تحميل أشهر المستأجر');
         return;
       }
-      if (!areConsecutiveMonths(rentMonths)) {
-        setError('اختر أشهراً متتالية');
-        return;
-      }
-      if (rentLinkMode === 'partial') {
-        const partial = parseRentPartialAmount(rentPartialAmount);
-        if (partial == null) {
-          setError('أدخل مبلغ الجزء للشهر');
-          return;
-        }
-        if (partial > amountNum + 0.001) {
-          setError('مبلغ الجزء لا يتجاوز مبلغ الإيراد');
-          return;
-        }
-      } else if (
-        rentMonthsRemaining > 0 &&
-        amountNum + 0.001 < rentMonthsRemaining
-      ) {
-        setError(
-          `مبلغ الإيراد أقل من المتبقي للأشهر المحددة (${rentMonthsRemaining}) — اختر «جزئي» أو زِد المبلغ`,
-        );
+      if (!rentPlan.plan.ok) {
+        setError(describeRentIssue(rentPlan.plan.issues[0], formatMonthLabelAr));
         return;
       }
     }
@@ -264,23 +213,15 @@ export function NewTransactionDialog() {
     try {
       /** مسار إيجار ذرّي: معاملة + قيد + ربط في RPC واحد */
       if (showRentAllocation && contactId && rentMonths.length > 0) {
-        const payAmount =
-          rentLinkMode === 'partial'
-            ? parseRentPartialAmount(rentPartialAmount)
-            : amountNum;
-        if (payAmount == null || payAmount <= 0) {
-          setError('أدخل مبلغاً صالحاً');
-          return;
-        }
         await recordRentPayment.mutateAsync({
           tenant_id: contactId,
-          amount: payAmount,
+          amount: amountNum,
           payment_date: date,
           cashbox_id: cashboxId,
           description:
             description.trim() ||
             `تحصيل إيجار: ${formatMonthsLabelAr(rentMonths)}`,
-          rent_months: rentMonths,
+          rent_months: [...rentMonths].sort(),
           payment_method: method,
         });
         invalidateRentCalendarQueries(qc, contactId, rentMonths);
@@ -719,17 +660,23 @@ export function NewTransactionDialog() {
           </div>
 
           {showRentAllocation && contactId && (
-            <RentRevenueMonthsBlock
-              tenantId={contactId}
-              monthlyRent={tenantMonthlyRent}
-              charges={tenantCharges}
-              selected={rentMonths}
-              onSelectedChange={setRentMonths}
-              linkMode={rentLinkMode}
-              onLinkModeChange={setRentLinkMode}
-              partialAmount={rentPartialAmount}
-              onPartialAmountChange={setRentPartialAmount}
-            />
+            rentReady ? (
+              <RentRevenueMonthsBlock
+                tenantId={contactId}
+                monthlyRent={tenantMonthlyRent}
+                charges={tenantCharges}
+                selected={rentMonths}
+                onSelectedChange={setRentMonths}
+                plan={rentPlan.plan}
+                basis={rentPlan.basis}
+                basisFor={rentPlan.basisFor}
+                onAmountChange={setRentAmount}
+                ready={rentReady}
+                autoSelectFirstDue
+              />
+            ) : (
+              <p className="py-3 text-center text-sm text-ink-mute">جارٍ تحميل أشهر المستأجر وأسعاره…</p>
+            )
           )}
 
           {error && <p className="text-sm text-danger">{error}</p>}
