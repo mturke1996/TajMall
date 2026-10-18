@@ -74,7 +74,7 @@ export default function ProfilePage() {
             </p>
             <div className="mt-1.5 flex items-center gap-1.5">
               <ShieldCheck className="h-3.5 w-3.5 text-ink-soft" />
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-[11px]">
                 {roleLabel}
               </Badge>
             </div>

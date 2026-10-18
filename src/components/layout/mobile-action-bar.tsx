@@ -52,7 +52,7 @@ function TabLink({ item, active }: { item: typeof NAV[0]; active: boolean }) {
       href={item.href}
       prefetch={true}
       className={cn(
-        'flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] font-medium transition-colors duration-150',
+        'flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] font-medium transition-colors duration-150',
         active ? 'text-foreground' : 'text-ink-mute'
       )}
     >

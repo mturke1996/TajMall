@@ -227,17 +227,17 @@ export function LandlordProfilePanel({
                       </td>
                       <td className="py-3 px-4 text-center">
                         {m.status === 'paid_full' ? (
-                          <Badge className="bg-success-soft text-success-ink hover:bg-success-soft gap-1 text-[10px]">
+                          <Badge className="bg-success-soft text-success-ink hover:bg-success-soft gap-1 text-[11px]">
                             <CheckCircle2 className="h-3 w-3" />
                             مدفوع بالكامل
                           </Badge>
                         ) : m.status === 'paid_partial' ? (
-                          <Badge className="bg-warning-soft text-warning-ink hover:bg-warning-soft gap-1 text-[10px]">
+                          <Badge className="bg-warning-soft text-warning-ink hover:bg-warning-soft gap-1 text-[11px]">
                             <Clock className="h-3 w-3" />
                             مسدد جزئياً
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-danger-ink border-danger-line bg-danger-soft/50 text-[10px]">
+                          <Badge variant="outline" className="text-danger-ink border-danger-line bg-danger-soft/50 text-[11px]">
                             غير مدفوع
                           </Badge>
                         )}

@@ -290,7 +290,7 @@ export default function CategoryDetailPage() {
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-[15px] font-bold">{category.name_ar}</h2>
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-[11px]">
                 {typeLabel}
               </Badge>
             </div>
@@ -447,7 +447,7 @@ export default function CategoryDetailPage() {
                           قيد #{line.journal_number}
                         </Link>
                         {line.journal_reference && (
-                          <p className="font-mono text-[10px] text-ink-mute" dir="ltr">
+                          <p className="font-mono text-[11px] text-ink-mute" dir="ltr">
                             {line.journal_reference}
                           </p>
                         )}
@@ -542,7 +542,7 @@ export default function CategoryDetailPage() {
                         <Badge
                           variant="outline"
                           className={cn(
-                            'text-[10px]',
+                            'text-[11px]',
                             t.status === 'POSTED' && 'border-success-line text-success-ink',
                             t.status === 'DRAFT' && 'border-warning-line text-warning-ink',
                             t.status === 'VOIDED' && 'border-danger-line text-danger-ink',
@@ -583,7 +583,7 @@ export default function CategoryDetailPage() {
                     <Badge
                       variant="outline"
                       className={cn(
-                        'shrink-0 text-[10px]',
+                        'shrink-0 text-[11px]',
                         t.status === 'POSTED' && 'border-success-line text-success-ink',
                         t.status === 'DRAFT' && 'border-warning-line text-warning-ink',
                       )}

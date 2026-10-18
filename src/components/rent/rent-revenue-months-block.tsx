@@ -200,7 +200,7 @@ export function RentRevenueMonthsBlock({
             onClick={() => onLinkModeChange('full')}
           >
             شهر كامل
-            <span className="block text-[10px] font-normal opacity-90">
+            <span className="block text-[11px] font-normal opacity-90">
               {suggestedFull > 0
                 ? formatMoney(suggestedFull, 'LYD')
                 : '—'}

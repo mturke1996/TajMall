@@ -77,7 +77,7 @@ export default function InvoicesPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <p className="font-bold text-sm truncate">{charge.description}</p>
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-[11px]">
                         {STATUS_AR[charge.status] ?? charge.status}
                       </Badge>
                     </div>

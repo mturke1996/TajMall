@@ -71,7 +71,7 @@ export function CashboxRail({ currency = 'LYD' }: { currency?: string }) {
                   />
                 </span>
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-semibold text-ink-mute">
+                  <span className="text-[11px] font-semibold text-ink-mute">
                     {c.kind === 'CASH' ? 'خزينة' : 'مصرف'}
                   </span>
                   <span className="text-[13px] font-medium">{c.name_ar}</span>
@@ -79,7 +79,7 @@ export function CashboxRail({ currency = 'LYD' }: { currency?: string }) {
               </div>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] text-ink-mute">
+              <span className="text-[11px] text-ink-mute">
                 الرصيد الحالي
               </span>
               <span className="num text-[20px] font-semibold tracking-tight">

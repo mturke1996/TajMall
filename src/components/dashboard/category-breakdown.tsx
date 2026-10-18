@@ -54,7 +54,7 @@ export function CategoryBreakdown({
             </ResponsiveContainer>
             </div>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-center">
-              <span className="text-[9.5px] text-ink-mute">
+              <span className="text-[11px] text-ink-mute">
                 الإجمالي
               </span>
               <span className="num text-[14px] font-semibold tabular-nums text-foreground">

@@ -167,7 +167,7 @@ export function JournalVoucherTable({
                     <div className="min-w-0">
                       <p className="font-medium text-ink-main leading-snug">{name}</p>
                       {code && (
-                        <p className="mt-0.5 font-mono text-[10px] text-ink-mute" dir="ltr">
+                        <p className="mt-0.5 font-mono text-[11px] text-ink-mute" dir="ltr">
                           {code}
                         </p>
                       )}

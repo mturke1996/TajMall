@@ -64,7 +64,7 @@ export function MobileContactListItem({
           </p>
           <span
             className={cn(
-              'mt-1.5 inline-block rounded-md border px-2 py-0.5 text-[10px] font-medium',
+              'mt-1.5 inline-block rounded-md border px-2 py-0.5 text-[11px] font-medium',
               styles.badge,
             )}
           >

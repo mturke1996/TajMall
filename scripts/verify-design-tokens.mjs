@@ -4,14 +4,18 @@
  *    (success / danger / warning / info / plum) or the neutral tokens — raw colours ignore dark mode;
  *  - the legacy hard-coded sage-* greys;
  *  - letter-spacing or uppercase, which pull joined Arabic letters apart;
- *  - a + / − typed outside formatMoney, which lands on the wrong side of the amount in RTL.
+ *  - a + / − typed outside formatMoney, which lands on the wrong side of the amount in RTL;
+ *  - text below 11px (hard to read in Arabic).
  * Run: node scripts/verify-design-tokens.mjs
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = new URL('../src/', import.meta.url).pathname;
-const SKIP = ['features/pdf', 'app/ui-kit'];
+// PDF documents (react-pdf style objects) and the dev-only gallery are not screen code; the PDF
+// toolbar and export dialogs under features/pdf are, so only files that render a PDF are skipped.
+const SKIP = ['app/ui-kit'];
+const isPdfDocument = (text) => text.includes('@react-pdf/renderer');
 
 const RULES = [
   {
@@ -20,6 +24,8 @@ const RULES = [
   },
   { name: 'letter-spacing on Arabic', rx: /(?<![\w-])(?:[a-z0-9-]+:)*tracking-(?:wide|wider|widest|\[[0-9.]+em\])(?![\w-])/ },
   { name: 'uppercase', rx: /(?<![\w-])(?:[a-z0-9-]+:)*uppercase(?![\w-])/, codeOnly: true },
+  // Arabic script needs more size than Latin to stay legible; 11px is the smallest text size.
+  { name: 'text smaller than 11px', rx: /(?<![\w-])(?:[a-z0-9-]+:)*text-\[(?:[0-9]|10)(?:\.\d+)?px\]/ },
   { name: 'sign outside formatMoney', rx: /['"]?[+−]['"]?\s*\}?\s*\{?\s*formatMoney\(|[+−]\{formatMoney\(/ },
 ];
 
@@ -34,7 +40,9 @@ function* walk(dir) {
 
 const failures = [];
 for (const file of walk(ROOT)) {
-  const lines = readFileSync(file, 'utf8').split('\n');
+  const text = readFileSync(file, 'utf8');
+  if (isPdfDocument(text)) continue;
+  const lines = text.split('\n');
   lines.forEach((line, i) => {
     const trimmed = line.trim();
     const isComment = trimmed.startsWith('*') || trimmed.startsWith('//') || trimmed.startsWith('/*');

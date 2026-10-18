@@ -101,7 +101,7 @@ export function TenantCurrentMonthBanner({
 
       {showProgress && (
         <div className="mt-3">
-          <div className="flex justify-between text-[10px] text-muted-foreground mb-1 tabular-nums">
+          <div className="flex justify-between text-[11px] text-muted-foreground mb-1 tabular-nums">
             <span>تقدّم التحصيل</span>
             <span>{pres.percentPaid}%</span>
           </div>

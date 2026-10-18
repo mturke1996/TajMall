@@ -122,7 +122,7 @@ export default function BudgetPage() {
 
                     <div className="mt-2.5 grid grid-cols-2 gap-2">
                       <div className="rounded-lg bg-canvas-sunken/60 p-2">
-                        <p className="text-[10px] text-ink-mute">الموازنة</p>
+                        <p className="text-[11px] text-ink-mute">الموازنة</p>
                         {periodType === 'MONTH' && canManage ? (
                           editingId === cat.id ? (
                             <div className="mt-1 flex items-center gap-1">
@@ -161,7 +161,7 @@ export default function BudgetPage() {
                         )}
                       </div>
                       <div className="rounded-lg bg-canvas-sunken/60 p-2">
-                        <p className="text-[10px] text-ink-mute">الفعلي</p>
+                        <p className="text-[11px] text-ink-mute">الفعلي</p>
                         <p className="mt-0.5 font-mono text-[14px] font-semibold">
                           {formatMoney(actual, '')}
                         </p>

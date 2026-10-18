@@ -250,11 +250,11 @@ export default async function TenantPortalPage({ params }: { params: { token: st
                     className={`rounded-xl border-2 px-2 py-2.5 text-center ${CAL_CELL[m.status]}`}
                   >
                     <p className="text-[12px] font-semibold">{monthNameAr(m.month)}</p>
-                    <p className="mt-0.5 text-[10px] font-medium">
+                    <p className="mt-0.5 text-[11px] font-medium">
                       {RENT_MONTH_STATUS_LABEL[m.status]}
                     </p>
                     {price > 0 && (
-                      <p className="mt-0.5 font-mono text-[10px] opacity-80">
+                      <p className="mt-0.5 font-mono text-[11px] opacity-80">
                         {formatMoney(price, '')}
                       </p>
                     )}
@@ -326,7 +326,7 @@ export default async function TenantPortalPage({ params }: { params: { token: st
                         {formatMoney(displayAmount, '')}
                       </p>
                       <span
-                        className={`mt-1 inline-block rounded-full border px-2 py-0.5 text-[10px] font-medium ${STATUS_TONE[c.status] ?? ''}`}
+                        className={`mt-1 inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[c.status] ?? ''}`}
                       >
                         {STATUS_LABEL[c.status] ?? c.status}
                       </span>

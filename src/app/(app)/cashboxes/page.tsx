@@ -210,7 +210,7 @@ export default function CashboxesPage() {
                       )}
 
                       <div className="flex flex-col gap-1.5 border-y border-border py-4">
-                        <span className="text-[10px] text-ink-mute">
+                        <span className="text-[11px] text-ink-mute">
                           الرصيد الحالي
                         </span>
                         <span className="num text-[26px] font-semibold tracking-tight">
@@ -220,7 +220,7 @@ export default function CashboxesPage() {
 
                       <div className="grid grid-cols-2 gap-3 text-[12px]">
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] text-ink-mute">
+                          <span className="text-[11px] text-ink-mute">
                             وارد الشهر
                           </span>
                           <span className="num font-semibold text-pastel-greenInk tabular-nums">
@@ -228,7 +228,7 @@ export default function CashboxesPage() {
                           </span>
                         </div>
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] text-ink-mute">
+                          <span className="text-[11px] text-ink-mute">
                             صادر الشهر
                           </span>
                           <span className="num font-semibold text-pastel-redInk tabular-nums">

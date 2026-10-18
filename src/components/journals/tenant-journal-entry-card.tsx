@@ -19,7 +19,7 @@ import { cn, formatDate, formatMoney } from '@/lib/utils';
 
 function VoidBadge() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-danger px-2 py-0.5 text-[10px] font-bold text-white shrink-0">
+    <span className="inline-flex items-center gap-1 rounded-full bg-danger px-2 py-0.5 text-[11px] font-bold text-white shrink-0">
       <Ban className="h-3 w-3" aria-hidden />
       ملغى
     </span>
@@ -159,7 +159,7 @@ export function VoidedJournalLinkChip({
     <span
       className={cn(
         'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-medium',
-        compact ? 'text-[9px]' : 'text-[10px]',
+        'text-[11px]',
         'bg-danger-soft text-danger-ink line-through decoration-danger',
       )}
       title="تم عكس القيد أو حذفه — لا يُحسب كتحصيل"

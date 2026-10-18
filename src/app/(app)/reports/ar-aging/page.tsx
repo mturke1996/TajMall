@@ -191,7 +191,7 @@ export default function TenantArAgingPage() {
                       </p>
                     </div>
                     <div className="shrink-0 text-end">
-                      <p className="text-[10px] text-muted-foreground">إجمالي المتأخر</p>
+                      <p className="text-[11px] text-muted-foreground">إجمالي المتأخر</p>
                       <p className="font-mono text-base font-bold text-danger-ink">
                         {formatMoney(row.total_outstanding, 'LYD')}
                       </p>
@@ -297,7 +297,7 @@ function BucketCell({
 }) {
   return (
     <div className="rounded-lg bg-canvas-sunken/60 px-1 py-1.5">
-      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
       <p className={cn('font-mono text-[12px] font-semibold', className)}>
         {value > 0 ? formatMoney(value, '') : '—'}
       </p>

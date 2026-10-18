@@ -161,9 +161,11 @@ export function TajMallPdfToolbar({
       <div className={cn('flex flex-wrap items-center gap-2', className)}>
         <Button
           type="button"
-          variant="default"
+          // Export is a secondary action: the page's own primary action (new, record, pay) stays the
+          // one solid button on the screen.
+          variant="outline"
           size="sm"
-          className="min-h-11 touch-manipulation gap-1.5 bg-sage-700 hover:bg-sage-800 sm:min-h-9"
+          className="min-h-11 touch-manipulation gap-1.5 sm:min-h-9"
           disabled={disabled || openBusy}
           onClick={handleOpen}
         >

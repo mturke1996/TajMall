@@ -31,7 +31,7 @@ export function MobileTransactionList({
               </p>
               <span
                 className={cn(
-                  'mt-1.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-medium',
+                  'mt-1.5 inline-block rounded-md px-1.5 py-0.5 text-[11px] font-medium',
                   tx.kind === 'REVENUE'
                     ? 'bg-success-soft text-success-ink'
                     : 'bg-danger-soft text-danger-ink',

@@ -129,13 +129,13 @@ export function JournalDetailDialog({
 
             <div className="mt-4 grid grid-cols-2 gap-3 border-t pt-3" dir="ltr">
               <div className="rounded-lg bg-success-soft px-3 py-2 text-start">
-                <p className="text-[10px] font-medium text-success-ink">إجمالي المدين</p>
+                <p className="text-[11px] font-medium text-success-ink">إجمالي المدين</p>
                 <p className="font-mono text-lg font-bold tabular-nums text-success-ink">
                   {formatMoney(Number(entry.total_debit), 'LYD')}
                 </p>
               </div>
               <div className="rounded-lg bg-danger-soft px-3 py-2 text-start">
-                <p className="text-[10px] font-medium text-danger-ink">إجمالي الدائن</p>
+                <p className="text-[11px] font-medium text-danger-ink">إجمالي الدائن</p>
                 <p className="font-mono text-lg font-bold tabular-nums text-danger-ink">
                   {formatMoney(Number(entry.total_credit), 'LYD')}
                 </p>

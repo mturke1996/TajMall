@@ -211,19 +211,19 @@ function TrialBalanceContent() {
         {!isLoading && !isError && balanceData.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:hidden">
             <Card className="p-3">
-              <p className="text-[10px] text-muted-foreground">إجمالي افتتاحي مدين</p>
+              <p className="text-[11px] text-muted-foreground">إجمالي افتتاحي مدين</p>
               <p className="font-mono text-sm font-bold text-success-ink mt-0.5">
                 {formatMoney(summary.total_opening_debit, 'LYD')}
               </p>
             </Card>
             <Card className="p-3">
-              <p className="text-[10px] text-muted-foreground">إجمالي افتتاحي دائن</p>
+              <p className="text-[11px] text-muted-foreground">إجمالي افتتاحي دائن</p>
               <p className="font-mono text-sm font-bold text-danger-ink mt-0.5">
                 {formatMoney(summary.total_opening_credit, 'LYD')}
               </p>
             </Card>
             <Card className="p-3 col-span-2 sm:col-span-1">
-              <p className="text-[10px] text-muted-foreground">حركة الفترة (مدين / دائن)</p>
+              <p className="text-[11px] text-muted-foreground">حركة الفترة (مدين / دائن)</p>
               <p className="font-mono text-sm font-bold mt-0.5">
                 <span className="text-success-ink">{formatMoney(summary.total_period_debit, '')}</span>
                 {' / '}
@@ -231,19 +231,19 @@ function TrialBalanceContent() {
               </p>
             </Card>
             <Card className="p-3">
-              <p className="text-[10px] text-muted-foreground">إجمالي ختامي مدين</p>
+              <p className="text-[11px] text-muted-foreground">إجمالي ختامي مدين</p>
               <p className="font-mono text-sm font-bold text-success-ink mt-0.5">
                 {formatMoney(summary.total_closing_debit, 'LYD')}
               </p>
             </Card>
             <Card className="p-3">
-              <p className="text-[10px] text-muted-foreground">إجمالي ختامي دائن</p>
+              <p className="text-[11px] text-muted-foreground">إجمالي ختامي دائن</p>
               <p className="font-mono text-sm font-bold text-danger-ink mt-0.5">
                 {formatMoney(summary.total_closing_credit, 'LYD')}
               </p>
             </Card>
             <Card className="p-3 col-span-2 sm:col-span-1">
-              <p className="text-[10px] text-muted-foreground">الحالة (ختامي)</p>
+              <p className="text-[11px] text-muted-foreground">الحالة (ختامي)</p>
               <p
                 className={cn(
                   'text-sm font-bold mt-0.5',

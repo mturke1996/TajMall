@@ -126,7 +126,7 @@ function AuditRowCard({ row }: { row: AuditLogRow }) {
             <div className="flex flex-wrap items-center gap-1.5">
               <span
                 className={cn(
-                  'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                  'rounded-full px-2 py-0.5 text-[11px] font-semibold',
                   isDelete
                     ? 'bg-danger-soft text-danger-ink'
                     : isInsert
@@ -136,11 +136,11 @@ function AuditRowCard({ row }: { row: AuditLogRow }) {
               >
                 {AUDIT_ACTION_LABELS[row.action]}
               </span>
-              <span className="text-[10px] text-ink-mute">
+              <span className="text-[11px] text-ink-mute">
                 {AUDIT_ENTITY_LABELS[row.entity_type] ?? row.entity_type}
               </span>
               {isDelete && (
-                <span className="text-[10px] font-medium text-danger">محذوف</span>
+                <span className="text-[11px] font-medium text-danger">محذوف</span>
               )}
             </div>
 
@@ -312,7 +312,7 @@ export function AuditLogView() {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <div className="surface col-span-2 flex items-center justify-between gap-3 p-4 sm:col-span-1">
             <div>
-              <p className="text-[10px] font-semibold text-ink-mute">
+              <p className="text-[11px] font-semibold text-ink-mute">
                 آخر رصيد
               </p>
               <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
@@ -324,13 +324,13 @@ export function AuditLogView() {
             </div>
           </div>
           <div className="surface p-4">
-            <p className="text-[10px] font-semibold text-ink-mute">
+            <p className="text-[11px] font-semibold text-ink-mute">
               السجلات
             </p>
             <p className="mt-0.5 text-lg font-bold tabular-nums">{total}</p>
           </div>
           <div className="surface p-4">
-            <p className="text-[10px] font-semibold text-ink-mute">
+            <p className="text-[11px] font-semibold text-ink-mute">
               حذف (الصفحة)
             </p>
             <p className="mt-0.5 text-lg font-bold tabular-nums text-foreground">
@@ -368,7 +368,7 @@ export function AuditLogView() {
         </div>
 
         <div>
-          <p className="mb-1.5 text-[10px] font-medium text-ink-mute">النوع</p>
+          <p className="mb-1.5 text-[11px] font-medium text-ink-mute">النوع</p>
           <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="flex w-max gap-1.5">
               {ENTITY_FILTERS.map((f) => (
@@ -388,7 +388,7 @@ export function AuditLogView() {
         </div>
 
         <div>
-          <p className="mb-1.5 text-[10px] font-medium text-ink-mute">العملية</p>
+          <p className="mb-1.5 text-[11px] font-medium text-ink-mute">العملية</p>
           <div className="flex flex-wrap gap-1.5">
             {ACTION_FILTERS.map((f) => (
               <FilterChip

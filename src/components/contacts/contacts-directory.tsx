@@ -239,7 +239,7 @@ export function ContactsDirectory({
                 <TabIcon className="h-3.5 w-3.5" />
                 <span>{tab.label}</span>
                 <span className={cn(
-                  'px-1.5 py-0.2 rounded-full text-[10px] font-mono',
+                  'px-1.5 py-0.2 rounded-full text-[11px] font-mono',
                   isSelected ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
                 )}>
                   {tab.count}
@@ -300,7 +300,7 @@ export function ContactsDirectory({
                               {contact.name}
                             </span>
                             {contact.code ? (
-                              <span className="text-[10px] text-muted-foreground font-mono">{contact.code}</span>
+                              <span className="text-[11px] text-muted-foreground font-mono">{contact.code}</span>
                             ) : null}
                           </div>
                         </div>

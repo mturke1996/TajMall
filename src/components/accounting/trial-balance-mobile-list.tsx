@@ -58,7 +58,7 @@ export function TrialBalanceMobileList({
               {formatMoney(row.balance, 'LYD')}
             </p>
           </div>
-          <div className="mt-2 grid grid-cols-3 gap-2 text-[10.5px] font-mono">
+          <div className="mt-2 grid grid-cols-3 gap-2 text-[11.5px] font-mono">
             <div className="rounded-md bg-secondary/40 px-2 py-1">
               <p className="text-muted-foreground">افتتاحي</p>
               <p className="tabular-nums text-foreground">

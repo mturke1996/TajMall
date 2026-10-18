@@ -404,7 +404,7 @@ export function NewTransactionDialog() {
           </div>
           <h2 className="font-semibold">{isRevenue ? 'إيراد جديد' : 'مصروف جديد'}</h2>
           {editingDraftId ? (
-            <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+            <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground">
               مسودة محفوظة
             </span>
           ) : null}
@@ -425,7 +425,7 @@ export function NewTransactionDialog() {
                 {draftsLoading ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                 ) : (
-                  <span className="text-[10px] text-muted-foreground">{drafts.length}</span>
+                  <span className="text-[11px] text-muted-foreground">{drafts.length}</span>
                 )}
               </div>
               {!draftsLoading &&
@@ -443,7 +443,7 @@ export function NewTransactionDialog() {
                       onClick={() => applyDraft(d)}
                     >
                       <span className="font-medium leading-snug line-clamp-2">{d.label || 'مسودة بدون عنوان'}</span>
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-[11px] text-muted-foreground">
                         {new Date(d.updated_at).toLocaleString('ar-LY')}
                       </span>
                     </button>
@@ -584,7 +584,7 @@ export function NewTransactionDialog() {
                 min="2020-01-01"
                 onChange={(e) => setDate(e.target.value)}
               />
-              <p className="mt-1 text-[10px] leading-snug text-ink-mute">
+              <p className="mt-1 text-[11px] leading-snug text-ink-mute">
                 للمول القائم: يمكن اختيار تاريخ سابق (مثلاً من بداية السنة) لتسجيل حركات رجعية.
               </p>
             </div>
@@ -625,7 +625,7 @@ export function NewTransactionDialog() {
                       title={chip.label}
                       onClick={() => setContactKind(chip.id)}
                       className={cn(
-                        'inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] rounded',
+                        'inline-flex items-center gap-0.5 px-2 py-0.5 text-[11px] rounded',
                         contactKind === chip.id
                           ? 'bg-muted text-foreground'
                           : 'text-ink-mute hover:bg-secondary',
@@ -641,21 +641,21 @@ export function NewTransactionDialog() {
             {selectedCategory &&
             isCustomerServiceRevenueCode(selectedCategory.code) &&
             isRevenue ? (
-              <p className="text-[10px] leading-snug text-ink-mute">
+              <p className="text-[11px] leading-snug text-ink-mute">
                 إيراد خدمة/مواقف — يمكن ربطه بعميل مباشرة دون عقد إيجار.
               </p>
             ) : null}
             {selectedCategory &&
             isVendorServiceExpenseCode(selectedCategory.code) &&
             !isRevenue ? (
-              <p className="text-[10px] leading-snug text-ink-mute">
+              <p className="text-[11px] leading-snug text-ink-mute">
                 مصروف تشغيلي — يُفضَّل ربطه بمورد لتتبع الإنفاق.
               </p>
             ) : null}
             {selectedCategory &&
             isEmployeeSalaryCode(selectedCategory.code) &&
             !isRevenue ? (
-              <p className="text-[10px] leading-snug text-ink-mute">
+              <p className="text-[11px] leading-snug text-ink-mute">
                 مصروف مرتبات — يُفضَّل ربطه بموظف.
               </p>
             ) : null}

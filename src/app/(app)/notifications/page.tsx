@@ -97,7 +97,7 @@ export default function NotificationsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold text-sm">{n.title_ar}</p>
                       {!n.is_read && (
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="text-[11px]">
                           جديد
                         </Badge>
                       )}
@@ -105,7 +105,7 @@ export default function NotificationsPage() {
                     {n.body_ar && (
                       <p className="text-xs text-muted-foreground leading-relaxed">{n.body_ar}</p>
                     )}
-                    <p className="text-[10px] text-muted-foreground">{formatDate(n.created_at)}</p>
+                    <p className="text-[11px] text-muted-foreground">{formatDate(n.created_at)}</p>
                   </div>
                   <div className="flex shrink-0 gap-2">
                     {n.href && (

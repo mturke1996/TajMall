@@ -496,7 +496,7 @@ export function PeriodJournalPdfDialog({
           {/* Header */}
           <div className="border-b border-border bg-canvas-sunken/60 px-5 py-4">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-success-soft text-success-ink">
                 <SlidersHorizontal className="h-5 w-5 stroke-[1.8]" />
               </div>
               <div>
@@ -515,7 +515,7 @@ export function PeriodJournalPdfDialog({
             <div className="rounded-xl border border-border/80 bg-canvas p-3.5 space-y-2.5">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-emerald-700" />
+                  <BookOpen className="h-4 w-4 text-success-ink" />
                   <span className="text-xs font-bold text-foreground">
                     1. مستوى عرض القيد (المجموع فقط vs التفصيلي)
                   </span>
@@ -527,7 +527,7 @@ export function PeriodJournalPdfDialog({
                     className={cn(
                       'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                       viewLevel === 'SUMMARY_ONLY'
-                        ? 'bg-card text-foreground shadow-xs font-bold text-emerald-800 dark:text-emerald-300'
+                        ? 'bg-card text-foreground shadow-xs font-bold text-success-ink'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -539,7 +539,7 @@ export function PeriodJournalPdfDialog({
                     className={cn(
                       'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                       viewLevel === 'DETAILED'
-                        ? 'bg-card text-foreground shadow-xs font-bold text-emerald-800 dark:text-emerald-300'
+                        ? 'bg-card text-foreground shadow-xs font-bold text-success-ink'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -557,7 +557,7 @@ export function PeriodJournalPdfDialog({
             {/* 2. Accounting Basis & Calculation Logic */}
             <div className="rounded-xl border border-border/80 bg-canvas p-3.5 space-y-2.5">
               <div className="flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-emerald-700" />
+                <Receipt className="h-4 w-4 text-success-ink" />
                 <span className="text-xs font-bold text-foreground">
                   2. الأساس وطريقة الفرز المحاسبي
                 </span>
@@ -569,7 +569,7 @@ export function PeriodJournalPdfDialog({
                   className={cn(
                     'p-3 rounded-lg border text-start space-y-1 transition-all',
                     basisMode === 'CASH_COLLECTED_IN_MONTH'
-                      ? 'bg-emerald-50 border-emerald-400 text-emerald-950 dark:bg-emerald-950/60 dark:border-emerald-700 dark:text-emerald-100 shadow-xs'
+                      ? 'bg-success-soft border-success text-success-ink shadow-xs'
                       : 'bg-card border-border hover:bg-canvas-sunken text-muted-foreground'
                   )}
                 >
@@ -578,10 +578,10 @@ export function PeriodJournalPdfDialog({
                       💵 التحصيل الفعلي في الشهر
                     </span>
                     {basisMode === 'CASH_COLLECTED_IN_MONTH' && (
-                      <Check className="h-3.5 w-3.5 text-emerald-700" />
+                      <Check className="h-3.5 w-3.5 text-success-ink" />
                     )}
                   </div>
-                  <p className="text-[10.5px] text-muted-foreground">
+                  <p className="text-[11.5px] text-muted-foreground">
                     كل ما قُبض وسُجل في الشهر (مثلاً يوليو)، مع كشف متأخرات الشهور السابقة (مثل إيجار مايو).
                   </p>
                 </button>
@@ -592,7 +592,7 @@ export function PeriodJournalPdfDialog({
                   className={cn(
                     'p-3 rounded-lg border text-start space-y-1 transition-all',
                     basisMode === 'RENT_MONTH_TARGET'
-                      ? 'bg-emerald-50 border-emerald-400 text-emerald-950 dark:bg-emerald-950/60 dark:border-emerald-700 dark:text-emerald-100 shadow-xs'
+                      ? 'bg-success-soft border-success text-success-ink shadow-xs'
                       : 'bg-card border-border hover:bg-canvas-sunken text-muted-foreground'
                   )}
                 >
@@ -601,10 +601,10 @@ export function PeriodJournalPdfDialog({
                       شهر الاستحقاق المستهدف
                     </span>
                     {basisMode === 'RENT_MONTH_TARGET' && (
-                      <Check className="h-3.5 w-3.5 text-emerald-700" />
+                      <Check className="h-3.5 w-3.5 text-success-ink" />
                     )}
                   </div>
-                  <p className="text-[10.5px] text-muted-foreground">
+                  <p className="text-[11.5px] text-muted-foreground">
                     مجموع ما دُفع خصيصاً لشهر الاستحقاق المختار، حتى وإن دُفع في أوقات سابقة أو لاحقة.
                   </p>
                 </button>
@@ -615,7 +615,7 @@ export function PeriodJournalPdfDialog({
                   className={cn(
                     'p-3 rounded-lg border text-start space-y-1 transition-all',
                     basisMode === 'GENERAL_ACCRUAL'
-                      ? 'bg-emerald-50 border-emerald-400 text-emerald-950 dark:bg-emerald-950/60 dark:border-emerald-700 dark:text-emerald-100 shadow-xs'
+                      ? 'bg-success-soft border-success text-success-ink shadow-xs'
                       : 'bg-card border-border hover:bg-canvas-sunken text-muted-foreground'
                   )}
                 >
@@ -624,10 +624,10 @@ export function PeriodJournalPdfDialog({
                       ⚖️ قيد اليومية المزدوج
                     </span>
                     {basisMode === 'GENERAL_ACCRUAL' && (
-                      <Check className="h-3.5 w-3.5 text-emerald-700" />
+                      <Check className="h-3.5 w-3.5 text-success-ink" />
                     )}
                   </div>
-                  <p className="text-[10.5px] text-muted-foreground">
+                  <p className="text-[11.5px] text-muted-foreground">
                     القيد المحاسبي المزدوج بالمدين والدائن الشامل لحركات دفتر اليومية.
                   </p>
                 </button>
@@ -638,7 +638,7 @@ export function PeriodJournalPdfDialog({
             <div className="rounded-xl border border-border/80 bg-canvas p-3.5 space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-emerald-700" />
+                  <Layers className="h-4 w-4 text-success-ink" />
                   <span className="text-xs font-bold text-foreground">
                     3. اختيار البند المحاسبي
                   </span>
@@ -684,7 +684,7 @@ export function PeriodJournalPdfDialog({
             <div className="rounded-xl border border-border/80 bg-canvas p-3.5 space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-emerald-700" />
+                  <Calendar className="h-4 w-4 text-success-ink" />
                   <span className="text-xs font-bold text-foreground">
                     4. تحديد الفترة الزمنية
                   </span>
@@ -695,7 +695,7 @@ export function PeriodJournalPdfDialog({
                     variant="ghost"
                     size="sm"
                     onClick={() => selectQuarter(1)}
-                    className="h-6 px-1.5 text-[10px]"
+                    className="h-6 px-1.5 text-[11px]"
                   >
                     الربع 1
                   </Button>
@@ -704,7 +704,7 @@ export function PeriodJournalPdfDialog({
                     variant="ghost"
                     size="sm"
                     onClick={() => selectQuarter(2)}
-                    className="h-6 px-1.5 text-[10px]"
+                    className="h-6 px-1.5 text-[11px]"
                   >
                     الربع 2
                   </Button>
@@ -713,7 +713,7 @@ export function PeriodJournalPdfDialog({
                     variant="ghost"
                     size="sm"
                     onClick={() => selectQuarter(3)}
-                    className="h-6 px-1.5 text-[10px]"
+                    className="h-6 px-1.5 text-[11px]"
                   >
                     الربع 3
                   </Button>
@@ -722,7 +722,7 @@ export function PeriodJournalPdfDialog({
                     variant="ghost"
                     size="sm"
                     onClick={() => selectQuarter(4)}
-                    className="h-6 px-1.5 text-[10px]"
+                    className="h-6 px-1.5 text-[11px]"
                   >
                     الربع 4
                   </Button>
@@ -741,7 +741,7 @@ export function PeriodJournalPdfDialog({
                       className={cn(
                         'py-1.5 px-2 rounded-md text-xs font-medium border text-center transition-all',
                         isSelected
-                          ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                          ? 'bg-success text-white border-success shadow-xs'
                           : 'bg-card text-muted-foreground border-border hover:bg-canvas-sunken hover:text-foreground'
                       )}
                     >
@@ -753,23 +753,23 @@ export function PeriodJournalPdfDialog({
             </div>
 
             {/* Live Filter Summary Box */}
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/40 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="rounded-xl border border-success-line bg-success-soft/70 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <PieChart className="h-4 w-4 text-emerald-700 shrink-0" />
-                  <span className="text-xs font-bold text-emerald-950 dark:text-emerald-100">
+                  <PieChart className="h-4 w-4 text-success-ink shrink-0" />
+                  <span className="text-xs font-bold text-success-ink">
                     النتائج المطابقة: {processedData.filteredCount} قيداً عبر {processedData.bankGroups.length} حسابات
                   </span>
                 </div>
                 {processedData.priorPeriodTotal > 0 && (
-                  <p className="text-[11px] text-amber-900 dark:text-amber-300">
+                  <p className="text-[11px] text-warning-ink">
                     ⏳ يشمل {processedData.priorPeriodTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ل مستحقات عن شهور سابقة.
                   </p>
                 )}
               </div>
               <div className="text-left">
                 <span className="text-[11px] text-muted-foreground block">إجمالي المبلغ المحسوب:</span>
-                <span className="font-mono text-base font-bold text-emerald-900 dark:text-emerald-100">
+                <span className="font-mono text-base font-bold text-success-ink">
                   {processedData.grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ل
                 </span>
               </div>
@@ -811,7 +811,7 @@ export function PeriodJournalPdfDialog({
                 size="sm"
                 onClick={handleOpenPdf}
                 disabled={openBusy || downloadBusy || processedData.filteredCount === 0}
-                className="gap-1.5 text-xs h-9 font-semibold bg-emerald-700 hover:bg-emerald-800 text-white"
+                className="gap-1.5 text-xs h-9 font-semibold bg-success hover:bg-success-ink text-white"
               >
                 {openBusy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

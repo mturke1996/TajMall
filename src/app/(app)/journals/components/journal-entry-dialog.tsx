@@ -537,7 +537,7 @@ export function JournalEntryDialog({
                       onClick={() => applyDraft(d)}
                     >
                       <span className="font-medium line-clamp-2">{d.label || 'مسودة بدون عنوان'}</span>
-                      <span className="text-[10px] text-muted-foreground block mt-0.5">
+                      <span className="text-[11px] text-muted-foreground block mt-0.5">
                         {new Date(d.updated_at).toLocaleString('ar-LY')}
                       </span>
                     </button>
@@ -592,7 +592,7 @@ export function JournalEntryDialog({
                       <span className="font-mono text-sm font-semibold text-foreground truncate">
                         {autoReference || '—'}
                       </span>
-                      <Badge variant="outline" className="ms-auto text-[10px] shrink-0">
+                      <Badge variant="outline" className="ms-auto text-[11px] shrink-0">
                         تلقائي
                       </Badge>
                     </>
@@ -680,7 +680,7 @@ export function JournalEntryDialog({
             {lines.map((line, index) => (
               <Card key={line.id} className="p-3.5 space-y-3 border-border/80 shadow-sm">
                 <div className="flex items-center justify-between gap-2">
-                  <Badge variant="outline" className="text-[10px]">
+                  <Badge variant="outline" className="text-[11px]">
                     بند {index + 1}
                   </Badge>
                   <Button

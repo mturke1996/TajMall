@@ -29,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatMoney } from '@/lib/utils';
+import { usePersistedState } from '@/lib/hooks/use-persisted-state';
 import { useTenantRentSummary } from '@/lib/db/queries';
 import { useMallRentChargesForYear } from '@/lib/db/mall-rent-dashboard-queries';
 import {
@@ -126,13 +127,13 @@ function PeriodBlock({
       <div className="flex items-center gap-2 flex-wrap">
         <Icon className="h-4 w-4 text-ink-soft shrink-0" />
         <h4 className="text-xs font-semibold text-foreground">{title}</h4>
-        <span className="text-[10px] text-muted-foreground">{monthHint}</span>
+        <span className="text-[11px] text-muted-foreground">{monthHint}</span>
       </div>
-      <p className="text-[10px] text-muted-foreground leading-relaxed">
+      <p className="text-[11px] text-muted-foreground leading-relaxed">
         المبالغ من <strong className="font-medium text-foreground">مطالبات الإيجار</strong>{' '}
         المسجّلة (عقد + شهر)، وليست إيجار شهر واحد × عدد المحلات.
       </p>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         <KpiTile
           label="مجموع المطالبات"
           value={formatMoney(kpis.billed, 'LYD', { compact: true })}
@@ -159,7 +160,7 @@ function PeriodBlock({
         />
       </div>
       {gap && (
-        <p className="text-[10px] text-warning-ink flex items-start gap-1.5 rounded-lg bg-warning-soft/80 px-2.5 py-2">
+        <p className="text-[11px] text-warning-ink flex items-start gap-1.5 rounded-lg bg-warning-soft/80 px-2.5 py-2">
           <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
           <span>
             تقدير العقود لهذه الفترة ≈{' '}
@@ -184,6 +185,8 @@ export function MallRentCollectionSection({
   itemVariants?: Variants;
 }) {
   const year = getMallRentDashboardYear();
+  // One set of four figures with a period switch, instead of two identical groups side by side.
+  const [range, setRange] = usePersistedState<'ytd' | 'last6'>('dashboard:rent-range', 'ytd');
   const { data: charges = [], isLoading: chargesLoading } =
     useMallRentChargesForYear(year);
   const { data: tenants = [], isLoading: tenantsLoading } = useTenantRentSummary();
@@ -294,21 +297,43 @@ export function MallRentCollectionSection({
                 </p>
               )}
 
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 md:gap-6">
-                <PeriodBlock
-                  title={`من بداية ${year} حتى اليوم`}
-                  icon={CalendarRange}
-                  kpis={model.yearKpis}
-                  monthHint={ytdHint}
-                  theoreticalRent={yearTheoretical}
-                />
-                <PeriodBlock
-                  title="آخر 6 أشهر"
-                  icon={Percent}
-                  kpis={model.last6Kpis}
-                  monthHint={model.last6Labels.join(' · ')}
-                  theoreticalRent={last6Theoretical}
-                />
+              <div className="flex flex-col gap-3">
+                <div className="inline-flex self-start rounded-lg border border-border bg-canvas-sunken p-0.5" role="group" aria-label="فترة المؤشرات">
+                  {([
+                    ['ytd', `من بداية ${year}`],
+                    ['last6', 'آخر 6 أشهر'],
+                  ] as const).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-pressed={range === key}
+                      onClick={() => setRange(key)}
+                      className={cn(
+                        'h-8 rounded-md px-3 text-[12.5px] font-medium transition-colors',
+                        range === key ? 'bg-card text-foreground shadow-whisper' : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {range === 'ytd' ? (
+                  <PeriodBlock
+                    title={`من بداية ${year} حتى اليوم`}
+                    icon={CalendarRange}
+                    kpis={model.yearKpis}
+                    monthHint={ytdHint}
+                    theoreticalRent={yearTheoretical}
+                  />
+                ) : (
+                  <PeriodBlock
+                    title="آخر 6 أشهر"
+                    icon={Percent}
+                    kpis={model.last6Kpis}
+                    monthHint={model.last6Labels.join(' · ')}
+                    theoreticalRent={last6Theoretical}
+                  />
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-3 md:gap-6">

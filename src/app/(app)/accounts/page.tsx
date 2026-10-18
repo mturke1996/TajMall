@@ -215,7 +215,7 @@ export default function AccountsPage() {
                         <span className="truncate text-[11px] text-ink-mute">{c.name}</span>
                       </span>
                     </Link>
-                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                    <Badge variant="outline" className="shrink-0 text-[11px]">
                       {TYPE_LABEL[c.type] ?? c.type}
                     </Badge>
                   </div>

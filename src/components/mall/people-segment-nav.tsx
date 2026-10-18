@@ -47,7 +47,7 @@ export function PeopleSegmentNav({
             {count != null && (
               <span
                 className={cn(
-                  'rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
+                  'rounded-full px-1.5 py-0.5 text-[11px] tabular-nums',
                   active === seg.id ? 'bg-white/20' : 'bg-canvas-sunken',
                 )}
               >

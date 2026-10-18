@@ -20,7 +20,7 @@ function NotificationBell() {
       <Link href="/notifications" prefetch aria-label="الإشعارات">
         <Bell className="h-4 w-4" />
         {unread > 0 && (
-          <span className="absolute start-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold leading-none text-white">
+          <span className="absolute start-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-semibold leading-none text-white">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
@@ -109,7 +109,7 @@ export function TopBar({
       {/* Actions */}
       <div className="flex items-center gap-1 ms-auto">
         {!permLoading && isViewer && (
-          <Badge variant="outline" className="hidden text-[10px] sm:inline-flex">
+          <Badge variant="outline" className="hidden text-[11px] sm:inline-flex">
             قراءة فقط
           </Badge>
         )}

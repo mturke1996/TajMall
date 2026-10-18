@@ -123,7 +123,7 @@ export default function UsersPage() {
         toast.error(body.error ?? 'تعذّر إنشاء الحساب');
         return;
       }
-      toast.success(createType === 'DIRECT' ? 'تم إنشاء حساب المستخدم وتفعيله بنجاح!' : 'تم إرسال الدعوة إلى البريد');
+      toast.success(createType === 'DIRECT' ? 'أُنشئ حساب المستخدم وفُعِّل' : 'تم إرسال الدعوة إلى البريد');
       setInviteOpen(false);
       setInviteEmail('');
       setInviteName('');
@@ -346,7 +346,7 @@ export default function UsersPage() {
                         </div>
                       )}
                       {p.id === user?.id ? (
-                        <Badge variant="neutral" className="ms-2 text-[10px]">
+                        <Badge variant="neutral" className="ms-2 text-[11px]">
                           أنت
                         </Badge>
                       ) : null}

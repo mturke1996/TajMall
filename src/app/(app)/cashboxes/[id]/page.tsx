@@ -181,7 +181,7 @@ export default function CashboxLedgerPage() {
                 <Icon className="h-4 w-4" style={{ color: balanceRow?.color ?? undefined }} />
               </span>
               <div>
-                <p className="text-[10px] text-ink-mute">الرصيد الحالي</p>
+                <p className="text-[11px] text-ink-mute">الرصيد الحالي</p>
                 <p className="num text-[22px] font-bold tabular-nums">
                   {formatMoney(ledger.current_balance, currency)}
                 </p>
@@ -189,11 +189,11 @@ export default function CashboxLedgerPage() {
             </div>
           </div>
           <div className="surface p-4">
-            <p className="text-[10px] text-ink-mute">افتتاحي</p>
+            <p className="text-[11px] text-ink-mute">افتتاحي</p>
             <p className="num mt-1 text-[16px] font-semibold">{formatMoney(ledger.opening_balance, currency)}</p>
           </div>
           <div className="surface p-4">
-            <p className="flex items-center gap-1 text-[10px] text-pastel-greenInk">
+            <p className="flex items-center gap-1 text-[11px] text-pastel-greenInk">
               <ArrowDownToLine className="h-3 w-3" /> وارد
             </p>
             <p className="num mt-1 text-[16px] font-semibold text-pastel-greenInk">
@@ -201,7 +201,7 @@ export default function CashboxLedgerPage() {
             </p>
           </div>
           <div className="surface p-4">
-            <p className="flex items-center gap-1 text-[10px] text-pastel-redInk">
+            <p className="flex items-center gap-1 text-[11px] text-pastel-redInk">
               <ArrowUpFromLine className="h-3 w-3" /> صادر
             </p>
             <p className="num mt-1 text-[16px] font-semibold text-pastel-redInk">
@@ -223,13 +223,13 @@ export default function CashboxLedgerPage() {
             </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div>
-                <p className="text-[10px] text-ink-mute">الرصيد المطابَق</p>
+                <p className="text-[11px] text-ink-mute">الرصيد المطابَق</p>
                 <p className="num mt-1 text-[16px] font-semibold">
                   {formatMoney(reconciledBalance, currency)}
                 </p>
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="stmt-balance" className="text-[10px] text-ink-mute">
+                <Label htmlFor="stmt-balance" className="text-[11px] text-ink-mute">
                   رصيد كشف الحساب البنكي
                 </Label>
                 <Input
@@ -245,7 +245,7 @@ export default function CashboxLedgerPage() {
               </div>
               {reconcileDiff !== null && (
                 <div className="col-span-2 sm:col-span-2">
-                  <p className="text-[10px] text-ink-mute">الفارق</p>
+                  <p className="text-[11px] text-ink-mute">الفارق</p>
                   <p
                     className={cn(
                       'num mt-1 text-[16px] font-bold',
@@ -312,7 +312,7 @@ export default function CashboxLedgerPage() {
               <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-[12.5px]">
                   <thead>
-                    <tr className="border-b border-border bg-canvas-sunken/50 text-[10px] text-ink-mute">
+                    <tr className="border-b border-border bg-canvas-sunken/50 text-[11px] text-ink-mute">
                       {reconcileMode && <th className="px-4 py-2.5 text-start font-semibold">مطابَق</th>}
                       <th className="px-4 py-2.5 text-start font-semibold">التاريخ</th>
                       <th className="px-4 py-2.5 text-start font-semibold">المرجع</th>

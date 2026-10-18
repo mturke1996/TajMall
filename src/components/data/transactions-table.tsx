@@ -26,13 +26,6 @@ const METHOD_LABEL: Record<string, string> = {
   CARD: 'بطاقة',
 };
 
-const METHOD_TONE: Record<string, 'success' | 'info' | 'warning' | 'plum'> = {
-  CASH: 'success',
-  CHEQUE: 'info',
-  TRANSFER: 'warning',
-  CARD: 'plum',
-};
-
 function signedAmount(r: TransactionWithRelations) {
   const amount = Number(r.amount) || 0;
   return r.kind === 'EXPENSE' ? -amount : amount;
@@ -124,9 +117,7 @@ export function TransactionsTable({
         header: 'البند',
         cell: ({ row }) =>
           row.original.category?.name_ar ? (
-            <Badge variant={row.original.kind === 'REVENUE' ? 'success' : 'danger'}>
-              {row.original.category.name_ar}
-            </Badge>
+            <Badge variant="neutral">{row.original.category.name_ar}</Badge>
           ) : (
             <span className="text-muted-foreground">—</span>
           ),
@@ -171,9 +162,9 @@ export function TransactionsTable({
         accessorFn: (r) => METHOD_LABEL[r.method] ?? r.method,
         header: 'الطريقة',
         cell: ({ row }) => (
-          <Badge variant={METHOD_TONE[row.original.method] ?? 'neutral'}>
+          <span className="whitespace-nowrap text-[12.5px] text-ink-soft">
             {METHOD_LABEL[row.original.method] ?? row.original.method}
-          </Badge>
+          </span>
         ),
       },
       {

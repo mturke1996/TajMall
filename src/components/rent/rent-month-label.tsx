@@ -43,16 +43,16 @@ export function RentMonthLabel({
         <span className={cn(RENT_MONTH_NAME_CLASS, 'font-semibold', nameClassName)}>
           {name}
         </span>
-        <span className={cn(RENT_MONTH_YEAR_CLASS, 'text-[10px] font-medium tabular-nums')}>
+        <span className={cn(RENT_MONTH_YEAR_CLASS, 'text-[11px] font-medium tabular-nums')}>
           {year}
         </span>
         {statusLabel && statusTextClass && (
-          <span className={cn('text-[10px] font-medium', statusTextClass)}>
+          <span className={cn('text-[11px] font-medium', statusTextClass)}>
             · {statusLabel}
           </span>
         )}
         {journalNumber != null && (
-          <span className={cn('text-[10px] font-normal', statusTextClass ?? 'text-ink-mute')}>
+          <span className={cn('text-[11px] font-normal', statusTextClass ?? 'text-ink-mute')}>
             قيد #{journalNumber}
           </span>
         )}
@@ -65,21 +65,21 @@ export function RentMonthLabel({
       <span className={cn(RENT_MONTH_NAME_CLASS, 'font-bold text-[11px] sm:text-xs', nameClassName)}>
         {name}
       </span>
-      <span className={cn(RENT_MONTH_YEAR_CLASS, 'text-[9px] sm:text-[10px] font-medium tabular-nums')}>
+      <span className={cn(RENT_MONTH_YEAR_CLASS, 'text-[11px] font-medium tabular-nums')}>
         {year}
       </span>
       {partialProgress && (
-        <span className="text-[8px] sm:text-[9px] font-semibold text-warning-ink mt-0.5 tabular-nums">
+        <span className="text-[11px] font-semibold text-warning-ink mt-0.5 tabular-nums">
           {partialProgress}
         </span>
       )}
       {statusLabel && statusTextClass && (
-        <span className={cn('text-[8px] sm:text-[9px] font-semibold mt-0.5', statusTextClass)}>
+        <span className={cn('text-[11px] font-semibold mt-0.5', statusTextClass)}>
           {statusLabel}
         </span>
       )}
       {journalNumber != null && (
-        <span className={cn('text-[7px] font-normal mt-0.5', statusTextClass ?? 'text-ink-mute')}>
+        <span className={cn('text-[11px] font-normal mt-0.5', statusTextClass ?? 'text-ink-mute')}>
           #{journalNumber}
         </span>
       )}

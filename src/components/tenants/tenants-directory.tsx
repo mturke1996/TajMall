@@ -208,7 +208,7 @@ export function TenantsDirectory({
             <p className="text-sm font-bold text-foreground leading-snug tabular-nums">
               {formatMoney(stats.collectedTotal, 'LYD')}
             </p>
-            <p className="text-[10px] text-ink-mute tabular-nums">
+            <p className="text-[11px] text-ink-mute tabular-nums">
               من {formatMoney(stats.expectedTotal, 'LYD')}
             </p>
           </div>
@@ -250,7 +250,7 @@ export function TenantsDirectory({
                 </span>
                 <span
                   className={cn(
-                    'rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
+                    'rounded-full px-1.5 py-0.5 text-[11px] tabular-nums',
                     statusFilter === chip.key ? 'bg-white/20' : 'bg-canvas-sunken',
                   )}
                 >
@@ -412,7 +412,7 @@ function TenantTableRow({
       <td className="px-4 py-3 tabular-nums font-medium">
         {rent > 0 ? formatMoney(rent, 'LYD') : '—'}
         {isMultiMonth && paid > 0 && paid < rent && (
-          <p className="text-[10px] text-warning-ink font-normal">
+          <p className="text-[11px] text-warning-ink font-normal">
             مسدّد {formatMoney(paid, 'LYD')}
           </p>
         )}

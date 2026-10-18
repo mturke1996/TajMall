@@ -346,7 +346,7 @@ export default function NewVoucherPage() {
 
           {datePreview ? (
             <div className="rounded-2xl border border-border bg-canvas-sunken p-5">
-              <p className="mb-3 text-[10.5px] font-semibold text-success-ink/90">
+              <p className="mb-3 text-[11.5px] font-semibold text-success-ink/90">
                 تاريخ الإذن — معاينة الوثيقة
               </p>
               <div className="flex items-end gap-4" dir="rtl">

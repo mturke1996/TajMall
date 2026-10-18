@@ -80,7 +80,7 @@ function JournalEntryRowItem({ entry }: { entry: JournalEntryRow }) {
               <Badge
                 variant="outline"
                 className={cn(
-                  'text-[10px] px-1.5 py-0.2 gap-1',
+                  'text-[11px] px-1.5 py-0.2 gap-1',
                   entry.status === 'POSTED'
                     ? 'border-success-line text-success-ink bg-success-soft'
                     : entry.status === 'DRAFT'
@@ -100,7 +100,7 @@ function JournalEntryRowItem({ entry }: { entry: JournalEntryRow }) {
                   : 'معكوس'}
               </Badge>
               {isBalanced ? (
-                <Badge className="bg-success-soft text-success-ink text-[10px]">
+                <Badge className="bg-success-soft text-success-ink text-[11px]">
                   متوازن
                 </Badge>
               ) : null}
@@ -267,7 +267,7 @@ export function ContactLedgerPanel({
           <p className="text-lg font-bold text-success-ink font-mono">
             {formatMoney(totalInflow, 'LYD')}
           </p>
-          <span className="text-[10px] text-muted-foreground mt-0.5 block">
+          <span className="text-[11px] text-muted-foreground mt-0.5 block">
             {revenueTxs.length} سند قبض
           </span>
         </Card>
@@ -280,7 +280,7 @@ export function ContactLedgerPanel({
           <p className="text-lg font-bold text-danger-ink font-mono">
             {formatMoney(totalOutflow, 'LYD')}
           </p>
-          <span className="text-[10px] text-muted-foreground mt-0.5 block">
+          <span className="text-[11px] text-muted-foreground mt-0.5 block">
             {expenseTxs.length} سند صرف
           </span>
         </Card>
@@ -304,7 +304,7 @@ export function ContactLedgerPanel({
           >
             {formatMoney(netBalance, 'LYD')}
           </p>
-          <span className="text-[10px] text-muted-foreground mt-0.5 block">
+          <span className="text-[11px] text-muted-foreground mt-0.5 block">
             {netBalance >= 0 ? 'رصيد دائن لصالح المول' : 'رصيد مدين مستحق للجهة'}
           </span>
         </Card>
@@ -317,7 +317,7 @@ export function ContactLedgerPanel({
           <p className="text-lg font-bold text-foreground font-mono">
             {journalEntries.length} قيد
           </p>
-          <span className="text-[10px] text-muted-foreground mt-0.5 block">
+          <span className="text-[11px] text-muted-foreground mt-0.5 block">
             حسابات مزدوجة مرحلة
           </span>
         </Card>
@@ -342,7 +342,7 @@ export function ContactLedgerPanel({
                 <Receipt className="h-3.5 w-3.5" />
                 <span>سندات القبض والصرف والدفعات</span>
                 <span className={cn(
-                  'px-1.5 py-0.2 rounded-full text-[10px] font-mono',
+                  'px-1.5 py-0.2 rounded-full text-[11px] font-mono',
                   activeTab === 'transactions' ? 'bg-primary-foreground/20' : 'bg-muted'
                 )}>
                   {transactions.length}
@@ -362,7 +362,7 @@ export function ContactLedgerPanel({
                 <BookOpen className="h-3.5 w-3.5" />
                 <span>قيود اليومية المحاسبية</span>
                 <span className={cn(
-                  'px-1.5 py-0.2 rounded-full text-[10px] font-mono',
+                  'px-1.5 py-0.2 rounded-full text-[11px] font-mono',
                   activeTab === 'journals' ? 'bg-primary-foreground/20' : 'bg-muted'
                 )}>
                   {journalEntries.length}

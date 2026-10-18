@@ -212,19 +212,19 @@ export default function FiscalPeriodsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-sm">
                   <div>
-                    <p className="text-[10px] text-ink-mute">الإيرادات</p>
+                    <p className="text-[11px] text-ink-mute">الإيرادات</p>
                     <p className="num mt-0.5 font-semibold text-success-ink">
                       {formatMoney(yearPreview.total_revenue, 'LYD')}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-ink-mute">المصروفات</p>
+                    <p className="text-[11px] text-ink-mute">المصروفات</p>
                     <p className="num mt-0.5 font-semibold text-danger-ink">
                       {formatMoney(yearPreview.total_expense, 'LYD')}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-ink-mute">الصافي</p>
+                    <p className="text-[11px] text-ink-mute">الصافي</p>
                     <p
                       className={cn(
                         'num mt-0.5 font-bold',
@@ -235,7 +235,7 @@ export default function FiscalPeriodsPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-ink-mute">الفترات</p>
+                    <p className="text-[11px] text-ink-mute">الفترات</p>
                     <p className="mt-0.5 text-[13px] font-medium">
                       {yearPreview.open_periods} مفتوحة · {yearPreview.closed_periods} مغلقة
                     </p>
@@ -391,7 +391,7 @@ export default function FiscalPeriodsPage() {
                             {formatDate(period.end_date)}
                           </p>
                           {period.is_closed && period.closed_at && (
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-[11px] text-muted-foreground">
                               أُغلقت {formatDate(period.closed_at)}
                             </p>
                           )}

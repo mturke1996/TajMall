@@ -366,7 +366,7 @@ export function SetRentMonthStatusDialog({
                 disabled={remaining <= 0 && paidSoFar > 0}
               >
                 شهر كامل
-                <span className="block text-[10px] font-normal opacity-90">
+                <span className="block text-[11px] font-normal opacity-90">
                   {remaining > 0 ? `المتبقي ${formatMoney(remaining, 'LYD')}` : 'مسدّد'}
                 </span>
               </Button>
@@ -496,12 +496,12 @@ export function SetRentMonthStatusDialog({
                           {formatMoney(Number(je.total_debit), 'LYD')}
                         </p>
                         {linkedElsewhere && (
-                          <p className="text-[10px] text-warning-ink mt-1">
+                          <p className="text-[11px] text-warning-ink mt-1">
                             {formatJournalLinkedHint(linkedElsewhere)}
                           </p>
                         )}
                         {onSelectedMonth && !linkedElsewhere && (
-                          <p className="text-[10px] text-foreground mt-1">
+                          <p className="text-[11px] text-foreground mt-1">
                             مربوط بأحد الشهور المحددة
                           </p>
                         )}

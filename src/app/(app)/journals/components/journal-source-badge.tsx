@@ -34,7 +34,7 @@ export function JournalSourceBadge({
     <Badge
       variant="outline"
       className={cn(
-        'text-[10px] font-normal gap-1 max-w-full truncate',
+        'text-[11px] font-normal gap-1 max-w-full truncate',
         meta.kind === 'auto' && 'border-info-line bg-info-soft text-info-ink',
         meta.kind === 'transaction' && 'border-border bg-canvas-sunken text-foreground',
         meta.kind === 'reversal' && 'border-warning-line bg-warning-soft text-warning-ink',

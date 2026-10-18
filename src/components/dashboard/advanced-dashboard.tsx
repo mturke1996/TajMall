@@ -4,14 +4,11 @@ import { useMemo, useState, useEffect } from 'react';
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
-  ArrowLeftRight,
   Wallet,
   TrendingUp,
   TrendingDown,
   Calendar,
   Receipt,
-  Users,
-  Building2,
   ChevronLeft,
   Activity,
   CreditCard,
@@ -32,7 +29,6 @@ import {
   Legend,
 } from 'recharts';
 import { PageHeader } from '@/components/layout/page-header';
-import { NewTransactionButton } from '@/components/transactions/new-transaction-button';
 import {
   useDashboardStats,
   useMonthlySummary,
@@ -199,7 +195,7 @@ export function AdvancedDashboard() {
         actions={
           <div className="flex items-center gap-2">
             <DateBadge />
-            <NewTransactionButton />
+            {/* The top bar carries «معاملة جديدة» on desktop; phones use the + button in the bottom bar. */}
           </div>
         }
       />
@@ -265,12 +261,12 @@ export function AdvancedDashboard() {
                   <action.icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h4 className="truncate text-sm font-semibold transition-colors">{action.label}</h4>
+                  <h4 className="text-[13px] font-semibold leading-snug transition-colors sm:truncate sm:text-sm">{action.label}</h4>
                   <p className="mt-0.5 hidden truncate text-[11px] leading-normal text-muted-foreground sm:block">
                     {action.description}
                   </p>
                 </div>
-                <ChevronLeft className="h-4 w-4 text-muted-foreground transition-transform group-hover:-translate-x-0.5 group-hover:text-primary shrink-0" />
+                <ChevronLeft className="hidden h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-x-0.5 group-hover:text-primary sm:block" />
               </div>
             );
 
@@ -520,12 +516,12 @@ export function AdvancedDashboard() {
                                 {tx.category?.name_ar || 'بدون بند'}
                               </p>
                               {isVoided && (
-                                <span className="shrink-0 rounded-full bg-danger-soft px-1.5 py-0.5 text-[9px] font-semibold text-danger-ink">
+                                <span className="shrink-0 rounded-full bg-danger-soft px-1.5 py-0.5 text-[11px] font-semibold text-danger-ink">
                                   ملغى
                                 </span>
                               )}
                               {isDraft && (
-                                <span className="shrink-0 rounded-full bg-warning-soft px-1.5 py-0.5 text-[9px] font-semibold text-warning-ink">
+                                <span className="shrink-0 rounded-full bg-warning-soft px-1.5 py-0.5 text-[11px] font-semibold text-warning-ink">
                                   مسودة
                                 </span>
                               )}
@@ -557,13 +553,6 @@ export function AdvancedDashboard() {
           </motion.div>
         </div>
 
-        {/* ── Info Cards Row ───────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          <InfoCard icon={Building2} title="إدارة المول" description="المحلات، المستأجرين، العقود، والرسوم" href="/mall" />
-          <InfoCard icon={Users} title="الدليل الشامل" description="جميع جهات التعامل داخل المول" href="/mall?tab=people" />
-          <InfoCard icon={ArrowLeftRight} title="المعاملات" description="سجل الإيرادات والمصروفات" href="/transactions" />
-          <InfoCard icon={Calendar} title="دفتر اليومية" description="القيود المحاسبية المزدوجة" href="/journals" />
-        </div>
 
         <motion.div variants={itemVariants}>
           <DashboardNewFeatures />
@@ -646,36 +635,6 @@ function StatCard({
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-// ── Info Card ──────────────────────────────────────────────────────
-function InfoCard({
-  icon: Icon,
-  title,
-  description,
-  href,
-}: {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  href: string;
-}) {
-  return (
-    <Link href={href} prefetch>
-      <Card className="h-full cursor-pointer group hover:shadow-lift transition-all duration-200 hover:border-border">
-        <CardContent className="p-4 flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-canvas-sunken text-ink-mute group-hover:bg-muted group-hover:text-foreground transition-colors shrink-0">
-            <Icon className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-sm truncate">{title}</p>
-            <p className="text-xs text-muted-foreground truncate">{description}</p>
-          </div>
-          <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-x-0.5 group-hover:text-foreground" />
-        </CardContent>
-      </Card>
-    </Link>
   );
 }
 

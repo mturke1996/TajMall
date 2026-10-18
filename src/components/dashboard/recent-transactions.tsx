@@ -14,13 +14,6 @@ const METHOD_LABEL: Record<string, string> = {
   CARD: 'بطاقة',
 };
 
-const METHOD_TONE: Record<string, 'success' | 'info' | 'warning' | 'plum'> = {
-  CASH: 'success',
-  CHEQUE: 'info',
-  TRANSFER: 'warning',
-  CARD: 'plum',
-};
-
 export function RecentTransactions({ currency = 'LYD' }: { currency?: string }) {
   const { data, isLoading } = useRecentTransactions(8);
   const rows = data ?? [];
@@ -57,7 +50,7 @@ export function RecentTransactions({ currency = 'LYD' }: { currency?: string }) 
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
-      <div className="hidden grid-cols-[110px_110px_1fr_110px_140px] items-center gap-3 border-b border-border bg-canvas-sunken px-4 py-2 text-[10px] font-semibold text-ink-mute md:grid">
+      <div className="hidden grid-cols-[110px_110px_1fr_110px_140px] items-center gap-3 border-b border-border bg-canvas-sunken px-4 py-2 text-[11px] font-semibold text-ink-mute md:grid">
         <span>التاريخ</span>
         <span>رقم القيد</span>
         <span>البيان</span>
@@ -117,9 +110,9 @@ export function RecentTransactions({ currency = 'LYD' }: { currency?: string }) 
                 <span className="num font-mono">
                   {formatShortDate(r.tx_date)} · #{r.reference ?? r.number}
                 </span>
-                <Badge variant={METHOD_TONE[r.method] ?? 'neutral'}>
+                <span className="whitespace-nowrap text-[12.5px] text-ink-soft">
                   {METHOD_LABEL[r.method] ?? r.method}
-                </Badge>
+                </span>
               </div>
 
               <span className="num hidden font-mono text-[11.5px] text-ink-mute md:order-1 md:inline">
@@ -129,9 +122,9 @@ export function RecentTransactions({ currency = 'LYD' }: { currency?: string }) 
                 {r.reference ?? r.number}
               </span>
               <div className="hidden md:order-4 md:block">
-                <Badge variant={METHOD_TONE[r.method] ?? 'neutral'}>
+                <span className="whitespace-nowrap text-[12.5px] text-ink-soft">
                   {METHOD_LABEL[r.method] ?? r.method}
-                </Badge>
+                </span>
               </div>
             </motion.li>
           );

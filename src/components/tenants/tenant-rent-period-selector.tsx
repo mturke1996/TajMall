@@ -53,7 +53,7 @@ function PeriodChip({
       {hint && (
         <span
           className={cn(
-            'text-[10px] font-medium leading-tight mt-0.5',
+            'text-[11px] font-medium leading-tight mt-0.5',
             active ? 'text-white/75' : 'text-ink-mute',
           )}
         >

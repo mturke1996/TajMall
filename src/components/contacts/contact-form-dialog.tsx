@@ -206,7 +206,7 @@ export function ContactFormDialog({
                 نوع ودور جهة التعامل *
               </Label>
               {editingId && (
-                <span className="text-[10px] font-semibold text-success-ink bg-success-soft px-2 py-0.5 rounded-full border border-success-line">
+                <span className="text-[11px] font-semibold text-success-ink bg-success-soft px-2 py-0.5 rounded-full border border-success-line">
                   قابلة للتغيير والتحويل
                 </span>
               )}

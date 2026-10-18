@@ -402,7 +402,7 @@ export function RevenuesPdfDialog({
           {/* Header */}
           <div className="border-b border-border bg-canvas-sunken/60 px-5 py-4">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-success-soft text-success-ink">
                 <TrendingUp className="h-5 w-5 stroke-[1.8]" />
               </div>
               <div>
@@ -421,7 +421,7 @@ export function RevenuesPdfDialog({
             <div className="space-y-2.5 rounded-xl border border-border/80 bg-canvas p-3.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-emerald-700" />
+                  <Layers className="h-4 w-4 text-success-ink" />
                   <span className="text-xs font-bold text-foreground">
                     1. اختيار بنود الإيرادات
                   </span>
@@ -472,7 +472,7 @@ export function RevenuesPdfDialog({
                         variant="ghost"
                         size="sm"
                         onClick={selectAllCategories}
-                        className="h-8 px-2 text-[11px] text-emerald-800 hover:text-emerald-900"
+                        className="h-8 px-2 text-[11px] text-success-ink hover:text-success-ink"
                       >
                         <CheckSquare className="h-3.5 w-3.5 me-1" />
                         تحديد الكل
@@ -506,7 +506,7 @@ export function RevenuesPdfDialog({
                             className={cn(
                               'flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-colors text-start border',
                               isSelected
-                                ? 'bg-emerald-50 border-emerald-300 text-emerald-950 dark:bg-emerald-950/50 dark:border-emerald-700 dark:text-emerald-100 font-medium'
+                                ? 'bg-success-soft border-success-line text-success-ink font-medium'
                                 : 'bg-canvas-sunken/40 border-transparent hover:bg-canvas-sunken text-muted-foreground'
                             )}
                           >
@@ -521,7 +521,7 @@ export function RevenuesPdfDialog({
                               className={cn(
                                 'h-4 w-4 rounded border flex items-center justify-center shrink-0 ms-1.5',
                                 isSelected
-                                  ? 'bg-emerald-700 border-emerald-700 text-white'
+                                  ? 'bg-success border-success text-white'
                                   : 'border-muted-foreground/40 bg-card'
                               )}
                             >
@@ -543,7 +543,7 @@ export function RevenuesPdfDialog({
             <div className="space-y-2.5 rounded-xl border border-border/80 bg-canvas p-3.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-emerald-700" />
+                  <Calendar className="h-4 w-4 text-success-ink" />
                   <span className="text-xs font-bold text-foreground">
                     2. اختيار الفترة الزمنية
                   </span>
@@ -613,7 +613,7 @@ export function RevenuesPdfDialog({
                         variant="ghost"
                         size="sm"
                         onClick={() => selectQuarter(1)}
-                        className="h-7 px-1.5 text-[10px]"
+                        className="h-7 px-1.5 text-[11px]"
                       >
                         الربع 1
                       </Button>
@@ -622,7 +622,7 @@ export function RevenuesPdfDialog({
                         variant="ghost"
                         size="sm"
                         onClick={() => selectQuarter(2)}
-                        className="h-7 px-1.5 text-[10px]"
+                        className="h-7 px-1.5 text-[11px]"
                       >
                         الربع 2
                       </Button>
@@ -631,7 +631,7 @@ export function RevenuesPdfDialog({
                         variant="ghost"
                         size="sm"
                         onClick={() => selectQuarter(3)}
-                        className="h-7 px-1.5 text-[10px]"
+                        className="h-7 px-1.5 text-[11px]"
                       >
                         الربع 3
                       </Button>
@@ -640,7 +640,7 @@ export function RevenuesPdfDialog({
                         variant="ghost"
                         size="sm"
                         onClick={() => selectQuarter(4)}
-                        className="h-7 px-1.5 text-[10px]"
+                        className="h-7 px-1.5 text-[11px]"
                       >
                         الربع 4
                       </Button>
@@ -649,7 +649,7 @@ export function RevenuesPdfDialog({
                         variant="ghost"
                         size="sm"
                         onClick={selectAllMonths}
-                        className="h-7 px-1.5 text-[10px] font-semibold text-emerald-800"
+                        className="h-7 px-1.5 text-[11px] font-semibold text-success-ink"
                       >
                         كل السنة
                       </Button>
@@ -668,7 +668,7 @@ export function RevenuesPdfDialog({
                           className={cn(
                             'py-1.5 px-2 rounded-md text-xs font-medium border text-center transition-all',
                             isSelected
-                              ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                              ? 'bg-success text-white border-success shadow-xs'
                               : 'bg-card text-muted-foreground border-border hover:bg-canvas-sunken hover:text-foreground'
                           )}
                         >
@@ -753,7 +753,7 @@ export function RevenuesPdfDialog({
             {/* 3. PDF Display & Grouping Options */}
             <div className="space-y-3 rounded-xl border border-border/80 bg-canvas p-3.5">
               <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-emerald-700" />
+                <CreditCard className="h-4 w-4 text-success-ink" />
                 <span className="text-xs font-bold text-foreground">
                   3. خيارات العرض والتقسيم في الـ PDF
                 </span>
@@ -774,7 +774,7 @@ export function RevenuesPdfDialog({
                     type="checkbox"
                     checked={groupByMethod}
                     onChange={(e) => setGroupByMethod(e.target.checked)}
-                    className="h-4 w-4 rounded border-border text-emerald-700 focus:ring-emerald-700 ms-3 accent-emerald-700 cursor-pointer"
+                    className="h-4 w-4 rounded border-border text-success-ink focus:ring-success ms-3 accent-success cursor-pointer"
                   />
                 </label>
 
@@ -792,7 +792,7 @@ export function RevenuesPdfDialog({
                     type="checkbox"
                     checked={includeSummaries}
                     onChange={(e) => setIncludeSummaries(e.target.checked)}
-                    className="h-4 w-4 rounded border-border text-emerald-700 focus:ring-emerald-700 ms-3 accent-emerald-700 cursor-pointer"
+                    className="h-4 w-4 rounded border-border text-success-ink focus:ring-success ms-3 accent-success cursor-pointer"
                   />
                 </label>
               </div>
@@ -812,15 +812,15 @@ export function RevenuesPdfDialog({
             </div>
 
             {/* Live Filter Summary Bar */}
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/40 p-3 flex items-center justify-between flex-wrap gap-2">
+            <div className="rounded-xl border border-success-line bg-success-soft/70 p-3 flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <PieChart className="h-4 w-4 text-emerald-700 shrink-0" />
-                <span className="text-xs font-medium text-emerald-950 dark:text-emerald-100">
+                <PieChart className="h-4 w-4 text-success-ink shrink-0" />
+                <span className="text-xs font-medium text-success-ink">
                   النتائج المطابقة:{' '}
                   <strong className="font-bold">{matchingTransactions.length} قيداً</strong>
                 </span>
               </div>
-              <div className="text-xs font-bold text-emerald-900 dark:text-emerald-100">
+              <div className="text-xs font-bold text-success-ink">
                 الإجمالي:{' '}
                 <span className="font-mono text-[13px]">
                   {totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ل
@@ -864,7 +864,7 @@ export function RevenuesPdfDialog({
                 size="sm"
                 onClick={handleOpenPdf}
                 disabled={openBusy || downloadBusy || matchingTransactions.length === 0}
-                className="gap-1.5 text-xs h-9 font-semibold bg-emerald-700 hover:bg-emerald-800 text-white"
+                className="gap-1.5 text-xs h-9 font-semibold bg-success hover:bg-success-ink text-white"
               >
                 {openBusy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

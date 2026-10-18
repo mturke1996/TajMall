@@ -81,7 +81,7 @@ export default function ActivityPage() {
                 )}
               >
                 <span className="truncate">الكل</span>
-                <span className="shrink-0 rounded-full bg-black/5 px-1.5 text-[10px] tabular-nums">
+                <span className="shrink-0 rounded-full bg-black/5 px-1.5 text-[11px] tabular-nums">
                   {totals.all}
                 </span>
               </button>
@@ -96,7 +96,7 @@ export default function ActivityPage() {
                 )}
               >
                 <span className="truncate">إيرادات</span>
-                <span className="shrink-0 rounded-full bg-black/5 px-1.5 text-[10px] tabular-nums">
+                <span className="shrink-0 rounded-full bg-black/5 px-1.5 text-[11px] tabular-nums">
                   {totals.revenue}
                 </span>
               </button>
@@ -111,7 +111,7 @@ export default function ActivityPage() {
                 )}
               >
                 <span className="truncate">مصروفات</span>
-                <span className="shrink-0 rounded-full bg-black/5 px-1.5 text-[10px] tabular-nums">
+                <span className="shrink-0 rounded-full bg-black/5 px-1.5 text-[11px] tabular-nums">
                   {totals.expense}
                 </span>
               </button>
@@ -186,7 +186,7 @@ export default function ActivityPage() {
                       </p>
                       <span
                         className={cn(
-                          'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
+                          'shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-medium',
                           tx.kind === 'REVENUE'
                             ? 'bg-success-soft text-success-ink'
                             : tx.kind === 'EXPENSE'

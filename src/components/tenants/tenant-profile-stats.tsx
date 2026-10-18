@@ -58,7 +58,7 @@ function StatTile({
         {value}
       </p>
       {hint && (
-        <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{hint}</p>
+        <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{hint}</p>
       )}
     </div>
   );

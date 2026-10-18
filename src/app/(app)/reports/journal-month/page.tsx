@@ -1040,7 +1040,7 @@ function JournalMonthContent() {
                             </td>
                             <td className="px-3.5 py-2.5">
                               <p className="font-medium text-foreground">{it.cashbox_name}</p>
-                              <p className="text-[10px] text-muted-foreground font-mono">{it.method}</p>
+                              <p className="text-[11px] text-muted-foreground font-mono">{it.method}</p>
                             </td>
                             <td className="px-3.5 py-2.5 text-end font-mono font-bold text-success-ink">
                               {formatMoney(it.amount, '')}

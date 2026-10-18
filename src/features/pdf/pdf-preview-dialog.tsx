@@ -93,7 +93,7 @@ export function PdfPreviewDialog({
           </div>
         </div>
 
-        <div className="relative min-h-0 flex-1 bg-neutral-300">
+        <div className="relative min-h-0 flex-1 bg-ink-mute/40">
           {url ? (
             <embed
               src={url}

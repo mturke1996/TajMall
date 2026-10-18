@@ -563,13 +563,13 @@ function JournalsPageInner() {
                         <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
                           <div className="grid grid-cols-2 gap-3 text-start sm:text-left" dir="ltr">
                             <div>
-                              <p className="text-[10px] text-success-ink">مدين</p>
+                              <p className="text-[11px] text-success-ink">مدين</p>
                               <p className="font-mono text-sm font-semibold tabular-nums text-success-ink">
                                 {formatMoney(Number(entry.total_debit), 'LYD')}
                               </p>
                             </div>
                             <div>
-                              <p className="text-[10px] text-danger-ink">دائن</p>
+                              <p className="text-[11px] text-danger-ink">دائن</p>
                               <p className="font-mono text-sm font-semibold tabular-nums text-danger-ink">
                                 {formatMoney(Number(entry.total_credit), 'LYD')}
                               </p>

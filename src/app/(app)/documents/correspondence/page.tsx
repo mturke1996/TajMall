@@ -133,7 +133,7 @@ function CorrespondenceListContent() {
                       >
                         {row.subject}
                       </Link>
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-[11px]">
                         {STATUS_AR[row.status] ?? row.status}
                       </Badge>
                     </div>

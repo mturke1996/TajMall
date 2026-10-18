@@ -106,7 +106,7 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
           <p className="text-base font-bold text-foreground tabular-nums md:text-lg">
             {rentKpis.collectionRate.toFixed(1)}%
           </p>
-          <p className="text-[10px] text-ink-mute">
+          <p className="text-[11px] text-ink-mute">
             {formatMoney(rentKpis.collectedRent, 'LYD')} من{' '}
             {formatMoney(rentKpis.expectedRent, 'LYD')}
           </p>

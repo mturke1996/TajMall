@@ -412,7 +412,7 @@ export function ExpensesPdfDialog({
           {/* Header */}
           <div className="border-b border-border bg-canvas-sunken/60 px-5 py-4">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sage-100 text-sage-800 dark:bg-sage-950 dark:text-sage-300">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-foreground">
                 <SlidersHorizontal className="h-5 w-5 stroke-[1.8]" />
               </div>
               <div>
@@ -431,7 +431,7 @@ export function ExpensesPdfDialog({
             <div className="space-y-2.5 rounded-xl border border-border/80 bg-canvas p-3.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-sage-700" />
+                  <Layers className="h-4 w-4 text-foreground" />
                   <span className="text-xs font-bold text-foreground">
                     1. اختيار البنود (المصروفات)
                   </span>
@@ -482,7 +482,7 @@ export function ExpensesPdfDialog({
                         variant="ghost"
                         size="sm"
                         onClick={selectAllCategories}
-                        className="h-8 px-2 text-[11px] text-sage-800 hover:text-sage-900"
+                        className="h-8 px-2 text-[11px] text-foreground hover:text-foreground"
                       >
                         <CheckSquare className="h-3.5 w-3.5 me-1" />
                         تحديد الكل
@@ -516,7 +516,7 @@ export function ExpensesPdfDialog({
                             className={cn(
                               'flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-colors text-start border',
                               isSelected
-                                ? 'bg-sage-50 border-sage-300 text-sage-950 dark:bg-sage-950/50 dark:border-sage-700 dark:text-sage-100 font-medium'
+                                ? 'bg-canvas-sunken border-border text-foreground font-medium'
                                 : 'bg-canvas-sunken/40 border-transparent hover:bg-canvas-sunken text-muted-foreground'
                             )}
                           >
@@ -531,7 +531,7 @@ export function ExpensesPdfDialog({
                               className={cn(
                                 'h-4 w-4 rounded border flex items-center justify-center shrink-0 ms-1.5',
                                 isSelected
-                                  ? 'bg-sage-700 border-sage-700 text-white'
+                                  ? 'bg-foreground border-foreground text-background'
                                   : 'border-muted-foreground/40 bg-card'
                               )}
                             >
@@ -553,7 +553,7 @@ export function ExpensesPdfDialog({
             <div className="space-y-2.5 rounded-xl border border-border/80 bg-canvas p-3.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-sage-700" />
+                  <Calendar className="h-4 w-4 text-foreground" />
                   <span className="text-xs font-bold text-foreground">
                     2. اختيار الفترة الزمنية
                   </span>
@@ -623,7 +623,7 @@ export function ExpensesPdfDialog({
                         variant="ghost"
                         size="sm"
                         onClick={() => selectQuarter(1)}
-                        className="h-7 px-1.5 text-[10px]"
+                        className="h-7 px-1.5 text-[11px]"
                       >
                         الربع 1
                       </Button>
@@ -632,7 +632,7 @@ export function ExpensesPdfDialog({
                         variant="ghost"
                         size="sm"
                         onClick={() => selectQuarter(2)}
-                        className="h-7 px-1.5 text-[10px]"
+                        className="h-7 px-1.5 text-[11px]"
                       >
                         الربع 2
                       </Button>
@@ -641,7 +641,7 @@ export function ExpensesPdfDialog({
                         variant="ghost"
                         size="sm"
                         onClick={() => selectQuarter(3)}
-                        className="h-7 px-1.5 text-[10px]"
+                        className="h-7 px-1.5 text-[11px]"
                       >
                         الربع 3
                       </Button>
@@ -650,7 +650,7 @@ export function ExpensesPdfDialog({
                         variant="ghost"
                         size="sm"
                         onClick={() => selectQuarter(4)}
-                        className="h-7 px-1.5 text-[10px]"
+                        className="h-7 px-1.5 text-[11px]"
                       >
                         الربع 4
                       </Button>
@@ -659,7 +659,7 @@ export function ExpensesPdfDialog({
                         variant="ghost"
                         size="sm"
                         onClick={selectAllMonths}
-                        className="h-7 px-1.5 text-[10px] font-semibold text-sage-800"
+                        className="h-7 px-1.5 text-[11px] font-semibold text-foreground"
                       >
                         كل السنة
                       </Button>
@@ -678,7 +678,7 @@ export function ExpensesPdfDialog({
                           className={cn(
                             'py-1.5 px-2 rounded-md text-xs font-medium border text-center transition-all',
                             isSelected
-                              ? 'bg-sage-700 text-white border-sage-700 shadow-xs'
+                              ? 'bg-foreground text-background border-foreground shadow-xs'
                               : 'bg-card text-muted-foreground border-border hover:bg-canvas-sunken hover:text-foreground'
                           )}
                         >
@@ -763,7 +763,7 @@ export function ExpensesPdfDialog({
             {/* 3. PDF Display & Grouping Options */}
             <div className="space-y-3 rounded-xl border border-border/80 bg-canvas p-3.5">
               <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-sage-700" />
+                <CreditCard className="h-4 w-4 text-foreground" />
                 <span className="text-xs font-bold text-foreground">
                   3. خيارات العرض والتقسيم في الـ PDF
                 </span>
@@ -784,7 +784,7 @@ export function ExpensesPdfDialog({
                     type="checkbox"
                     checked={groupByMethod}
                     onChange={(e) => setGroupByMethod(e.target.checked)}
-                    className="h-4 w-4 rounded border-border text-sage-700 focus:ring-sage-700 ms-3 accent-sage-700 cursor-pointer"
+                    className="h-4 w-4 rounded border-border text-foreground focus:ring-foreground ms-3 accent-foreground cursor-pointer"
                   />
                 </label>
 
@@ -802,7 +802,7 @@ export function ExpensesPdfDialog({
                     type="checkbox"
                     checked={includeSummaries}
                     onChange={(e) => setIncludeSummaries(e.target.checked)}
-                    className="h-4 w-4 rounded border-border text-sage-700 focus:ring-sage-700 ms-3 accent-sage-700 cursor-pointer"
+                    className="h-4 w-4 rounded border-border text-foreground focus:ring-foreground ms-3 accent-foreground cursor-pointer"
                   />
                 </label>
               </div>
@@ -822,15 +822,15 @@ export function ExpensesPdfDialog({
             </div>
 
             {/* Live Filter Summary Bar */}
-            <div className="rounded-xl border border-sage-200 bg-sage-50/70 dark:border-sage-900/60 dark:bg-sage-950/40 p-3 flex items-center justify-between flex-wrap gap-2">
+            <div className="rounded-xl border border-border bg-canvas-sunken/70 p-3 flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <PieChart className="h-4 w-4 text-sage-700 shrink-0" />
-                <span className="text-xs font-medium text-sage-950 dark:text-sage-100">
+                <PieChart className="h-4 w-4 text-foreground shrink-0" />
+                <span className="text-xs font-medium text-foreground">
                   النتائج المطابقة:{' '}
                   <strong className="font-bold">{matchingTransactions.length} قيداً</strong>
                 </span>
               </div>
-              <div className="text-xs font-bold text-sage-900 dark:text-sage-100">
+              <div className="text-xs font-bold text-foreground">
                 الإجمالي:{' '}
                 <span className="font-mono text-[13px]">
                   {totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ل
@@ -874,7 +874,7 @@ export function ExpensesPdfDialog({
                 size="sm"
                 onClick={handleOpenPdf}
                 disabled={openBusy || downloadBusy || matchingTransactions.length === 0}
-                className="gap-1.5 text-xs h-9 font-semibold bg-sage-700 hover:bg-sage-800 text-white"
+                className="gap-1.5 text-xs h-9 font-semibold bg-foreground hover:bg-foreground text-background"
               >
                 {openBusy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

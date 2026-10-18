@@ -145,7 +145,7 @@ export function Sidebar({
                   {!collapsed && item.badge && (
                     <span
                       className={cn(
-                        "ms-auto rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none",
+                        "ms-auto rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none",
                         item.badge.tone === 'danger'
                           ? "bg-pastel-red text-pastel-redInk"
                           : item.badge.tone === 'success'
