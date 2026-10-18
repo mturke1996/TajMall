@@ -4,8 +4,8 @@ import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/sup
 import { can, normalizeRole } from '@/lib/permissions';
 
 const schema = z.object({
-  user_id: z.string().uuid('معرّف مستخدم غير صالح'),
-  password: z.string().min(10, 'كلمة المرور يجب أن تكون 10 أحرف على الأقل'),
+  user_id: z.uuid('معرّف مستخدم غير صالح'),
+  password: z.string('كلمة المرور مطلوبة').min(10, 'كلمة المرور يجب أن تكون 10 أحرف على الأقل'),
 });
 
 /**

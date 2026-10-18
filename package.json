@@ -43,7 +43,6 @@
     "backup:restore-cold": "node scripts/restore-cold-backup.mjs"
   },
   "dependencies": {
-    "@hookform/resolvers": "^3.9.0",
     "@prisma/client": "^7.8.0",
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-checkbox": "^1.1.1",
@@ -77,12 +76,11 @@
     "pg": "^8.21.0",
     "react": "^19.2.9",
     "react-dom": "^19.2.9",
-    "react-hook-form": "^7.53.0",
     "recharts": "^2.13.0",
     "sonner": "^1.5.0",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.23.8",
+    "zod": "^4.6.7",
     "zustand": "^4.5.5"
   },
   "devDependencies": {

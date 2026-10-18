@@ -7,11 +7,11 @@ import { can, normalizeRole } from '@/lib/permissions';
 const ASSIGNABLE_ROLES = ['owner', 'admin', 'accountant', 'cashier', 'viewer'] as const;
 
 const inviteSchema = z.object({
-  email: z.string().trim().email({ message: 'بريد إلكتروني غير صالح' }),
+  email: z.string().trim().pipe(z.email('بريد إلكتروني غير صالح')),
   full_name_ar: z.string().trim().max(200).optional().default(''),
-  role: z.enum(ASSIGNABLE_ROLES).optional().default('viewer'),
+  role: z.enum(ASSIGNABLE_ROLES, 'دور غير صالح').optional().default('viewer'),
   password: z
-    .string()
+    .string('كلمة المرور غير صالحة')
     .min(10, 'كلمة المرور يجب أن تكون 10 أحرف على الأقل')
     .optional(),
 });

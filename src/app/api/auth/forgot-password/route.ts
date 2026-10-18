@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { resetPasswordRedirectUrl } from '@/lib/supabase/auth-url';
 
 const schema = z.object({
-  email: z.string().trim().email('بريد إلكتروني غير صالح'),
+  email: z.string('أدخل البريد الإلكتروني').trim().pipe(z.email('بريد إلكتروني غير صالح')),
 });
 
 /**
