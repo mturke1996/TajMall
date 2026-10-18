@@ -329,6 +329,124 @@ let t2Partial;
   check('statements', 'كل القيود المرحّلة متوازنة', n(unbalanced) === 0, `unbalanced=${unbalanced}`);
 }
 
+// ── 7b. Approval cannot be bypassed by writing to the table (082) ──────────
+{
+  const voucherJournal = (id) => val(`SELECT count(*) FROM journal_entries WHERE source_type = 'VOUCHER' AND source_id = $1 AND status = 'POSTED'`, [id]);
+  const statusOf = (id) => val(`SELECT status FROM disbursement_vouchers WHERE id = $1`, [id]);
+  await actAs(db, 'authenticated', CASHIER);
+  const draft = await attempt(async () => {
+    const v = await one(`INSERT INTO disbursement_vouchers (voucher_number, voucher_date, payee, method, total_amount, created_by, cashbox_id, category_id)
+                         VALUES ('G-001', '2026-05-12', 'مورد', 'CASH', 300, $1, $2, $3) RETURNING id`, [CASHIER, CASH, EXP_MAINT]);
+    await db.query(`INSERT INTO disbursement_voucher_lines (voucher_id, sort_order, description, amount) VALUES ($1, 0, 'بند', 300)`, [v.id]);
+    return v.id;
+  });
+  check('voucher-guard', 'أمين الخزينة يُنشئ مسودة إذن صرف بأسطرها', draft.ok, draft.error ?? '');
+  const id = draft.value;
+  const cashBefore = n(await cashboxBalance(CASH));
+
+  const selfApprove = await attempt(() => db.query(`UPDATE disbursement_vouchers SET status = 'APPROVED' WHERE id = $1`, [id]));
+  check('voucher-guard', 'أمين الخزينة لا يعتمد إذنه بتعديل الجدول مباشرة', !selfApprove.ok && n(await voucherJournal(id)) === 0
+    && near(n(await cashboxBalance(CASH)), cashBefore), selfApprove.ok ? `اعتُمد ورُحّل: الحالة ${await statusOf(id)}` : '');
+  const insertApproved = await attempt(() => db.query(`INSERT INTO disbursement_vouchers (voucher_number, voucher_date, payee, method, total_amount, created_by, status, cashbox_id, category_id)
+                         VALUES ('G-002', '2026-05-12', 'مورد', 'CASH', 300, $1, 'APPROVED', $2, $3)`, [CASHIER, CASH, EXP_MAINT]));
+  check('voucher-guard', 'أمين الخزينة لا يُدخل إذناً معتمداً جاهزاً', !insertApproved.ok, insertApproved.ok ? 'قُبل ورُحّل' : '');
+
+  const submit = await attempt(() => val(`SELECT submit_voucher_for_approval($1)`, [id]));
+  check('voucher-guard', 'أمين الخزينة يرسل الإذن للاعتماد', submit.ok, submit.error ?? '');
+  const editPending = await attempt(() => db.query(`UPDATE disbursement_vouchers SET total_amount = 3000 WHERE id = $1`, [id]));
+  const linePending = await attempt(() => db.query(`INSERT INTO disbursement_voucher_lines (voucher_id, sort_order, description, amount) VALUES ($1, 1, 'إضافة', 50)`, [id]));
+  check('voucher-guard', 'الإذن المنتظر لا يُعدَّل مبلغه ولا بنوده بعد إرساله', !editPending.ok && !linePending.ok,
+    [editPending.ok && 'عُدّل المبلغ', linePending.ok && 'أُضيف بند'].filter(Boolean).join('، '));
+
+  await actAs(db, 'authenticated', OWNER);
+  const approve = await attempt(() => val(`SELECT decide_voucher_approval($1, true, NULL)`, [id]));
+  check('voucher-guard', 'المالك يعتمد من شاشة الاعتماد ويُرحَّل القيد', approve.ok && n(await voucherJournal(id)) === 1, approve.error ?? '');
+
+  await actAs(db, 'authenticated', CASHIER);
+  const editApproved = await attempt(() => db.query(`UPDATE disbursement_vouchers SET total_amount = 1 WHERE id = $1`, [id]));
+  const deleteDirect = await attempt(() => db.query(`DELETE FROM disbursement_vouchers WHERE id = $1`, [id]));
+  const deleteRpc = await attempt(() => val(`SELECT delete_disbursement_voucher($1)`, [id]));
+  check('voucher-guard', 'أمين الخزينة لا يعدّل إذناً معتمداً ولا يحذفه (مباشرة أو بالدالة)',
+    !editApproved.ok && !deleteDirect.ok && !deleteRpc.ok && n(await voucherJournal(id)) === 1,
+    [editApproved.ok && 'عُدّل', deleteDirect.ok && 'حُذف مباشرة', deleteRpc.ok && 'حُذف بالدالة'].filter(Boolean).join('، '));
+  check('voucher-guard', 'رسالة الرفض بالعربية وتشرح من يستطيع', /المدير أو المحاسب/.test(deleteRpc.error ?? ''), deleteRpc.error ?? '');
+
+  const ownDraft = await attempt(async () => {
+    const v = await one(`INSERT INTO disbursement_vouchers (voucher_number, voucher_date, payee, method, total_amount, created_by, cashbox_id, category_id)
+                         VALUES ('G-003', '2026-05-12', 'مورد', 'CASH', 40, $1, $2, $3) RETURNING id`, [CASHIER, CASH, EXP_MAINT]);
+    await db.query(`INSERT INTO disbursement_voucher_lines (voucher_id, sort_order, description, amount) VALUES ($1, 0, 'بند', 40)`, [v.id]);
+    await db.query(`UPDATE disbursement_vouchers SET payee = 'مورد معدّل' WHERE id = $1`, [v.id]);
+    return val(`SELECT delete_disbursement_voucher($1)`, [v.id]);
+  });
+  check('voucher-guard', 'أمين الخزينة يعدّل مسودته ويحذفها مع أسطرها', ownDraft.ok, ownDraft.error ?? '');
+
+  await actAs(db, 'authenticated', OWNER);
+  const ownerDelete = await attempt(() => val(`SELECT delete_disbursement_voucher($1)`, [id]));
+  check('voucher-guard', 'المالك يحذف الإذن المعتمد ويُعكس قيده', ownerDelete.ok && n(await voucherJournal(id)) === 0, ownerDelete.error ?? '');
+  const noBox = await attempt(() => db.query(`INSERT INTO disbursement_vouchers (voucher_number, voucher_date, payee, method, total_amount, created_by, status)
+                         VALUES ('G-004', '2026-05-12', 'مورد', 'CASH', 10, $1, 'APPROVED')`, [OWNER]));
+  check('voucher-guard', 'حتى المالك لا يعتمد مباشرة إذناً بلا خزينة وبند', !noBox.ok, noBox.ok ? 'قُبل' : '');
+}
+
+// ── 7c. Roles: who may change whose role (082) ──────────────────────────────
+{
+  const ADMIN = '44444444-4444-4444-8444-444444444444';
+  const STAFF = '55555555-5555-4555-8555-555555555555';
+  await actAs(db, 'superuser');
+  await db.query(`INSERT INTO auth.users (id, email) VALUES ($1, 'admin@test.local'), ($2, 'staff@test.local')`, [ADMIN, STAFF]);
+  const fresh = await val(`SELECT role FROM profiles WHERE id = $1`, [STAFF]);
+  check('roles', 'الحساب الجديد يبدأ للعرض فقط حتى يُعيَّن دوره', fresh === undefined || fresh === 'viewer', `الدور ${fresh}`);
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  await db.query(`INSERT INTO profiles (id, role) VALUES ($1, 'admin'), ($2, 'viewer') ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role`, [ADMIN, STAFF]);
+  check('roles', 'مسار الدعوة (مفتاح الخدمة) يعيّن الدور', (await val(`SELECT role FROM profiles WHERE id = $1`, [ADMIN])) === 'admin');
+
+  const setRole = (who, target, role) => attempt(async () => {
+    await actAs(db, 'authenticated', who);
+    const r = await db.query(`UPDATE profiles SET role = $2 WHERE id = $1 RETURNING role`, [target, role]);
+    if (r.rows.length !== 1) throw new Error('لم يُحدَّث أي صف');
+    return r.rows[0].role;
+  });
+  const roleOf = async (id) => {
+    await actAs(db, 'superuser');
+    return val(`SELECT role FROM profiles WHERE id = $1`, [id]);
+  };
+
+  const adminGrantsOwner = await setRole(ADMIN, STAFF, 'owner');
+  check('roles', 'المدير لا يمنح دور المالك', !adminGrantsOwner.ok && (await roleOf(STAFF)) === 'viewer', adminGrantsOwner.ok ? 'مُنح' : '');
+  const adminSelf = await setRole(ADMIN, ADMIN, 'owner');
+  check('roles', 'المدير لا يجعل نفسه مالكاً', !adminSelf.ok && (await roleOf(ADMIN)) === 'admin', adminSelf.ok ? 'ترقّى' : '');
+  const adminDemotesOwner = await setRole(ADMIN, OWNER, 'viewer');
+  check('roles', 'المدير لا ينزع دور المالك', !adminDemotesOwner.ok && (await roleOf(OWNER)) === 'owner', adminDemotesOwner.ok ? 'نُزع' : '');
+  const adminSetsCashier = await setRole(ADMIN, STAFF, 'Cashier ');
+  check('roles', 'المدير يعيّن أمين خزينة (والقيمة تُوحَّد)', adminSetsCashier.ok && (await roleOf(STAFF)) === 'cashier', adminSetsCashier.error ?? `الدور ${await roleOf(STAFF)}`);
+  const adminUnknown = await setRole(ADMIN, STAFF, 'manager');
+  check('roles', 'دور غير معروف يُرفض', !adminUnknown.ok && (await roleOf(STAFF)) === 'cashier', adminUnknown.ok ? 'قُبل' : '');
+  const cashierSelf = await setRole(CASHIER, CASHIER, 'admin');
+  check('roles', 'أمين الخزينة لا يرقّي نفسه', !cashierSelf.ok && (await roleOf(CASHIER)) === 'cashier', cashierSelf.ok ? 'ترقّى' : '');
+
+  const ownerGrants = await setRole(OWNER, STAFF, 'owner');
+  const ownerRevokes = await setRole(OWNER, STAFF, 'viewer');
+  check('roles', 'المالك يمنح دور المالك وينزعه', ownerGrants.ok && ownerRevokes.ok && (await roleOf(STAFF)) === 'viewer',
+    ownerGrants.error ?? ownerRevokes.error ?? '');
+  const ownerSelf = await setRole(OWNER, OWNER, 'admin');
+  check('roles', 'المالك لا يغيّر دوره بنفسه (لا يبقى النظام بلا مالك)', !ownerSelf.ok && (await roleOf(OWNER)) === 'owner', ownerSelf.ok ? 'تغيّر' : '');
+
+  // a role value outside the known list (typo, legacy) must not grant write access
+  await actAs(db, 'superuser');
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  await db.query(`UPDATE profiles SET role = 'manager' WHERE id = $1`, [STAFF]);
+  await actAs(db, 'authenticated', STAFF);
+  const unknownRole = await val(`SELECT get_my_role()`);
+  const unknownWrite = await attempt(() => insertTx('EXPENSE', 5, '2026-05-12', EXP_MAINT, CASH, null, 'دور غير معروف'));
+  check('roles', 'الدور غير المعروف يُعامَل للعرض فقط', unknownRole === 'viewer' && !unknownWrite.ok, `get_my_role=${unknownRole}${unknownWrite.ok ? '، وسجّل معاملة' : ''}`);
+  await actAs(db, 'superuser');
+  await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+  await db.query(`UPDATE profiles SET role = 'member' WHERE id = $1`, [STAFF]);
+  await actAs(db, 'authenticated', STAFF);
+  check('roles', "الدور القديم 'member' = أمين خزينة كما في الواجهة", (await val(`SELECT get_my_role()`)) === 'cashier');
+  await actAs(db, 'authenticated', OWNER);
+}
+
 // ── 8. Period close ─────────────────────────────────────────────────────────
 {
   await actAs(db, 'superuser');

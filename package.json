@@ -24,7 +24,7 @@
     "test:rollback": "node scripts/test-migration-rollback.mjs",
     "test:scenarios": "node scripts/test-accounting-scenarios.mjs",
     "test:scenarios:prod": "node scripts/test-accounting-scenarios.mjs --prod-functions",
-    "test:scenarios:proposed": "node scripts/test-accounting-scenarios.mjs --prod-functions --apply docs/proposed-migrations/078_security_and_ledger_fixes.sql --apply docs/proposed-migrations/080_payroll.sql --apply docs/proposed-migrations/081_rent_safety.sql",
+    "test:scenarios:proposed": "node scripts/test-accounting-scenarios.mjs --prod-functions --apply docs/proposed-migrations/078_security_and_ledger_fixes.sql --apply docs/proposed-migrations/080_payroll.sql --apply docs/proposed-migrations/081_rent_safety.sql --apply docs/proposed-migrations/082_role_and_voucher_guards.sql",
     "verify:tenant-period": "npx tsx scripts/verify-tenant-rent-period.mjs",
     "verify:tenant-pdf": "npx tsx scripts/verify-tenant-rent-pdf.mjs",
     "verify:pdf-adaptive": "npx tsx scripts/verify-pdf-adaptive-money.mjs",

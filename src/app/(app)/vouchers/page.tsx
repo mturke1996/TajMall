@@ -102,10 +102,7 @@ export default function VouchersPage() {
     if (!ok) return;
     deleteVoucher.mutate(row.id, {
       onSuccess: () => toast.success(`تم حذف الإذن ${row.voucher_number}`),
-      onError: (e) =>
-        toast.error('تعذّر حذف الإذن', {
-          description: e instanceof Error ? e.message : undefined,
-        }),
+      onError: (e) => toast.error('تعذّر حذف الإذن', { description: friendlyError(e) }),
     });
   }
 
@@ -250,22 +247,25 @@ export default function VouchersPage() {
                         return <VoucherPDF voucher={model} />;
                       }}
                     />
-                    <WriteGuard permission="voucher.create">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1.5 text-danger-ink hover:bg-danger-soft"
-                        disabled={deleteVoucher.isPending}
-                        onClick={() => handleDelete(row)}
-                      >
-                        {deleteVoucher.isPending ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-3.5 w-3.5" />
-                        )}
-                        حذف
-                      </Button>
-                    </WriteGuard>
+                    {/* deleting an approved voucher reverses its cash entry: same people who approve */}
+                    {(row.status !== 'APPROVED' || canApprove) && (
+                      <WriteGuard permission="voucher.create">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-danger-ink hover:bg-danger-soft"
+                          disabled={deleteVoucher.isPending}
+                          onClick={() => handleDelete(row)}
+                        >
+                          {deleteVoucher.isPending ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                          حذف
+                        </Button>
+                      </WriteGuard>
+                    )}
                   </div>
                 </div>
               );

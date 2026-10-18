@@ -31,7 +31,8 @@ export function friendlyError(err: unknown, fallback = GENERIC): string {
   if (['PGRST202', 'PGRST205', '42883', '42P01'].includes(code) || /does not exist|could not find the (function|table)/.test(msg)) {
     return NEEDS_DB_UPDATE;
   }
-  if (code === '42501' || /permission denied|row-level security/.test(msg)) return NO_PERMISSION;
+  // a database rule may refuse in Arabic and say who can do it; keep that sentence
+  if (code === '42501' || /permission denied|row-level security/.test(msg)) return ARABIC.test(raw) ? raw : NO_PERMISSION;
   if (/jwt|session/.test(msg)) return 'انتهت الجلسة — سجّل الدخول مرة أخرى.';
   if (/failed to fetch|network|timeout/.test(msg)) return 'تعذّر الاتصال بالخادم — تحقق من الإنترنت ثم أعد المحاولة.';
   // The database's own rules (RAISE EXCEPTION) are written in Arabic for the person using the screen.

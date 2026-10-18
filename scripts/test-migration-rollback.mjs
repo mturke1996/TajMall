@@ -2,7 +2,7 @@
  * Proves the rollback files undo the proposed migrations, on an isolated PGlite replica.
  *   node scripts/test-migration-rollback.mjs
  *
- * Baseline = repository migrations + 078. Then 080 and 081 are applied and rolled back in reverse
+ * Baseline = repository migrations + 078. Then 080, 081 and 082 are applied and rolled back in reverse
  * order, and the schema (tables, columns, functions with their bodies, views, policies, grants,
  * triggers) must be identical to the baseline. 078's own rollback restores the production function
  * bodies, which differ from the repository's, so for 078 the check is that apply → rollback → apply
@@ -62,21 +62,27 @@ if (await run('تطبيق 078', read('078_security_and_ledger_fixes.sql'))) {
   const baseline = await schema();
   const ok080 = await run('تطبيق 080', read('080_payroll.sql'));
   const ok081 = ok080 && (await run('تطبيق 081', read('081_rent_safety.sql')));
-  if (ok081) {
-    const rb081 = await run('تراجع 081', read('081_rent_safety.ROLLBACK.sql'));
+  // 082 is applied twice: its saved copy must still hold the bodies from before the first run
+  const ok082 = ok081 && (await run('تطبيق 082', read('082_role_and_voucher_guards.sql')))
+    && (await run('إعادة تطبيق 082 فوق نفسه', read('082_role_and_voucher_guards.sql')));
+  if (ok082) {
+    const rb082 = await run('تراجع 082', read('082_role_and_voucher_guards.ROLLBACK.sql'));
+    const rb081 = rb082 && (await run('تراجع 081', read('081_rent_safety.ROLLBACK.sql')));
     const rb080 = rb081 && (await run('تراجع 080', read('080_payroll.ROLLBACK.sql')));
     if (rb080) {
       const after = await schema();
-      const d = diff(baseline, after).filter((line) => !line.startsWith('functions') || !line.includes('"proname"'));
       const dFn = diff(baseline, after);
-      check('التراجع عن 081 ثم 080 يعيد المخطط كما كان بعد 078 تماماً', dFn.length === 0, dFn.join('\n          '));
-      void d;
+      check('التراجع عن 082 ثم 081 ثم 080 يعيد المخطط كما كان بعد 078 تماماً', dFn.length === 0, dFn.join('\n          '));
+      const leftover = (await db.query(`SELECT 1 FROM pg_namespace WHERE nspname = 'migration_backup'`)).rows.length;
+      check('التراجع عن 082 يحذف نسخته المحفوظة', leftover === 0);
     }
   }
   check('078 يُطبَّق ثم يُتراجع عنه ثم يُطبَّق من جديد بلا أخطاء',
     (await run('تراجع 078', read('078_security_and_ledger_fixes.ROLLBACK.sql')))
       && (await run('إعادة تطبيق 078', read('078_security_and_ledger_fixes.sql'))));
-  check('080 و081 يُطبَّقان من جديد بعد التراجع', (await run('إعادة 080', read('080_payroll.sql'))) && (await run('إعادة 081', read('081_rent_safety.sql'))));
+  check('080 و081 و082 تُطبَّق من جديد بعد التراجع', (await run('إعادة 080', read('080_payroll.sql')))
+    && (await run('إعادة 081', read('081_rent_safety.sql')))
+    && (await run('إعادة 082', read('082_role_and_voucher_guards.sql'))));
 }
 
 await db.close();

@@ -1,6 +1,6 @@
 /**
  * Applies the reviewed migrations in docs/proposed-migrations to the database in .env.local:
- *   078 security + ledger fixes → 080 payroll → 081 rent safety
+ *   078 security + ledger fixes → 080 payroll → 081 rent safety → 082 role and voucher guards
  *
  *   npm run db:snapshot                                        # 1. fresh backup first
  *   node scripts/apply-proposed-migrations.mjs --confirm       # 2. apply all pending, in order
@@ -46,6 +46,11 @@ const MIGRATIONS = [
     id: '081', up: '081_rent_safety.sql', down: '081_rent_safety.ROLLBACK.sql',
     sha: 'f37ae9ca536571acae33b7a728d9b15a4528cb3e2f47557e93c327ae4abfd5c5',
     applied: `SELECT to_regprocedure('public.rent_missing_charges(text)') IS NOT NULL AS done`,
+  },
+  {
+    id: '082', up: '082_role_and_voucher_guards.sql', down: '082_role_and_voucher_guards.ROLLBACK.sql',
+    sha: 'cdebd34b608f55b8b543b5324f390517904b497310766cd754656ef653a4cc6e',
+    applied: `SELECT to_regprocedure('public.guard_disbursement_voucher_approval()') IS NOT NULL AS done`,
   },
 ];
 
@@ -111,6 +116,17 @@ const VERIFY = {
     check('contact history guard installed', Number((await one(`SELECT count(*) n FROM pg_trigger WHERE tgname = 'trg_contacts_protect_history'`)).n) === 1);
     const svc = await asRole('authenticated', { role: 'service_role' }, `SELECT public.auth_role_may_write() ok`);
     check('server jobs (service_role) pass write guards', svc.ok && svc.rows[0].ok === true);
+  },
+  '082': async () => {
+    check('voucher approval guards installed', Number((await one(`SELECT count(*) n FROM pg_trigger
+      WHERE tgname IN ('trg_guard_disbursement_voucher_approval', 'trg_guard_disbursement_voucher_lines')`)).n) === 2);
+    check('pre-082 role functions saved for the rollback', Number((await one(`SELECT count(*) n FROM migration_backup.m082_functions`)).n) === 2);
+    const me = await asRole('authenticated', ownerClaims, `SELECT get_my_role() r`);
+    check('the owner is still owner', me.ok && me.rows[0].r === 'owner', me.error ?? '');
+    // a stored role outside the known list now reads as viewer: name anyone who would lose write access
+    const odd = (await client.query(`SELECT role, count(*) n FROM profiles
+      WHERE lower(trim(coalesce(role, ''))) NOT IN ('owner', 'admin', 'accountant', 'cashier', 'viewer', 'member') GROUP BY role`)).rows;
+    check('every stored role is a known one', odd.length === 0, odd.map((r) => `${r.role}×${r.n}`).join(', '));
   },
 };
 
