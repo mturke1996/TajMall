@@ -134,7 +134,7 @@ export const ADJUSTMENT_STATUS_LABEL: Record<PayrollAdjustmentStatus, string> = 
 
 export const ADVANCE_STATUS_LABEL: Record<PayrollAdvanceStatus, string> = {
   OPEN: "قائمة",
-  SETTLED: "مسددة",
+  SETTLED: "مسدّدة",
   CANCELLED: "ملغاة",
 };
 

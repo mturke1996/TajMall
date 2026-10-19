@@ -69,7 +69,7 @@ function PayrollScreen() {
       <PageHeader
         eyebrow="الموظفون"
         title="الرواتب"
-        description="هياكل الرواتب، المكافآت والخصومات، السلف، وكشف كل شهر من الإعداد حتى الصرف."
+        description="كشف كل شهر من الإعداد حتى الصرف."
         actions={
           !missing && (
             <div className="flex flex-wrap items-center gap-2">

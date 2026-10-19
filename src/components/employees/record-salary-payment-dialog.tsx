@@ -106,7 +106,7 @@ export function RecordSalaryPaymentDialog({ employee, open, onOpenChange, onSucc
       busy={busy || createTransaction.isPending}
       dirty={paymentAmount.trim() !== ''}
       title="تسجيل راتب"
-      description={employee ? `${employee.name}${employee.job_title ? ` — ${employee.job_title}` : ''}` : undefined}
+      description={employee ? `${employee.name}${employee.job_title ? ` · ${employee.job_title}` : ''}` : undefined}
       onSubmit={() => void handleSubmit()}
       submitLabel="سجّل الراتب"
       submitDisabled={invalid}

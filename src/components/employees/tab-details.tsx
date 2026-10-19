@@ -95,7 +95,7 @@ export function DetailsTab({ data, contact }: { data: EmployeeProfileData; conta
             items={[
               { label: 'المسمى الوظيفي', value: contact.job_title },
               { label: 'القسم', value: contact.department },
-              { label: 'تاريخ التعيين', value: day(contact.hire_date) ? `${day(contact.hire_date)}${tenure ? ` — ${tenure}` : ''}` : null },
+              { label: 'تاريخ التعيين', value: day(contact.hire_date) ? `${day(contact.hire_date)}${tenure ? ` · ${tenure}` : ''}` : null },
               { label: 'نوع التوظيف', value: details ? employmentTypeLabel(details.employment_type) : null },
               { label: 'انتهاء فترة التجربة', value: day(details?.probation_end) },
               { label: 'انتهاء العقد', value: day(details?.contract_end) },
@@ -113,10 +113,10 @@ export function DetailsTab({ data, contact }: { data: EmployeeProfileData; conta
               },
               {
                 label: 'يسري من',
-                value: kpis.salary.since ? formatMonthKeyAr(kpis.salary.since) : kpis.salary.source === 'card' ? (data.structuresReadable ? 'من بطاقة الجهة، بلا هيكل' : 'من بطاقة الجهة') : null,
+                value: kpis.salary.since ? formatMonthKeyAr(kpis.salary.since) : kpis.salary.source === 'card' ? (data.structuresReadable ? 'من ملف الجهة، بلا هيكل' : 'من ملف الجهة') : null,
               },
               {
-                label: 'في بطاقة الجهة',
+                label: 'في ملف الجهة',
                 value: contact.salary && Number(contact.salary) > 0 ? <Amount value={contact.salary} muted={Number(contact.salary) === kpis.salary.total} /> : null,
               },
               ...(kpis.salary.coming ? [{ label: 'يصبح', value: `${formatMoney(kpis.salary.coming.total, 'LYD')} من ${formatMonthKeyAr(monthKeyOf(kpis.salary.coming.from))}` }] : []),
@@ -124,7 +124,7 @@ export function DetailsTab({ data, contact }: { data: EmployeeProfileData; conta
           />
           {kpis.salary.source === 'structure' && contact.salary && Math.abs(Number(contact.salary) - kpis.salary.total) > 0.0005 && (
             <p className="mt-3 rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-[12.5px] text-warning-ink">
-              الراتب في بطاقة الجهة يختلف عن هيكل الراتب الحالي. المعتمد في الكشوف هو الهيكل.
+              الراتب في ملف الجهة يختلف عن هيكل الراتب الحالي. المعتمد في الكشوف هو الهيكل.
             </p>
           )}
         </SectionCard>
@@ -201,7 +201,7 @@ export function DetailsTab({ data, contact }: { data: EmployeeProfileData; conta
 
         {(note || details?.notes) && (
           <SectionCard title="ملاحظات" className="lg:col-span-2">
-            <InfoList items={[{ label: 'ملف الموظف', value: details?.notes }, { label: 'بطاقة الجهة', value: note }]} />
+            <InfoList items={[{ label: 'ملف الموظف', value: details?.notes }, { label: 'ملف الجهة', value: note }]} />
           </SectionCard>
         )}
       </div>

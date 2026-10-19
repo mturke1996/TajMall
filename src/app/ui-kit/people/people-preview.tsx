@@ -95,11 +95,11 @@ export function PeoplePreview() {
     <div className="min-h-dvh bg-background" dir="rtl">
       <main className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-8 sm:px-8">
         <header className="space-y-1">
-          <p className="text-[12px] text-muted-foreground">بيئة التطوير فقط — بيانات وهمية</p>
+          <p className="text-[12px] text-muted-foreground">بيئة التطوير فقط، بيانات وهمية</p>
           <h1 className="text-2xl font-semibold">مكونات صفحات الأشخاص</h1>
         </header>
 
-        <Block title="رأس الملف" note="مورّد مؤجر، عميل مؤرشف، وملف بلا بيانات اتصال">
+        <Block title="رأس الملف" note="مورد مؤجر، عميل مؤرشف، وملف بلا بيانات اتصال">
           <div className="space-y-4">
             <ProfileHeader
               name="شركة الأفق للاستثمار العقاري"
@@ -138,7 +138,7 @@ export function PeoplePreview() {
           </div>
         </Block>
 
-        <Block title="الأفاتار والأدوار" note="لون الدور يظهر في الأفاتار وفي الشارة">
+        <Block title="الرمز الحرفي والأدوار" note="لون الدور يظهر في الرمز وفي الشارة">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             {ROLES.map((r) => (
               <span key={r} className="inline-flex items-center gap-2.5">
@@ -154,11 +154,11 @@ export function PeoplePreview() {
         <Block title="بطاقات الأرقام" note="جاهزة، قيد التحميل، وخطأ في التحميل">
           <div className="space-y-4">
             <KpiStrip
-              label="أرقام المورّد"
+              label="أرقام المورد"
               items={[
                 { label: 'المدفوع له 2026', icon: ArrowUpFromLine, accent: 'red', value: out.total, context: `${arabicCount(out.count, ['دفعة واحدة', 'دفعتان', 'دفعات', 'دفعة'])}` },
                 { label: 'آخر دفعة', icon: CalendarCheck, accent: 'blue', value: out.last?.amount ?? null, context: out.last?.date },
-                { label: 'المعدل الشهري', icon: Wallet, accent: 'amber', value: out.averagePerActiveMonth, context: `في ${out.activeMonths} أشهر فيها حركة` },
+                { label: 'المعدل الشهري', icon: Wallet, accent: 'amber', value: out.averagePerActiveMonth, context: `في ${arabicCount(out.activeMonths, ['شهر فيه حركة', 'شهرين فيهما حركة', 'أشهر فيها حركة', 'شهراً فيها حركة'])}` },
                 { label: 'المستحق عليه', icon: Receipt, accent: 'violet', value: 104000, context: 'شهران، المبلغ تقديري', contextTone: 'warn', tone: 'warn' },
               ]}
             />

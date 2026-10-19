@@ -207,7 +207,7 @@ export function useContactsDirectory(options?: {
       }
     }
     setApproving(false);
-    if (done === targets.length) toast.success('تم اعتماد المؤجرين');
+    if (done === targets.length) toast.success('اعتُمد المؤجرون');
     else if (done > 0) toast.warning(`اعتُمد ${done} من ${targets.length}. أعد المحاولة للبقية.`);
     else toast.error('تعذّر الاعتماد. أعد المحاولة.');
   }, [canWrite, confirm, hints, updateContact]);
@@ -253,7 +253,7 @@ export function useContactsDirectory(options?: {
   const openAdd = useCallback(
     (roleOrKind?: ContactBusinessRole | ContactKind) => {
       if (!canWrite) {
-        toast.error('صلاحية القراءة فقط — لا يمكن إضافة جهات');
+        toast.error('حسابك للقراءة فقط، فلا يمكن إضافة جهات.');
         return;
       }
       const fresh = startingForm(segment, role, roleOrKind);
@@ -319,18 +319,18 @@ export function useContactsDirectory(options?: {
     const ok = await confirm({
       title: `حذف ${contact?.name ?? 'الجهة'} نهائياً`,
       description:
-        'يُحذف الملف إن لم تكن له معاملات أو قيود أو عقود. جهة لها حركات لا تُحذف — اجعلها «غير نشطة» من التعديل لتبقى حركاتها في الدفاتر.',
+        'لا يُحذف إلا ملف بلا معاملات ولا قيود ولا عقود. غيره اجعله «غير نشط» من التعديل لتبقى حركاته في الدفاتر.',
       confirmLabel: 'احذف',
     });
     if (!ok) return;
     try {
       await deleteContact.mutateAsync(id);
-      toast.success('تم الحذف');
+      toast.success('حُذف الملف');
     } catch (err) {
       const code = (err as { code?: string } | null)?.code;
       toast.error(
         code === '23503'
-          ? 'لا يمكن حذف جهة لها معاملات أو قيود أو عقود — اجعلها «غير نشطة» من التعديل.'
+          ? 'لا يمكن حذف جهة لها معاملات أو قيود أو عقود. اجعلها «غير نشطة» من التعديل.'
           : 'تعذّر الحذف',
       );
     }

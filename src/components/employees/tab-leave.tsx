@@ -307,7 +307,7 @@ export function LeaveTab({
     setBusyId(request.id);
     try {
       await decide.mutateAsync({ id: request.id, approve: true });
-      toast.success('اعتُمدت الإجازة', { description: `${employeeName} — ${workingDaysLabel(request.days)}` });
+      toast.success('اعتُمدت الإجازة', { description: `${employeeName} · ${workingDaysLabel(request.days)}` });
     } catch (e) {
       // the balance no longer covers it: an owner or admin may approve with a written reason
       if (isLeaveBalanceShortage(e) && powers.canApprove) openDialog('approve_over', request, null);
@@ -375,7 +375,7 @@ export function LeaveTab({
       )}
 
       <SectionCard
-        title={`الإجازات شهراً بشهر — ${year}`}
+        title={`إجازات ${year} شهراً بشهر`}
         description="أيام العمل المعتمدة لكل شهر"
         icon={CalendarDays}
         accent="blue"

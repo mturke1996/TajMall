@@ -28,8 +28,8 @@ export type ContactBusinessRole =
   | 'SUPPLIER_WATER'       // مورد مياه وصرف صحي / صهاريج
   | 'SUPPLIER_GOODS'       // مورد بضاعة ومواد تشغيلية
   | 'SERVICE_PROVIDER'     // مقدم خدمات وصيانة ومقاولات
-  | 'EMPLOYEE'             // موظف / كادر إداري
-  | 'CUSTOMER'             // عميل عام / مستفيد
+  | 'EMPLOYEE'             // موظف
+  | 'CUSTOMER'             // عميل
   | 'OTHER';               // جهة أخرى
 
 export type ContactRoleMeta = {
@@ -37,7 +37,6 @@ export type ContactRoleMeta = {
   label: string;
   labelEn: string;
   badge: string;
-  description: string;
   icon: LucideIcon;
   color: string;
   bgColor: string;
@@ -54,7 +53,6 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
     label: 'مستأجر محل بالمول',
     labelEn: 'Mall Tenant',
     badge: 'مستأجر محل',
-    description: 'يستأجر مساحة أو محلاً تجارياً داخل المول ويدفع إيجاراً شهرياً.',
     icon: Building2,
     color: 'text-success-ink',
     bgColor: 'bg-success-soft',
@@ -66,10 +64,9 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
   },
   LANDLORD: {
     role: 'LANDLORD',
-    label: 'مؤجر للمول (المول مستأجر منه)',
+    label: 'مؤجر للمول',
     labelEn: 'Mall Landlord',
     badge: 'مؤجر للمول',
-    description: 'يؤجر للمول عقاراً أو أرضاً (أرضية مولدات، مخازن، مواقف) ويستحق إيجاراً دورياً.',
     icon: Building,
     color: 'text-warning-ink',
     bgColor: 'bg-warning-soft',
@@ -84,7 +81,6 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
     label: 'مورد كهرباء وطاقة ومحروقات',
     labelEn: 'Electricity & Fuel Supplier',
     badge: 'توريد كهرباء وطاقة',
-    description: 'تزويد الطاقة والكهرباء، وقود الديزل للمولدات، وقطع غيار المحطات الكهربائية.',
     icon: Zap,
     color: 'text-warning-ink',
     bgColor: 'bg-warning-soft',
@@ -99,7 +95,6 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
     label: 'مورد مياه وصرف صحي',
     labelEn: 'Water & Sanitation Supplier',
     badge: 'توريد مياه',
-    description: 'تزويد مياه الشرب والصهاريج، شبكات الصرف، وصيانة خزانات المياه.',
     icon: Droplets,
     color: 'text-info-ink',
     bgColor: 'bg-info-soft',
@@ -114,7 +109,6 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
     label: 'مورد بضاعة ومواد تشغيل',
     labelEn: 'Goods & Materials Supplier',
     badge: 'توريد بضاعة ومواد',
-    description: 'توريد المواد الاستهلاكية، قطع الغيار، ومواد التشغيل للمول.',
     icon: Package,
     color: 'text-info-ink',
     bgColor: 'bg-info-soft',
@@ -129,7 +123,6 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
     label: 'مقدّم خدمات ومقاولات وصيانة',
     labelEn: 'Service Contractor',
     badge: 'خدمات ومقاولات',
-    description: 'شركات النظافة، الحراسة والأمن، صيانة المصاعد والتكييف، والأنظمة البرمجية.',
     icon: Wrench,
     color: 'text-info-ink',
     bgColor: 'bg-info-soft',
@@ -141,10 +134,9 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
   },
   EMPLOYEE: {
     role: 'EMPLOYEE',
-    label: 'موظف / كادر إداري',
+    label: 'موظف',
     labelEn: 'Employee',
     badge: 'موظف',
-    description: 'موظف في الكادر الإداري أو الفني للمول يستحق راتباً شهرياً.',
     icon: Briefcase,
     color: 'text-plum-ink',
     bgColor: 'bg-plum-soft',
@@ -156,10 +148,9 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
   },
   CUSTOMER: {
     role: 'CUSTOMER',
-    label: 'عميل عام / مستفيد',
+    label: 'عميل',
     labelEn: 'General Customer',
-    badge: 'عميل عام',
-    description: 'عملاء الإعلانات، المواقف، الفعاليات، أو الخدمات العامة.',
+    badge: 'عميل',
     icon: User,
     color: 'text-success-ink',
     bgColor: 'bg-success-soft',
@@ -174,7 +165,6 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
     label: 'جهة أخرى',
     labelEn: 'Other Party',
     badge: 'جهة أخرى',
-    description: 'جهات حكومية، بنوك، أو جهات غير مصنّفة.',
     icon: Store,
     color: 'text-ink-soft',
     bgColor: 'bg-canvas-sunken',

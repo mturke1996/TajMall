@@ -65,10 +65,10 @@ function NewEmployeePay({ ctx }: { ctx: FormContext }) {
   const total = salaryTotal(form);
 
   let note: string | null = null;
-  if (!canManage) note = 'يسجّل المحاسب هيكل الراتب من ملف الموظف. يُحفظ الراتب هنا على بطاقة الموظف.';
+  if (!canManage) note = 'يسجّل المحاسب هيكل الراتب من ملف الموظف. يُحفظ الراتب هنا في ملف الجهة.';
   else if (!employeeSupport.payroll) {
     // when the file is missing too, its note says why: once is enough
-    note = `لن يُسجَّل هيكل الراتب الآن.${employeeSupport.file ? ` ${NEEDS_DB_UPDATE}` : ''} يُحفظ الراتب على بطاقة الموظف.`;
+    note = `لن يُسجَّل هيكل الراتب الآن.${employeeSupport.file ? ` ${NEEDS_DB_UPDATE}` : ''} يُحفظ الراتب في ملف الجهة.`;
   }
   else if (plan) {
     const month = formatMonthKeyAr(plan.effectiveFrom.slice(0, 7));
@@ -173,7 +173,7 @@ function EditingPay({ ctx }: { ctx: FormContext }) {
           onBlur={() => touch('salary')}
           error={errorOf('salary')}
         />
-        <p className="text-[12.5px] leading-snug text-ink-mute">{NEEDS_DB_UPDATE} إلى أن يتم ذلك يُحفظ الراتب على بطاقة الموظف.</p>
+        <p className="text-[12.5px] leading-snug text-ink-mute">{NEEDS_DB_UPDATE} إلى أن يتم ذلك يُحفظ الراتب في ملف الجهة.</p>
       </Section>
     );
   }

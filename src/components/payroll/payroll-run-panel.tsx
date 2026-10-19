@@ -356,7 +356,7 @@ export function PayrollRunPanel({
         {stale && (
           <div className="flex flex-col gap-2 rounded-lg border border-warning-line bg-warning-soft px-3 py-2.5 text-[12.5px] text-warning-ink sm:flex-row sm:items-center sm:justify-between">
             <p>
-              تغيّرت بيانات {staleCount === 1 ? 'موظف واحد' : `${staleCount} موظفين`} بعد إعداد الكشف (حركة اعتُمدت أو أُلغيت،
+              تغيّرت بيانات {arabicCount(staleCount, ['موظف واحد', 'موظفين', 'موظفين', 'موظفاً'])} بعد إعداد الكشف (حركة اعتُمدت أو أُلغيت،
               سلفة، أو تعديل راتب). أعد إعداد الكشف ليعكس البيانات الحالية قبل الاعتماد أو الترحيل.
             </p>
             <Button size="sm" variant="outline" className="shrink-0" onClick={() => setConfirm('prepare')}>
@@ -366,9 +366,10 @@ export function PayrollRunPanel({
           </div>
         )}
         {employeesWithoutStructure > 0 && canManage && (!run || status === 'DRAFT') && (
-          <p className="rounded-lg border border-pastel-yellowInk/20 bg-pastel-yellow px-3 py-2 text-[12.5px] text-pastel-yellowInk">
-            {employeesWithoutStructure === 1 ? 'موظف واحد نشط' : `${employeesWithoutStructure} موظفين نشطين`} بلا هيكل راتب لن
-            {employeesWithoutStructure === 1 ? ' يدخل' : ' يدخلوا'} الكشف. حدّد هياكلهم من تبويب «هياكل الرواتب».
+          <p className="rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-[12.5px] text-warning-ink">
+            {arabicCount(employeesWithoutStructure, ['موظف نشط واحد', 'موظفان نشطان', 'موظفين نشطين', 'موظفاً نشطاً'])} بلا هيكل راتب لن{' '}
+            {employeesWithoutStructure === 1 ? 'يدخل' : employeesWithoutStructure === 2 ? 'يدخلا' : 'يدخلوا'} الكشف. حدّد{' '}
+            {employeesWithoutStructure === 1 ? 'هيكله' : 'هياكلهم'} من تبويب «هياكل الرواتب».
           </p>
         )}
         {run?.posted_at && run.journal_entry_id && (

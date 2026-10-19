@@ -185,12 +185,12 @@ function EmployeeCard({
         {showDue ? (
           <Fact
             label="المستحق الآن"
-            hint={dueKnown && row.dueNow > 0 ? `${arabicCount(row.dueMonths, ['شهر', 'شهران', 'أشهر', 'شهراً'])} غير مصروفة` : undefined}
+            hint={dueKnown && row.dueNow > 0 ? `لم يُصرف راتب ${arabicCount(row.dueMonths, ['شهر', 'شهرين', 'أشهر', 'شهراً'])}` : undefined}
           >
             {!dueKnown ? NO_FIGURE : row.dueNow > 0 ? <span className="text-danger-ink">{formatMoney(row.dueNow, 'LYD')}</span> : <span className="font-normal text-ink-mute">لا مستحقات</span>}
           </Fact>
         ) : (
-          <Fact label="المدفوع آخر 12 شهراً" hint={paidKnown && row.monthsPaid > 0 ? `${arabicCount(row.monthsPaid, ['شهر', 'شهران', 'أشهر', 'شهراً'])} فيها دفع` : undefined}>
+          <Fact label="المدفوع آخر 12 شهراً" hint={paidKnown && row.monthsPaid > 0 ? `دُفع في ${arabicCount(row.monthsPaid, ['شهر', 'شهرين', 'أشهر', 'شهراً'])}` : undefined}>
             {paidKnown ? formatMoney(row.paid12, 'LYD') : NO_FIGURE}
           </Fact>
         )}
@@ -395,6 +395,11 @@ export function EmployeesDirectory({ rows, loading, error, onRetry, sources, can
           ))}
         </div>
       )}
+
+      {/* always on the page, so a screen reader hears the new number when a search or a filter changes the list */}
+      <p role="status" className="sr-only">
+        {loading || error || rows.length === 0 ? '' : shown.length === 0 ? 'لا أحد يطابق هذه التصفية.' : arabicCount(shown.length, ['موظف واحد', 'موظفان', 'موظفين', 'موظفاً'])}
+      </p>
 
       {loading ? (
         <CardsSkeleton />

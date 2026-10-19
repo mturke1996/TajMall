@@ -60,7 +60,7 @@ export function useContactSave() {
   const sending = useRef(false);
 
   async function run(form: ContactFormState, request: SaveRequest): Promise<SaveOutcome> {
-    if (!canWrite) return { ok: false, error: 'صلاحية القراءة فقط — لا يمكن حفظ الجهات.' };
+    if (!canWrite) return { ok: false, error: 'حسابك للقراءة فقط، فلا يمكن حفظ الجهات.' };
     if (sending.current) return { ok: false, error: '', ignored: true };
 
     const baseline = request.previous ? contactToFormState(request.previous) : null;
@@ -76,7 +76,7 @@ export function useContactSave() {
 
       if (request.editingId) {
         await updateContact.mutateAsync({ id: request.editingId, ...payload });
-        toast.success('تم حفظ التعديلات');
+        toast.success('حُفظت التعديلات');
         return { ok: true, contact: null };
       }
 
@@ -131,7 +131,7 @@ export function useContactSave() {
         console.error('[contacts] salary structure failed', err);
         warnings.push(
           isPayrollSchemaMissing(err)
-            ? `لم يُسجَّل هيكل الراتب. ${NEEDS_DB_UPDATE} الراتب محفوظ على بطاقة الموظف.`
+            ? `لم يُسجَّل هيكل الراتب. ${NEEDS_DB_UPDATE} الراتب محفوظ في ملف الجهة.`
             : `لم يُسجَّل هيكل الراتب: ${payrollErrorMessage(err)} سجّله من ملف الموظف.`,
         );
       }

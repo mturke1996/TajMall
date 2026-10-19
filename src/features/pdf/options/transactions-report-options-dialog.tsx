@@ -19,6 +19,8 @@ import { toast } from 'sonner';
 import { useCurrentProfile } from '@/lib/supabase/use-profile';
 import type { CategoryRow, TransactionWithRelations } from '@/lib/db/types';
 import {
+  NO_CASHBOX,
+  NO_CATEGORY,
   REPORT_KIND_TEXT,
   activeFilterCount,
   applyPreset,
@@ -42,6 +44,7 @@ import {
   selectReportRows,
   summarizeRows,
   toPdfGroups,
+  txCategoryId,
   type PeriodSelection,
   type ReportFilters,
   type ReportKind,
@@ -49,7 +52,7 @@ import {
   type ReportPreset,
   type TransactionReportOptions,
 } from '@/lib/report-options';
-import { arabicCount, todayISODate } from '@/lib/utils';
+import { todayISODate } from '@/lib/utils';
 import { PeriodPicker } from './period-picker';
 import { PresetsBar } from './presets-bar';
 import { AmountFilter, FiltersSection, LayoutSection, ListFilter, MethodsFilter, StatusFilter } from './report-option-sections';
@@ -129,6 +132,9 @@ export function TransactionsReportOptionsDialog({ kind, open, onOpenChange, cate
     const category = new Map(catalogs.category.map((c) => [c.id, c.label]));
     const party = new Map(catalogs.party.map((c) => [c.id, c.label]));
     const cashbox = new Map(catalogs.cashbox.map((c) => [c.id, c.label]));
+    // the choices for entries that have no account / no cashbox are named too, so the report says what was chosen
+    category.set(NO_CATEGORY, 'بدون بند');
+    cashbox.set(NO_CASHBOX, 'بدون خزينة');
     return { category, party, cashbox };
   }, [catalogs]);
 
@@ -182,14 +188,15 @@ export function TransactionsReportOptionsDialog({ kind, open, onOpenChange, cate
   const activePresetId = useMemo(() => [...presets.builtIn, ...presets.saved].find((p) => sameOptions(p.options, options))?.id ?? null, [presets.builtIn, presets.saved, options]);
 
   const applyOne = (preset: ReportPreset) => {
+    // an account that was archived keeps its entries and stays in the list, so it still counts as existing
     const known = {
-      categories: new Set(catalogs.category.map((c) => c.id)),
+      categories: new Set([...catalogs.category.map((c) => c.id), ...transactions.map((t) => txCategoryId(t)).filter((id): id is string => Boolean(id))]),
       parties: new Set(catalogs.party.map((c) => c.id)),
       cashboxes: new Set(catalogs.cashbox.map((c) => c.id)),
     };
     const { options: next, dropped } = pruneUnknownChoices(applyPreset(options, preset), known);
     setOptions(next);
-    if (dropped > 0) toast.info(`${arabicCount(dropped, ['اختيار واحد', 'اختياران', 'اختيارات', 'اختياراً'])} من هذا الإعداد لم يعد موجوداً فتُرك.`);
+    if (dropped > 0) toast.info('تعذّر تطبيق جزء من هذا الإعداد لأن بعض اختياراته لم تعد موجودة.');
   };
   const saveCurrent = (name: string) => {
     const error = presets.save(name, options);
@@ -226,7 +233,7 @@ export function TransactionsReportOptionsDialog({ kind, open, onOpenChange, cate
       <ReportOptionsDialogShell
         open={open}
         onOpenChange={onOpenChange}
-        title={`خيارات تقرير ${text.plural}`}
+        title={`خيارات تقرير ال${text.plural}`}
         description="حدد الفترة والتصفية وشكل الجداول"
         icon={kind === 'REVENUE' ? TrendingUp : TrendingDown}
         accent={kind === 'REVENUE' ? 'green' : 'red'}

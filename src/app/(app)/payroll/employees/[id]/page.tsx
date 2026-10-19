@@ -109,7 +109,7 @@ export default function EmployeeProfilePage() {
   if (employeeRow.kind !== 'EMPLOYEE') {
     return (
       <div className={PAGE}>
-        <EmptyState icon={UserRoundX} title="هذا الملف ليس موظفاً" description="تُعرض الرواتب والإجازات لملفات الموظفين فقط." action={{ label: 'فتح بطاقة الجهة', href: `/contacts/${employeeRow.id}` }} />
+        <EmptyState icon={UserRoundX} title="هذا الملف ليس موظفاً" description="تُعرض الرواتب والإجازات لملفات الموظفين فقط." action={{ label: 'فتح ملف الجهة', href: `/contacts/${employeeRow.id}` }} />
       </div>
     );
   }
@@ -199,7 +199,7 @@ export default function EmployeeProfilePage() {
           <DropdownMenuItem asChild className="min-h-11 sm:min-h-0">
             <Link href={`/contacts/${employeeRow.id}`}>
               <FileText aria-hidden />
-              بطاقة الجهة
+              ملف الجهة
             </Link>
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -222,8 +222,8 @@ export default function EmployeeProfilePage() {
   // a database that lacks payroll or leave is said once, inside the tabs it affects and in the figures that depend on it
   const attention: AttentionItem[] = [];
   if (!roleLoading && !canManage) attention.push({ key: 'role', tone: 'info', text: 'تفاصيل الرواتب والسلف والإجازات متاحة للمحاسب ومدير النظام والمالك.' });
-  if (!employeeRow.is_active) attention.push({ key: 'inactive', tone: 'warning', text: 'هذا الملف غير نشط، فلا يدخل كشف الرواتب. يُعاد تفعيله من «تعديل» في بطاقة الجهة.' });
-  for (const a of data.alerts) attention.push({ key: a.key, tone: a.tone, text: `${a.label} — ${formatDate(a.date)}` });
+  if (!employeeRow.is_active) attention.push({ key: 'inactive', tone: 'warning', text: 'هذا الملف غير نشط، فلا يدخل كشف الرواتب. يُعاد تفعيله من «تعديل» في ملف الجهة.' });
+  for (const a of data.alerts) attention.push({ key: a.key, tone: a.tone, text: `${a.label} · ${formatDate(a.date)}` });
   if (canManage && payrollOn && !parts.structures.loading && !parts.structures.error && data.structures.length === 0) {
     attention.push({
       key: 'structure',
@@ -269,8 +269,8 @@ export default function EmployeeProfilePage() {
             : `يسري من ${formatMonthKeyAr(kpis.salary.since)}`
           : kpis.salary.source === 'card'
             ? data.structuresReadable
-              ? 'من بطاقة الجهة، بلا هيكل'
-              : 'من بطاقة الجهة'
+              ? 'من ملف الجهة، بلا هيكل'
+              : 'من ملف الجهة'
             : parts.structures.missing
               ? offNote
               : 'لم يُحدَّد هيكل الراتب',

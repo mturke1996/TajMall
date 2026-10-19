@@ -92,12 +92,12 @@ export function PartyTotalsReportPDF({
     <ReportShell
       title={titleAr}
       subtitle={subtitleAr ?? periodLabelAr}
-      documentTitle={`${titleAr} — ${periodLabelAr}`}
+      documentTitle={`${titleAr} · ${periodLabelAr}`}
       periodSummary={{
         eyebrow: tone === 'revenue' ? 'Customer revenue' : 'Party spend',
         title: periodLabelAr,
         subtitle: `${rows.length} ${partyLabelAr}`,
-        hint: `${pdfFmtNum(txCount)} معاملة مرتبطة`,
+        hint: `المعاملات المرتبطة: ${pdfFmtNum(txCount)}`,
         badge: tone === 'revenue' ? 'إيراد' : 'إنفاق',
       }}
       metaCells={[
@@ -166,7 +166,7 @@ export function PartyTotalsReportPDF({
       )}
 
       <Text style={pdfBase.caption}>
-        {ar('وثيقة مُولَّدة آلياً من منظومة تاج مول — تجميع حسب الجهة المرتبطة')}
+        {ar('منظومة تاج مول · تجميع حسب الجهة المرتبطة')}
       </Text>
     </ReportShell>
   );

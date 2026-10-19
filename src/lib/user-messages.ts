@@ -5,9 +5,9 @@
  */
 
 /** The database is missing a function or table this screen needs. */
-export const NEEDS_DB_UPDATE = 'تحتاج قاعدة البيانات إلى تحديث لتفعيل هذه الميزة — أبلغ مسؤول النظام.';
+export const NEEDS_DB_UPDATE = 'تحتاج قاعدة البيانات إلى تحديث لتفعيل هذه الميزة. أبلغ مسؤول النظام.';
 
-export const NO_PERMISSION = 'لا تملك صلاحية لهذا الإجراء — اطلب من المدير تعديل دورك.';
+export const NO_PERMISSION = 'لا تملك صلاحية لهذا الإجراء. اطلب من المدير تعديل دورك.';
 
 const GENERIC = 'حدث خطأ أثناء التحميل. أعد المحاولة، وإن تكرر أبلغ مسؤول النظام.';
 
@@ -17,7 +17,7 @@ export function technicalDetail(err: unknown): string {
   if (!err) return '';
   if (typeof err === 'string') return err;
   const e = err as ErrorLike;
-  return [e.code, e.message, e.details].filter((v) => typeof v === 'string' && v).join(' — ');
+  return [e.code, e.message, e.details].filter((v) => typeof v === 'string' && v).join(' · ');
 }
 
 const ARABIC = /[؀-ۿ]/;
@@ -33,13 +33,13 @@ export function friendlyError(err: unknown, fallback = GENERIC): string {
   }
   // a database rule may refuse in Arabic and say who can do it; keep that sentence
   if (code === '42501' || /permission denied|row-level security/.test(msg)) return ARABIC.test(raw) ? raw : NO_PERMISSION;
-  if (/jwt|session/.test(msg)) return 'انتهت الجلسة — سجّل الدخول مرة أخرى.';
-  if (/failed to fetch|network|timeout/.test(msg)) return 'تعذّر الاتصال بالخادم — تحقق من الإنترنت ثم أعد المحاولة.';
+  if (/jwt|session/.test(msg)) return 'انتهت الجلسة. سجّل الدخول مرة أخرى.';
+  if (/failed to fetch|network|timeout/.test(msg)) return 'تعذّر الاتصال بالخادم. تحقق من الإنترنت ثم أعد المحاولة.';
   // The database's own rules (RAISE EXCEPTION) are written in Arabic for the person using the screen.
   if (ARABIC.test(raw)) return raw;
   if (code === '23505') return 'هذه القيمة مسجّلة من قبل.';
   if (code === '23503') return 'السجل مرتبط بسجلات أخرى، أو أحد الاختيارات لم يعد موجوداً.';
-  if (code === '23502' || code === '23514') return 'بيانات ناقصة أو غير مقبولة — راجع الحقول ثم أعد المحاولة.';
-  if (['22P02', '22007', '22008', '22003'].includes(code)) return 'قيمة غير صالحة في أحد الحقول — راجع المبلغ والتاريخ.';
+  if (code === '23502' || code === '23514') return 'بيانات ناقصة أو غير مقبولة. راجع الحقول ثم أعد المحاولة.';
+  if (['22P02', '22007', '22008', '22003'].includes(code)) return 'قيمة غير صالحة في أحد الحقول. راجع المبلغ والتاريخ.';
   return fallback;
 }

@@ -319,7 +319,7 @@ export function validateLeaveRange(input: {
   if (!start || !end || weekdayOf(start) < 0 || weekdayOf(end) < 0) return "حدّد بداية الإجازة ونهايتها";
   if (end < start) return "تاريخ نهاية الإجازة قبل تاريخ بدايتها";
   const gap = daysBetween(start, end);
-  if (gap != null && gap > 365) return "مدة الإجازة أطول من سنة — قسّمها على فترتين";
+  if (gap != null && gap > 365) return "مدة الإجازة أطول من سنة. قسّمها على فترتين.";
   if (start < "2020-01-01" || end > addDaysISO(input.today, 730)) return "تاريخ الإجازة غير معقول، راجع السنة";
   if (input.type === "OTHER" && (input.reason ?? "").trim().length < 3) return "اكتب سبب الإجازة";
   if (input.hireDate && start < input.hireDate.slice(0, 10)) return "تبدأ الإجازة قبل تاريخ تعيين الموظف";

@@ -150,7 +150,7 @@ export function LeaveRequestDialog({
         overrideNote: overrideNeeded ? overrideNote.trim() : null,
       });
       toast.success(approves ? 'سُجّلت الإجازة واعتُمدت' : 'سُجّل طلب الإجازة', {
-        description: approves ? `${employee.name} — ${workingDaysLabel(ev.days)}` : 'بانتظار قرار المالك أو المدير',
+        description: approves ? `${employee.name} · ${workingDaysLabel(ev.days)}` : 'بانتظار قرار المالك أو المدير',
       });
       onOpenChange(false);
     } catch (e) {
@@ -173,7 +173,7 @@ export function LeaveRequestDialog({
       dirty={reason.trim() !== ''}
       size="lg"
       title="طلب إجازة"
-      description={employee ? `${employee.name} — الجمعة والسبت عطلة أسبوعية ولا تُحسب من الإجازة.` : undefined}
+      description={employee ? `${employee.name}. الجمعة والسبت عطلة أسبوعية ولا تُحسب من الإجازة.` : undefined}
       onSubmit={submit}
       submitLabel={approves ? 'سجّل واعتمد' : 'سجّل الطلب'}
       submitDisabled={blocked}
@@ -373,7 +373,7 @@ export function LeaveDecisionDialog({
       busy={busy}
       dirty={note.trim() !== ''}
       title={cfg.title}
-      description={request ? `${employeeName ? `${employeeName} — ` : ''}${leaveTypeLabel(request.leave_type, true)}، ${formatLeaveRange(request.start_date, request.end_date)}` : cfg.description}
+      description={request ? `${employeeName ? `${employeeName} · ` : ''}${leaveTypeLabel(request.leave_type, true)}، ${formatLeaveRange(request.start_date, request.end_date)}` : cfg.description}
       onSubmit={submit}
       submitLabel={cfg.submit}
       submitDisabled={invalid}

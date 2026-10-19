@@ -12,7 +12,10 @@ import { PRESET_NAME_MAX, describeOptions, type ReportPreset } from '@/lib/repor
 import { cn } from '@/lib/utils';
 import { ChipButton, INPUT_CLASS } from './option-ui';
 
-export function PresetsBar({
+/** What the bar needs of a preset. A report with its own options type passes its presets and a `describe`. */
+type PresetLike = { id: string; name: string };
+
+export function PresetsBar<P extends PresetLike = ReportPreset>({
   builtIn,
   saved,
   activeId,
@@ -21,25 +24,29 @@ export function PresetsBar({
   onDelete,
   onRestore,
   onSave,
+  describe,
 }: {
-  builtIn: ReportPreset[];
-  saved: ReportPreset[];
+  builtIn: P[];
+  saved: P[];
   /** the preset whose options are the current ones, if any */
   activeId: string | null;
   /** false when the browser would not store them (they last for this visit only) */
   persisted: boolean;
-  onApply: (preset: ReportPreset) => void;
-  onDelete: (preset: ReportPreset) => void;
+  onApply: (preset: P) => void;
+  onDelete: (preset: P) => void;
   /** brings back the preset that was just deleted (the bar offers «تراجع» for a few seconds) */
-  onRestore: (preset: ReportPreset) => void;
+  onRestore: (preset: P) => void;
   /** returns an error message to show, or null when saved */
   onSave: (name: string) => string | null;
+  /** the one line a preset shows as its tooltip; transactions reports (ReportPreset) need not pass it */
+  describe?: (preset: P) => string;
 }) {
+  const describeOne = (p: P) => (describe ? describe(p) : describeOptions((p as unknown as ReportPreset).options));
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   // the preset just deleted, kept for a few seconds so a slip can be undone (a toast's button cannot be pressed under a dialog)
-  const [removed, setRemoved] = useState<ReportPreset | null>(null);
+  const [removed, setRemoved] = useState<P | null>(null);
   const openerRef = useRef<HTMLButtonElement>(null);
   const groupRef = useRef<HTMLDivElement>(null);
   const inputId = useId();
@@ -84,7 +91,7 @@ export function PresetsBar({
 
       <div ref={groupRef} tabIndex={-1} className="mt-3 flex flex-wrap gap-2 outline-hidden" role="group" aria-label="الإعدادات">
         {builtIn.map((p) => (
-          <ChipButton key={p.id} selected={activeId === p.id} onClick={() => onApply(p)} title={describeOptions(p.options)}>
+          <ChipButton key={p.id} selected={activeId === p.id} onClick={() => onApply(p)} title={describeOne(p)}>
             {p.name}
           </ChipButton>
         ))}
@@ -101,7 +108,7 @@ export function PresetsBar({
               <button
                 type="button"
                 aria-pressed={on}
-                title={describeOptions(p.options)}
+                title={describeOne(p)}
                 onClick={() => onApply(p)}
                 className="inline-flex min-h-11 items-center gap-1.5 ps-3.5 pe-1 hover:bg-canvas-sunken focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:min-h-8 sm:ps-3"
               >

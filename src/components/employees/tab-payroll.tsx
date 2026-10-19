@@ -45,7 +45,7 @@ function Payslip({ line, adjustments }: { line: PayrollRunLine; adjustments: Emp
   return (
     <TajMallPdfToolbar
       fileName={`قسيمة-راتب-${line.employee_name}-${lineMonth(line)}`}
-      shareTitle={`قسيمة راتب ${line.employee_name} — ${formatMonthKeyAr(lineMonth(line))}`}
+      shareTitle={`قسيمة راتب ${line.employee_name} · ${formatMonthKeyAr(lineMonth(line))}`}
       cacheKey={`${line.id}-${line.paid}-${line.run_status}`}
       openLabel="القسيمة"
       showDownload={false}
@@ -217,7 +217,7 @@ export function PayrollTab({
               {!data.structuresReadable
                 ? 'هيكل الراتب متاح للمحاسب ومدير النظام والمالك.'
                 : kpis.salary.source === 'card'
-                  ? `الراتب المسجَّل في بطاقة الجهة ${formatMoney(kpis.salary.total, 'LYD')} ولا هيكل له. حدّد الهيكل ليدخل الكشوف.`
+                  ? `الراتب المسجَّل في ملف الجهة ${formatMoney(kpis.salary.total, 'LYD')} ولا هيكل له. حدّد الهيكل ليدخل الكشوف.`
                   : 'لا هيكل راتب بعد.'}
             </EmptyBlock>
           )}

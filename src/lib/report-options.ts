@@ -48,6 +48,9 @@ export const MONTHS_AR = [
 
 /** the filter value that stands for "entries with no party" */
 export const NO_PARTY = '__none__';
+/** the same for "entries with no account" and "entries with no cashbox": the id the lists give them, so ticking it keeps exactly those entries */
+export const NO_CATEGORY = 'none';
+export const NO_CASHBOX = 'none';
 
 const ENTRY_FORMS: [string, string, string, string] = ['معاملة واحدة', 'معاملتان', 'معاملات', 'معاملة'];
 export const entriesLabel = (n: number) => arabicCount(n, ENTRY_FORMS);
@@ -454,9 +457,9 @@ export function buildRowTest(
   const test = (tx: ReportTxLike): boolean => {
     if (!opts.ignoreStatus && !isCountedStatus(tx.status, f.includeDrafts)) return false;
     if (!matchesPeriod(tx.tx_date, period)) return false;
-    if (cats && !cats.has(txCategoryId(tx) ?? '')) return false;
+    if (cats && !cats.has(txCategoryId(tx) ?? NO_CATEGORY)) return false;
     if (parties && !parties.has(txPartyId(tx) ?? NO_PARTY)) return false;
-    if (boxes && !boxes.has(txCashboxId(tx) ?? '')) return false;
+    if (boxes && !boxes.has(txCashboxId(tx) ?? NO_CASHBOX)) return false;
     if (methods && !methods.has(txMethod(tx))) return false;
     if (amount.error) return false;
     if (minM != null || maxM != null) {
@@ -673,9 +676,9 @@ export type FacetItem = { id: string; label: string; hint?: string; count: numbe
 export type FacetCatalogEntry = { id: string; label: string; hint?: string };
 
 const facetKey = {
-  category: (tx: ReportTxLike) => txCategoryId(tx) ?? 'none',
+  category: (tx: ReportTxLike) => txCategoryId(tx) ?? NO_CATEGORY,
   party: (tx: ReportTxLike) => txPartyId(tx) ?? NO_PARTY,
-  cashbox: (tx: ReportTxLike) => txCashboxId(tx) ?? 'none',
+  cashbox: (tx: ReportTxLike) => txCashboxId(tx) ?? NO_CASHBOX,
 } as const;
 
 /**
@@ -702,7 +705,7 @@ export function facetItems(rows: readonly ReportTxLike[], facet: 'category' | 'p
   }
   for (const [id, e] of acc) {
     if (out.has(id)) continue;
-    const fallback = id === NO_PARTY ? 'بدون جهة' : id === 'none' ? (facet === 'category' ? 'بدون بند' : 'بدون خزينة') : 'غير معروف';
+    const fallback = id === NO_PARTY ? 'بدون جهة' : id === NO_CATEGORY ? (facet === 'category' ? 'بدون بند' : 'بدون خزينة') : 'غير معروف';
     out.set(id, { id, label: e.label || fallback, count: e.count, total: e.millis / 1000 });
   }
   return [...out.values()].sort((a, b) => (b.count > 0 ? 1 : 0) - (a.count > 0 ? 1 : 0) || b.total - a.total || a.label.localeCompare(b.label, 'ar'));
@@ -804,9 +807,9 @@ export function pruneUnknownChoices(
       ...options,
       filters: {
         ...f,
-        categoryIds: keep(f.categoryIds, known.categories),
+        categoryIds: keep(f.categoryIds, known.categories, NO_CATEGORY),
         partyIds: keep(f.partyIds, known.parties, NO_PARTY),
-        cashboxIds: keep(f.cashboxIds, known.cashboxes),
+        cashboxIds: keep(f.cashboxIds, known.cashboxes, NO_CASHBOX),
       },
     },
     dropped,
@@ -1032,7 +1035,7 @@ export function describeOptions(o: TransactionReportOptions): string {
       : o.period.mode === 'QUICK'
         ? QUICK_PERIODS.find((q) => q.id === o.period.quick)?.label ?? 'فترة'
         : o.period.mode === 'MONTHS'
-          ? `${o.period.months.length} من الأشهر`
+          ? arabicCount(o.period.months.length, ['شهر واحد', 'شهران', 'أشهر', 'شهراً'])
           : 'نطاق مخصص';
   const grouping = GROUPING_OPTIONS.find((g) => g.id === o.layout.grouping)?.label ?? '';
   const group = o.layout.grouping === 'NONE' ? 'بدون تجميع' : o.layout.grouping === 'METHOD' ? 'حسب طريقة الدفع' : `حسب ${grouping}`;

@@ -441,7 +441,7 @@ export function AdjustmentDialog({
               return (
                 <option key={c.month} value={c.month} disabled={c.posted}>
                   {formatMonthKeyAr(c.month)}
-                  {c.posted ? ' — مُرحَّل' : covered ? ` — ${arabicCount(covered.days, ['يوم', 'يومان', 'أيام', 'يوماً'])}` : ''}
+                  {c.posted ? ' (مُرحَّل)' : covered ? ` (${arabicCount(covered.days, ['يوم', 'يومان', 'أيام', 'يوماً'])})` : ''}
                 </option>
               );
             })}
@@ -740,7 +740,7 @@ export function PayLineDialog({
       onOpenChange={onOpenChange}
       busy={pay.isPending}
       title="صرف راتب"
-      description={line ? `${line.employee_name} — ${formatMonthKeyAr(line.period_month.slice(0, 7))}` : undefined}
+      description={line ? `${line.employee_name} · ${formatMonthKeyAr(line.period_month.slice(0, 7))}` : undefined}
       submitLabel="اصرف المبلغ"
       onSubmit={submit}
       submitDisabled={invalid}
@@ -828,7 +828,7 @@ export function PayAllDialog({
       onOpenChange={onOpenChange}
       busy={busy}
       title="صرف كل الرواتب المتبقية"
-      description={`كشف ${formatMonthKeyAr(month)} — حركة صرف منفصلة لكل موظف من الخزينة المختارة.`}
+      description={`كشف ${formatMonthKeyAr(month)}: حركة صرف منفصلة لكل موظف من الخزينة المختارة.`}
       wide
       submitLabel={busy ? `جارٍ الصرف ${done}/${due.length}` : failures.length ? `أعد المحاولة (${due.length})` : `اصرف ${arabicCount(due.length, ['راتباً واحداً', 'راتبين', 'رواتب', 'راتباً'])}`}
       onSubmit={submit}
@@ -849,7 +849,7 @@ export function PayAllDialog({
           <ul className="mt-1 list-disc ps-5">
             {failures.map((f) => (
               <li key={f.lineId}>
-                {f.name} — {f.message}
+                {f.name}: {f.message}
               </li>
             ))}
           </ul>

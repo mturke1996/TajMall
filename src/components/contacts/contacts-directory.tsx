@@ -126,6 +126,17 @@ export function ContactsDirectory({ directory: d, segment, role, onRoleChange }:
         <RoleChips chips={chips} counts={d.roleCounts} value={role} onChange={onRoleChange} />
       </div>
 
+      {/* always on the page, so a screen reader hears the new number when a search or a filter changes the list */}
+      <p role="status" className="sr-only">
+        {d.isLoading || d.loadFailed || d.segmentRows.length === 0
+          ? ''
+          : d.rows.length === 0
+            ? d.searchQuery.trim() !== ''
+              ? 'لا يوجد ما يطابق البحث.'
+              : 'لا توجد ملفات بهذا الدور.'
+            : arabicCount(d.rows.length, FILES)}
+      </p>
+
       {showLandlordDues && (
         <div className="space-y-3">
           <LandlordDuesPanel />
@@ -162,7 +173,7 @@ export function ContactsDirectory({ directory: d, segment, role, onRoleChange }:
       ) : (
         <section aria-label={copy.table} className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-1 text-[12.5px] text-ink-mute">
-            <p aria-live="polite">{arabicCount(d.rows.length, FILES)}</p>
+            <p>{arabicCount(d.rows.length, FILES)}</p>
             {d.activityState === 'error' && (
               <p className="flex items-center gap-1 text-danger-ink">
                 تعذّر تحميل الحركات

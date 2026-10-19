@@ -16,6 +16,7 @@ import {
 } from './pdf-payment';
 import { isRentCategoryCode } from '@/lib/charge-invoice';
 import { contactKindLabelAr } from '@/lib/party-contacts';
+import { arabicCount } from '@/lib/utils';
 import { extractContactBusinessRole, CONTACT_ROLES } from '@/lib/contacts/contact-roles';
 import { isCountedTransaction } from '@/lib/contacts/contact-transactions';
 import type { ContactRow } from '@/lib/db/types';
@@ -164,21 +165,21 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
 
   const rentStatusAr =
     rent?.current_month_status === 'paid_full'
-      ? 'مسدد'
+      ? 'مسدّد'
       : rent?.current_month_status === 'paid_partial'
-        ? 'جزئي'
+        ? 'مسدّد جزئياً'
         : rent?.current_month_status === 'no_rent_set'
           ? '—'
-          : 'غير مسدد';
+          : 'غير مسدّد';
 
   const title = isTenant
-    ? `ملف المستأجر — ${contact.name}`
+    ? `ملف المستأجر: ${contact.name}`
     : isLandlord
-      ? `ملف المؤجر للمول — ${contact.name}`
-      : `ملف ${kindLabel} — ${contact.name}`;
+      ? `ملف المؤجر للمول: ${contact.name}`
+      : `ملف ${kindLabel}: ${contact.name}`;
 
   const subtitle = isLandlord
-    ? `${contact.shop_number ? `موقع: ${contact.shop_number} · ` : ''}إيجار مستحق: ${pdfFormatAmountRaw(Number(contact.monthly_rent) || 0)} د.ل/شهر`
+    ? `${contact.shop_number ? `موقع: ${contact.shop_number} · ` : ''}الإيجار الشهري: ${pdfFormatAmountRaw(Number(contact.monthly_rent) || 0)} د.ل`
     : contact.shop_number
       ? `محل ${contact.shop_number}${contact.floor ? ` · طابق ${contact.floor}` : ''}`
       : contact.job_title
@@ -219,7 +220,7 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
             <Text style={s.summaryValue}>{ar(rentStatusAr)}</Text>
           </View>
           <View style={s.summaryCard}>
-            <Text style={s.summaryLabel}>{ar('المسدد هذا الشهر')}</Text>
+            <Text style={s.summaryLabel}>{ar('المسدّد هذا الشهر')}</Text>
             <PdfMoneyText
               amount={Number(rent.current_month_paid) || 0}
               style={s.summaryValue}
@@ -230,7 +231,7 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
             <View style={[s.summaryCard, { backgroundColor: '#fef2f2' }]}>
               <Text style={s.summaryLabel}>{ar('مطالبات مفتوحة')}</Text>
               <Text style={[s.summaryValue, { color: '#b91c1c' }]}>
-                {ar(`${pdfFormatAmountRaw(openCount)} مطالبة`)}
+                {ar(arabicCount(openCount, ['مطالبة واحدة', 'مطالبتان', 'مطالبات', 'مطالبة']))}
               </Text>
               <PdfMoneyText
                 amount={openTotal}

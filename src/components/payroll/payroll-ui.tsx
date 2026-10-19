@@ -234,7 +234,7 @@ export function EmployeeSelect({
         {employees.map((e) => (
           <SelectItem key={e.id} value={e.id}>
             {e.name}
-            {e.job_title ? <span className="ms-1.5 text-muted-foreground">— {e.job_title}</span> : null}
+            {e.job_title ? <span className="ms-1.5 text-muted-foreground">· {e.job_title}</span> : null}
           </SelectItem>
         ))}
       </SelectContent>

@@ -42,12 +42,13 @@ export function SearchableMultiSelect({
 
   const found = useMemo(() => items.filter((i) => matchesSearch(query, [i.label, i.hint])), [items, query]);
   const shown = found.slice(0, maxVisible);
-  const allShownChosen = shown.length > 0 && shown.every((i) => chosen.has(i.id));
+  // select all / clear all act on everything the search found, not only on the rows drawn (a long list is cut at maxVisible)
+  const allFoundChosen = found.length > 0 && found.every((i) => chosen.has(i.id));
 
   const toggle = (id: string) => onChange(chosen.has(id) ? selected.filter((x) => x !== id) : [...selected, id]);
-  const selectShown = () => onChange([...new Set([...selected, ...shown.map((i) => i.id)])]);
-  const clearShown = () => {
-    const drop = new Set(shown.map((i) => i.id));
+  const selectFound = () => onChange([...new Set([...selected, ...found.map((i) => i.id)])]);
+  const clearFound = () => {
+    const drop = new Set(found.map((i) => i.id));
     onChange(selected.filter((id) => !drop.has(id)));
   };
 
@@ -82,11 +83,11 @@ export function SearchableMultiSelect({
         </div>
         <button
           type="button"
-          onClick={allShownChosen ? clearShown : selectShown}
-          disabled={shown.length === 0}
+          onClick={allFoundChosen ? clearFound : selectFound}
+          disabled={found.length === 0}
           className="min-h-11 rounded-md px-3 text-[13px] font-medium text-info-ink hover:bg-info-soft focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50 sm:min-h-9"
         >
-          {allShownChosen ? 'إلغاء تحديد الكل' : query ? 'تحديد نتائج البحث' : 'تحديد الكل'}
+          {allFoundChosen ? (query ? 'إلغاء تحديد النتائج' : 'إلغاء تحديد الكل') : query ? 'تحديد نتائج البحث' : 'تحديد الكل'}
         </button>
       </div>
 

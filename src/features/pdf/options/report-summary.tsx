@@ -40,7 +40,8 @@ const HEAD_TONE: Record<Tone, string> = {
 };
 const BAR_TONE: Record<Tone, string> = { info: 'bg-chart-blue', success: 'bg-chart-green', danger: 'bg-chart-red' };
 
-const PAGE_FORMS: [string, string, string, string] = ['صفحة واحدة', 'صفحتان', 'صفحات', 'صفحة'];
+// the dual is genitive («نحو صفحتين») because it follows «نحو»
+const PAGE_FORMS: [string, string, string, string] = ['صفحة واحدة', 'صفحتين', 'صفحات', 'صفحة'];
 export const pagesLabel = (n: number) => `نحو ${arabicCount(n, PAGE_FORMS)}`;
 
 function Warnings({ warnings }: { warnings: ReportWarning[] }) {
@@ -133,7 +134,7 @@ function Details({ data }: { data: ReportSummaryData }) {
           onClick={data.onClearFilters}
           className="min-h-11 w-fit rounded-md px-2 text-[13px] font-medium text-info-ink hover:bg-info-soft focus-visible:outline-2 focus-visible:outline-ring sm:min-h-8"
         >
-          مسح كل الفلاتر ({data.filtersActive})
+          مسح كل التصفيات ({data.filtersActive})
         </button>
       ) : null}
     </div>

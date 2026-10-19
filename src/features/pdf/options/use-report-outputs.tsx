@@ -65,6 +65,8 @@ export function useReportOutputs({
   const blobRef = useRef<Blob | null>(null);
   // the button that started the output: the viewer has no trigger of its own, so focus is put back here when it closes
   const pressedRef = useRef<HTMLElement | null>(null);
+  // false once the dialog that owns this hook is gone (the expenses page remounts it on close): a late result must not open a viewer nobody can close
+  const aliveRef = useRef(true);
 
   // what the device can do is read on the client only, so the server's render and the first client render agree
   const canShare = useSyncExternalStore(noSubscription, deviceCanShareFiles, () => false);
@@ -77,8 +79,12 @@ export function useReportOutputs({
     setPreviewUrl(null);
   }, []);
 
-  useEffect(() => () => {
-    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
   }, []);
 
   const closePreview = useCallback(
@@ -107,7 +113,8 @@ export function useReportOutputs({
   const run = useCallback(
     async (kind: ReportOutput, task: () => Promise<void>) => {
       if (busy || disabled) return;
-      pressedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      // while the viewer is open the press comes from inside it (its download or share button), which is gone when it closes: keep the options dialog's own button
+      if (!previewOpen) pressedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setBusy(kind);
       setError(null);
       try {
@@ -121,7 +128,7 @@ export function useReportOutputs({
         setBusy(null);
       }
     },
-    [busy, disabled],
+    [busy, disabled, previewOpen],
   );
 
   const showInViewer = useCallback(
@@ -136,6 +143,7 @@ export function useReportOutputs({
         }
         URL.revokeObjectURL(popupUrl);
       }
+      if (!aliveRef.current) return;
       revokePreviewUrl();
       const url = URL.createObjectURL(blob);
       previewUrlRef.current = url;

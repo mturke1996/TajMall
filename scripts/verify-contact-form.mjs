@@ -619,7 +619,7 @@ check('a save error is one plain sentence; the database\'s own Arabic sentence p
   assert.match(utils.formatContactSaveError({ message: 'new row violates row-level security policy' }), /مشاهد/);
   assert.match(utils.formatContactSaveError({ message: 'duplicate key value' }), /مكرر/);
   assert.equal(utils.formatContactSaveError({ message: 'غير مصرح: الرواتب تتطلب محاسباً أو مديراً', code: '42501' }).includes('محاسباً'), true);
-  assert.equal(utils.formatContactSaveError(null), 'تعذّر الحفظ — حاول مرة أخرى.');
+  assert.equal(utils.formatContactSaveError(null), 'تعذّر الحفظ. حاول مرة أخرى.');
 });
 
 console.log(`\n✓ verify-contact-form: ${passed} checks passed`);

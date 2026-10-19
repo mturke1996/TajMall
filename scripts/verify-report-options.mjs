@@ -296,6 +296,49 @@ check('selection: the period filters by day and an invalid range yields an issue
   assert.equal(bad.valid, false);
 });
 
+check('selection: «بدون بند» and «بدون خزينة» are real choices: ticking one keeps exactly the entries that have none', () => {
+  const full = tx();
+  const noCat = tx({ category_id: null, category: null });
+  const noBox = tx({ cashbox_id: null, cashbox: null });
+  const rows = [full, noCat, noBox];
+  const pick = (filters) => ids(R.selectReportRows(rows, opts({ filters }), TODAY).rows).sort();
+  assert.deepEqual(pick({ categoryIds: [R.NO_CATEGORY] }), [noCat.id]);
+  assert.deepEqual(pick({ categoryIds: [R.NO_CATEGORY, 'c1'] }), [full.id, noCat.id, noBox.id].sort());
+  assert.deepEqual(pick({ cashboxIds: [R.NO_CASHBOX] }), [noBox.id]);
+  assert.deepEqual(pick({ cashboxIds: [R.NO_CASHBOX, 'b1'] }), [full.id, noCat.id, noBox.id].sort());
+  // the list offers them under the same ids, so what a choice shows (count and total) is what ticking it gives
+  const cats = R.facetItems(rows, 'category', []);
+  assert.equal(cats.find((i) => i.id === R.NO_CATEGORY).count, pick({ categoryIds: [R.NO_CATEGORY] }).length);
+  const boxes = R.facetItems(rows, 'cashbox', []);
+  assert.equal(boxes.find((i) => i.id === R.NO_CASHBOX).count, pick({ cashboxIds: [R.NO_CASHBOX] }).length);
+  assert.equal(boxes.find((i) => i.id === R.NO_CASHBOX).label, 'بدون خزينة');
+});
+
+check('selection: a voided or draft entry outside the period or the filters is not reported as left out', () => {
+  const rows = [
+    tx({ status: 'VOIDED', tx_date: '2026-10-05' }), // in the period: counted as left out
+    tx({ status: 'VOIDED', tx_date: '2025-10-05' }), // another year
+    tx({ status: 'VOIDED', method: 'CARD' }), // another method
+    tx({ status: 'DRAFT', tx_date: '2026-09-30' }),
+    tx(),
+  ];
+  const sel = R.selectReportRows(rows, opts({ period: { mode: 'QUICK', quick: 'THIS_MONTH' }, filters: { methods: ['CASH'] } }), TODAY);
+  assert.equal(sel.rows.length, 1);
+  assert.deepEqual(sel.excluded, { voided: 1, drafts: 0 });
+});
+
+check('selection: a very large list of rows and of chosen ids stays correct', () => {
+  const many = Array.from({ length: 6000 }, (_, i) => tx({ id: `m${i}`, number: i, category_id: `k${i % 1500}`, category: { id: `k${i % 1500}`, name_ar: `بند ${i % 1500}` }, contact: { id: `q${i % 300}`, name: `جهة ${i % 300}` } }));
+  const chosen = Array.from({ length: 1000 }, (_, i) => `k${i}`);
+  const started = Date.now();
+  const sel = R.selectReportRows(many, opts({ filters: { categoryIds: chosen } }), TODAY);
+  assert.equal(sel.rows.length, 4000); // 1000 of the 1500 accounts, 4 entries each
+  assert.ok(Date.now() - started < 2000, 'a thousand chosen accounts over six thousand entries takes well under two seconds');
+  const items = R.facetItems(many, 'party', []);
+  assert.equal(items.length, 300);
+  assert.equal(items[0].count, 20);
+});
+
 check('selection: inPeriod counts what the period alone would give, so «بدون التصفية» is honest', () => {
   const rows = [tx(), tx({ category_id: 'c2' }), tx({ category_id: 'c2' })];
   const sel = R.selectReportRows(rows, opts({ filters: { categoryIds: ['c9'] } }), TODAY);
@@ -720,6 +763,23 @@ check('facet catalogs: accounts as given, parties and cashboxes from the rows, �
   const items = R.facetItems(rows.slice(0, 1), 'party', c.party);
   assert.equal(items.find((x) => x.id === 'p2').count, 1);
   assert.equal(items.find((x) => x.id === 'p1').count, 0);
+});
+
+check('pruneUnknownChoices keeps the «بدون بند» and «بدون خزينة» choices', () => {
+  const o = opts({ filters: { categoryIds: [R.NO_CATEGORY, 'gone'], cashboxIds: [R.NO_CASHBOX, 'b9'] } });
+  const r = R.pruneUnknownChoices(o, { categories: new Set(['c1']), parties: new Set(), cashboxes: new Set(['b1']) });
+  assert.equal(r.dropped, 2);
+  assert.deepEqual(r.options.filters.categoryIds, [R.NO_CATEGORY]);
+  assert.deepEqual(r.options.filters.cashboxIds, [R.NO_CASHBOX]);
+});
+
+check('describeOptions: the period and layout in plain words, months counted in Arabic', () => {
+  const months = (list) => R.describeOptions(opts({ period: { mode: 'MONTHS', year: 2026, months: list }, layout: { grouping: 'CATEGORY', sort: 'AMOUNT_DESC', signature: true } }));
+  assert.equal(months([3]), 'شهر واحد · حسب البند · المبلغ الأكبر أولاً · مع التوقيع');
+  assert.match(months([3, 4]), /^شهران · /);
+  assert.match(months([1, 2, 3, 4, 5]), /^5 أشهر · /);
+  assert.match(months([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]), /^12 شهراً · /);
+  assert.equal(R.describeOptions(opts()), 'كل المدة · حسب طريقة الدفع · الأحدث أولاً');
 });
 
 check('clearFilters: every filter off, and a fresh object each time', () => {

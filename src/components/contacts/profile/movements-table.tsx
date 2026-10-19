@@ -83,7 +83,7 @@ export function MovementsTable({ rows, isFiltered }: { rows: TransactionWithRela
         ),
         footer: ({ table }) => (
           <span className="text-ink-mute">
-            الإجمالي · {arabicCount(table.getSortedRowModel().rows.length, ['معاملة واحدة', 'معاملتان', 'معاملات', 'معاملة'])}
+            الإجمالي · {arabicCount(table.getSortedRowModel().rows.length, ['حركة واحدة', 'حركتان', 'حركات', 'حركة'])}
           </span>
         ),
       },

@@ -364,26 +364,26 @@ export function formatContactSaveError(error: unknown): string {
       msg.includes('row-level security') ||
       msg.includes('violates row-level security')
     ) {
-      return 'لا توجد صلاحية للحفظ — دورك «مشاهد» (قراءة فقط). اطلب من المدير ترقية دورك من صفحة المستخدمين.';
+      return 'لا توجد صلاحية للحفظ. دورك «مشاهد» للقراءة فقط، فاطلب من المدير تغيير دورك من صفحة المستخدمين.';
     }
     if (msg.includes('permission denied') || msg.includes('42501')) {
-      return 'لا توجد صلاحية للحفظ — تأكد من تسجيل الدخول ومن دورك (مدير، محاسب، أمين صندوق).';
+      return 'لا توجد صلاحية للحفظ. تأكد من تسجيل الدخول ومن دورك (مدير، محاسب، أمين صندوق).';
     }
     if (msg.includes('portal_token')) {
       return NEEDS_DB_UPDATE;
     }
     if (msg.includes('JWT') || msg.includes('session')) {
-      return 'انتهت الجلسة — سجّل الدخول مرة أخرى';
+      return 'انتهت الجلسة. سجّل الدخول مرة أخرى.';
     }
     if (msg.includes('duplicate key') || msg.includes('unique')) {
-      return 'سجل مكرر — غيّر الاسم أو الرمز';
+      return 'هذا السجل موجود مسبقاً. غيّر الاسم أو الرمز.';
     }
     // an update that matched no row (PGRST116 "Cannot coerce the result to a single JSON object"): the
     // database allowed nothing to change, usually because the role may not edit
     if ((error as { code?: string }).code === 'PGRST116' || msg.includes('single JSON object')) {
-      return 'لم يُحفظ التعديل — قد لا تملك صلاحية تعديل هذا الملف، أو حُذف. أعد تحميل الصفحة.';
+      return 'لم يُحفظ التعديل. قد لا تملك صلاحية تعديل هذا الملف، أو يكون قد حُذف. أعد تحميل الصفحة.';
     }
-    return friendlyError(error, 'تعذّر الحفظ — حاول مرة أخرى.');
+    return friendlyError(error, 'تعذّر الحفظ. حاول مرة أخرى.');
   }
-  return 'تعذّر الحفظ — حاول مرة أخرى.';
+  return 'تعذّر الحفظ. حاول مرة أخرى.';
 }

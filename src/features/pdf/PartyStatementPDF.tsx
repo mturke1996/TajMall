@@ -5,6 +5,7 @@ import { ReportPage } from './ReportShell';
 import { BRAND } from '@/lib/brand';
 import { ar } from './arabicPDF';
 import { PDF } from './pdfBase';
+import { arabicCount } from '@/lib/utils';
 import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTable';
 import type { Statement } from '@/lib/people/party-profile';
 
@@ -122,7 +123,7 @@ export function PartyStatementPage({ name, code, phone, roleLabel, issuedOn, sta
         <PdfReportMoney amount={totalReceived} bold showZero />
       </View>
       <View style={{ width: W.desc }}>
-        <Text style={pdfReportTable.totalsRowLabel}>{ar(`المجموع (${rows.length} حركة)`)}</Text>
+        <Text style={pdfReportTable.totalsRowLabel}>{ar(`المجموع (${arabicCount(rows.length, ['حركة واحدة', 'حركتان', 'حركات', 'حركة'])})`)}</Text>
       </View>
       <View style={{ width: W.date }} />
     </View>
@@ -131,6 +132,7 @@ export function PartyStatementPage({ name, code, phone, roleLabel, issuedOn, sta
   return (
     <ReportPage
       title="كشف حساب"
+      titleEn="STATEMENT"
       subtitle={`${name} · ${roleLabel}`}
       summaryPrimaryDateIso={issuedOn}
       summaryPrimaryDateLabel="تاريخ الكشف"

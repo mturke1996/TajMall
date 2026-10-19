@@ -107,7 +107,7 @@ export function PayslipPDF({
     <ReportShell
       title="قسيمة راتب"
       titleEn="PAYSLIP"
-      subtitle={`${line.employee_name} — ${monthAr}`}
+      subtitle={`${line.employee_name} · ${monthAr}`}
       documentTitle={`قسيمة راتب ${line.employee_name} ${monthAr}`}
       periodSummary={{
         eyebrow: 'Payslip',

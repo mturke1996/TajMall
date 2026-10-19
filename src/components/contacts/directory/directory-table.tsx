@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { SORT_LABEL, defaultDirOf, type SortKey, type SortState } from '@/lib/contacts/directory';
+import { defaultDirOf, type SortKey, type SortState } from '@/lib/contacts/directory';
 
 /** A column title that sorts. The sort is announced (aria-sort) and the button says what pressing it does. */
 function SortHeader({
@@ -15,7 +15,8 @@ function SortHeader({
   sortKey: SortKey;
   sort: SortState;
   onSort: (next: SortState) => void;
-  children: ReactNode;
+  /** the column title; the button's name starts from the words on screen (WCAG label in name) */
+  children: string;
 }) {
   const active = sort.key === sortKey;
   const Icon = !active ? ChevronsUpDown : sort.dir === 'asc' ? ArrowUp : ArrowDown;
@@ -27,7 +28,7 @@ function SortHeader({
         '-mx-1.5 inline-flex min-h-9 items-center gap-1.5 rounded-md px-1.5 font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
         active ? 'text-foreground' : 'text-ink-mute',
       )}
-      aria-label={`ترتيب حسب ${SORT_LABEL[sortKey]}`}
+      aria-label={`ترتيب حسب ${children}`}
     >
       {children}
       <Icon className="h-3.5 w-3.5" aria-hidden />

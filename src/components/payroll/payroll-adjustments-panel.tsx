@@ -174,7 +174,7 @@ export function PayrollAdjustmentsPanel({
   return (
     <div className="flex flex-col gap-5">
       <SectionHeading
-        title={`المكافآت والخصومات — ${formatMonthKeyAr(month)}`}
+        title={`المكافآت والخصومات لشهر ${formatMonthKeyAr(month)}`}
         description="تُسجَّل كل حركة بانتظار اعتماد المالك أو المدير، ثم تدخل كشف الشهر. الحركة المعتمدة لا تُعدَّل: تُلغى وتُسجَّل من جديد."
         actions={
           canManage && !monthLocked ? (
@@ -183,7 +183,7 @@ export function PayrollAdjustmentsPanel({
               مكافأة أو خصم
             </Button>
           ) : monthLocked ? (
-            <span className="text-[12.5px] text-muted-foreground">الشهر مُرحَّل — سجّل الحركات الجديدة في الشهر التالي</span>
+            <span className="text-[12.5px] text-muted-foreground">الشهر مُرحَّل. سجّل الحركات الجديدة في الشهر التالي.</span>
           ) : null
         }
       />

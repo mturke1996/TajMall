@@ -181,7 +181,7 @@ export function PayrollAdvancesPanel({
             <EmptyState
               icon={HandCoins}
               title="لا توجد سلف"
-              description="تظهر السلفة هنا برصيدها المتبقي وأقساطها بعد صرفها."
+              description="لم تُصرف سلفة لأي موظف بعد."
               action={canManage && employees.length > 0 ? { label: 'صرف سلفة', onClick: () => setDialogOpen(true) } : undefined}
             />
           }

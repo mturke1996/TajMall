@@ -84,7 +84,7 @@ export function VoucherButton({
       size="sm"
       variant="outline"
       className={cn('h-11 gap-1.5 px-3 text-[13px] sm:h-9', className)}
-      aria-label={`${label} — ${name}`}
+      aria-label={`${label}: ${name}`}
       onClick={onClick}
     >
       <Icon aria-hidden />

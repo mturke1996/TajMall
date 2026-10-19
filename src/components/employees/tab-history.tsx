@@ -144,7 +144,7 @@ export function HistoryTab({ data }: { data: EmployeeProfileData }) {
     <>
       <div className="min-w-0">
         <h2 className="text-[15px] font-semibold">السجل</h2>
-        <p className="text-[13px] text-ink-mute">تغييرات الراتب والمكافآت والخصومات والسلف والإجازات، الأحدث أولاً.</p>
+        <p className="text-[13px] text-ink-mute">الراتب والمكافآت والخصومات والسلف والإجازات، الأحدث أولاً.</p>
       </div>
       {(parts.structures.missing || parts.adjustments.missing || parts.advances.missing) && <DbUpdateNotice what="payroll" />}
       {parts.leaves.missing && <DbUpdateNotice what="leave" />}

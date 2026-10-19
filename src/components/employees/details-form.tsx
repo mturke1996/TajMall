@@ -176,7 +176,7 @@ export function DetailsForm({
           });
         } catch (e) {
           const message = formatContactSaveError(e);
-          setError(fileSaved ? `حُفظ ملف الموظف، لكن لم تُحفظ بيانات البطاقة: ${message}` : message);
+          setError(fileSaved ? `حُفظت البيانات الوظيفية، لكن لم يُحفظ المسمى الوظيفي والقسم وتاريخ التعيين: ${message}` : message);
           return;
         }
       }
@@ -298,7 +298,7 @@ export function DetailsForm({
               <Input id="df-term-reason" aria-invalid={Boolean(err('terminationReason'))} className={FIELD_HEIGHT} value={form.terminationReason} onChange={(e) => set('terminationReason', e.target.value)} disabled={!form.terminationDate} />
             </FormField>
           </div>
-          {form.terminationDate && <p className="mt-3 text-[12.5px] text-ink-mute">هذا التاريخ لا يوقف كشف الرواتب تلقائياً. عطّل الموظف من بطاقة الجهة بعد آخر راتب له.</p>}
+          {form.terminationDate && <p className="mt-3 text-[12.5px] text-ink-mute">هذا التاريخ لا يوقف كشف الرواتب تلقائياً. عطّل الموظف من ملف الجهة بعد آخر راتب له.</p>}
         </SectionCard>
 
         <SectionCard title="ملاحظات" className="lg:col-span-2">
