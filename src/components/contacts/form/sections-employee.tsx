@@ -83,7 +83,7 @@ function NewEmployeePay({ ctx }: { ctx: FormContext }) {
           <MoneyField id="cf-housing" label="بدل السكن (د.ل)" value={e.housing} onChange={(housing) => patchEmployee({ housing })} onBlur={() => touch('housing')} error={errorOf('housing')} />
           <MoneyField id="cf-transport" label="بدل النقل (د.ل)" value={e.transport} onChange={(transport) => patchEmployee({ transport })} onBlur={() => touch('transport')} error={errorOf('transport')} />
         </div>
-        <div className="flex items-center justify-between gap-3 rounded-lg bg-canvas-sunken px-3.5 py-2.5 text-[13px]">
+        <div role="status" className="flex items-center justify-between gap-3 rounded-lg bg-canvas-sunken px-3.5 py-2.5 text-[13px]">
           <span className="text-ink-soft">الإجمالي الشهري</span>
           <Amount value={total} className="text-[14px] font-semibold" />
         </div>

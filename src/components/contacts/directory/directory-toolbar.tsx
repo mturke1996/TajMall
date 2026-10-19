@@ -119,7 +119,7 @@ export function RoleChips({
   const rowRef = useActiveInView<HTMLDivElement>(value);
   if (chips.length === 0) return null;
   return (
-    <div ref={rowRef} className="no-scrollbar -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="group" aria-label="تصفية حسب الدور">
+    <div ref={rowRef} className="no-scrollbar -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="group" aria-label="تصفية حسب الصفة">
       <div className="flex w-max gap-1.5 sm:w-auto sm:flex-wrap">
         {chips.map((c) => {
           const selected = value === c.id;

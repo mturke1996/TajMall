@@ -376,7 +376,7 @@ export function formatContactSaveError(error: unknown): string {
       return 'انتهت الجلسة. سجّل الدخول مرة أخرى.';
     }
     if (msg.includes('duplicate key') || msg.includes('unique')) {
-      return 'هذا السجل موجود مسبقاً. غيّر الاسم أو الرمز.';
+      return 'سجل مكرر. غيّر الاسم أو الرمز.';
     }
     // an update that matched no row (PGRST116 "Cannot coerce the result to a single JSON object"): the
     // database allowed nothing to change, usually because the role may not edit

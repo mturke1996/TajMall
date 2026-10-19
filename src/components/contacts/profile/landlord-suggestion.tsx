@@ -89,7 +89,7 @@ export function LandlordSuggestion({
         onOpenChange={setConfirming}
         tone="default"
         title="اعتماد الجهة مؤجراً للمول"
-        description="يظهر لها جدول الإيجار الشهري وأشهره المسدّدة. حركاتها وقيودها لا تتغير، وتبقى في قائمتها."
+        description="يظهر لها جدول الإيجار الشهري وأشهره المسدّدة. حركاتها وقيودها لا تتغيّر، وتبقى في قائمتها."
         details={[
           { label: 'الجهة', value: contact.name },
           { label: 'دفعات الإيجار', value: <span className="tabular-nums">{s.rentPayments}</span> },

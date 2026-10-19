@@ -87,13 +87,15 @@ export function LandlordPayButton({
       size="sm"
       variant="outline"
       className={cn('h-11 gap-1.5 md:h-9', className)}
-      // starts with the visible text, so a voice command that says what is on the button finds it
-      aria-label={`${landlordPayLabel(next)} ${next.year}${money ? `، ${money}` : ''}، للمؤجر ${name}`}
       onClick={onPay}
     >
       <HandCoins aria-hidden />
       <span>{compact ? 'سداد' : landlordPayLabel(next)}</span>
       {!compact && money && <span className="tabular-nums text-ink-mute">{money}</span>}
+      {/* the name is the words on the button first (a voice command that says them finds it), then who and which year */}
+      <span className="sr-only">
+        {compact ? ` ${next.monthNameAr}` : ''} {next.year}، للمؤجر {name}
+      </span>
     </Button>
   );
 }

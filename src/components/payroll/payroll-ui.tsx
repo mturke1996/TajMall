@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Check, ChevronLeft, ChevronRight, DatabaseZap } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,6 +11,9 @@ import { currentMonthKey, shiftMonth, type PayrollRunStatus } from '@/lib/db/pay
 import type { ContactRow } from '@/lib/db/types';
 
 const amountFormatter = new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+
+/** A button or link is at least 44px high on a phone; from 640px it keeps the size of the rest of the page. */
+export const PHONE_TAP = 'max-sm:min-h-11';
 
 /**
  * An amount in dinars with tabular digits. Read right to left like `formatMoney`: the number first (its own
@@ -247,7 +250,7 @@ export function PayrollSchemaMissing() {
   return (
     <section className="mx-auto flex max-w-xl flex-col gap-4 rounded-xl border border-border bg-card p-5 sm:p-6">
       <div className="flex items-start gap-3">
-        <DatabaseZap className="mt-0.5 h-5 w-5 shrink-0 text-ink-mute" aria-hidden />
+        <Database className="mt-0.5 h-5 w-5 shrink-0 text-ink-mute" aria-hidden />
         <div className="flex flex-col gap-1">
           <h2 className="text-[15px] font-semibold">الرواتب غير مفعّلة بعد</h2>
           <p className="text-[13px] leading-relaxed text-ink-mute">

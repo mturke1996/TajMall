@@ -22,7 +22,7 @@ import {
   type PayrollAdjustmentStatus,
   type PayrollSalaryStructure,
 } from '@/lib/db/payroll-queries';
-import { Amount, PayrollLoadError, SectionHeading, StatStrip } from './payroll-ui';
+import { Amount, PayrollLoadError, PHONE_TAP, SectionHeading, StatStrip } from './payroll-ui';
 import { AdjustmentDialog, ReasonDialog } from './payroll-dialogs';
 
 const STATUS_VARIANT: Record<PayrollAdjustmentStatus, 'warning' | 'success' | 'neutral'> = {
@@ -178,7 +178,7 @@ export function PayrollAdjustmentsPanel({
         description="تُسجَّل كل حركة بانتظار اعتماد المالك أو المدير، ثم تدخل كشف الشهر. الحركة المعتمدة لا تُعدَّل: تُلغى وتُسجَّل من جديد."
         actions={
           canManage && !monthLocked ? (
-            <Button onClick={() => setDialogOpen(true)} disabled={employees.length === 0}>
+            <Button className={PHONE_TAP} onClick={() => setDialogOpen(true)} disabled={employees.length === 0}>
               <Plus />
               مكافأة أو خصم
             </Button>
@@ -209,7 +209,7 @@ export function PayrollAdjustmentsPanel({
               aria-selected={filter === f.key}
               onClick={() => setFilter(f.key)}
               className={
-                'h-8 rounded-full border px-3 text-[12.5px] transition-colors ' +
+                'h-11 rounded-full border px-3 text-[12.5px] transition-colors sm:h-8 ' +
                 (filter === f.key
                   ? 'border-foreground bg-foreground text-background'
                   : 'border-border bg-card text-ink-soft hover:bg-canvas-sunken')
@@ -243,7 +243,7 @@ export function PayrollAdjustmentsPanel({
           renderMobileRow={(r) => (
             <div className="flex flex-col gap-1.5 p-3">
               <div className="flex items-start justify-between gap-3">
-                <Link href={`/payroll/employees/${r.employee_id}`} className="font-medium hover:underline">
+                <Link href={`/payroll/employees/${r.employee_id}`} className="-my-2 inline-block py-2 font-medium hover:underline">
                   {names.get(r.employee_id) ?? '—'}
                 </Link>
                 <Amount value={r.amount} tone={ADJUSTMENT_IS_ADDITION[r.kind] ? 'positive' : 'negative'} />
@@ -257,12 +257,12 @@ export function PayrollAdjustmentsPanel({
               {canApprove && !monthLocked && !r.run_id && r.status !== 'CANCELLED' && (
                 <div className="flex gap-2">
                   {r.status === 'DRAFT' && (
-                    <Button size="sm" variant="outline" onClick={() => approve(r)} disabled={decide.isPending}>
+                    <Button size="sm" variant="outline" className={PHONE_TAP} onClick={() => approve(r)} disabled={decide.isPending}>
                       <Check />
                       اعتمد
                     </Button>
                   )}
-                  <Button size="sm" variant="ghost" onClick={() => setCancelId(r.id)}>
+                  <Button size="sm" variant="ghost" className={PHONE_TAP} onClick={() => setCancelId(r.id)}>
                     ألغِ
                   </Button>
                 </div>

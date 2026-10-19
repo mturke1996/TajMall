@@ -164,6 +164,20 @@ export function LeaveRequestDialog({
 
   const returnDay = !ev.error && ev.days > 0 ? nextWorkingDay(end) : null;
   const annualBalance = ev.annual?.years[0];
+  // read out as the dates change: the length of the leave and, for annual leave, what is left of the balance
+  const liveSummary =
+    !ev.error && ev.days > 0
+      ? [
+          workingDaysLabel(ev.days),
+          type === 'ANNUAL' && ev.balanceAfter !== null && annualBalance
+            ? ev.balanceAfter < 0
+              ? `تجاوز بمقدار ${daysLabel(-ev.balanceAfter)}`
+              : `المتبقي بعد الطلب ${daysLabel(ev.balanceAfter)}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join('، ')
+      : '';
 
   return (
     <SheetDialog
@@ -232,6 +246,10 @@ export function LeaveRequestDialog({
           <Textarea id="lv-override" rows={2} value={overrideNote} onChange={(e) => setOverrideNote(e.target.value)} />
         </FormField>
       )}
+
+      <p role="status" className="sr-only">
+        {liveSummary}
+      </p>
 
       {!ev.error && ev.days > 0 && (
         <SummaryBox

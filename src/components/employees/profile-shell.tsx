@@ -113,7 +113,7 @@ export function EmployeeTabs<T extends string>({
 
 export function EmployeePanel({ id, children, className }: { id: string; children: ReactNode; className?: string }) {
   return (
-    <TabsPrimitive.Content value={id} className={cn('flex min-w-0 flex-col gap-4 focus-visible:outline-none', className)}>
+    <TabsPrimitive.Content value={id} className={cn('flex min-w-0 flex-col gap-4 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring', className)}>
       {children}
     </TabsPrimitive.Content>
   );

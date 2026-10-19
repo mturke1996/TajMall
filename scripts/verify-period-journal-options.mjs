@@ -641,7 +641,9 @@ check('two sets of options ask for the same report whatever the title says', () 
 });
 
 check('no emoji in any word the dialog shows', () => {
-  const emoji = /\p{Extended_Pictographic}|\u{1F300}-\u{1FAFF}|[☀-➿]|️/u;
+  // pictographs, dingbats and the emoji presentation selector, written as code points so this file holds none itself
+  const code = (n) => String.fromCodePoint(n);
+  const emoji = new RegExp(`\\p{Extended_Pictographic}|[${code(0x1f300)}-${code(0x1faff)}]|[${code(0x2600)}-${code(0x27bf)}]|${code(0xfe0f)}`, 'u');
   const texts = [
     ...J.BASIS_OPTIONS.flatMap((b) => [b.title, b.description, b.pdfLabel]),
     ...J.LEVEL_OPTIONS.flatMap((l) => [l.title, l.description]),

@@ -27,7 +27,7 @@ import {
 } from '@/lib/db/payroll-queries';
 import { adjustmentMonthChoices, defaultAdjustmentMonth, monthKeyOf, structureInForce, structureTotalOf } from '@/lib/employees/employee-profile';
 import { suggestedUnpaidDeduction, unpaidDayRate } from '@/lib/leave';
-import { formatMonthKeyAr, parseAmountInput, preferredCashboxId, todayISODate, arabicCount } from '@/lib/utils';
+import { formatMonthKeyAr, formatMoney, parseAmountInput, preferredCashboxId, todayISODate, arabicCount } from '@/lib/utils';
 import { Amount, EmployeeSelect, FormField } from './payroll-ui';
 
 type Employee = Pick<ContactRow, 'id' | 'name' | 'job_title'>;
@@ -252,6 +252,9 @@ export function SalaryStructureDialog({
       <FormField label="ملاحظة (اختياري)" htmlFor="ss-notes">
         <Input id="ss-notes" className={FIELD_HEIGHT} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="مثال: زيادة سنوية" />
       </FormField>
+      <p role="status" className="sr-only">
+        الإجمالي الشهري الجديد: {formatMoney(total, 'LYD')}
+      </p>
       <Summary
         rows={[
           ...(latest ? [{ label: 'الإجمالي الحالي', value: <Amount value={structureTotalOf(latest)} muted /> }] : []),
@@ -472,6 +475,13 @@ export function AdjustmentDialog({
         <Textarea id="adj-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
       </FormField>
 
+      <p role="status" className="sr-only">
+        {Number.isFinite(amountValue) && amountValue > 0
+          ? pay > 0
+            ? `الراتب بعد الحركة، قبل أقساط السلف: ${formatMoney(round3(pay + (adds ? amountValue : -amountValue)), 'LYD')}`
+            : `${adds ? 'يُضاف إلى راتب الشهر' : 'يُخصم من راتب الشهر'}: ${formatMoney(amountValue, 'LYD')}`
+          : ''}
+      </p>
       {Number.isFinite(amountValue) && amountValue > 0 && (
         <Summary
           rows={[
@@ -597,6 +607,9 @@ export function AdvanceDialog({
       <FormField label="السبب" htmlFor="adv-reason">
         <Textarea id="adv-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
       </FormField>
+      <p role="status" className="sr-only">
+        {Number.isFinite(amountValue) && amountValue > 0 && validCount ? `القسط الشهري ${formatMoney(round3(amountValue / count), 'LYD')}، ${monthsLabel(count)}` : ''}
+      </p>
       {Number.isFinite(amountValue) && amountValue > 0 && validCount && (
         <Summary
           rows={[

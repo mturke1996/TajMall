@@ -55,7 +55,7 @@ export function identityItems(contact: ContactRow): InfoItem[] {
   return [
     { label: 'النوع', value: KIND_TEXT[contact.kind] ?? KIND_TEXT.OTHER },
     // a customer or an employee says it all in its kind; only a landlord or a kind of supplier adds a role row
-    ...(special ? [{ label: 'الدور', value: CONTACT_ROLES[special].badge }] : []),
+    ...(special ? [{ label: 'الصفة', value: CONTACT_ROLES[special].badge }] : []),
     { label: 'الرمز', value: clean(contact.code), ltr: true },
     { label: 'الحالة', value: contact.is_active ? 'نشط' : 'غير نشط' },
     { label: 'الاسم بالإنجليزية', value: clean(contact.name_en), ltr: true },

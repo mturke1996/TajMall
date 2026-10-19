@@ -190,7 +190,7 @@ export function useContactsDirectory(options?: {
     const ok = await confirm({
       title: 'اعتماد كمؤجرين',
       // no pronoun to agree with the count: one file, two files or twelve
-      description: `يُسجَّل دور «مؤجر» في ${many ? 'الملفات التالية' : 'هذا الملف'} ويظهر ضمن «مؤجرون». يمكن تغيير الدور من تعديل الملف.`,
+      description: `تُسجَّل صفة «مؤجر» في ${many ? 'الملفات التالية' : 'هذا الملف'} ويظهر ضمن «مؤجرون». يمكن تغيير الصفة من تعديل الملف.`,
       details: targets.length > listed.length ? [...listed, { label: 'ملفات أخرى', value: String(targets.length - listed.length) }] : listed,
       confirmLabel: 'اعتمد',
       tone: 'default',

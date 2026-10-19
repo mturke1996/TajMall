@@ -20,7 +20,7 @@ import {
   type PayrollAdvance,
   type PayrollAdvanceStatus,
 } from '@/lib/db/payroll-queries';
-import { Amount, PayrollLoadError, SectionHeading, StatStrip } from './payroll-ui';
+import { Amount, PayrollLoadError, PHONE_TAP, SectionHeading, StatStrip } from './payroll-ui';
 import { AdvanceDialog, ReasonDialog, monthsLabel } from './payroll-dialogs';
 
 const STATUS_VARIANT: Record<PayrollAdvanceStatus, 'warning' | 'success' | 'neutral'> = {
@@ -125,7 +125,7 @@ export function PayrollAdvancesPanel({
         meta: { alwaysVisible: true, align: 'end' },
         cell: ({ row }) =>
           canApprove && row.original.status === 'OPEN' && Number(row.original.repaid) < 0.0005 ? (
-            <Button size="sm" variant="ghost" onClick={() => setCancelId(row.original.id)}>
+            <Button size="sm" variant="ghost" className={PHONE_TAP} onClick={() => setCancelId(row.original.id)}>
               ألغِ
             </Button>
           ) : null,
@@ -141,7 +141,7 @@ export function PayrollAdvancesPanel({
         description="تُصرف السلفة من الخزينة فوراً، ويُستقطع قسطها من كشف كل شهر حتى تُسدَّد، على ألا ينزل صافي الراتب تحت الصفر."
         actions={
           canManage ? (
-            <Button onClick={() => setDialogOpen(true)} disabled={employees.length === 0}>
+            <Button className={PHONE_TAP} onClick={() => setDialogOpen(true)} disabled={employees.length === 0}>
               <Plus />
               صرف سلفة
             </Button>
@@ -190,7 +190,7 @@ export function PayrollAdvancesPanel({
             <div className="flex flex-col gap-2 p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-col">
-                  <Link href={`/payroll/employees/${a.employee_id}`} className="font-medium hover:underline">
+                  <Link href={`/payroll/employees/${a.employee_id}`} className="-my-2 inline-block py-2 font-medium hover:underline">
                     {a.employee_name}
                   </Link>
                   <span className="text-[11.5px] text-muted-foreground">{formatDate(a.issued_on)}</span>

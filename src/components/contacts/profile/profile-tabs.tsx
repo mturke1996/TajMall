@@ -95,7 +95,7 @@ export function ProfileTabs<T extends string>({
 /** One panel; only the open one is mounted. */
 export function ProfilePanel({ id, children, className }: { id: string; children: ReactNode; className?: string }) {
   return (
-    <TabsPrimitive.Content value={id} className={cn('min-w-0 focus-visible:outline-none', className)}>
+    <TabsPrimitive.Content value={id} className={cn('min-w-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring', className)}>
       {children}
     </TabsPrimitive.Content>
   );

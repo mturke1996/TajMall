@@ -258,8 +258,8 @@ check('moving any other file drops the old list\'s role tag but keeps the text a
 });
 
 check('the move confirmation names the list, and says a landlord stays a landlord', () => {
-  assert.equal(pp.moveDescription('CUSTOMER', false), 'يُعرض الملف ضمن العملاء بدل الموردين. الحركات والقيود لا تتغير.');
-  assert.equal(pp.moveDescription('VENDOR', false), 'يُعرض الملف ضمن الموردين بدل العملاء. الحركات والقيود لا تتغير.');
+  assert.equal(pp.moveDescription('CUSTOMER', false), 'يُعرض الملف ضمن العملاء بدل الموردين. الحركات والقيود لا تتغيّر.');
+  assert.equal(pp.moveDescription('VENDOR', false), 'يُعرض الملف ضمن الموردين بدل العملاء. الحركات والقيود لا تتغيّر.');
   assert.match(pp.moveDescription('CUSTOMER', true), /عميلاً.*يبقى مؤجراً للمول/);
   assert.match(pp.moveDescription('VENDOR', true), /مورداً.*يبقى مؤجراً للمول/);
   for (const t of ['CUSTOMER', 'VENDOR']) assert.ok(pp.KIND_MOVE_WORDS[t].menu.startsWith('نقل إلى'));

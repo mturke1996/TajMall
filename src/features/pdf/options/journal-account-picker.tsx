@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Picks one account of the period journal: «كل حسابات الإيرادات» or a single account, from a list you can
+ * Picks one account of the period journal: «كل بنود الإيرادات» or a single account, from a list you can
  * search. Each account shows how many entries (and how much) it would give under the other options, so the
  * list is also a small table of what the report would hold. Native radio inputs underneath, so the arrow
  * keys and screen readers work without extra code.
@@ -21,13 +21,13 @@ export function JournalAccountPicker({
   items,
   value,
   onChange,
-  searchPlaceholder = 'ابحث عن حساب',
+  searchPlaceholder = 'ابحث عن بند',
 }: {
   /** unique on the page */
   idPrefix: string;
   /** names the list for screen readers */
   label: string;
-  /** the first choice: «كل حسابات الإيرادات» */
+  /** the first choice: «كل بنود الإيرادات» */
   allLabel: string;
   items: readonly FacetItem[];
   /** ALL_ACCOUNTS or an account id */
@@ -76,7 +76,7 @@ export function JournalAccountPicker({
 
       {rows.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-[13px] text-ink-mute">
-          {items.length === 0 ? 'لا توجد حسابات.' : 'لا توجد نتائج مطابقة للبحث.'}
+          {items.length === 0 ? 'لا توجد بنود.' : 'لا توجد نتائج مطابقة للبحث.'}
         </p>
       ) : (
         <div role="radiogroup" aria-label={label} className="max-h-72 divide-y divide-border overflow-y-auto overscroll-contain rounded-lg border border-border bg-card">

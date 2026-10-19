@@ -83,7 +83,7 @@ export function DirectoryNoMatch({ onClear, searching }: { onClear: () => void; 
           </Button>
         }
       >
-        {searching ? 'لا يوجد ما يطابق البحث.' : 'لا توجد ملفات بهذا الدور.'}
+        {searching ? 'لا يوجد ما يطابق البحث.' : 'لا توجد جهات بهذه الصفة.'}
       </EmptyBlock>
     </Card>
   );

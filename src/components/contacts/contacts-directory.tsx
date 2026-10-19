@@ -133,7 +133,7 @@ export function ContactsDirectory({ directory: d, segment, role, onRoleChange }:
           : d.rows.length === 0
             ? d.searchQuery.trim() !== ''
               ? 'لا يوجد ما يطابق البحث.'
-              : 'لا توجد ملفات بهذا الدور.'
+              : 'لا توجد جهات بهذه الصفة.'
             : arabicCount(d.rows.length, FILES)}
       </p>
 

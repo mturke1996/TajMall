@@ -337,14 +337,14 @@ export function JournalReportOptionsDialog({ open, onOpenChange, categories, cas
           <ChoiceCards label="مستوى التفصيل" value={level} onChange={(next) => setOptions((o) => ({ ...o, level: next }))} options={LEVEL_CARDS} />
         </OptionSection>
 
-        <OptionSection icon={Layers} accent={kind === 'REVENUE' ? 'green' : 'red'} title="النوع والحساب" flush>
+        <OptionSection icon={Layers} accent={kind === 'REVENUE' ? 'green' : 'red'} title="النوع والبند" flush>
           <div className="px-3.5 py-3.5 sm:px-4">
             <SegmentedControl label="نوع الحركات" value={kind} onChange={setKind} options={KIND_OPTIONS.map((k) => ({ id: k.id, label: k.label }))} />
           </div>
           <OptionDisclosure
             icon={Tags}
             accent="blue"
-            title="الحساب"
+            title="البند"
             summary={accountLabel}
             active={categoryId !== ALL_ACCOUNTS}
             onClear={() => setOptions((o) => ({ ...o, categoryId: ALL_ACCOUNTS }))}
@@ -353,7 +353,7 @@ export function JournalReportOptionsDialog({ open, onOpenChange, categories, cas
           >
             <JournalAccountPicker
               idPrefix={`journal-account-${kind}`}
-              label={`حسابات ${kindText.plural}`}
+              label={`بنود ${kindText.plural}`}
               allLabel={kindText.allAccounts}
               items={facets.category}
               value={categoryId}

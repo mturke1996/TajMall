@@ -98,8 +98,8 @@ export const LEVEL_OPTIONS: readonly { id: JournalLevel; title: string; descript
 ];
 
 export const KIND_OPTIONS: readonly { id: JournalKind; label: string; plural: string; allAccounts: string; totalLabel: string }[] = [
-  { id: 'REVENUE', label: 'إيرادات', plural: 'الإيرادات', allAccounts: 'كل حسابات الإيرادات', totalLabel: 'إجمالي الإيرادات' },
-  { id: 'EXPENSE', label: 'مصروفات', plural: 'المصروفات', allAccounts: 'كل حسابات المصروفات', totalLabel: 'إجمالي المصروفات' },
+  { id: 'REVENUE', label: 'إيرادات', plural: 'الإيرادات', allAccounts: 'كل بنود الإيرادات', totalLabel: 'إجمالي الإيرادات' },
+  { id: 'EXPENSE', label: 'مصروفات', plural: 'المصروفات', allAccounts: 'كل بنود المصروفات', totalLabel: 'إجمالي المصروفات' },
 ];
 
 export const JOURNAL_DEFAULT_TITLE = 'قيد الفترة المحاسبي المعتمد';
@@ -570,7 +570,7 @@ export function journalWarnings(input: {
   if (input.issues.length === 0 && input.count === 0) {
     out.push({
       tone: 'warning',
-      text: input.inPeriod > 0 ? `لا توجد معاملات مطابقة. في هذه الفترة ${entries(input.inPeriod)} قبل اختيار الحساب والتصفية.` : 'لا توجد معاملات مطابقة لهذه الفترة.',
+      text: input.inPeriod > 0 ? `لا توجد معاملات مطابقة. في هذه الفترة ${entries(input.inPeriod)} قبل اختيار البند والتصفية.` : 'لا توجد معاملات مطابقة لهذه الفترة.',
     });
   }
   if (input.count > 0 && input.priorCount > 0) {
