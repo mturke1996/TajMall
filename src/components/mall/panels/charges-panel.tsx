@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 import {
   Coins,
   Plus,
@@ -37,7 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { cn, formatMoney, formatDate } from '@/lib/utils';
+import { arabicCount, cn, formatMoney, formatDate } from '@/lib/utils';
 import {
   useTenantCharges,
   useCreateTenantCharge,
@@ -57,6 +58,9 @@ import type { TenantChargeWithRelations } from '@/lib/db/types';
 function chargeHighlightDomId(id: string) {
   return `tenant-charge-${id}`;
 }
+
+// each row carries a PDF toolbar and is drawn twice (phone list, desktop table): thousands at once make typing stutter
+const PAGE_SIZE = 100;
 
 const STATUS_FILTERS = [
   { value: 'ALL', label: 'الكل' },
@@ -145,6 +149,14 @@ export function MallChargesPanel() {
     return { amount, paid, remaining: Math.max(amount - paid, 0) };
   }, [visible]);
 
+  // the page size resets whenever the filters change, derived here so no effect is needed
+  const filterKey = `${query}|${statusFilter}|${monthFilter}|${typeFilter}`;
+  const [expanded, setExpanded] = useState<{ key: string; count: number }>({ key: '', count: PAGE_SIZE });
+  const shownCount = expanded.key === filterKey ? expanded.count : PAGE_SIZE;
+  // a charge opened from a link (?highlight=) must be drawn even when it is past the first page
+  const highlightIndex = highlightId ? visible.findIndex((c) => c.id === highlightId) : -1;
+  const rows = visible.slice(0, Math.max(shownCount, highlightIndex + 1));
+
   const handleOpenCreate = () => {
     setContractId('');
     setAmount('');
@@ -160,7 +172,11 @@ export function MallChargesPanel() {
 
   const handleSubmitManual = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!contractId || !amount || !dueDate || !description) return;
+    if (!contractId) {
+      toast.error('اختر عقد الإيجار');
+      return;
+    }
+    if (!amount || !dueDate || !description) return;
 
     setIsSubmitting(true);
     try {
@@ -342,7 +358,7 @@ export function MallChargesPanel() {
           ) : (
             <>
               <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border md:hidden">
-                {visible.map((charge) => {
+                {rows.map((charge) => {
                   const remaining = Math.max(Number(charge.amount) - Number(charge.total_paid), 0);
                   return (
                     <li
@@ -390,7 +406,7 @@ export function MallChargesPanel() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {visible.map((charge) => {
+                    {rows.map((charge) => {
                       const paid = Number(charge.total_paid) || 0;
                       const remaining = Math.max(Number(charge.amount) - paid, 0);
                       return (
@@ -423,6 +439,16 @@ export function MallChargesPanel() {
                   </tbody>
                 </table>
               </div>
+              {rows.length < visible.length && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setExpanded({ key: filterKey, count: rows.length + PAGE_SIZE })}
+                >
+                  عرض المزيد · {arabicCount(visible.length - rows.length, ['مطالبة متبقية', 'مطالبتان متبقيتان', 'مطالبات متبقية', 'مطالبة متبقية'])}
+                </Button>
+              )}
             </>
           )}
         </>

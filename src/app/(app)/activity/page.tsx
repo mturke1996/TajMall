@@ -29,9 +29,10 @@ const PAGE = 100;
 
 export default function ActivityPage() {
   const [limit, setLimit] = useState(PAGE);
-  const { data: txs = [], isLoading, isError, isFetching } = useTransactions(undefined, limit);
-  // a full page means older transactions exist beyond it
-  const truncated = txs.length >= limit;
+  const { data: txs = [], isLoading, isError, isFetching, isPlaceholderData } = useTransactions(undefined, limit);
+  // a full page means older transactions exist beyond it; rows still shown from the previous, shorter page
+  // (while a longer one loads) are by definition not the whole list
+  const truncated = isPlaceholderData || txs.length >= limit;
   const [kind, setKind] = useState<(typeof KINDS)[number]['value']>('ALL');
   const [search, setSearch] = useState('');
 

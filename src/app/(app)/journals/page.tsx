@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useState, useMemo, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Plus,
@@ -28,6 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn, formatMoney, formatDate, arabicCount, todayISODate } from '@/lib/utils';
 import {
   useJournalEntries,
+  useJournalEntry,
   useJournalSummary,
   usePostJournalEntry,
   useReverseJournalEntry,
@@ -58,6 +59,8 @@ import { JournalBalanceBadge } from '@/components/accounting/journal-balance-bad
 import { mapJournalLineRowToVoucherLine } from '@/lib/journal-entry-display';
 import { friendlyError, technicalDetail } from '@/lib/user-messages';
 import { isSourceLinkedJournal } from '@/lib/journal-source';
+import { useHighlightScroll } from '@/lib/hooks/use-highlight-scroll';
+import { fetchAllPages } from '@/lib/db/fetch-all';
 
 const STATUS_CONFIG: Record<JournalStatus, {
   label: string;
@@ -111,6 +114,8 @@ function JournalsPageInner() {
   const contactFromUrl = searchParams.get('contact');
 
   const [searchQuery, setSearchQuery] = useState('');
+  // the server is asked once typing pauses; the list is narrowed locally on every keystroke meanwhile
+  const [serverSearch, setServerSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<JournalStatus | 'ALL'>('ALL');
   const [contactFilter, setContactFilter] = useState<string | 'ALL'>(
     () => contactFromUrl || 'ALL',
@@ -135,6 +140,11 @@ function JournalsPageInner() {
     if (contactFromUrl) setContactFilter(contactFromUrl);
   }, [contactFromUrl]);
 
+  useEffect(() => {
+    const t = window.setTimeout(() => setServerSearch(searchQuery.trim()), 350);
+    return () => window.clearTimeout(t);
+  }, [searchQuery]);
+
   const {
     data: entries,
     isLoading: isLoadingEntries,
@@ -145,7 +155,7 @@ function JournalsPageInner() {
       status: statusFilter,
       contactId: contactFilter,
       cashboxId: cashboxFilter,
-      search: searchQuery,
+      search: serverSearch,
     },
     JOURNAL_LIST_LIMIT,
   );
@@ -163,14 +173,20 @@ function JournalsPageInner() {
   useEffect(() => {
     if (!highlightId) return;
     setExpandedId(highlightId);
-    const timer = window.setTimeout(() => {
-      document.getElementById(`journal-entry-${highlightId}`)?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
-    }, 350);
-    return () => window.clearTimeout(timer);
   }, [highlightId]);
+
+  // the card only exists once the list has loaded, so scroll again when it arrives
+  useHighlightScroll(highlightId, (id) => `journal-entry-${id}`, [entries?.length]);
+
+  // an entry outside the listed ones (older than the latest 500, or hidden by a filter) is opened in
+  // its detail view — once per link, so changing the filters afterwards does not reopen it
+  const { data: highlightedRow } = useJournalEntry(highlightId ?? '');
+  const openedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!highlightId || isLoadingEntries || !highlightedRow || openedFor.current === highlightId) return;
+    openedFor.current = highlightId;
+    if (!entries?.some((e) => e.id === highlightId)) setSelectedEntry(highlightedRow);
+  }, [highlightId, isLoadingEntries, entries, highlightedRow]);
 
   const filteredEntries = useMemo(() => {
     const entryList = entries ?? [];
@@ -273,6 +289,8 @@ function JournalsPageInner() {
     const supabase = createSupabaseBrowserClient();
 
     type LineRow = {
+      id: string;
+      journal_id: string;
       debit: string;
       credit: string;
       description: string | null;
@@ -281,31 +299,43 @@ function JournalsPageInner() {
       sort_order: number;
     };
 
-    return Promise.all(
-      entriesForPdf.map(async (e) => {
-        const { data: lineRows, error } = await supabase
-          .from('journal_lines_with_categories')
-          .select('debit, credit, description, category_name, category_code, sort_order')
-          .eq('journal_id', e.id)
-          .order('sort_order', { ascending: true });
-        if (error) throw error;
+    // the lines of many entries are read together (80 ids per request keeps the URL short) instead of one
+    // request per entry; a chunk can hold over 1,000 lines, so it is read page by page
+    const ids = entriesForPdf.map((e) => e.id);
+    const linesByJournal = new Map<string, LineRow[]>();
+    const chunkSize = 80;
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const lineRows = await fetchAllPages<LineRow>(
+        (from, to) =>
+          supabase
+            .from('journal_lines_with_categories')
+            .select('id, journal_id, debit, credit, description, category_name, category_code, sort_order')
+            .in('journal_id', chunk)
+            .order('journal_id')
+            .order('sort_order')
+            .order('id')
+            .range(from, to) as unknown as PromiseLike<{ data: LineRow[] | null; error: unknown }>,
+      );
+      for (const row of lineRows) {
+        const list = linesByJournal.get(row.journal_id) ?? [];
+        list.push(row);
+        linesByJournal.set(row.journal_id, list);
+      }
+    }
 
-        const lines = ((lineRows ?? []) as LineRow[]).map((l) => ({
-          category_name: l.category_name ?? '—',
-          category_code: l.category_code ?? '',
-          debit: Number(l.debit),
-          credit: Number(l.credit),
-          description: l.description,
-        }));
-
-        return {
-          ...e,
-          lines,
-          total_debit: Number(e.total_debit),
-          total_credit: Number(e.total_credit),
-        };
-      }),
-    );
+    return entriesForPdf.map((e) => ({
+      ...e,
+      lines: (linesByJournal.get(e.id) ?? []).map((l) => ({
+        category_name: l.category_name ?? '—',
+        category_code: l.category_code ?? '',
+        debit: Number(l.debit),
+        credit: Number(l.credit),
+        description: l.description,
+      })),
+      total_debit: Number(e.total_debit),
+      total_credit: Number(e.total_credit),
+    }));
   };
 
   return (

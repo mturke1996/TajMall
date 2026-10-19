@@ -12,19 +12,35 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { clearRecovery, exchangePasswordRecoverySession } from '@/lib/supabase/recover-session';
 import { toast } from 'sonner';
 
-function formatUrlError(raw: string | null): string | null {
-  if (!raw) return null;
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return raw;
+const LINK_EXPIRED = 'انتهت صلاحية الرابط أو سبق استخدامه. اطلب رابطاً جديداً.';
+
+// Supabase and the auth routes hand back English text (or a bare code such as access_denied); unknown
+// messages never reach the screen, they become the expired-link sentence. null keeps the generic hint.
+function linkErrorAr(raw: string | null, code?: string | null): string | null {
+  const t = `${code ?? ''} ${raw ?? ''}`.trim();
+  if (!t || /missing_token/i.test(t)) return null;
+  if (/pkce|code verifier|different browser/i.test(t)) {
+    return 'افتح الرابط من نفس المتصفح الذي طلبت منه الاستعادة، أو اطلب رابطاً جديداً.';
   }
+  return LINK_EXPIRED;
+}
+
+function updateErrorAr(raw: string | undefined): string {
+  const t = raw ?? '';
+  if (/different from the old|same_password/i.test(t)) return 'كلمة المرور الجديدة يجب أن تختلف عن القديمة.';
+  // "should be at least N characters" is the length rule; "should contain at least one character of each"
+  // is the character-set rule, which a 10+ character password can still break (that is a weak password,
+  // not a short one)
+  if (/should be at least|too short/i.test(t)) return 'كلمة المرور يجب أن تكون 10 أحرف على الأقل.';
+  if (/weak|at least one character/i.test(t)) return 'كلمة المرور ضعيفة — اختر كلمة أقوى.';
+  if (/session/i.test(t)) return LINK_EXPIRED;
+  return 'تعذّر تحديث كلمة المرور.';
 }
 
 export function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const urlError = formatUrlError(searchParams.get('error'));
+  const urlError = linkErrorAr(searchParams.get('error'), searchParams.get('error_code'));
 
   const [ready, setReady] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -59,7 +75,7 @@ export function ResetPasswordForm() {
       } else if (result.reason === 'signed_in') {
         setSignedIn(true);
       } else if (result.reason !== 'missing_token') {
-        setError(result.reason);
+        setError(linkErrorAr(result.reason));
       }
       setChecking(false);
     })();
@@ -88,7 +104,7 @@ export function ResetPasswordForm() {
       const supabase = createSupabaseBrowserClient();
       const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) {
-        setError(updateError.message || 'تعذّر تحديث كلمة المرور.');
+        setError(updateErrorAr(updateError.message));
         return;
       }
       clearRecovery();

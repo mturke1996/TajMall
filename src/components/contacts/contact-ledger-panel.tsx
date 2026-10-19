@@ -44,7 +44,8 @@ type Props = {
 
 function JournalEntryRowItem({ entry }: { entry: JournalEntryRow }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { data: lines = [], isLoading: linesLoading } = useJournalLines(entry.id);
+  // an empty id keeps the query disabled: closed rows must not each fetch their lines
+  const { data: lines = [], isLoading: linesLoading } = useJournalLines(isExpanded ? entry.id : '');
 
 
   const voucherLines = useMemo(() => {
@@ -131,6 +132,8 @@ function JournalEntryRowItem({ entry }: { entry: JournalEntryRow }) {
               size="sm"
               variant="ghost"
               className="h-8 w-8 p-0"
+              aria-label={isExpanded ? 'إخفاء أطراف القيد' : 'عرض أطراف القيد'}
+              aria-expanded={isExpanded}
               onClick={() => setIsExpanded(!isExpanded)}
             >
               {isExpanded ? (

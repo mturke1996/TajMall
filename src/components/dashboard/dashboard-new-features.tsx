@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { Bell, BookMarked, ChevronLeft, Coins, FolderTree, Landmark, Scale, Users, type LucideIcon } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn, formatDateRelative } from '@/lib/utils';
+import { arabicCount, cn, formatDateRelative } from '@/lib/utils';
 import { useNotifications, useUnreadNotificationCount } from '@/lib/db/notification-queries';
 import { useJournalSummary } from '@/lib/db/journal-queries';
-import { useTenantCharges } from '@/lib/db/mall-queries';
+import { useTenantRentSummary } from '@/lib/db/queries';
+import { aggregateMallRentKpis } from '@/lib/mall-rent-kpis';
 import { AccountingBackfillBanner } from '@/components/accounting/accounting-backfill-banner';
 import { usePermission } from '@/lib/supabase/use-permission';
 
@@ -31,10 +32,11 @@ export function DashboardNewFeatures() {
   const { data: unread = 0, isLoading: unreadLoading } = useUnreadNotificationCount();
   const { data: notifications = [], isLoading: notifLoading } = useNotifications();
   const { data: journalSummary, isLoading: journalLoading } = useJournalSummary();
-  const { data: charges = [] } = useTenantCharges();
+  // the same cached summary the rent card reads, so the count matches it and costs no extra request
+  const { data: tenants = [] } = useTenantRentSummary();
   const { can } = usePermission();
 
-  const unpaidCharges = charges.filter((c) => c.status === 'UNPAID').length;
+  const openCharges = aggregateMallRentKpis(tenants).openChargesCount;
   const recentAlerts = notifications.slice(0, 4);
   const showBackfill =
     !journalLoading &&
@@ -54,7 +56,8 @@ export function DashboardNewFeatures() {
                 {Number(journalSummary.draft_entries) > 0 && ` · ${journalSummary.draft_entries} مسودة`}
               </>
             )}
-            {unpaidCharges > 0 && ` · ${unpaidCharges} مطالبة غير مسددة`}
+            {openCharges > 0 &&
+              ` · ${arabicCount(openCharges, ['مطالبة واحدة مفتوحة', 'مطالبتان مفتوحتان', 'مطالبات مفتوحة', 'مطالبة مفتوحة'])}`}
           </p>
         </header>
         <ul className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 xl:grid-cols-3">

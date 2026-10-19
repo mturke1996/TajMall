@@ -45,6 +45,7 @@ import {
   type JournalTemplate,
 } from '@/lib/journal-templates';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
+import { useEscapeKey } from '@/lib/hooks/use-escape-key';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { JournalNativeSelect } from './journal-native-select';
 import { JournalVoucherTable } from '@/components/accounting/journal-voucher-table';
@@ -154,6 +155,7 @@ export function JournalEntryDialog({
   const [templateAmount, setTemplateAmount] = useState('');
   const [templateCategory, setTemplateCategory] = useState<string>('all');
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [lines, setLines] = useState<JournalLine[]>([emptyLine('1'), emptyLine('2')]);
 
   const categoriesByCode = useMemo(() => {
@@ -197,6 +199,14 @@ export function JournalEntryDialog({
       })),
     [filteredCategories],
   );
+
+  // The search box narrows the choices, but a line that already has an account must keep showing it.
+  const optionsFor = (categoryId: string) => {
+    if (!categoryId || categoryOptions.some((o) => o.value === categoryId)) return categoryOptions;
+    const c = categories.find((x) => x.id === categoryId);
+    const label = c ? (c.code ? `${c.name_ar} (${c.code})` : c.name_ar) : 'بند غير نشط';
+    return [{ value: categoryId, label }, ...categoryOptions];
+  };
 
   const contactOptions = useMemo(
     () => [
@@ -319,23 +329,23 @@ export function JournalEntryDialog({
     if (difference === 0) return;
     setLines((prev) => {
       if (prev.length === 0) return prev;
-      const last = prev[prev.length - 1];
+      const needSide: LineSide = difference > 0 ? 'credit' : 'debit';
       const absDiff = Math.abs(difference);
-      const updated = [...prev];
-      if (difference > 0) {
+      const last = prev[prev.length - 1];
+      const counted = isSentLine(last);
+      // Adding to a last line that sits on the other side would widen the gap, so that case gets a new line.
+      // A last line that is not counted (no account) is replaced rather than added to: totals ignore it.
+      if (!counted || last.side === needSide) {
+        const base = counted ? lineAmount(last) : 0;
+        const updated = [...prev];
         updated[prev.length - 1] = {
           ...last,
-          side: 'credit',
-          amount: String(Number(last.amount || 0) + absDiff),
+          side: needSide,
+          amount: String(Math.round((base + absDiff) * 1000) / 1000),
         };
-      } else {
-        updated[prev.length - 1] = {
-          ...last,
-          side: 'debit',
-          amount: String(Number(last.amount || 0) + absDiff),
-        };
+        return updated;
       }
-      return updated;
+      return [...prev, { ...emptyLine(), side: needSide, amount: String(absDiff) }];
     });
     toast.success('تمت الموازنة التلقائية');
   };
@@ -497,13 +507,50 @@ export function JournalEntryDialog({
 
   const isPending = createEntry.isPending || updateEntry.isPending;
 
+  // What is on screen against what was loaded (edit) or against an empty form (new): closing a form the
+  // user has not touched needs no question.
+  const formSnapshot = (ls: JournalLine[], date: string, ref: string, desc: string, nts: string) =>
+    JSON.stringify([
+      date,
+      ref,
+      desc,
+      nts,
+      ls.map((l) => [l.category_id, l.side, l.amount, l.description, l.contact_id ?? '', l.cashbox_id ?? '']),
+    ]);
+  const isDirty = editingEntry
+    ? editLinesReady &&
+      formSnapshot(lines, entryDate, reference, description, notes) !==
+        formSnapshot(
+          (dbLines ?? []).map(dbLineToForm),
+          editingEntry.entry_date ? editingEntry.entry_date.split('T')[0] : todayISODate(),
+          editingEntry.reference || '',
+          editingEntry.description || '',
+          editingEntry.notes || '',
+        )
+    : description.trim() !== '' ||
+      notes.trim() !== '' ||
+      lines.some((l) => l.category_id || l.amount.trim() !== '' || l.description.trim() !== '');
+
+  // A click beside the sheet or Escape must not throw away a half-typed entry without asking.
+  const requestClose = () => {
+    if (isPending) return;
+    if (isDirty) {
+      setConfirmDiscard(true);
+      return;
+    }
+    // the question may still be showing if the form was cleared meanwhile: it must not greet the next opening
+    setConfirmDiscard(false);
+    onClose();
+  };
+  useEscapeKey(open && !isPending, requestClose);
+
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-60" dir="rtl">
       <div
         className="absolute inset-0 bg-black/40"
-        onClick={onClose}
+        onClick={requestClose}
         aria-hidden
       />
       <div
@@ -536,7 +583,7 @@ export function JournalEntryDialog({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             className="shrink-0 rounded-xl p-2.5 hover:bg-secondary touch-manipulation min-h-11 min-w-11 flex items-center justify-center"
             aria-label="إغلاق"
           >
@@ -731,7 +778,7 @@ export function JournalEntryDialog({
                   label="الحساب *"
                   value={line.category_id}
                   onChange={(v) => updateLine(line.id, { category_id: v })}
-                  options={categoryOptions}
+                  options={optionsFor(line.category_id)}
                   placeholder="اختر البند"
                   required
                 />
@@ -899,7 +946,38 @@ export function JournalEntryDialog({
             )}
           </div>
 
-          <div className="flex flex-col gap-2">
+          {confirmDiscard && (
+            <div className="rounded-xl border border-warning-line bg-warning-soft px-3 py-2.5" role="alert">
+              <p className="text-sm font-medium text-warning-ink">تجاهل ما أُدخل؟</p>
+              <p className="mt-0.5 text-xs text-warning-ink">
+                {isEdit ? 'لن تُحفظ التعديلات على هذا القيد.' : 'لن يُحفظ القيد، ويمكنك حفظه كمسودة أولاً.'}
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setConfirmDiscard(false)}
+                  autoFocus
+                  className="h-12 touch-manipulation"
+                >
+                  متابعة التعديل
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => {
+                    setConfirmDiscard(false);
+                    onClose();
+                  }}
+                  className="h-12 touch-manipulation"
+                >
+                  تجاهل
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className={cn('flex flex-col gap-2', confirmDiscard && 'hidden')}>
             {!isEdit && can('journal.create') && (
               <Button
                 type="button"
@@ -919,7 +997,7 @@ export function JournalEntryDialog({
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="outline"
-                onClick={onClose}
+                onClick={requestClose}
                 disabled={isPending}
                 className="h-12 touch-manipulation"
               >

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Check, Edit2, Loader2, Plus, Search, Shield, Users, X } from 'lucide-react';
+import { Check, Edit2, KeyRound, Loader2, Plus, Search, Shield, Users, X } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,8 @@ export default function UsersPage() {
   // Only an owner gives or takes the owner role (the invite API applies the same rule).
   const isOwner = myRole === 'owner';
   const assignableRoles = SYSTEM_ROLES.filter((r) => isOwner || r.name !== 'owner');
+  // setting another account's password is the owner's alone: the server route also lets an admin do it to a peer admin,
+  // with no audit record, so the screen does not offer it to admins
   const roleLocked = (p: { id: string; role?: string | null }) => p.id === user?.id || (!isOwner && p.role === 'owner');
   const { data: profiles, isLoading } = useProfiles();
   const updateProfile = useUpdateProfile();
@@ -53,6 +55,9 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [resetTarget, setResetTarget] = useState<{ id: string; name: string } | null>(null);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetBusy, setResetBusy] = useState(false);
 
   const rows = useMemo(() => profiles ?? [], [profiles]);
 
@@ -138,6 +143,38 @@ export default function UsersPage() {
       toast.error('تعذّر الاتصال بالخادم');
     } finally {
       setInviteBusy(false);
+    }
+  }
+
+  function closeReset() {
+    setResetTarget(null);
+    setResetPassword('');
+  }
+
+  async function submitReset() {
+    if (!resetTarget) return;
+    if (resetPassword.trim().length < 10) {
+      toast.error('يجب أن تكون كلمة المرور 10 أحرف على الأقل');
+      return;
+    }
+    setResetBusy(true);
+    try {
+      const res = await fetch('/api/admin/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: resetTarget.id, password: resetPassword.trim() }),
+      });
+      const body = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        toast.error(body.error ?? 'تعذّر تعيين كلمة المرور');
+        return;
+      }
+      toast.success('تم تعيين كلمة المرور — أبلغ المستخدم بها');
+      closeReset();
+    } catch {
+      toast.error('تعذّر الاتصال بالخادم');
+    } finally {
+      setResetBusy(false);
     }
   }
 
@@ -280,22 +317,36 @@ export default function UsersPage() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label className="text-[11px] text-ink-mute">الدور</Label>
-                  <Select
-                    value={p.role ?? 'viewer'}
-                    onValueChange={(v) => onRoleChange(p.id, v)}
-                    disabled={roleLocked(p)}
-                  >
-                    <SelectTrigger className="h-11 w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(p.role === 'owner' ? SYSTEM_ROLES : assignableRoles).map((r) => (
-                        <SelectItem key={r.name} value={r.name}>
-                          {r.nameAr}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={p.role ?? 'viewer'}
+                      onValueChange={(v) => onRoleChange(p.id, v)}
+                      disabled={roleLocked(p)}
+                    >
+                      <SelectTrigger className="h-11 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(p.role === 'owner' ? SYSTEM_ROLES : assignableRoles).map((r) => (
+                          <SelectItem key={r.name} value={r.name}>
+                            {r.nameAr}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {isOwner && !roleLocked(p) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-11 w-11 shrink-0"
+                        aria-label="تعيين كلمة مرور جديدة"
+                        onClick={() => setResetTarget({ id: p.id, name: p.full_name_ar ?? p.full_name ?? 'المستخدم' })}
+                      >
+                        <KeyRound />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </li>
             ))}
@@ -353,22 +404,36 @@ export default function UsersPage() {
                     </td>
                     <td className="px-4 py-3 text-[12.5px] text-ink-mute">{formatDate(p.created_at)}</td>
                     <td className="px-4 py-3">
-                      <Select
-                        value={p.role ?? 'viewer'}
-                        onValueChange={(v) => onRoleChange(p.id, v)}
-                        disabled={roleLocked(p)}
-                      >
-                        <SelectTrigger className="h-10 w-[200px]" aria-label={`دور ${p.full_name_ar ?? p.full_name ?? 'المستخدم'}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(p.role === 'owner' ? SYSTEM_ROLES : assignableRoles).map((r) => (
-                            <SelectItem key={r.name} value={r.name}>
-                              {r.nameAr}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={p.role ?? 'viewer'}
+                          onValueChange={(v) => onRoleChange(p.id, v)}
+                          disabled={roleLocked(p)}
+                        >
+                          <SelectTrigger className="h-10 w-[200px]" aria-label={`دور ${p.full_name_ar ?? p.full_name ?? 'المستخدم'}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(p.role === 'owner' ? SYSTEM_ROLES : assignableRoles).map((r) => (
+                              <SelectItem key={r.name} value={r.name}>
+                                {r.nameAr}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {isOwner && !roleLocked(p) && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-10 w-10 shrink-0"
+                            aria-label={`تعيين كلمة مرور جديدة لـ ${p.full_name_ar ?? p.full_name ?? 'المستخدم'}`}
+                            onClick={() => setResetTarget({ id: p.id, name: p.full_name_ar ?? p.full_name ?? 'المستخدم' })}
+                          >
+                            <KeyRound />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -477,6 +542,36 @@ export default function UsersPage() {
             <Button type="button" className="gap-1.5" disabled={inviteBusy} onClick={submitInvite}>
               {inviteBusy && <Loader2 className="h-4 w-4 animate-spin stroke-[1.6]" />}
               {createType === 'DIRECT' ? 'إنشاء وتفعيل الحساب' : 'إرسال دعوة بالبريد'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={resetTarget !== null} onOpenChange={(open) => { if (!open) closeReset(); }}>
+        <DialogContent className="sm:max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>كلمة مرور جديدة</DialogTitle>
+            <DialogDescription className="text-[13px] leading-relaxed text-ink-mute">
+              تعيين كلمة مرور جديدة للمستخدم {resetTarget?.name}. تحل محل كلمة المرور الحالية فوراً.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5 py-1">
+            <Label htmlFor="reset-password">كلمة المرور الجديدة (10 أحرف على الأقل)</Label>
+            <Input
+              id="reset-password"
+              type="password"
+              autoComplete="new-password"
+              value={resetPassword}
+              onChange={(e) => setResetPassword(e.target.value)}
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button type="button" variant="outline" onClick={closeReset}>
+              إلغاء
+            </Button>
+            <Button type="button" className="gap-1.5" disabled={resetBusy} onClick={submitReset}>
+              {resetBusy && <Loader2 className="h-4 w-4 animate-spin stroke-[1.6]" />}
+              تعيين كلمة المرور
             </Button>
           </DialogFooter>
         </DialogContent>

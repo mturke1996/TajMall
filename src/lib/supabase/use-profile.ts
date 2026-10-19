@@ -14,6 +14,9 @@ export function useCurrentProfile() {
   const query = useQuery({
     queryKey: ['profile', user?.id],
     enabled: Boolean(user?.id),
+    // A dropped request must not look like a role change: stay loading through a few backoff retries
+    // before usePermission falls back to read-only.
+    retry: 3,
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase

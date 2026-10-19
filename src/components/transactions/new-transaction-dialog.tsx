@@ -281,7 +281,10 @@ export function NewTransactionDialog() {
       close();
     } catch (err) {
       console.error('فشل حفظ المعاملة:', err);
-      setError(extractSaveError(err));
+      const msg = extractSaveError(err);
+      setError(msg);
+      // dismissed while the save was running: the form is gone, so the failure would go unseen
+      if (!useTxDialog.getState().isOpen) toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -362,9 +365,17 @@ export function NewTransactionDialog() {
 
   if (!isOpen) return null;
 
+  // a stray tap beside the sheet must not throw away a half-typed entry; X, إلغاء and Escape still leave
+  const dirty = amount.trim() !== '' || description.trim() !== '' || categoryId !== '' || contactId !== '';
+
   return (
     <div className="fixed inset-0 z-50" dir="rtl">
-      <div className="absolute inset-0 bg-black/30" onClick={close} />
+      <div
+        className="absolute inset-0 bg-black/30"
+        onClick={() => {
+          if (!dirty) close();
+        }}
+      />
       <div
         role="dialog"
         aria-modal="true"
@@ -647,6 +658,11 @@ export function NewTransactionDialog() {
             !isRevenue ? (
               <p className="text-[11px] leading-snug text-ink-mute">
                 مصروف مرتبات — يُفضَّل ربطه بموظف.
+              </p>
+            ) : null}
+            {isRevenue && selectedCategory?.code === 'REV-RNT' && selectedContact?.kind !== 'TENANT' ? (
+              <p className="text-[11px] leading-snug text-warning-ink">
+                إيجار محل دون مستأجر: لن يُربط التحصيل بأي شهر ولن يُخصم من مستحقات أحد. اختر المستأجر من القائمة.
               </p>
             ) : null}
 

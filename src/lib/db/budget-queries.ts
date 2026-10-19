@@ -57,7 +57,7 @@ export function useBudgetActuals(year: number) {
         const { data: page, error } = await supabase
           .from('transactions')
           .select('id, category_id, amount, tx_date')
-          .eq('status', 'POSTED')
+          .in('status', ['POSTED', 'RECONCILED'])
           .gte('tx_date', `${year}-01-01`)
           .lte('tx_date', `${year}-12-31`)
           .order('id')

@@ -23,15 +23,8 @@ import {
 } from '@/components/ui/select';
 import { useCashboxBalances } from '@/lib/db/queries';
 import { useRecordCashboxTransfer } from '@/lib/db/cashbox-queries';
-import { formatMoney, todayISODate } from '@/lib/utils';
+import { formatMoney, parseAmountInput, todayISODate } from '@/lib/utils';
 import { friendlyError } from '@/lib/user-messages';
-
-function sanitizeAmount(raw: string) {
-  const cleaned = raw.replace(/[^\d.]/g, '');
-  const parts = cleaned.split('.');
-  if (parts.length <= 2) return cleaned;
-  return `${parts[0]}.${parts.slice(1).join('')}`;
-}
 
 export function CashboxTransferDialog({
   open,
@@ -59,7 +52,11 @@ export function CashboxTransferDialog({
 
   const fromBox = options.find((o) => o.id === fromId);
   const toBox = options.find((o) => o.id === toId);
-  const amountVal = Number(amount) || 0;
+  // Arabic digits and "250,5" are read as typed; an unreadable amount blocks the transfer instead of moving a wrong sum.
+  // A trailing separator ("250.") is a number still being typed, not an unreadable one, so it must not flash the error.
+  const parsedAmount = parseAmountInput(amount.replace(/[.,٫]\s*$/, ''));
+  const amountInvalid = amount.trim() !== '' && !Number.isFinite(parsedAmount);
+  const amountVal = Number.isFinite(parsedAmount) ? parsedAmount : 0;
 
   useEffect(() => {
     if (!open) return;
@@ -88,6 +85,10 @@ export function CashboxTransferDialog({
     }
     if (fromId === toId) {
       toast.error('لا يمكن التحويل لنفس الخزينة');
+      return;
+    }
+    if (amountInvalid) {
+      toast.error('مبلغ غير صالح');
       return;
     }
     if (amountVal <= 0) {
@@ -182,9 +183,12 @@ export function CashboxTransferDialog({
                 inputMode="decimal"
                 dir="ltr"
                 value={amount}
-                onChange={(e) => setAmount(sanitizeAmount(e.target.value))}
+                onChange={(e) => setAmount(e.target.value.replace(/[^\d٠-٩۰-۹.,٫٬\s]/g, ''))}
                 placeholder="0"
               />
+              {amountInvalid && (
+                <p className="text-[11.5px] text-danger-ink">مبلغ غير صالح — ثلاث خانات عشرية على الأكثر</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>التاريخ</Label>
@@ -210,7 +214,7 @@ export function CashboxTransferDialog({
           <Button
             type="button"
             onClick={submit}
-            disabled={transfer.isPending || !fromId || !toId || amountVal <= 0}
+            disabled={transfer.isPending || !fromId || !toId || amountVal <= 0 || amountInvalid}
             className="gap-1.5"
           >
             {transfer.isPending ? (

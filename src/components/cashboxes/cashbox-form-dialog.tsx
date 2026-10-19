@@ -19,8 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useCreateCashbox, useUpdateCashbox } from '@/lib/db/queries';
 import type { CashboxKind, CashboxRow } from '@/lib/db/types';
+import { formatMoney } from '@/lib/utils';
 
 function emptyForm() {
   return {
@@ -46,6 +48,7 @@ export function CashboxFormDialog({
 }) {
   const create = useCreateCashbox();
   const update = useUpdateCashbox();
+  const confirm = useConfirm();
   const isEdit = !!editRow;
 
   const [code, setCode] = useState('');
@@ -94,27 +97,51 @@ export function CashboxFormDialog({
       iban: showBankFields ? iban.trim().replace(/\s/g, '').toUpperCase() || null : null,
     };
 
-    if (isEdit && editRow) {
-      await update.mutateAsync({
-        id: editRow.id,
-        code,
-        name_ar: nameAr,
-        kind,
-        currency,
-        opening_balance: Number(openingBalance || '0'),
-        ...bankPayload,
-      });
-    } else {
-      await create.mutateAsync({
-        code,
-        name_ar: nameAr,
-        kind,
-        currency,
-        opening_balance: Number(openingBalance || '0'),
-        ...bankPayload,
-      });
+    const openingNum = Number(openingBalance || '0');
+    const cur = currency.trim().toUpperCase() || 'LYD';
+
+    try {
+      if (isEdit && editRow) {
+        // The opening balance and currency feed every running balance and report of this cashbox, so changing
+        // them on a box that already has movements is confirmed first.
+        const oldOpening = Number(editRow.opening_balance ?? 0);
+        const oldCur = (editRow.currency || 'LYD').toUpperCase();
+        if (openingNum !== oldOpening || cur !== oldCur) {
+          const ok = await confirm({
+            title: 'تغيير الرصيد الافتتاحي أو العملة؟',
+            description: 'يتغيّر رصيد الخزينة وسجلها والتقارير بأثر رجعي منذ أول حركة.',
+            details: [
+              { label: 'الافتتاحي الحالي', value: formatMoney(oldOpening, oldCur) },
+              { label: 'الافتتاحي الجديد', value: formatMoney(openingNum, cur) },
+            ],
+            confirmLabel: 'احفظ التعديل',
+            tone: 'default',
+          });
+          if (!ok) return;
+        }
+        await update.mutateAsync({
+          id: editRow.id,
+          code,
+          name_ar: nameAr,
+          kind,
+          currency: cur,
+          opening_balance: openingNum,
+          ...bankPayload,
+        });
+      } else {
+        await create.mutateAsync({
+          code,
+          name_ar: nameAr,
+          kind,
+          currency: cur,
+          opening_balance: openingNum,
+          ...bankPayload,
+        });
+      }
+      onOpenChange(false);
+    } catch {
+      // the hooks' onError already showed the toast; keep the dialog open so nothing typed is lost
     }
-    onOpenChange(false);
   }
 
   return (

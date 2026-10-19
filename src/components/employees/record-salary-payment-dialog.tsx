@@ -23,6 +23,7 @@ import {
   useCreateTransaction,
   type EmployeeSummary,
 } from '@/lib/db/queries';
+import type { CashboxRow } from '@/lib/db/types';
 import { formatMoney, preferredCashboxId, todayISODate } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -38,14 +39,19 @@ type RecordSalaryPaymentDialogProps = {
   onSuccess?: () => void;
 };
 
+/** A stable empty list: a fresh `[]` default on every render would re-run the reset effect on every keystroke. */
+const NO_CASHBOXES: CashboxRow[] = [];
+
 export function RecordSalaryPaymentDialog({
   employee,
   open,
   onOpenChange,
   onSuccess,
 }: RecordSalaryPaymentDialogProps) {
-  const { data: cashboxes = [] } = useCashboxes();
+  const { data: cashboxes = NO_CASHBOXES } = useCashboxes();
   const createTransaction = useCreateTransaction();
+  // The category lookup runs before the mutation starts, so isPending alone leaves a window for a second tap.
+  const [submitting, setSubmitting] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentDate, setPaymentDate] = useState(() => todayISODate());
   const [cashboxId, setCashboxId] = useState('');
@@ -78,6 +84,8 @@ export function RecordSalaryPaymentDialog({
       return;
     }
 
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const supabase = (await import('@/lib/supabase/client')).createSupabaseBrowserClient();
       // قبول EXP-SAL (الأساسي) أو EXP-SLR (توافق قديم)
@@ -117,6 +125,8 @@ export function RecordSalaryPaymentDialog({
       toast.error(
         err instanceof Error ? err.message : 'فشل تسجيل الراتب — تحقق من الخزينة والفئة',
       );
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -217,9 +227,9 @@ export function RecordSalaryPaymentDialog({
                 type="button"
                 className="flex-1 h-11 touch-manipulation"
                 onClick={handleSubmit}
-                disabled={!paymentAmount || createTransaction.isPending}
+                disabled={!paymentAmount || submitting || createTransaction.isPending}
               >
-                {createTransaction.isPending ? (
+                {submitting || createTransaction.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   'تسجيل الراتب'

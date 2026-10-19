@@ -37,7 +37,7 @@ export function ContactRentLinks({
       ) : active ? (
         <div className="space-y-2 text-sm">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="bg-white">
+            <Badge variant="outline" className="bg-card">
               عقد نشط
             </Badge>
             <span className="font-medium">

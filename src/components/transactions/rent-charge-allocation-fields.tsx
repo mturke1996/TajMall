@@ -98,7 +98,7 @@ export function RentChargeAllocationFields({
                 key={c.id}
                 className={cn(
                   'rounded-md border p-2 text-xs',
-                  selected ? 'border-ink-mute/50 bg-white' : 'border-border bg-card/80',
+                  selected ? 'border-ink-mute/50 bg-card' : 'border-border bg-card/80',
                 )}
               >
                 <label className="flex items-start gap-2 cursor-pointer touch-manipulation">

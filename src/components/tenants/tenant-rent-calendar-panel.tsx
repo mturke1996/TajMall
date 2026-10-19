@@ -9,6 +9,7 @@ import { SetRentExemptMonthsDialog } from '@/components/tenants/set-rent-exempt-
 import { SetRentPriceScheduleDialog } from '@/components/tenants/set-rent-price-schedule-dialog';
 import { RENT_ACCOUNT_KIND, RentAccountMonthCell } from '@/components/tenants/rent-account-month';
 import { useTenantRentAccount } from '@/components/tenants/use-tenant-rent-account';
+import { RentAccountFailed } from '@/components/tenants/rent-account-failed';
 import { usePermission } from '@/lib/supabase/use-permission';
 import type { JournalEntryRow } from '@/lib/db/journal-queries';
 import {
@@ -108,7 +109,7 @@ export function TenantRentCalendarPanel({
 }) {
   const { canWrite } = usePermission();
   const resolvedClaimStart = claimStart ?? null;
-  const { account, charges, years, manualExemptMonths, priceBands, pricing, loading } = useTenantRentAccount({
+  const { account, charges, years, manualExemptMonths, priceBands, pricing, loading, failed, retry } = useTenantRentAccount({
     tenantId,
     contactRent: monthlyRent,
     claimStart: resolvedClaimStart,
@@ -129,6 +130,14 @@ export function TenantRentCalendarPanel({
     return (
       <Card className={cn('flex justify-center p-8', className)}>
         <Loader2 className="h-7 w-7 animate-spin text-ink-soft" aria-label="جارٍ تحميل تقويم الإيجار" />
+      </Card>
+    );
+  }
+
+  if (failed) {
+    return (
+      <Card className={cn('p-3', className)}>
+        <RentAccountFailed onRetry={retry} />
       </Card>
     );
   }

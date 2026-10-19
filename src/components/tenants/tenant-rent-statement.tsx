@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { useTenantRentAccount } from '@/components/tenants/use-tenant-rent-account';
+import { RentAccountFailed } from '@/components/tenants/rent-account-failed';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { formatPaymentMethodAr } from '@/features/pdf/pdf-payment';
 import type { JournalEntryRow } from '@/lib/db/journal-queries';
@@ -44,7 +45,7 @@ export function TenantRentStatement({
   transactions: TransactionWithRelations[];
   journalEntries: JournalEntryRow[];
 }) {
-  const { account, charges, years, loading } = useTenantRentAccount({
+  const { account, charges, years, loading, failed, retry } = useTenantRentAccount({
     tenantId: contact.id,
     contactRent: monthlyRent,
     claimStart,
@@ -77,6 +78,14 @@ export function TenantRentStatement({
     return (
       <div className="flex justify-center py-10">
         <Loader2 className="h-6 w-6 animate-spin text-ink-soft" aria-label="جارٍ التحميل" />
+      </div>
+    );
+  }
+
+  if (failed) {
+    return (
+      <div className="p-4 sm:p-5">
+        <RentAccountFailed onRetry={retry} />
       </div>
     );
   }

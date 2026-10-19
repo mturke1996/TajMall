@@ -470,11 +470,14 @@ export function useTerminateLeaseContract() {
     mutationFn: async (vars: { id: string; unitId: string }) => {
       const supabase = createSupabaseBrowserClient();
 
-      const { error } = await supabase
+      // select the row back: an update the database filters out (no permission) returns no error and no rows
+      const { data: ended, error } = await supabase
         .from('lease_contracts')
         .update({ status: 'TERMINATED', end_date: todayISODate() })
-        .eq('id', vars.id);
+        .eq('id', vars.id)
+        .select('id');
       if (error) throw error;
+      if (!ended || ended.length === 0) throw new Error('لم يُنهَ العقد: ليست لديك صلاحية تعديله أو لم يعد موجوداً');
 
       const { error: unitErr } = await supabase
         .from('mall_units')

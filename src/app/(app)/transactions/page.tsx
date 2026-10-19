@@ -22,7 +22,11 @@ export default function TransactionsPage() {
   const [tab, setTab] = useState('all');
   const [query, setQuery] = useState('');
   const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
-  const { data, isLoading } = useTransactions();
+  const { data, isLoading, isError, error, refetch } = useTransactions();
+  // a failed first load is not an empty ledger: show the failure, never zeros (a failed background refetch keeps its rows)
+  const failed = isError && !data;
+  const tableError = failed ? error : undefined;
+  const retry = () => void refetch();
 
   const rows = useMemo(() => {
     const all = data ?? [];
@@ -129,14 +133,14 @@ export default function TransactionsPage() {
                 <>
                   <span className="text-xs text-muted-foreground">إجمالي الإيرادات</span>
                   <span className="font-bold tabular-nums text-success ms-auto">
-                    {formatMoney(revTotal, 'LYD', { compact: revTotal >= 100_000 })}
+                    {failed ? '—' : formatMoney(revTotal, 'LYD')}
                   </span>
                 </>
               ) : (
                 <>
                   <span className="text-xs text-muted-foreground">إجمالي المصروفات</span>
                   <span className="font-bold tabular-nums text-danger ms-auto">
-                    {formatMoney(expTotal, 'LYD', { compact: expTotal >= 100_000 })}
+                    {failed ? '—' : formatMoney(expTotal, 'LYD')}
                   </span>
                 </>
               )}
@@ -157,13 +161,13 @@ export default function TransactionsPage() {
 
           {/* Tables */}
           <TabsContent value="all" className="mt-4">
-            <TransactionsTable rows={searched} loading={isLoading} highlightId={highlightId} isFiltered={isFiltered} tableId="transactions-all" />
+            <TransactionsTable rows={searched} loading={isLoading} error={tableError} onRetry={retry} highlightId={highlightId} isFiltered={isFiltered} tableId="transactions-all" />
           </TabsContent>
           <TabsContent value="revenues" className="mt-4">
-            <TransactionsTable rows={revenues} loading={isLoading} kindFilter="REVENUE" highlightId={highlightId} isFiltered={isFiltered} tableId="transactions-revenues" />
+            <TransactionsTable rows={revenues} loading={isLoading} error={tableError} onRetry={retry} kindFilter="REVENUE" highlightId={highlightId} isFiltered={isFiltered} tableId="transactions-revenues" />
           </TabsContent>
           <TabsContent value="expenses" className="mt-4">
-            <TransactionsTable rows={expenses} loading={isLoading} kindFilter="EXPENSE" highlightId={highlightId} isFiltered={isFiltered} tableId="transactions-expenses" />
+            <TransactionsTable rows={expenses} loading={isLoading} error={tableError} onRetry={retry} kindFilter="EXPENSE" highlightId={highlightId} isFiltered={isFiltered} tableId="transactions-expenses" />
           </TabsContent>
         </Tabs>
       </div>

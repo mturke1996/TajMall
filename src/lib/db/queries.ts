@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { todayISODate } from "@/lib/utils";
@@ -494,6 +494,8 @@ export function useCreateContact() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
       qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
+      // the Tenants tab reads the per-month RPC under a different key; without this it keeps the old list for its staleTime
+      qc.invalidateQueries({ queryKey: ["tenant_rent_summary_for_month"] });
       qc.invalidateQueries({ queryKey: qk.employeeSummary });
       if (data?.id) qc.invalidateQueries({ queryKey: qk.contact(data.id) });
     },
@@ -518,6 +520,7 @@ export function useUpdateContact() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
       qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
+      qc.invalidateQueries({ queryKey: ["tenant_rent_summary_for_month"] });
       qc.invalidateQueries({ queryKey: qk.employeeSummary });
       qc.invalidateQueries({ queryKey: mqk.leaseContracts });
       qc.invalidateQueries({ queryKey: mqk.mallUnits });
@@ -540,6 +543,7 @@ export function useDeleteContact() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
       qc.invalidateQueries({ queryKey: qk.tenantRentSummary });
+      qc.invalidateQueries({ queryKey: ["tenant_rent_summary_for_month"] });
       qc.invalidateQueries({ queryKey: qk.employeeSummary });
     },
   });
@@ -619,21 +623,22 @@ export function useTenantRentSummaryForPeriod(monthKeys: string[]) {
     })),
   });
 
-  // لا نُفرّغ القائمة أثناء إعادة الجلب — التحميل فقط قبل أول بيانات
-  const isLoading =
-    monthKeys.length > 0 &&
-    queries.every((q) => q.data === undefined) &&
-    queries.some((q) => q.isFetching || q.isPending);
-  const isError = queries.some((q) => q.isError);
-  const error = queries.find((q) => q.error)?.error ?? null;
+  // لا نُفرّغ القائمة أثناء إعادة الجلب (q.data يبقى) — لكن لا نعرض أرقام فترة قبل أن يصل كل شهر،
+  // وإلا ظهر مجموع السنة من الأشهر المحمّلة فقط. الشهر الفاشل يُعدّ منتهياً ويُبلَّغ عنه عبر isError.
+  const settled = queries.every((q) => q.data !== undefined || q.isError);
+  const isLoading = monthKeys.length > 0 && !settled;
+  // a failed background refetch of a month that already has data keeps showing that data
+  const isError = queries.some((q) => q.isError && q.data === undefined);
+  const error = queries.find((q) => q.error && q.data === undefined)?.error ?? null;
 
   const data = useMemo(() => {
     const rowsByMonth = new Map<string, TenantRentSummary[]>();
+    if (!settled) return rowsByMonth;
     for (let i = 0; i < monthKeys.length; i++) {
       rowsByMonth.set(monthKeys[i], queries[i]?.data ?? []);
     }
     return rowsByMonth;
-  }, [monthKeys, queries]);
+  }, [monthKeys, queries, settled]);
 
   return { data, isLoading, isError, error };
 }
@@ -767,19 +772,24 @@ export function useTransactions(kind?: "REVENUE" | "EXPENSE", limit?: number) {
   return useQuery<TransactionWithRelations[]>({
     // the limit is part of the key: a page that asked for 80 rows must not hand them to one that wants all
     queryKey: [...qk.transactions(kind), limit ?? "all"],
+    // raising the limit ("show older") keeps the rows on screen while the longer list loads; callers read
+    // `isPlaceholderData` to know the rows are those of the previous, shorter limit
+    placeholderData: limit != null ? keepPreviousData : undefined,
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
-      const pageSize = 1000;
+      const pageSize = limit != null ? Math.min(limit, 1000) : 1000;
       const all: TransactionWithRelations[] = [];
       let from = 0;
 
       for (;;) {
+        // ask only for the rows still missing, so a small limit never reads a full 1000-row page
+        const size = limit != null ? Math.min(pageSize, limit - all.length) : pageSize;
         let q = supabase
           .from("transactions")
           .select(TX_SELECT)
           .order("created_at", { ascending: false })
           .order("number", { ascending: false })
-          .range(from, from + pageSize - 1);
+          .range(from, from + size - 1);
         if (kind) q = q.eq("kind", kind);
         const { data, error } = await q;
         if (error) throw error;
@@ -788,8 +798,8 @@ export function useTransactions(kind?: "REVENUE" | "EXPENSE", limit?: number) {
         if (limit != null && all.length >= limit) {
           return all.slice(0, limit);
         }
-        if (page.length < pageSize) break;
-        from += pageSize;
+        if (page.length < size) break;
+        from += size;
       }
 
       return all;
@@ -1232,7 +1242,7 @@ export function useDashboardStats() {
           supabase
             .from("transactions")
             .select("id, amount, kind, tx_date, category:categories(name_ar, color)")
-            .eq("status", "POSTED")
+            .in("status", ["POSTED", "RECONCILED"])
             .gte("tx_date", `${year}-01-01`)
             .lt("tx_date", `${year + 1}-01-01`)
             .order("id")
@@ -1247,9 +1257,11 @@ export function useDashboardStats() {
       }>;
 
       // Cashbox balances for the "treasury" KPI.
-      const { data: balances } = await supabase
+      const { data: balances, error: balancesError } = await supabase
         .from("cashbox_balances")
         .select("balance");
+      // a failed read must not turn the treasury into 0: the dashboard shows its failure state instead
+      if (balancesError) throw balancesError;
 
       let totalRevenue = 0;
       let totalExpense = 0;

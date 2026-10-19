@@ -31,7 +31,7 @@ import {
 } from '@/lib/db/cashbox-queries';
 import { useCashboxBalances } from '@/lib/db/queries';
 import { usePermission } from '@/lib/supabase/use-permission';
-import { cn, formatMoney, formatDate, formatShortDate } from '@/lib/utils';
+import { arabicCount, cn, formatMoney, formatDate, formatShortDate } from '@/lib/utils';
 import { toast } from 'sonner';
 
 type FilterKind = 'all' | 'in' | 'out' | 'transfer';
@@ -65,6 +65,8 @@ export default function CashboxLedgerPage() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [reconcileMode, setReconcileMode] = useState(false);
   const [statementBalance, setStatementBalance] = useState('');
+  // the main cash box holds thousands of movements; mounting them all (twice: cards + table) freezes phones
+  const [visible, setVisible] = useState(100);
 
   const filteredRows = useMemo(() => {
     const rows = ledger?.rows ?? [];
@@ -73,6 +75,7 @@ export default function CashboxLedgerPage() {
     if (filter === 'out') return rows.filter((r) => r.direction === 'out');
     return rows.filter((r) => r.source_type === 'cash_transfer');
   }, [ledger?.rows, filter]);
+  const shownRows = filteredRows.slice(0, visible);
 
   const Icon = ledger?.kind === 'BANK' || ledger?.kind === 'CARD' ? Landmark : Wallet;
 
@@ -275,7 +278,10 @@ export default function CashboxLedgerPage() {
                 <button
                   key={chip.key}
                   type="button"
-                  onClick={() => setFilter(chip.key)}
+                  onClick={() => {
+                    setFilter(chip.key);
+                    setVisible(100);
+                  }}
                   className={cn(
                     'rounded-full px-3 py-1.5 text-[11.5px] font-semibold transition-colors',
                     filter === chip.key
@@ -299,7 +305,7 @@ export default function CashboxLedgerPage() {
           ) : (
             <>
               <div className="divide-y divide-border md:hidden">
-                {filteredRows.map((row) => (
+                {shownRows.map((row) => (
                   <LedgerMobileRow
                     key={`${row.source_type}-${row.event_id}-${row.event_kind}`}
                     row={row}
@@ -323,7 +329,7 @@ export default function CashboxLedgerPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRows.map((row) => {
+                    {shownRows.map((row) => {
                       const href = ledgerLink(row);
                       const kindLabel = LEDGER_KIND_LABELS[row.event_kind] ?? row.event_kind;
                       const isIn = row.direction === 'in';
@@ -395,6 +401,13 @@ export default function CashboxLedgerPage() {
                   </tbody>
                 </table>
               </div>
+              {filteredRows.length > visible && (
+                <div className="flex justify-center border-t border-border p-3">
+                  <Button variant="outline" size="sm" onClick={() => setVisible((n) => n + 100)}>
+                    عرض المزيد (المتبقي: {arabicCount(filteredRows.length - visible, ['حركة واحدة', 'حركتان', 'حركات', 'حركة'])})
+                  </Button>
+                </div>
+              )}
             </>
           )}
         </div>

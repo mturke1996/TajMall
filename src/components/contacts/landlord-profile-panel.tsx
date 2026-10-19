@@ -21,7 +21,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { cn, formatMoney, formatDate } from '@/lib/utils';
+import { arabicCount, cn, formatMoney, formatDate, todayISODate } from '@/lib/utils';
 import type { ContactRow, TransactionWithRelations } from '@/lib/db/types';
 import type { JournalEntryRow } from '@/lib/db/journal-queries';
 import { visibleContactNotes,
@@ -76,6 +76,19 @@ export function LandlordProfilePanel({
     });
 
   };
+
+  // contract dates are calendar days; an ended or not-yet-started lease must not read as in force
+  const today = todayISODate();
+  const contractStart = contact.contract_start?.slice(0, 10) ?? '';
+  const contractEnd = contact.contract_end?.slice(0, 10) ?? '';
+  const contractState =
+    !contractStart && !contractEnd
+      ? 'unset'
+      : contractEnd && contractEnd < today
+        ? 'ended'
+        : contractStart && contractStart > today
+          ? 'upcoming'
+          : 'active';
 
   return (
     <div className="space-y-6">
@@ -144,7 +157,7 @@ export function LandlordProfilePanel({
             {formatMoney(schedule.totalPaid, 'LYD')}
           </p>
           <span className="text-[11px] text-success-ink block mt-1">
-            سُدّد {schedule.paidMonthsCount} شهراً بالكامل
+            سُدّد بالكامل: {arabicCount(schedule.paidMonthsCount, ['شهر واحد', 'شهران', 'أشهر', 'شهراً'])}
           </span>
         </Card>
 
@@ -157,7 +170,7 @@ export function LandlordProfilePanel({
             {formatMoney(schedule.totalOutstanding, 'LYD')}
           </p>
           <span className="text-[11px] text-muted-foreground block mt-1">
-            {schedule.unpaidMonthsCount} أشهر غير مدفوعة
+            غير مدفوع: {arabicCount(schedule.unpaidMonthsCount, ['شهر واحد', 'شهران', 'أشهر', 'شهراً'])}
           </span>
         </Card>
       </div>
@@ -334,9 +347,15 @@ export function LandlordProfilePanel({
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-muted-foreground">حالة العقد:</span>
-              <Badge className="bg-success-soft text-success-ink">
-                ساري المفعول
-              </Badge>
+              {contractState === 'unset' ? (
+                <Badge variant="outline">غير محدد</Badge>
+              ) : contractState === 'ended' ? (
+                <Badge className="bg-danger-soft text-danger-ink">منتهٍ</Badge>
+              ) : contractState === 'upcoming' ? (
+                <Badge className="bg-warning-soft text-warning-ink">لم يبدأ</Badge>
+              ) : (
+                <Badge className="bg-success-soft text-success-ink">ساري المفعول</Badge>
+              )}
             </div>
           </div>
         </Card>

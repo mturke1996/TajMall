@@ -53,6 +53,8 @@ export function TransactionsTable({
   highlightId = null,
   isFiltered = false,
   tableId = 'transactions',
+  error,
+  onRetry,
 }: {
   rows?: TransactionWithRelations[];
   loading?: boolean;
@@ -64,6 +66,9 @@ export function TransactionsTable({
   /** The rows are a search/date subset — show "no results" instead of "no data yet". */
   isFiltered?: boolean;
   tableId?: string;
+  /** The load failed and there are no rows to show — say so instead of an empty ledger. */
+  error?: unknown;
+  onRetry?: () => void;
 }) {
   const data = rows ?? [];
   const del = useDeleteTransaction();
@@ -235,40 +240,54 @@ export function TransactionsTable({
 
   return (
     <>
-      <DataTable
-        tableId={tableId}
-        caption={kindFilter === 'REVENUE' ? 'الإيرادات' : kindFilter === 'EXPENSE' ? 'المصروفات' : 'المعاملات'}
-        data={data}
-        columns={columns}
-        getRowId={(r) => r.id}
-        loading={loading}
-        isFiltered={isFiltered}
-        initialSorting={[{ id: 'tx_date', desc: true }]}
-        highlightId={highlightId}
-        rowDomId={(r) => transactionHighlightDomId(r.id)}
-        empty={
-          <EmptyState
-            icon={Receipt}
-            title={emptyTitle}
-            description="ابدأ بإضافة أول معاملة"
-            action={emptyHref ? { label: emptyLabel, href: emptyHref } : undefined}
-          />
-        }
-        noResults={
-          <EmptyState
-            icon={SearchX}
-            title="لا توجد نتائج مطابقة"
-            description="جرّب كلمة بحث أخرى أو فترة زمنية أوسع."
-          />
-        }
-        renderMobileRow={(r) => (
-          <TransactionCard
-            row={r}
-            currency={currency}
-            onDelete={canDelete(r) ? () => setPendingDelete(r) : undefined}
-          />
-        )}
-      />
+      {error != null && !loading && data.length === 0 ? (
+        <div
+          role="alert"
+          className="flex flex-col items-center gap-3 rounded-xl border border-danger-line bg-danger-soft p-6 text-center"
+        >
+          <p className="text-[13px] text-danger-ink">{friendlyError(error, 'تعذّر تحميل المعاملات')}</p>
+          {onRetry && (
+            <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+              أعد المحاولة
+            </Button>
+          )}
+        </div>
+      ) : (
+        <DataTable
+          tableId={tableId}
+          caption={kindFilter === 'REVENUE' ? 'الإيرادات' : kindFilter === 'EXPENSE' ? 'المصروفات' : 'المعاملات'}
+          data={data}
+          columns={columns}
+          getRowId={(r) => r.id}
+          loading={loading}
+          isFiltered={isFiltered}
+          initialSorting={[{ id: 'tx_date', desc: true }]}
+          highlightId={highlightId}
+          rowDomId={(r) => transactionHighlightDomId(r.id)}
+          empty={
+            <EmptyState
+              icon={Receipt}
+              title={emptyTitle}
+              description="ابدأ بإضافة أول معاملة"
+              action={emptyHref ? { label: emptyLabel, href: emptyHref } : undefined}
+            />
+          }
+          noResults={
+            <EmptyState
+              icon={SearchX}
+              title="لا توجد نتائج مطابقة"
+              description="جرّب كلمة بحث أخرى أو فترة زمنية أوسع."
+            />
+          }
+          renderMobileRow={(r) => (
+            <TransactionCard
+              row={r}
+              currency={currency}
+              onDelete={canDelete(r) ? () => setPendingDelete(r) : undefined}
+            />
+          )}
+        />
+      )}
       <ConfirmDialog
         open={pendingDelete !== null}
         onOpenChange={(open) => !open && setPendingDelete(null)}

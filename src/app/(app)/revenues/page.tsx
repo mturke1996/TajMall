@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { TrendingUp, ArrowDownToLine, Receipt, SlidersHorizontal } from 'lucide-react';
+import { TrendingUp, ArrowDownToLine, Receipt, Landmark, SlidersHorizontal } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { DataToolbar, type DateRangePreset, isInDatePreset, datePresetLabel } from '@/components/data/toolbar';
@@ -21,10 +21,12 @@ export default function RevenuesPage() {
   const highlightId = useSearchParams().get('highlight');
   const [query, setQuery] = useState('');
   const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
-  const [methodFilter, setMethodFilter] = useState<'ALL' | 'CASH' | 'CHEQUE'>('ALL');
+  const [methodFilter, setMethodFilter] = useState<'ALL' | 'CASH' | 'CHEQUE' | 'OTHER'>('ALL');
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
 
-  const { data, isLoading } = useTransactions('REVENUE');
+  const { data, isLoading, isError, error, refetch } = useTransactions('REVENUE');
+  // a failed first load is not an empty ledger: show the failure, never zeros (a failed background refetch keeps its rows)
+  const failed = isError && !data;
   const { data: categories = [] } = useCategories('REVENUE');
 
   const rows = useMemo(() => {
@@ -44,6 +46,10 @@ export default function RevenuesPage() {
 
   const methodFiltered = useMemo(() => {
     if (methodFilter === 'ALL') return dateFiltered;
+    // Transfers and cards are rent's usual route, so they get their own bucket to match against the bank statement.
+    if (methodFilter === 'OTHER') {
+      return dateFiltered.filter((r) => r.method !== 'CASH' && r.method !== 'CHEQUE');
+    }
     return dateFiltered.filter((r) => r.method === methodFilter);
   }, [dateFiltered, methodFilter]);
 
@@ -58,6 +64,9 @@ export default function RevenuesPage() {
     .reduce((s, r) => s + Number(r.amount), 0);
   const chequeTotal = dateFiltered
     .filter((r) => r.method === 'CHEQUE')
+    .reduce((s, r) => s + Number(r.amount), 0);
+  const otherTotal = dateFiltered
+    .filter((r) => r.method !== 'CASH' && r.method !== 'CHEQUE')
     .reduce((s, r) => s + Number(r.amount), 0);
 
   return (
@@ -91,7 +100,7 @@ export default function RevenuesPage() {
                   <RevenuesReportPDF
                     titleAr="كشف الإيرادات التفصيلي"
                     periodLabel={datePresetLabel(datePreset)}
-                    subtitleAr={`${datePresetLabel(datePreset)}${query.trim() ? ` · بحث: ${query.trim()}` : ''}`}
+                    subtitleAr={`${datePresetLabel(datePreset)}${methodFilter === 'CASH' ? ' · نقدي فقط' : methodFilter === 'CHEQUE' ? ' · صكوك فقط' : methodFilter === 'OTHER' ? ' · حوالات وبطاقات فقط' : ''}${query.trim() ? ` · بحث: ${query.trim()}` : ''}`}
                     rows={filtered}
                     groupByPaymentMethod={true}
                     includeSummaries={true}
@@ -105,10 +114,10 @@ export default function RevenuesPage() {
       />
 
       <div className="flex flex-col gap-5 px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-7">
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Stat
             label="إجمالي الإيرادات"
-            value={total}
+            value={failed ? '—' : total}
             currency="LYD"
             icon={TrendingUp}
             loading={isLoading}
@@ -118,7 +127,7 @@ export default function RevenuesPage() {
           />
           <Stat
             label="الإيرادات النقدية"
-            value={cashTotal}
+            value={failed ? '—' : cashTotal}
             currency="LYD"
             icon={ArrowDownToLine}
             loading={isLoading}
@@ -128,13 +137,23 @@ export default function RevenuesPage() {
           />
           <Stat
             label="إيرادات الصكوك"
-            value={chequeTotal}
+            value={failed ? '—' : chequeTotal}
             currency="LYD"
             icon={Receipt}
             loading={isLoading}
             color="amber"
             onClick={() => setMethodFilter('CHEQUE')}
             active={methodFilter === 'CHEQUE'}
+          />
+          <Stat
+            label="حوالات وبطاقات"
+            value={failed ? '—' : otherTotal}
+            currency="LYD"
+            icon={Landmark}
+            loading={isLoading}
+            color="neutral"
+            onClick={() => setMethodFilter('OTHER')}
+            active={methodFilter === 'OTHER'}
           />
         </section>
 
@@ -151,6 +170,8 @@ export default function RevenuesPage() {
         <TransactionsTable
           rows={filtered}
           loading={isLoading}
+          error={failed ? error : undefined}
+          onRetry={() => void refetch()}
           kindFilter="REVENUE"
           highlightId={highlightId}
           isFiltered={isFiltered}

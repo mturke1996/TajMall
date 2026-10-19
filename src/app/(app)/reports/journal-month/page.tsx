@@ -141,9 +141,13 @@ function JournalMonthContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const period = useMemo(
-    () => parseReportPeriod(searchParams),
-    [searchParams],
+  // Keyed on its values, not on searchParams: switching the view tab only rewrites ?category=, and a
+  // new period object on every URL change would re-run the aggregation effect and refetch the period.
+  const parsedPeriod = parseReportPeriod(searchParams);
+  const { year: pYear, month: pMonth, mode: pMode } = parsedPeriod;
+  const period = useMemo<ReportPeriod>(
+    () => ({ year: pYear, month: pMonth, mode: pMode }),
+    [pYear, pMonth, pMode],
   );
 
   const setPeriod = useCallback(
@@ -167,8 +171,18 @@ function JournalMonthContent() {
 
   const { data: categories = [], isLoading: categoriesLoading } = useCategories();
   const { data: cashboxes = [] } = useCashboxes();
-  const { data: allTransactions = [] } = useTransactions();
-  const { data: revenueTransactions = [], isLoading: transactionsLoading } = useTransactions('REVENUE');
+  const {
+    data: allTransactions = [],
+    isLoading: transactionsLoading,
+    isError: transactionsError,
+    error: transactionsErr,
+  } = useTransactions();
+  // One download serves the PDF dialog and the collections tab; a second REVENUE-only query
+  // paged through the whole transactions table again.
+  const revenueTransactions = useMemo(
+    () => allTransactions.filter((t) => t.kind === 'REVENUE'),
+    [allTransactions],
+  );
 
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
 
@@ -719,7 +733,14 @@ function JournalMonthContent() {
         </AccountingFilterCard>
 
         {/* VIEW A: Cash Collections by Actual Entry Date Mode */}
-        {isCashCollectionsView ? (
+        {isCashCollectionsView && transactionsLoading ? (
+          <AccountingLoading />
+        ) : isCashCollectionsView && transactionsError ? (
+          <AccountingError
+            title="تعذّر تحميل التحصيلات"
+            message={(transactionsErr as Error)?.message}
+          />
+        ) : isCashCollectionsView ? (
           <div className="space-y-5">
             {/* Informational Scope Strip */}
             <div className="rounded-xl border border-success-line bg-success-soft/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">

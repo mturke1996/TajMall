@@ -32,16 +32,17 @@ import {
   type PayrollRunLine,
   type PayrollSalaryStructure,
 } from '@/lib/db/payroll-queries';
-import { formatMonthKeyAr, preferredCashboxId, todayISODate, arabicCount } from '@/lib/utils';
+import { formatMonthKeyAr, parseAmountInput, preferredCashboxId, todayISODate, arabicCount } from '@/lib/utils';
 import { Amount, EmployeeSelect, FormField } from './payroll-ui';
 
 type Employee = Pick<ContactRow, 'id' | 'name' | 'job_title'>;
 
-/** Parses a typed amount; empty means zero, anything else invalid means NaN. */
+/**
+ * Parses a typed amount; empty means zero, anything else invalid means NaN. Goes through the shared
+ * parser so "1250,5" is 1250.5 (not 12505) and Arabic-Indic digits are accepted, as in the other forms.
+ */
 function parseAmount(raw: string): number {
-  const cleaned = raw.replace(/,/g, '').trim();
-  if (cleaned === '') return 0;
-  return Number(cleaned);
+  return parseAmountInput(raw);
 }
 
 export function monthsLabel(n: number) {

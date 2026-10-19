@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { FileSpreadsheet, Plus } from 'lucide-react';
 import {
   useTenantRentSummaryForMonth,
@@ -14,7 +15,9 @@ import { WriteGuard } from '@/components/auth/write-guard';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { MallPanelToolbar } from '@/components/mall/panel-toolbar';
 import { peopleSegmentHref } from '@/lib/mall/routes';
+import { useTenantsView } from '@/stores/tenants-view';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   aggregateTenantSummariesForPeriod,
   applyMatchingMonthDetailsToTenants,
@@ -29,17 +32,24 @@ import {
   getPeriodMonthKeys,
   periodSelectionKey,
   sumMatchingMonthDetails,
-  type TenantRentPeriodSelection,
 } from '@/lib/tenant-rent-period';
 import { getStatusFilterLabel } from '@/components/tenants/tenant-status-config';
 
 export function MallTenantsPanel() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { canWrite } = usePermission();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [periodSelection, setPeriodSelection] = useState<TenantRentPeriodSelection>(
-    () => defaultTenantRentPeriodSelection(),
+  // kept in a store, not state: opening a tenant unmounts this panel, and «رجوع» must find the list as it was
+  const searchQuery = useTenantsView((s) => s.searchQuery);
+  const setSearchQuery = useTenantsView((s) => s.setSearchQuery);
+  const statusFilter = useTenantsView((s) => s.statusFilter);
+  const setStatusFilter = useTenantsView((s) => s.setStatusFilter);
+  const storedPeriod = useTenantsView((s) => s.periodSelection);
+  const setPeriodSelection = useTenantsView((s) => s.setPeriodSelection);
+  // memoised so monthKeys keeps its identity between renders
+  const periodSelection = useMemo(
+    () => storedPeriod ?? defaultTenantRentPeriodSelection(),
+    [storedPeriod],
   );
 
   const monthKeys = useMemo(
@@ -49,13 +59,21 @@ export function MallTenantsPanel() {
   const isSingleMonth = periodSelection.mode === 'month';
 
   const singleMonthKey = isSingleMonth ? periodSelection.monthKey : null;
-  const { data: singleMonthTenants = [], isLoading: singleLoading } =
-    useTenantRentSummaryForMonth(singleMonthKey);
+  const {
+    data: singleData,
+    isLoading: singleLoading,
+    isError: singleQueryError,
+  } = useTenantRentSummaryForMonth(singleMonthKey);
+  const singleMonthTenants = useMemo(() => singleData ?? [], [singleData]);
 
   const {
     data: rowsByMonth,
     isLoading: periodLoading,
+    isError: periodError,
   } = useTenantRentSummaryForPeriod(isSingleMonth ? [] : monthKeys);
+
+  // an empty list after a failed request is not "no tenants": show the failure, never zeros
+  const failed = isSingleMonth ? singleQueryError && singleData === undefined : periodError;
 
   const tenants = useMemo(() => {
     if (isSingleMonth) return singleMonthTenants;
@@ -120,9 +138,11 @@ export function MallTenantsPanel() {
 
   const stats = useMemo(() => {
     if (!monthStatusesByTenant) {
-      return computeTenantPeriodStats(
-        statusFilter === 'ALL' ? tenants : filteredTenants,
-      );
+      const base = computeTenantPeriodStats(tenants);
+      if (statusFilter === 'ALL') return base;
+      // counts stay those of the whole list so the chips remain usable; only the money follows the filter
+      const sub = computeTenantPeriodStats(filteredTenants);
+      return { ...base, expectedTotal: sub.expectedTotal, collectedTotal: sub.collectedTotal };
     }
 
     const hasStatus = (id: string, status: string) =>
@@ -178,7 +198,7 @@ export function MallTenantsPanel() {
         <TajMallPdfToolbar
           fileName={pdfFileName}
           cacheKey={pdfCacheKey}
-          disabled={filteredTenants.length === 0 || isLoading}
+          disabled={filteredTenants.length === 0 || isLoading || failed}
           className="w-full [&>button]:flex-1 sm:w-auto sm:[&>button]:flex-none"
           render={async () => {
             const { TenantsReportPDF } = await import('@/features/pdf/TenantsReportPDF');
@@ -214,24 +234,51 @@ export function MallTenantsPanel() {
         </WriteGuard>
       </MallPanelToolbar>
 
-      <TenantsDirectory
-        tenants={tenants}
-        filteredTenants={filteredTenants}
-        isLoading={isLoading}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
-        periodSelection={periodSelection}
-        onPeriodSelectionChange={setPeriodSelection}
-        stats={stats}
-        matchingMonthsByTenantId={matchingMonthNumbersByTenantId}
-        onAddTenant={
-          canWrite
-            ? () => router.push(peopleSegmentHref('TENANT', { add: 'TENANT' }))
-            : undefined
-        }
-      />
+      {failed ? (
+        <Card
+          role="alert"
+          className="flex flex-col items-center gap-3 border-danger-line bg-danger-soft p-8 text-center text-danger-ink"
+        >
+          <p className="text-[13px]">تعذّر تحميل بيانات المستأجرين. تحقق من الاتصال ثم أعد المحاولة.</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void queryClient.invalidateQueries({ queryKey: ['tenant_rent_summary_for_month'] });
+              }}
+            >
+              إعادة المحاولة
+            </Button>
+            {/* the period picker is part of the list that is not shown: without this a failing month would be a dead end */}
+            {periodSelectionKey(periodSelection) !== periodSelectionKey(defaultTenantRentPeriodSelection()) && (
+              <Button type="button" variant="outline" size="sm" onClick={() => setPeriodSelection(null)}>
+                الشهر الحالي
+              </Button>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <TenantsDirectory
+          tenants={tenants}
+          filteredTenants={filteredTenants}
+          isLoading={isLoading}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          periodSelection={periodSelection}
+          onPeriodSelectionChange={setPeriodSelection}
+          stats={stats}
+          matchingMonthsByTenantId={matchingMonthNumbersByTenantId}
+          onAddTenant={
+            canWrite
+              ? () => router.push(peopleSegmentHref('TENANT', { add: 'TENANT' }))
+              : undefined
+          }
+        />
+      )}
     </>
   );
 }

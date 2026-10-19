@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ChevronLeft, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { arabicCount, cn, formatDate, formatMoney, todayISODate } from '@/lib/utils';
 import { useTenantRentSummary } from '@/lib/db/queries';
 import { aggregateMallRentKpis } from '@/lib/mall-rent-kpis';
@@ -26,10 +27,21 @@ const count = (n: number, noun: [string, string]) => (n <= 10 ? `${n} ${noun[0]}
  * charges, leases ending soon) and who still owes this month.
  */
 export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) => void }) {
-  const { data: contracts = [], isSuccess: contractsLoaded } = useLeaseContracts();
-  const { data: units = [], isSuccess: unitsLoaded } = useMallUnits();
-  const { data: charges = [] } = useTenantCharges();
-  const { data: tenants = [] } = useTenantRentSummary();
+  const contractsQ = useLeaseContracts();
+  const unitsQ = useMallUnits();
+  const chargesQ = useTenantCharges();
+  const rentQ = useTenantRentSummary();
+  const { data: contracts = [] } = contractsQ;
+  const { data: units = [] } = unitsQ;
+  const { data: charges = [] } = chargesQ;
+  const { data: tenants = [] } = rentQ;
+  const contractsLoaded = contractsQ.isSuccess;
+  const unitsLoaded = unitsQ.isSuccess;
+  // until a list is in, its zero is not a fact: the tiles and cards must not read as "nothing owed"
+  const rentReady = rentQ.data !== undefined;
+  const queries = [contractsQ, unitsQ, chargesQ, rentQ];
+  const allReady = queries.every((q) => q.data !== undefined);
+  const anyFailed = queries.some((q) => q.isError && q.data === undefined);
 
   const activeContracts = contracts.filter((c) => c.status === 'ACTIVE');
   const rentKpis = aggregateMallRentKpis(tenants);
@@ -119,8 +131,8 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
         <div className="grid grid-cols-2 gap-px bg-border md:grid-cols-5">
           <div className="bg-card p-4">
             <p className="text-[12.5px] text-ink-mute">المستأجرون</p>
-            <p className="mt-1 text-[20px] font-semibold tabular-nums">{tenants.length}</p>
-            <p className="mt-0.5 text-[12px] text-ink-mute">{activeContracts.length} عقد نشط</p>
+            <p className="mt-1 text-[20px] font-semibold tabular-nums">{rentReady ? tenants.length : '—'}</p>
+            <p className="mt-0.5 text-[12px] text-ink-mute">{contractsLoaded ? `${activeContracts.length} عقد نشط` : 'جارٍ التحميل'}</p>
           </div>
           <div className="bg-card p-4">
             <p className="text-[12.5px] text-ink-mute">إشغال المحلات</p>
@@ -134,21 +146,27 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
           <div className="bg-card p-4">
             <p className="text-[12.5px] text-ink-mute">إيجار {monthName}</p>
             <p className="mt-1 text-[20px] font-semibold tabular-nums">
-              {rentKpis.currentMonthPaidCount}
-              <span className="text-[13px] font-normal text-ink-mute"> من {rentKpis.currentMonthDueCount} مكتمل</span>
+              {rentReady ? (
+                <>
+                  {rentKpis.currentMonthPaidCount}
+                  <span className="text-[13px] font-normal text-ink-mute"> من {rentKpis.currentMonthDueCount} مكتمل</span>
+                </>
+              ) : (
+                '—'
+              )}
             </p>
           </div>
           <div className="bg-card p-4">
             <p className="text-[12.5px] text-ink-mute">نسبة التحصيل</p>
-            <p className="mt-1 text-[20px] font-semibold tabular-nums">{rentKpis.collectionRate.toFixed(1)}%</p>
+            <p className="mt-1 text-[20px] font-semibold tabular-nums">{rentReady ? `${rentKpis.collectionRate.toFixed(1)}%` : '—'}</p>
             <p className="mt-0.5 text-[12px] text-ink-mute tabular-nums">
-              {formatMoney(rentKpis.collectedRent, 'LYD')} من {formatMoney(rentKpis.expectedRent, 'LYD')}
+              {rentReady ? `${formatMoney(rentKpis.collectedRent, 'LYD')} من ${formatMoney(rentKpis.expectedRent, 'LYD')}` : '—'}
             </p>
           </div>
           <div className="col-span-2 bg-card p-4 md:col-span-1">
             <p className="text-[12.5px] text-ink-mute">مستحقات مفتوحة</p>
             <p className={cn('mt-1 text-[20px] font-semibold tabular-nums', rentKpis.outstandingRent > 0 && 'text-danger-ink')}>
-              {formatMoney(rentKpis.outstandingRent, 'LYD')}
+              {rentReady ? formatMoney(rentKpis.outstandingRent, 'LYD') : '—'}
             </p>
             <p className="mt-0.5 text-[12px] text-ink-mute">كل السنوات</p>
           </div>
@@ -175,7 +193,18 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
             </div>
           </div>
           {followUps.length === 0 ? (
-            <Card className="px-4 py-8 text-center text-[13px] text-ink-mute">لا شيء يحتاج متابعة الآن.</Card>
+            allReady ? (
+              <Card className="px-4 py-8 text-center text-[13px] text-ink-mute">لا شيء يحتاج متابعة الآن.</Card>
+            ) : anyFailed ? (
+              <Card role="alert" className="px-4 py-8 text-center text-[13px] text-ink-mute">
+                تعذّر تحميل بعض البيانات، فلا يمكن الجزم بأن لا شيء يحتاج متابعة. أعد فتح الصفحة بعد قليل.
+              </Card>
+            ) : (
+              <Card className="flex flex-col gap-3 p-4" aria-busy="true">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </Card>
+            )
           ) : (
             <ul className="surface divide-y divide-border overflow-hidden">
               {followUps.map((f) => (
@@ -210,7 +239,19 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
               <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
             </button>
           </div>
-          {owingThisMonth.length === 0 ? (
+          {!rentReady ? (
+            rentQ.isError ? (
+              <Card role="alert" className="px-4 py-8 text-center text-[13px] text-ink-mute">
+                تعذّر تحميل ملخص الإيجار. أعد فتح الصفحة بعد قليل.
+              </Card>
+            ) : (
+              <Card className="flex flex-col gap-3 p-4" aria-busy="true">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </Card>
+            )
+          ) : owingThisMonth.length === 0 ? (
             <Card className="px-4 py-8 text-center text-[13px] text-ink-mute">كل المستأجرين أكملوا إيجار {monthName}.</Card>
           ) : (
             <ul className="surface divide-y divide-border overflow-hidden">

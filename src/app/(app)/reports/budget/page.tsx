@@ -9,9 +9,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { AccountingYearPicker } from '@/components/accounting/accounting-year-picker';
 import { AccountingFilterCard } from '@/components/accounting/accounting-filter-card';
+import { AccountingError, AccountingLoading } from '@/components/accounting/accounting-states';
 import { ExportCsvButton } from '@/components/data/export-csv-button';
 import { useCategories } from '@/lib/db/queries';
-import { useBudgetMap, useActualMap, useUpsertBudget } from '@/lib/db/budget-queries';
+import {
+  useBudgetMap,
+  useActualMap,
+  useUpsertBudget,
+  useBudgets,
+  useBudgetActuals,
+} from '@/lib/db/budget-queries';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { cn, formatMoney } from '@/lib/utils';
 
@@ -35,6 +42,12 @@ export default function BudgetPage() {
   const budgetMap = useBudgetMap(year);
   const actualMap = useActualMap(year);
   const upsertBudget = useUpsertBudget(year);
+  // The maps above default to empty while their queries run or fail, which reads as "actual 0".
+  // These share the same cache entries, so they cost no extra request.
+  const budgetsQ = useBudgets(year);
+  const actualsQ = useBudgetActuals(year);
+  const ready = !isLoading && !budgetsQ.isLoading && !actualsQ.isLoading;
+  const failed = budgetsQ.isError || actualsQ.isError;
 
   const rows = useMemo(() => {
     const activeCats = categories.filter((c) => c.active !== false);
@@ -254,11 +267,11 @@ export default function BudgetPage() {
       <PageHeader
         eyebrow="المحاسبة والتقارير"
         title="الموازنة مقابل الفعلي"
-        description="مقارنة الأرقام المخطَّطة بالفعلي لكل بند — تحرير الموازنة الشهرية متاح لـ owner/admin/accountant"
+        description="مقارنة الأرقام المخطَّطة بالفعلي لكل بند — تحرير الموازنة الشهرية متاح للمالك ومدير النظام والمحاسب"
         actions={
           <ExportCsvButton
             fileName={`الموازنة-${year}-${periodType === 'MONTH' ? month : 'سنوي'}`}
-            disabled={rows.length === 0}
+            disabled={!ready || failed || rows.length === 0}
             headers={['البند', 'النوع', 'الموازنة', 'الفعلي', 'الفارق']}
             rows={rows.map((r) => [r.cat.name_ar, r.cat.kind === 'REVENUE' ? 'إيراد' : 'مصروف', r.budgeted, r.actual, r.variance])}
           />
@@ -305,8 +318,13 @@ export default function BudgetPage() {
           )}
         </AccountingFilterCard>
 
-        {isLoading ? (
-          <p className="py-12 text-center text-sm text-muted-foreground">جارٍ التحميل…</p>
+        {!ready && !failed ? (
+          <AccountingLoading />
+        ) : failed ? (
+          <AccountingError
+            title="تعذّر تحميل الموازنة"
+            message={((budgetsQ.error ?? actualsQ.error) as Error)?.message}
+          />
         ) : (
           <>
             {renderBudgetTable('الإيرادات', revenueRows, 'emerald')}
@@ -317,7 +335,7 @@ export default function BudgetPage() {
         {!canManage && (
           <p className="flex items-center gap-2 text-[12px] text-ink-mute">
             <Coins className="h-3.5 w-3.5" />
-            تعديل أرقام الموازنة متاح لـ owner أو admin أو accountant فقط.
+            تعديل أرقام الموازنة متاح للمالك أو مدير النظام أو المحاسب فقط.
           </p>
         )}
       </AccountingPageBody>

@@ -83,8 +83,7 @@ export default function NewVoucherPage() {
 
   useEffect(() => {
     if (cashboxes.length && !cashboxId) setCashboxId(preferredCashboxId(cashboxes));
-    if (expenseCategories.length && !categoryId) setCategoryId(expenseCategories[0]!.id);
-  }, [cashboxes, expenseCategories, cashboxId, categoryId]);
+  }, [cashboxes, cashboxId]);
 
 
   const totalAmount = useMemo(
@@ -128,6 +127,11 @@ export default function NewVoucherPage() {
     }
     if (!payee.trim()) {
       toast.error('أدخل اسم المستفيد');
+      return;
+    }
+    // no default: the payout posts to this expense account on approval, so the clerk must choose it
+    if (!categoryId) {
+      toast.error('اختر بند المصروف');
       return;
     }
 

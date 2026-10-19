@@ -2,6 +2,7 @@ import type { ContactRow } from '@/lib/db/types';
 import {
   extractContactBusinessRole,
   encodeContactRoleFields,
+  visibleContactNotes,
   type ContactBusinessRole,
 } from '@/lib/contacts/contact-roles';
 import { NEEDS_DB_UPDATE, friendlyError } from '@/lib/user-messages';
@@ -119,7 +120,7 @@ export function contactToFormState(contact: ContactRow): ContactFormState {
     salary: toFormString(row.salary),
     hire_date: toFormString(contact.hire_date ? contact.hire_date.slice(0, 10) : ''),
     is_active: contact.is_active,
-    notes: toFormString(contact.notes),
+    notes: visibleContactNotes(contact.notes),
   };
 }
 

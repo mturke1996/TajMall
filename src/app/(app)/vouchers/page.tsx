@@ -74,9 +74,22 @@ export default function VouchersPage() {
     });
   }
 
-  function handleApprove(id: string) {
+  // approving posts the payout and lowers the cashbox balance at once, so it is confirmed like delete
+  async function handleApprove(row: { id: string; voucher_number: string; payee?: string | null; total_amount?: string | number | null }) {
+    const ok = await confirm({
+      title: 'اعتماد إذن الصرف',
+      description: 'سيُرحَّل قيد الصرف ويُخصم المبلغ من الخزينة فور الاعتماد.',
+      details: [
+        { label: 'رقم الإذن', value: <bdi>{row.voucher_number}</bdi> },
+        ...(row.payee ? [{ label: 'المستفيد', value: row.payee }] : []),
+        ...(row.total_amount != null ? [{ label: 'المبلغ', value: formatMoney(Number(row.total_amount), 'LYD') }] : []),
+      ],
+      confirmLabel: 'اعتمد الإذن',
+      tone: 'default',
+    });
+    if (!ok) return;
     decideApproval.mutate(
-      { voucherId: id, approve: true },
+      { voucherId: row.id, approve: true },
       {
         onSuccess: () => toast.success('تمت الموافقة على الإذن'),
         onError: (e) =>
@@ -223,7 +236,7 @@ export default function VouchersPage() {
                           size="sm"
                           className="gap-1.5"
                           disabled={decideApproval.isPending}
-                          onClick={() => handleApprove(row.id)}
+                          onClick={() => handleApprove(row)}
                         >
                           <Check className="h-3.5 w-3.5" />
                           اعتماد

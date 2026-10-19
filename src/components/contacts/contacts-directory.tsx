@@ -28,6 +28,7 @@ import type { ContactKind, ContactRow } from '@/lib/db/types';
 import { useTxDialog } from '@/stores/transaction-dialog';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { usePartyActivity, type PartyActivity } from '@/lib/db/party-report-queries';
+import { useContacts } from '@/lib/db/queries';
 import {
   extractContactBusinessRole,
   visibleContactNotes,
@@ -118,7 +119,20 @@ function contactDetail(contact: ContactRow): string | null {
   return [contact.address, contact.email, notes].filter(Boolean).join(' · ') || null;
 }
 
-function ActivityCell({ contact, activity }: { contact: ContactRow; activity: PartyActivity | undefined }) {
+type ActivityState = 'pending' | 'error' | 'ready';
+
+function ActivityCell({
+  contact,
+  activity,
+  state,
+}: {
+  contact: ContactRow;
+  activity: PartyActivity | undefined;
+  state: ActivityState;
+}) {
+  // "no movements" is only true once the activity request has answered; while loading or after a failure it would be a false claim
+  if (state === 'pending') return <span className="text-ink-mute">—</span>;
+  if (state === 'error') return <span className="text-ink-mute">تعذّر تحميل النشاط</span>;
   if (!activity || activity.count === 0) return <span className="text-ink-mute">لا حركات</span>;
   const payable = PAYABLE_ROLES.includes(extractContactBusinessRole(contact));
   const main = payable ? activity.expense : activity.revenue;
@@ -159,7 +173,12 @@ export function ContactsDirectory({
 }: ContactsDirectoryProps) {
   const router = useRouter();
   const { canWrite } = usePermission();
-  const { data: activity } = usePartyActivity();
+  const { data: activity, isPending: activityPending, isError: activityError } = usePartyActivity();
+  // same arguments as use-contacts-directory.ts so this shares its cache entry
+  const { data: loadedContacts, isError: contactsError, refetch: refetchContacts } = useContacts(undefined, { includeInactive: true });
+  // a failed background refetch keeps the data already shown; only a request that never answered replaces the list
+  const contactsFailed = contactsError && !loadedContacts;
+  const activityState: ActivityState = activity ? 'ready' : activityError ? 'error' : activityPending ? 'pending' : 'ready';
   const mayMutate = allowMutate && canWrite;
 
   const filterTabs: Array<{ id: ContactBusinessRole | 'ALL'; label: string; count: number; icon: typeof User }> = [
@@ -234,6 +253,16 @@ export function ContactsDirectory({
           <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
           <span className="text-[13px]">جارٍ تحميل الجهات…</span>
         </div>
+      ) : contactsFailed ? (
+        <Card
+          role="alert"
+          className="flex flex-col items-center gap-3 border-danger-line bg-danger-soft p-8 text-center text-danger-ink"
+        >
+          <p className="text-[13px]">تعذّر تحميل الجهات. تحقق من الاتصال ثم أعد المحاولة.</p>
+          <Button type="button" variant="outline" size="sm" onClick={() => void refetchContacts()}>
+            إعادة المحاولة
+          </Button>
+        </Card>
       ) : filteredContacts.length === 0 ? (
         <Card className="p-12 text-center">
           <Store className="mx-auto mb-2 h-8 w-8 text-ink-mute opacity-50" aria-hidden />
@@ -272,7 +301,7 @@ export function ContactsDirectory({
                       </div>
                     </div>
                     <div className="mt-2.5 flex items-end justify-between gap-2 border-t border-border pt-2.5 text-[13px]">
-                      <ActivityCell contact={contact} activity={activity?.get(contact.id)} />
+                      <ActivityCell contact={contact} activity={activity?.get(contact.id)} state={activityState} />
                       <QuickTxButton contact={contact} />
                     </div>
                     {contact.phone && (
@@ -341,7 +370,7 @@ export function ContactsDirectory({
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <ActivityCell contact={contact} activity={activity?.get(contact.id)} />
+                        <ActivityCell contact={contact} activity={activity?.get(contact.id)} state={activityState} />
                       </td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import {
   FileText,
   Mail,
@@ -13,9 +14,9 @@ import {
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
-import { useCorrespondenceLetters, useReceiptVouchers } from '@/lib/db/document-queries';
-import { useDisbursementVouchers } from '@/lib/db/queries';
-import { useTenantCharges } from '@/lib/db/mall-queries';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { dqk } from '@/lib/db/document-queries';
+import { qk } from '@/lib/db/queries';
 
 type DocCard = {
   href: string;
@@ -26,14 +27,33 @@ type DocCard = {
   count?: number;
 };
 
-export default function DocumentsHubPage() {
-  const { data: letters = [] } = useCorrespondenceLetters();
-  const { data: receipts = [] } = useReceiptVouchers();
-  const { data: vouchers = [] } = useDisbursementVouchers();
-  const { data: charges = [] } = useTenantCharges();
+/**
+ * Row count only. This page is a menu, so it must not download the letters, receipts, vouchers and
+ * charges (with their lines and joins) just to show a number. The keys sit under each list's own
+ * key, so saving or deleting a document refreshes its count.
+ */
+function useDocumentCount(queryKey: readonly unknown[], table: string, letterType?: 'official' | 'routine') {
+  return useQuery<number>({
+    queryKey,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      let q = supabase.from(table).select('id', { count: 'exact', head: true });
+      if (letterType) q = q.eq('letter_type', letterType);
+      const { count, error } = await q;
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+}
 
-  const officialCount = letters.filter((l) => l.letter_type === 'official').length;
-  const routineCount = letters.filter((l) => l.letter_type === 'routine').length;
+export default function DocumentsHubPage() {
+  // undefined while loading (or failed), so the row shows no number instead of a false 0
+  const officialCount = useDocumentCount([...dqk.correspondence, 'count', 'official'], 'correspondence_letters', 'official').data;
+  const routineCount = useDocumentCount([...dqk.correspondence, 'count', 'routine'], 'correspondence_letters', 'routine').data;
+  const receiptCount = useDocumentCount([...dqk.receiptVouchers, 'count'], 'receipt_vouchers').data;
+  const voucherCount = useDocumentCount([...qk.disbursementVouchers, 'count'], 'disbursement_vouchers').data;
+  // under the 'tenant_charges' root, which invalidateMoneyQueries refreshes after charge and payment changes
+  const chargeCount = useDocumentCount(['tenant_charges', 'count'], 'tenant_charges').data;
 
   const cards: DocCard[] = [
     {
@@ -57,7 +77,7 @@ export default function DocumentsHubPage() {
       titleAr: 'الفواتير والمطالبات',
       description: 'فواتير إيجار ورسوم المستأجرين — تصدير PDF',
       icon: FileSpreadsheet,
-      count: charges.length,
+      count: chargeCount,
     },
     {
       href: '/documents/receipts',
@@ -65,7 +85,7 @@ export default function DocumentsHubPage() {
       titleAr: 'إيصالات القبض',
       description: 'إثبات استلام مبالغ نقدية أو تحويل',
       icon: Receipt,
-      count: receipts.length,
+      count: receiptCount,
     },
     {
       href: '/vouchers',
@@ -73,7 +93,7 @@ export default function DocumentsHubPage() {
       titleAr: 'إذونات الصرف',
       description: 'إذن صرف معتمد — مرتبط بالخزائن والمحاسبة',
       icon: ArrowDownToLine,
-      count: vouchers.length,
+      count: voucherCount,
     },
   ];
 

@@ -75,18 +75,6 @@ export function RegisterServiceWorker() {
         // المخزَّنة (app shell)، لا حفظ معاملات جديدة. أي طابور حقيقي
         // (IndexedDB + معالج sync) يحتاج تصميماً مخصصاً لتفادي التعارضات
         // في بيانات مالية.
-
-        // Request notification permission
-        if ('Notification' in window && Notification.permission === 'default') {
-          // Defer permission request to avoid immediate prompt
-          setTimeout(() => {
-            Notification.requestPermission().then((permission) => {
-              if (permission === 'granted') {
-                console.log('[PWA] Notification permission granted');
-              }
-            });
-          }, 10000);
-        }
       } catch (error) {
         console.error('[PWA] Service Worker registration failed:', error);
         setSwStatus('error');

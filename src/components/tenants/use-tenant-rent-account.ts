@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useTenantChargesForTenant } from '@/lib/db/mall-queries';
+import { useTenantChargesForTenant, useTenantLeaseContracts } from '@/lib/db/mall-queries';
 import {
   useTenantRentExemptMonths,
   useTenantRentPriceBands,
@@ -29,6 +29,8 @@ export function useTenantRentAccount({
   const exemptQuery = useTenantRentExemptMonths(tenantId);
   const bandsQuery = useTenantRentPriceBands(tenantId);
   const { pricing, loading: pricingLoading } = useTenantRentPricing(tenantId, contactRent);
+  // Same query key as the one inside useTenantRentPricing, so no extra request: it lets retry reach the lease rent too.
+  const leasesQuery = useTenantLeaseContracts(tenantId || undefined);
 
   const charges = useMemo(() => chargesQuery.data ?? [], [chargesQuery.data]);
   const manualExemptMonths = useMemo(
@@ -56,6 +58,21 @@ export function useTenantRentAccount({
     [years, tenantId, contactRent, charges, claimStart, manualExemptMonths, pricing],
   );
 
+  // A failed load leaves these lists empty, and an empty list reads as «nothing charged / nothing exempt»,
+  // which would show a wrong amount owed. `data === undefined` keeps good cached data when only a background refetch fails.
+  const failed =
+    (chargesQuery.isError && chargesQuery.data === undefined) ||
+    (exemptQuery.isError && exemptQuery.data === undefined) ||
+    (bandsQuery.isError && bandsQuery.data === undefined) ||
+    (leasesQuery.isError && leasesQuery.data === undefined);
+
+  const retry = () => {
+    void chargesQuery.refetch();
+    void exemptQuery.refetch();
+    void bandsQuery.refetch();
+    void leasesQuery.refetch();
+  };
+
   return {
     account,
     charges,
@@ -64,5 +81,7 @@ export function useTenantRentAccount({
     priceBands,
     pricing,
     loading: chargesQuery.isLoading || exemptQuery.isLoading || pricingLoading,
+    failed,
+    retry,
   };
 }

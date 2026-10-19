@@ -179,19 +179,19 @@ export const RENT_MONTH_STATUS_LABEL: Record<RentMonthStatus, string> = {
 
 /** إطار الخلية فقط — نص الشهر يُلوَّن عبر RENT_MONTH_NAME_CLASS */
 export const RENT_MONTH_STATUS_CLASS: Record<RentMonthStatus, string> = {
-  paid: 'bg-white border-2 border-success/80',
-  partial: 'bg-white border-2 border-warning/80',
-  unpaid: 'bg-white border-2 border-danger/80',
-  no_charge: 'bg-white border-2 border-border',
+  paid: 'bg-card border-2 border-success/80',
+  partial: 'bg-card border-2 border-warning/80',
+  unpaid: 'bg-card border-2 border-danger/80',
+  no_charge: 'bg-card border-2 border-border',
   exempt: 'bg-canvas-sunken border-2 border-dashed border-border',
   na: 'bg-canvas-sunken border border-border',
 };
 
 export const RENT_MONTH_CELL_FRAME: Record<RentMonthStatus, string> = {
-  paid: 'bg-white border-2 border-success shadow-sm',
-  partial: 'bg-white border-2 border-warning shadow-sm',
-  unpaid: 'bg-white border-2 border-danger shadow-sm',
-  no_charge: 'bg-white border-2 border-ink-mute/50',
+  paid: 'bg-card border-2 border-success shadow-sm',
+  partial: 'bg-card border-2 border-warning shadow-sm',
+  unpaid: 'bg-card border-2 border-danger shadow-sm',
+  no_charge: 'bg-card border-2 border-ink-mute/50',
   exempt: 'bg-canvas-sunken/90 border-2 border-dashed border-ink-mute/50',
   na: 'bg-canvas-sunken border border-border',
 };
@@ -201,9 +201,9 @@ export const RENT_MONTH_LEGEND_SWATCH: Record<
   Exclude<RentMonthStatus, 'na'>,
   string
 > = {
-  paid: 'bg-white border-2 border-success',
-  partial: 'bg-white border-2 border-warning',
-  unpaid: 'bg-white border-2 border-danger',
-  no_charge: 'bg-white border-2 border-ink-mute/50',
+  paid: 'bg-card border-2 border-success',
+  partial: 'bg-card border-2 border-warning',
+  unpaid: 'bg-card border-2 border-danger',
+  no_charge: 'bg-card border-2 border-ink-mute/50',
   exempt: 'bg-canvas-sunken border-2 border-dashed border-ink-mute/50',
 };

@@ -1,17 +1,20 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { FileSpreadsheet, Loader2 } from 'lucide-react';
+import { FileSpreadsheet, Loader2, Search } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { AccountingPageBody } from '@/components/accounting/accounting-page-body';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { useTenantCharges } from '@/lib/db/mall-queries';
 import { chargeToInvoiceModel } from '@/lib/charge-invoice';
 import { formatDocumentPdfExportNames } from '@/lib/document-pdf-export';
-import { formatMoney } from '@/lib/utils';
+import { matchesSearch } from '@/lib/arabic-search';
+import { arabicCount, formatMoney } from '@/lib/utils';
 
 const STATUS_AR: Record<string, string> = {
   UNPAID: 'مستحق',
@@ -19,8 +22,28 @@ const STATUS_AR: Record<string, string> = {
   PAID: 'مسدد',
 };
 
+// every card carries its own PDF toolbar and preview dialog, so the list is shown a page at a time
+const PAGE_SIZE = 50;
+
 export default function InvoicesPage() {
   const { data: charges = [], isLoading, isError } = useTenantCharges();
+  const [search, setSearch] = useState('');
+  const [shown, setShown] = useState(PAGE_SIZE);
+
+  const filtered = useMemo(
+    () =>
+      charges.filter((c) =>
+        matchesSearch(search, [
+          c.contract?.tenant?.name,
+          c.contract?.unit?.unit_number,
+          c.description,
+          STATUS_AR[c.status],
+        ]),
+      ),
+    [charges, search],
+  );
+  // the search box and "show more" belong to the loaded list, not to the loading, error or empty states
+  const listReady = !isLoading && !isError && charges.length > 0;
 
   return (
     <>
@@ -36,6 +59,21 @@ export default function InvoicesPage() {
       />
 
       <AccountingPageBody>
+        {listReady && (
+          <div className="relative mb-4 max-w-md">
+            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" aria-hidden />
+            <Input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setShown(PAGE_SIZE);
+              }}
+              placeholder="بحث باسم المستأجر أو رقم المحل أو البيان…"
+              aria-label="بحث في الفواتير"
+              className="h-10 ps-9"
+            />
+          </div>
+        )}
         {isLoading ? (
           <div className="flex h-40 items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -56,9 +94,11 @@ export default function InvoicesPage() {
               </Button>
             </CardContent>
           </Card>
+        ) : filtered.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">لا نتائج مطابقة لبحثك.</p>
         ) : (
           <ul className="flex flex-col gap-3">
-            {charges.map((charge) => {
+            {filtered.slice(0, shown).map((charge) => {
               const tenant = charge.contract?.tenant?.name ?? 'مستأجر';
               const shop = charge.contract?.unit?.unit_number;
               const invoiceModel = chargeToInvoiceModel(charge);
@@ -104,6 +144,13 @@ export default function InvoicesPage() {
               );
             })}
           </ul>
+        )}
+        {listReady && filtered.length > shown && (
+          <div className="mt-4 flex justify-center">
+            <Button variant="outline" onClick={() => setShown((n) => n + PAGE_SIZE)}>
+              عرض المزيد ({arabicCount(filtered.length - shown, ['مطالبة واحدة', 'مطالبتان', 'مطالبات', 'مطالبة'])})
+            </Button>
+          </div>
         )}
       </AccountingPageBody>
     </>

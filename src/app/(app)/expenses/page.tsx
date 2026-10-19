@@ -49,7 +49,9 @@ export default function ExpensesPage() {
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
 
 
-  const { data, isLoading } = useTransactions('EXPENSE');
+  const { data, isLoading, isError, error, refetch } = useTransactions('EXPENSE');
+  // a failed first load is not an empty ledger: show the failure, never zeros (a failed background refetch keeps its rows)
+  const failed = isError && !data;
   const { data: categories = [] } = useCategories('EXPENSE');
 
   const rows = useMemo(() => data ?? [], [data]);
@@ -151,7 +153,7 @@ export default function ExpensesPage() {
           <div className="grid grid-cols-2 gap-3 xl:col-span-1 xl:grid-cols-1">
             <Stat
               label="إجمالي المصروفات"
-              value={total}
+              value={failed ? '—' : total}
               currency="LYD"
               icon={ArrowUpFromLine}
               loading={isLoading}
@@ -165,7 +167,7 @@ export default function ExpensesPage() {
             />
             <Stat
               label="عدد القيود"
-              value={count}
+              value={failed ? '—' : count}
               icon={Hash}
               loading={isLoading}
               color="blue"
@@ -177,7 +179,7 @@ export default function ExpensesPage() {
             />
             <Stat
               label="متوسط القيد"
-              value={avg}
+              value={failed ? '—' : avg}
               currency="LYD"
               icon={Wallet}
               loading={isLoading}
@@ -234,6 +236,8 @@ export default function ExpensesPage() {
         <TransactionsTable
           rows={categoryFiltered}
           loading={isLoading}
+          error={failed ? error : undefined}
+          onRetry={() => void refetch()}
           kindFilter="EXPENSE"
           highlightId={highlightId}
           isFiltered={Boolean(query.trim()) || datePreset !== 'all' || selectedCategoryId !== 'ALL'}

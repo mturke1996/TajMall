@@ -106,33 +106,47 @@ export function useNotificationsRealtime() {
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
 
+    // a sync can create dozens of rows at once: one refetch and one toast per burst, not per row
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let arrived: AppNotificationRow[] = [];
+    const flush = () => {
+      timer = null;
+      const rows = arrived.filter((r) => r?.title_ar);
+      arrived = [];
+      // nqk.all is the prefix of the unread count key, so this refreshes both
+      void qc.invalidateQueries({ queryKey: nqk.all });
+      if (rows.length === 1) {
+        toast.info(rows[0].title_ar, { description: rows[0].body_ar ?? undefined });
+      } else if (rows.length > 1) {
+        toast.info(`وصل ${arabicCount(rows.length, ['تنبيه جديد', 'تنبيهان جديدان', 'تنبيهات جديدة', 'تنبيهاً جديداً'])}`);
+      }
+    };
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(flush, 600);
+    };
+
     const channel = supabase
       .channel('app_notifications_changes')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'app_notifications' },
         (payload) => {
-          const row = payload.new as AppNotificationRow;
-          qc.invalidateQueries({ queryKey: nqk.all });
-          qc.invalidateQueries({ queryKey: nqk.unreadCount });
-          if (row?.title_ar) {
-            toast.info(row.title_ar, {
-              description: row.body_ar ?? undefined,
-            });
-          }
+          arrived.push(payload.new as AppNotificationRow);
+          schedule();
         },
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'app_notifications' },
         () => {
-          qc.invalidateQueries({ queryKey: nqk.all });
-          qc.invalidateQueries({ queryKey: nqk.unreadCount });
+          schedule();
         },
       )
       .subscribe();
 
     return () => {
+      if (timer) clearTimeout(timer);
       void supabase.removeChannel(channel);
     };
   }, [qc]);

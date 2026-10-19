@@ -43,7 +43,7 @@ export function Stat({
   const display =
     typeof value === 'number'
       ? currency
-        ? formatMoney(value, currency, { compact: value >= 100_000 })
+        ? formatMoney(value, currency)
         : value.toLocaleString('en-US')
       : value;
 
@@ -73,7 +73,7 @@ export function Stat({
         )}
       </div>
 
-      <span className="text-xl font-semibold text-foreground tabular-nums sm:text-2xl">
+      <span className="text-xl font-semibold text-foreground tabular-nums lg:text-2xl">
         {display}
       </span>
 

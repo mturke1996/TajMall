@@ -29,6 +29,7 @@ import { PAYMENT_METHODS } from '@/lib/constants';
 import type { PaymentMethod } from '@/lib/db/types';
 import { formatMoney, parseAmountInput, preferredCashboxId, todayISODate } from '@/lib/utils';
 import { useTenantRentAccount } from '@/components/tenants/use-tenant-rent-account';
+import { RentAccountFailed } from '@/components/tenants/rent-account-failed';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/user-messages';
 
@@ -98,7 +99,7 @@ export function RecordRentPaymentDialog({
   // The oldest month owed across all years (the same account as the profile), used when the dialog is
   // opened without months: last year's debt comes before this year's.
   const claimStart = tenant?.rent_claim_start ?? null;
-  const { account, loading: accountLoading } = useTenantRentAccount({
+  const { account, loading: accountLoading, failed: accountFailed, retry: retryAccount } = useTenantRentAccount({
     tenantId,
     contactRent: Number(tenant?.monthly_rent) || 0,
     claimStart,
@@ -195,7 +196,10 @@ export function RecordRentPaymentDialog({
             </div>
           </div>
 
-          {!ready ? (
+          {accountFailed ? (
+            // the months and what is owed come from lists that did not load: recording against them would pick the wrong months
+            <RentAccountFailed onRetry={retryAccount} />
+          ) : !ready ? (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-ink-mute">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> جارٍ تحميل أشهر المستأجر وأسعاره…
             </div>
@@ -295,7 +299,7 @@ export function RecordRentPaymentDialog({
             type="button"
             className="h-11 flex-[2]"
             onClick={handleSubmit}
-            disabled={recordPayment.isPending || !ready || !plan.ok}
+            disabled={recordPayment.isPending || !ready || accountFailed || !plan.ok}
           >
             {recordPayment.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

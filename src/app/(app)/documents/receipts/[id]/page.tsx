@@ -252,6 +252,10 @@ export default function EditReceiptPage() {
       />
 
       <AccountingPageBody>
+        {/* saving only stores the document: the cashbox and revenue item are printed on it, no transaction is created */}
+        <p className="mb-4 max-w-3xl rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-[12.5px] leading-relaxed text-warning-ink">
+          إيصال القبض وثيقة للطباعة والأرشفة فقط: لا يُضاف مبلغه إلى الخزينة ولا إلى الإيرادات.
+        </p>
         <Card className="p-4 sm:p-6 space-y-5 max-w-3xl">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">

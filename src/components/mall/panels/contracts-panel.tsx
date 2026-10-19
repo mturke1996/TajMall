@@ -32,11 +32,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { ContractExpiryAlerts, whenText } from '@/components/mall/contract-expiry-alerts';
 import { daysBetween } from '@/lib/mall-dates';
 import { cn, formatMoney, formatDate, todayISODate } from '@/lib/utils';
 import { useContacts } from '@/lib/db/queries';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import type { LeaseContractWithRelations } from '@/lib/db/types';
 import {
   useLeaseContracts,
   useCreateLeaseContract,
@@ -87,7 +89,20 @@ export function MallContractsPanel() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tenantId || !unitId || !startDate || !endDate || !monthlyRent) return;
+    if (!tenantId) {
+      toast.error('اختر المستأجر');
+      return;
+    }
+    if (!unitId) {
+      toast.error(availableUnits.length === 0 ? 'لا توجد محلات متاحة' : 'اختر المحل');
+      return;
+    }
+    if (!startDate || !endDate || !monthlyRent) return;
+    // ISO dates compare correctly as text; an end before the start would never generate a charge
+    if (endDate < startDate) {
+      toast.error('تاريخ انتهاء العقد قبل تاريخ بدئه');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -113,14 +128,24 @@ export function MallContractsPanel() {
   // the day the panel opened: stable across re-renders
   const [today] = useState(() => todayISODate());
 
-  const handleTerminate = async (contractId: string, unitId: string) => {
+  const handleTerminate = async (contract: LeaseContractWithRelations) => {
+    // name the lease: the cards sit close together and ending the neighbour's by a mis-tap frees the wrong shop
     const ok = await confirm({
       title: 'إنهاء عقد الإيجار',
       description: 'ينتهي العقد بتاريخ اليوم، ويصبح المحل متاحاً، ولا تُولَّد مطالبات بعده.',
+      details: [
+        { label: 'المستأجر', value: contract.tenant?.name ?? '—' },
+        { label: 'المحل', value: <bdi>{contract.unit?.unit_number ?? '—'}</bdi> },
+        { label: 'نهاية العقد الحالية', value: formatDate(contract.end_date) },
+      ],
       confirmLabel: 'أنهِ العقد',
     });
     if (!ok) return;
-    await terminateContract.mutateAsync({ id: contractId, unitId });
+    try {
+      await terminateContract.mutateAsync({ id: contract.id, unitId: contract.unit_id });
+    } catch {
+      // already handled by hook toast
+    }
   };
 
   const getStatusBadge = (s: string) => {
@@ -170,9 +195,11 @@ export function MallContractsPanel() {
             <div className="flex h-64 flex-col items-center justify-center text-muted-foreground">
               <FileText className="h-12 w-12 mb-2 opacity-50 text-muted-foreground" />
               <p className="font-medium text-ink-soft">لا توجد عقود إيجار موثقة بعد</p>
-              <Button onClick={handleOpenCreate} variant="link" className="text-success-ink font-bold">
-                توثيق أول عقد
-              </Button>
+              <WriteGuard permission="document.create">
+                <Button onClick={handleOpenCreate} variant="link" className="text-success-ink font-bold">
+                  توثيق أول عقد
+                </Button>
+              </WriteGuard>
             </div>
           ) : (
             <>
@@ -214,16 +241,18 @@ export function MallContractsPanel() {
                     {formatMoney(Number(contract.monthly_rent), 'LYD')} / شهر
                   </p>
                   {contract.status === 'ACTIVE' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 h-9 w-full text-ink-soft touch-manipulation"
-                      onClick={() => handleTerminate(contract.id, contract.unit_id)}
-                      disabled={terminateContract.isPending}
-                    >
-                      <Ban className="h-3.5 w-3.5 me-1" />
-                      إنهاء العقد
-                    </Button>
+                    <WriteGuard permission="document.create">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-3 h-9 w-full text-ink-soft touch-manipulation"
+                        onClick={() => handleTerminate(contract)}
+                        disabled={terminateContract.isPending}
+                      >
+                        <Ban className="h-3.5 w-3.5 me-1" />
+                        إنهاء العقد
+                      </Button>
+                    </WriteGuard>
                   )}
                 </li>
               ))}
@@ -283,16 +312,18 @@ export function MallContractsPanel() {
                         <td className="px-3 py-2.5">{getStatusBadge(contract.status)}</td>
                         <td className="px-3 py-2.5 text-end">
                           {contract.status === 'ACTIVE' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 gap-1 text-[12.5px] text-ink-mute hover:bg-danger-soft hover:text-danger-ink"
-                              onClick={() => handleTerminate(contract.id, contract.unit_id)}
-                              disabled={terminateContract.isPending}
-                            >
-                              <Ban className="h-3.5 w-3.5" aria-hidden />
-                              إنهاء العقد
-                            </Button>
+                            <WriteGuard permission="document.create">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-1 text-[12.5px] text-ink-mute hover:bg-danger-soft hover:text-danger-ink"
+                                onClick={() => handleTerminate(contract)}
+                                disabled={terminateContract.isPending}
+                              >
+                                <Ban className="h-3.5 w-3.5" aria-hidden />
+                                إنهاء العقد
+                              </Button>
+                            </WriteGuard>
                           )}
                         </td>
                       </tr>
@@ -362,6 +393,7 @@ export function MallContractsPanel() {
                   id="end-date"
                   type="date"
                   value={endDate}
+                  min={startDate || undefined}
                   onChange={(e) => setEndDate(e.target.value)}
                   required
                 />
@@ -406,6 +438,11 @@ export function MallContractsPanel() {
                 />
               </div>
             </div>
+            {Number(depositAmount) > 0 && (
+              <p className="text-[12px] text-ink-mute">
+                يُسجَّل التأمين قبضاً نقدياً مرحَّلاً في أول خزينة نشطة بتاريخ بدء العقد. إن كان مسجّلاً في الدفاتر من قبل فاتركه صفراً.
+              </p>
+            )}
 
             <DialogFooter className="gap-2 pt-4">
               <Button type="submit" disabled={isSubmitting}>

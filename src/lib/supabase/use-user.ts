@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { User } from '@supabase/supabase-js';
+import { isAuthRetryableFetchError, type User } from '@supabase/supabase-js';
 import { createSupabaseBrowserClient } from './client';
 
 const AUTH_USER_KEY = ['auth-user'] as const;
@@ -22,7 +22,10 @@ export function useUser() {
   const query = useQuery({
     queryKey: AUTH_USER_KEY,
     queryFn: async (): Promise<User | null> => {
-      const { data } = await createSupabaseBrowserClient().auth.getUser();
+      const { data, error } = await createSupabaseBrowserClient().auth.getUser();
+      // A dropped request or a 5xx is not an answer about the session. Throw so TanStack retries and
+      // keeps the last known user, instead of caching null for 5 minutes.
+      if (error && isAuthRetryableFetchError(error)) throw error;
       return data.user ?? null;
     },
   });

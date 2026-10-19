@@ -17,10 +17,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useNotificationsRealtime();
 
-  // Global keyboard shortcut ⌘K / Ctrl+K → open command palette
+  // Global keyboard shortcut ⌘K / Ctrl+K → open command palette.
+  // e.code is the physical key: with the Arabic layout e.key is "ل", so matching
+  // on key alone made the shortcut dead for users who type Arabic all day.
+  // Alt (AltGr on Windows) and Shift are excluded so we do not hijack
+  // layout characters or the browser's own Ctrl+Shift+K.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.code === 'KeyK' || e.key?.toLowerCase() === 'k')) {
         e.preventDefault();
         setCmdOpen((v) => !v);
       }

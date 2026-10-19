@@ -139,7 +139,7 @@ export default function NewReceiptPage() {
       <PageHeader
         eyebrow="مركز الوثائق"
         title="إيصال قبض جديد"
-        description="معاينة PDF مباشرة — ثم الحفظ في قاعدة البيانات"
+        description="معاينة PDF مباشرة — ثم الحفظ"
         actions={
           <>
             <Button variant="outline" size="sm" asChild>
@@ -177,6 +177,10 @@ export default function NewReceiptPage() {
       />
 
       <AccountingPageBody>
+        {/* saving only stores the document: the cashbox and revenue item are printed on it, no transaction is created */}
+        <p className="mb-4 max-w-3xl rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-[12.5px] leading-relaxed text-warning-ink">
+          إيصال القبض وثيقة للطباعة والأرشفة فقط: لا يُضاف مبلغه إلى الخزينة ولا إلى الإيرادات. إن لم تسجّله بعد، سجّل المبلغ من صفحة الإيرادات.
+        </p>
         <Card className="p-4 sm:p-6 space-y-5 max-w-3xl">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">

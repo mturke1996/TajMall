@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { WhatsAppReminderButton } from '@/components/tenants/whatsapp-reminder-button';
 import { RENT_ACCOUNT_KIND, rentAccountMonthStatus } from '@/components/tenants/rent-account-month';
 import { useTenantRentAccount } from '@/components/tenants/use-tenant-rent-account';
+import { RentAccountFailed } from '@/components/tenants/rent-account-failed';
 import { isRentCategoryCode } from '@/lib/charge-invoice';
 import { describeRentPrice, formatMonthRangesAr, monthsCountAr, unlinkedRentReceipts } from '@/lib/tenant-rent-account';
 import type { JournalEntryRow } from '@/lib/db/journal-queries';
@@ -56,7 +57,7 @@ export function TenantRentOverview({
   /** open rent collection, optionally with months selected */
   onCollect?: (months?: string[]) => void;
 }) {
-  const { account, charges, pricing, loading } = useTenantRentAccount({
+  const { account, charges, pricing, loading, failed, retry } = useTenantRentAccount({
     tenantId: contact.id,
     contactRent: monthlyRent,
     claimStart,
@@ -87,6 +88,14 @@ export function TenantRentOverview({
   const curMeta = cur ? RENT_ACCOUNT_KIND[cur.kind] : null;
   const curPct = cur && cur.amount > 0 ? Math.min(100, (cur.paid / cur.amount) * 100) : 0;
   const owing = account.owingMonths;
+
+  if (failed) {
+    return (
+      <Card className="overflow-hidden p-3">
+        <RentAccountFailed onRetry={retry} />
+      </Card>
+    );
+  }
 
   return (
     <Card className="overflow-hidden" aria-busy={loading}>

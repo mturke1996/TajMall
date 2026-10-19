@@ -5,6 +5,7 @@ import { Banknote, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   Dialog,
   DialogContent,
@@ -114,6 +115,7 @@ export function SetRentPriceScheduleDialog({
   onOpenChange,
 }: Props) {
   const formId = useId();
+  const confirm = useConfirm();
   const { data: savedData, isLoading } = useTenantRentPriceBands(tenantId);
   const savedBands = useMemo(() => savedData ?? [], [savedData]);
   const saveBands = useSetTenantRentPriceBands();
@@ -221,6 +223,13 @@ export function SetRentPriceScheduleDialog({
   };
 
   const onClear = async () => {
+    // Removing the schedule re-prices every month that is not fully paid, so it is never one tap.
+    const ok = await confirm({
+      title: `إزالة جدول أسعار ${tenantName}؟`,
+      description: 'تُحذف كل النطاقات ويُعاد تسعير الأشهر غير المسدّدة بالكامل بالإيجار الافتراضي. الأشهر المسدّدة بالكامل لا تتغير.',
+      confirmLabel: 'أزِل الجدول',
+    });
+    if (!ok) return;
     try {
       await saveBands.mutateAsync({ tenantId, bands: [] });
       toast.success('أُزيل جدول الأسعار — يُستخدم الإيجار الشهري الافتراضي');
@@ -266,6 +275,7 @@ export function SetRentPriceScheduleDialog({
                     size="sm"
                     variant="ghost"
                     className="h-8 text-danger-ink hover:text-danger-ink"
+                    aria-label={`حذف النطاق ${idx + 1}`}
                     disabled={drafts.length <= 1 || saveBands.isPending}
                     onClick={() => removeBand(d.key)}
                   >

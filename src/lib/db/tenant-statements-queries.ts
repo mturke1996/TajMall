@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { fetchAllPages, fetchInChunks } from '@/lib/db/fetch-all';
 import { fetchTenantCharges } from '@/lib/db/mall-queries';
+import { CONTACT_LIST_COLUMNS } from '@/lib/db/contact-columns';
 import { activeLeaseRent } from '@/lib/tenant-rent-account-from-data';
 import type { StatementReceipt } from '@/lib/tenant-statement';
 import type { TenantStatementSource } from '@/lib/tenant-statements-report';
@@ -34,7 +35,8 @@ async function loadTenantStatementSources(): Promise<TenantStatementSource[]> {
     fetchAllPages<T>((from, to) => build(from, to) as Rows<T>);
 
   const [contacts, summaries, leases, charges, exempt, bands, receipts] = await Promise.all([
-    all<ContactRow>((f, t) => supabase.from('contacts').select('*').eq('kind', 'TENANT').order('id').range(f, t)),
+    // never '*': portal_token is not readable by any signed-in role, so '*' fails the whole report with a permission error
+    all<ContactRow>((f, t) => supabase.from('contacts').select(CONTACT_LIST_COLUMNS).eq('kind', 'TENANT').order('id').range(f, t)),
     all<{ id: string; rent_claim_start: string | null }>((f, t) =>
       supabase.from('tenant_rent_summary').select('id, rent_claim_start').order('id').range(f, t),
     ),

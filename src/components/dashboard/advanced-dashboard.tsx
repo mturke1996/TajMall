@@ -10,7 +10,8 @@ import { useDashboardStats, useMonthlySummary, useRecentTransactions, useCashbox
 import { useProfitLoss } from '@/lib/db/mall-queries';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/ui/card';
-import { cn, formatDate, formatMoney } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { arabicCount, cn, formatDate, formatMoney, todayISODate } from '@/lib/utils';
 import { monthNameAr } from '@/lib/rent-months';
 import { DashboardNewFeatures } from '@/components/dashboard/dashboard-new-features';
 import { FollowUpCard } from '@/components/dashboard/follow-up-card';
@@ -76,10 +77,30 @@ function Quiet({ children }: { children: React.ReactNode }) {
  * the latest movements. Exact amounts throughout; colour only on figures that mean money in or out.
  */
 export function AdvancedDashboard() {
-  const { data: stats, isLoading: statsLoading } = useDashboardStats();
-  const { data: monthlyData = [], isLoading: monthlyLoading } = useMonthlySummary();
-  const { data: recentTransactions = [], isLoading: txLoading } = useRecentTransactions(8);
-  const { data: cashboxes = [], isLoading: cashboxLoading } = useCashboxBalances();
+  // isPending (not isLoading): a paused offline query is not "loading", and must not fall through to zeros
+  const { data: stats, isPending: statsPending, isError: statsError, refetch: refetchStats } = useDashboardStats();
+  const {
+    data: monthlyData = [],
+    isPending: monthlyPending,
+    isError: monthlyError,
+    isSuccess: monthlyOk,
+    refetch: refetchMonthly,
+  } = useMonthlySummary();
+  const { data: recentTransactions = [], isPending: txPending, isError: txError, refetch: refetchTx } = useRecentTransactions(8);
+  const {
+    data: cashboxes = [],
+    isPending: cashboxPending,
+    isError: cashboxError,
+    isSuccess: cashboxOk,
+    refetch: refetchCashbox,
+  } = useCashboxBalances();
+  const failed = statsError || monthlyError || txError || cashboxError;
+  const retry = () => {
+    if (statsError) void refetchStats();
+    if (monthlyError) void refetchMonthly();
+    if (txError) void refetchTx();
+    if (cashboxError) void refetchCashbox();
+  };
   const now = new Date();
   const year = now.getFullYear();
   // the income statement (accrual: rent counted in the month it is due) beside the cash figures
@@ -95,7 +116,11 @@ export function AdvancedDashboard() {
   }, [pnl]);
 
   const s = stats ?? { totalRevenue: 0, totalExpense: 0, netProfit: 0, totalCashboxBalance: 0, topExpenseCategories: [] };
-  const currentMonth = monthlyData[0];
+  // monthlyData[0] is the latest month that has posted rows, which is last month until the first posting of this one
+  const thisMonth = todayISODate(now).slice(0, 7);
+  const currentMonth = monthlyData.find((m) => m.month_label === thisMonth);
+  const monthRevenue = currentMonth ? Number(currentMonth.revenue_total) : 0;
+  const monthExpense = currentMonth ? Number(currentMonth.expense_total) : 0;
 
   const barData = useMemo<MonthRow[]>(
     () =>
@@ -107,7 +132,8 @@ export function AdvancedDashboard() {
   );
 
   const expenses = s.topExpenseCategories ?? [];
-  const expenseTotal = expenses.reduce((sum, e) => sum + e.value, 0);
+  // the share is of ALL the year's expenses, not of the six shown (those would always add up to 100%)
+  const expenseTotal = s.totalExpense;
   const cashTotal = cashboxes.reduce((sum, b) => sum + Number(b.balance || 0), 0);
 
   return (
@@ -115,32 +141,55 @@ export function AdvancedDashboard() {
       <PageHeader title="لوحة التحكم" description={`${AR_DAYS[now.getDay()]} ${formatDate(now)}`} />
 
       <div className="flex flex-col gap-6 px-4 py-5 sm:px-5 sm:py-6 md:px-8 md:py-7">
+        {failed && (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-danger-line bg-danger-soft px-4 py-3 text-[13px] text-danger-ink"
+          >
+            <p>تعذّر تحميل بعض الأرقام ولا يصح الاعتماد على ما يظهر.</p>
+            <Button size="sm" variant="outline" onClick={retry}>
+              إعادة المحاولة
+            </Button>
+          </div>
+        )}
+
         <Card className="overflow-hidden">
           <div className="grid grid-cols-2 gap-px bg-border lg:grid-cols-4">
             {[
               {
                 label: `المحصّل ${year}`,
                 value: s.totalRevenue,
-                sub: currentMonth ? `هذا الشهر ${formatMoney(Number(currentMonth.revenue_total), 'LYD')}` : undefined,
+                sub: monthlyOk ? `هذا الشهر ${formatMoney(monthRevenue, 'LYD')}` : undefined,
               },
               {
                 label: `المدفوع ${year}`,
                 value: s.totalExpense,
-                sub: currentMonth ? `هذا الشهر ${formatMoney(Number(currentMonth.expense_total), 'LYD')}` : undefined,
+                sub: monthlyOk ? `هذا الشهر ${formatMoney(monthExpense, 'LYD')}` : undefined,
               },
               { label: `صافي النقد ${year}`, value: s.netProfit, sub: s.netProfit >= 0 ? 'دخل أكثر مما خرج' : 'خرج أكثر مما دخل' },
-              { label: 'النقد في الخزائن', value: s.totalCashboxBalance, sub: `${cashboxes.length} خزينة ومصرف` },
+              {
+                label: 'النقد في الخزائن',
+                value: s.totalCashboxBalance,
+                sub: cashboxOk
+                  ? arabicCount(cashboxes.length, ['خزينة واحدة', 'خزينتان', 'خزائن ومصارف', 'خزينة ومصرف'])
+                  : undefined,
+              },
             ].map((k) => (
               <div key={k.label} className="bg-card p-4">
                 <p className="text-[12.5px] text-ink-mute">{k.label}</p>
-                {statsLoading ? (
+                {statsPending ? (
                   <Skeleton className="mt-2 h-7 w-32" />
                 ) : (
-                  <p className={cn('mt-1 text-[20px] font-semibold tabular-nums text-foreground', k.value < 0 && 'text-danger-ink')}>
-                    {formatMoney(k.value, 'LYD')}
+                  <p
+                    className={cn(
+                      'mt-1 text-[20px] font-semibold tabular-nums text-foreground',
+                      !statsError && k.value < 0 && 'text-danger-ink',
+                    )}
+                  >
+                    {statsError ? '—' : formatMoney(k.value, 'LYD')}
                   </p>
                 )}
-                {k.sub && !statsLoading && <p className="mt-0.5 text-[12px] text-ink-mute tabular-nums">{k.sub}</p>}
+                {k.sub && !statsPending && !statsError && <p className="mt-0.5 text-[12px] text-ink-mute tabular-nums">{k.sub}</p>}
               </div>
             ))}
           </div>
@@ -185,8 +234,10 @@ export function AdvancedDashboard() {
                   </span>
                 </span>
               </div>
-              {monthlyLoading ? (
+              {monthlyPending ? (
                 <Skeleton className="h-52 w-full" />
+              ) : monthlyError ? (
+                <Quiet>تعذّر التحميل.</Quiet>
               ) : barData.length === 0 ? (
                 <Quiet>لا توجد حركة بعد.</Quiet>
               ) : (
@@ -218,11 +269,13 @@ export function AdvancedDashboard() {
           </SectionCard>
 
           <SectionCard title="الخزائن" link={{ href: '/cashboxes', label: 'كل الخزائن' }}>
-            {cashboxLoading ? (
+            {cashboxPending ? (
               <div className="space-y-2 p-4">
                 <Skeleton className="h-9 w-full" />
                 <Skeleton className="h-9 w-full" />
               </div>
+            ) : cashboxError ? (
+              <Quiet>تعذّر التحميل.</Quiet>
             ) : cashboxes.length === 0 ? (
               <Quiet>لا توجد خزائن.</Quiet>
             ) : (
@@ -256,12 +309,14 @@ export function AdvancedDashboard() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <SectionCard title="آخر المعاملات" link={{ href: '/transactions', label: 'كل المعاملات' }} className="lg:col-span-2">
-            {txLoading ? (
+            {txPending ? (
               <div className="space-y-2 p-4">
                 {[0, 1, 2, 3].map((i) => (
                   <Skeleton key={i} className="h-10 w-full" />
                 ))}
               </div>
+            ) : txError ? (
+              <Quiet>تعذّر التحميل.</Quiet>
             ) : recentTransactions.length === 0 ? (
               <Quiet>لا توجد معاملات بعد.</Quiet>
             ) : (
@@ -300,11 +355,13 @@ export function AdvancedDashboard() {
           </SectionCard>
 
           <SectionCard title={`أعلى المصروفات ${year}`} link={{ href: '/expenses', label: 'المصروفات' }}>
-            {statsLoading ? (
+            {statsPending ? (
               <div className="space-y-3 p-4">
                 <Skeleton className="h-8 w-full" />
                 <Skeleton className="h-8 w-full" />
               </div>
+            ) : statsError ? (
+              <Quiet>تعذّر التحميل.</Quiet>
             ) : expenses.length === 0 ? (
               <Quiet>لا توجد مصروفات هذا العام.</Quiet>
             ) : (
