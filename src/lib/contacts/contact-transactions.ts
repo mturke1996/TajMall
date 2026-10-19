@@ -1,5 +1,23 @@
 export type ContactPageLoader<T> = (offset: number, pageSize: number) => Promise<T[]>;
 
+/** Money that really moved: drafts and voided entries are not in any total, reconciled ones are. */
+export const COUNTED_TX_STATUSES = ['POSTED', 'RECONCILED'] as const;
+
+export function isCountedTransaction(transaction: { status?: string | null }): boolean {
+  return COUNTED_TX_STATUSES.some((status) => status === transaction.status);
+}
+
+/** Every transaction that counts in the books (POSTED and RECONCILED), in the order given. */
+export function getCountedContactTransactions<T extends { status?: string | null }>(
+  transactions: readonly T[],
+): T[] {
+  return transactions.filter(isCountedTransaction);
+}
+
+/**
+ * POSTED only. Kept for the callers that rely on it; any total of money should use
+ * `getCountedContactTransactions`, which also counts reconciled entries.
+ */
 export function getPostedContactTransactions<T extends { status: string }>(
   transactions: readonly T[],
 ): T[] {

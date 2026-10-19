@@ -19,6 +19,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { ContactPhoneActions } from '@/components/contacts/contact-phone-actions';
+import { LandlordDuesPanel } from '@/components/contacts/landlord-dues-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -92,7 +93,7 @@ function QuickTxButton({ contact, className }: { contact: ContactRow; className?
     <Button
       size="sm"
       variant="outline"
-      className={cn('h-8 gap-1 px-2.5 text-[12.5px]', className)}
+      className={cn('h-11 gap-1 px-2.5 text-[12.5px] md:h-8', className)}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -180,6 +181,8 @@ export function ContactsDirectory({
   const contactsFailed = contactsError && !loadedContacts;
   const activityState: ActivityState = activity ? 'ready' : activityError ? 'error' : activityPending ? 'pending' : 'ready';
   const mayMutate = allowMutate && canWrite;
+  // what the mall owes its landlords sits above their files when that role is the one being looked at
+  const showLandlordDues = roleFilter === 'LANDLORD' && !hideKindFilters;
 
   const filterTabs: Array<{ id: ContactBusinessRole | 'ALL'; label: string; count: number; icon: typeof User }> = [
     { id: 'ALL', label: 'الكل', count: stats.total, icon: Store },
@@ -203,11 +206,11 @@ export function ContactsDirectory({
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="بحث بالاسم أو الهاتف أو رقم المحل أو الرمز…"
             aria-label="بحث في الجهات"
-            className="h-10 ps-9"
+            className="h-11 ps-9 sm:h-10"
           />
         </div>
         {onShowInactiveChange && inactiveCount > 0 && (
-          <label className="flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 text-[13px] text-ink-mute touch-manipulation">
+          <label className="flex h-11 shrink-0 cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 text-[13px] text-ink-mute touch-manipulation sm:h-10">
             <input
               type="checkbox"
               className="h-4 w-4 accent-foreground"
@@ -232,7 +235,7 @@ export function ContactsDirectory({
                   aria-pressed={selected}
                   onClick={() => onRoleFilterChange(tab.id)}
                   className={cn(
-                    'flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[12.5px] font-medium transition-colors',
+                    'flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[12.5px] font-medium transition-colors sm:h-8',
                     selected
                       ? 'border-foreground bg-foreground text-background'
                       : 'border-border bg-card text-ink-mute hover:text-foreground',
@@ -246,6 +249,13 @@ export function ContactsDirectory({
             })}
           </div>
         </div>
+      )}
+
+      {showLandlordDues && (
+        <>
+          <LandlordDuesPanel />
+          <h2 className="px-1 pt-2 text-[15px] font-semibold text-foreground">ملفات المؤجرين</h2>
+        </>
       )}
 
       {isLoading ? (

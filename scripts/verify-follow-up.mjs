@@ -1,6 +1,7 @@
 /**
  * The dashboard's "needs follow-up" list: what is counted, in what order, and that a source that could not
- * be read is reported as unavailable instead of looking like nothing to do.
+ * be read is reported as unavailable instead of looking like nothing to do. Includes the monthly billing
+ * row: an incomplete recent month, its tone by day, and the month it names.
  *   npx tsx scripts/verify-follow-up.mjs
  */
 import assert from 'node:assert/strict';
@@ -132,6 +133,93 @@ check('one failed source does not hide the others', () => {
 check('junk numbers in a row count as zero', () => {
   const f = buildFollowUp({ ...quiet, aging: [{ bucket_90_plus: 'abc' }, { bucket_90_plus: undefined }], rent: [rentRow('unpaid', 'x', 'y')] });
   assert.deepEqual(f.items, []);
+});
+
+// billing: completeness of the current month and the two before it, oldest first (as buildBillingPreview returns it)
+const bm = (month, total, missing, missingAmount = missing * 1000) => ({ month, total, generated: total - missing, missing, missingAmount, complete: missing === 0 });
+const billingRow = (f) => f.items.find((i) => i.key === 'billing');
+
+check('billing: all recent months complete, or billing not applicable, adds nothing', () => {
+  const done = buildFollowUp({ ...quiet, billing: [bm('2026-08', 68, 0), bm('2026-09', 68, 0), bm('2026-10', 68, 0)] });
+  assert.equal(billingRow(done), undefined);
+  assert.deepEqual(done.unavailable, []);
+  const na = buildFollowUp({ ...quiet, billing: undefined });
+  assert.equal(billingRow(na), undefined);
+  assert.deepEqual(na.unavailable, []);
+});
+
+check('billing: an incomplete current month names the month, the missing leases and their contract value', () => {
+  const f = buildFollowUp({ ...quiet, today: '2026-10-18', billing: [bm('2026-08', 68, 0), bm('2026-09', 68, 0), bm('2026-10', 68, 16, 28400)] });
+  const item = billingRow(f);
+  assert.equal(item.count, 16);
+  assert.equal(item.amount, 28400);
+  assert.deepEqual(item.billing, { month: '2026-10', total: 68, earlierMonths: 0 });
+  assert.equal(item.href, '/mall?tab=charges&billing=2026-10');
+});
+
+check('billing: a month with nothing to bill is not incomplete', () => {
+  assert.equal(billingRow(buildFollowUp({ ...quiet, billing: [bm('2026-08', 0, 0), bm('2026-09', 0, 0), bm('2026-10', 0, 0)] })), undefined);
+});
+
+check('billing: the current month is a reminder in its first days and a warning from the 5th', () => {
+  const rows = [bm('2026-08', 68, 0), bm('2026-09', 68, 0), bm('2026-10', 68, 10)];
+  assert.equal(billingRow(buildFollowUp({ ...quiet, today: '2026-10-01', billing: rows })).tone, 'neutral');
+  assert.equal(billingRow(buildFollowUp({ ...quiet, today: '2026-10-04', billing: rows })).tone, 'neutral');
+  assert.equal(billingRow(buildFollowUp({ ...quiet, today: '2026-10-05', billing: rows })).tone, 'warn');
+});
+
+check('billing: a past month left incomplete is a warning even on the first day, and names that month', () => {
+  const f = buildFollowUp({ ...quiet, today: '2026-10-01', billing: [bm('2026-08', 68, 0), bm('2026-09', 68, 3, 3600), bm('2026-10', 68, 0)] });
+  const item = billingRow(f);
+  assert.equal(item.tone, 'warn');
+  assert.equal(item.billing.month, '2026-09');
+  assert.equal(item.count, 3);
+  assert.equal(item.href, '/mall?tab=charges&billing=2026-09');
+});
+
+check('billing: several incomplete months show the newest and count the earlier ones', () => {
+  const f = buildFollowUp({ ...quiet, today: '2026-10-02', billing: [bm('2026-08', 66, 4), bm('2026-09', 68, 9), bm('2026-10', 68, 20)] });
+  const item = billingRow(f);
+  assert.equal(item.billing.month, '2026-10');
+  assert.equal(item.billing.earlierMonths, 2);
+  assert.equal(item.count, 20);
+  assert.equal(item.tone, 'warn');
+});
+
+check('billing: a month after today is never late', () => {
+  const f = buildFollowUp({ ...quiet, today: '2026-10-18', billing: [bm('2026-09', 68, 0), bm('2026-10', 68, 0), bm('2026-11', 68, 68)] });
+  assert.equal(billingRow(f), undefined);
+});
+
+check('billing: no contract value leaves the amount empty', () => {
+  const item = billingRow(buildFollowUp({ ...quiet, billing: [bm('2026-10', 5, 2, 0)] }));
+  assert.equal(item.amount, null);
+});
+
+check('billing: unreadable charges are unavailable, not "nothing to bill"', () => {
+  const f = buildFollowUp({ ...quiet, billing: null });
+  assert.deepEqual(f.items, []);
+  assert.deepEqual(f.unavailable, ['billing']);
+});
+
+check('billing: ranks after vouchers and before rent within the same tone', () => {
+  const f = buildFollowUp({
+    today: '2026-10-20',
+    aging: [],
+    expiry: expiry([]),
+    rent: [rentRow('unpaid', 500, 0)],
+    pendingVouchers: 2,
+    longVacant: 1,
+    billing: [bm('2026-10', 68, 5)],
+  });
+  assert.deepEqual(keys(f), ['vouchers', 'billing', 'rent', 'vacant']);
+  assert.deepEqual(f.items.map((i) => i.tone), ['warn', 'warn', 'warn', 'neutral']);
+});
+
+check('billing: a failed billing source does not hide the others', () => {
+  const f = buildFollowUp({ ...quiet, billing: null, pendingVouchers: 1 });
+  assert.deepEqual(keys(f), ['vouchers']);
+  assert.deepEqual(f.unavailable, ['billing']);
 });
 
 console.log(`\n${passed} checks passed`);

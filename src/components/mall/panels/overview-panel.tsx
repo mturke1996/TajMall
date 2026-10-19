@@ -12,7 +12,10 @@ import { aggregateMallRentKpis } from '@/lib/mall-rent-kpis';
 import { useLeaseContracts, useMallUnits, useTenantCharges } from '@/lib/db/mall-queries';
 import { buildContractExpiry } from '@/lib/contract-expiry';
 import { buildMallOccupancy } from '@/lib/mall-occupancy';
-import { currentMonthNameAr } from '@/lib/rent-months';
+import { currentMonthKey, currentMonthNameAr, formatMonthLabelAr } from '@/lib/rent-months';
+import { tenantOwed } from '@/lib/tenant-collection';
+import { useCollectRent } from '@/components/tenants/use-collect-rent';
+import { TenantRowActions } from '@/components/tenants/tenant-row-actions';
 import type { MallTab } from '@/lib/mall/routes';
 import { mallTabHref, peopleSegmentHref } from '@/lib/mall/routes';
 
@@ -46,6 +49,9 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
   const activeContracts = contracts.filter((c) => c.status === 'ACTIVE');
   const rentKpis = aggregateMallRentKpis(tenants);
   const monthName = currentMonthNameAr();
+  // a reminder from this list asks for this month's rent, and says so
+  const reminderBasis = useMemo(() => ({ kind: 'month' as const, label: formatMonthLabelAr(currentMonthKey()) }), []);
+  const { canCollect, control: collectControl, dialog: collectDialog } = useCollectRent({ focusFallbackId: 'owing-heading' });
 
   const owingThisMonth = useMemo(
     () =>
@@ -54,7 +60,7 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
         .map((t) => {
           const amount = Number(t.current_month_amount) || Number(t.monthly_rent) || 0;
           const paid = Number(t.current_month_paid) || 0;
-          return { ...t, amount, paid, remaining: Math.max(amount - paid, 0) };
+          return { ...t, amount, paid, remaining: tenantOwed(t) };
         })
         .sort((a, b) => b.remaining - a.remaining),
     [tenants],
@@ -65,6 +71,7 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
 
   // the day the page opened: stable across re-renders
   const [today] = useState(() => todayISODate());
+  const asOf = formatDate(today);
   const expiry = useMemo(() => buildContractExpiry({ contracts, today }), [contracts, today]);
   const occupancy = useMemo(() => buildMallOccupancy({ units, contracts, today }), [units, contracts, today]);
   // only once both lists are in: with one missing every unit would read as vacant
@@ -229,7 +236,9 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
 
         <section className="flex flex-col gap-2 lg:col-span-3">
           <div className="flex items-center justify-between gap-2 px-1">
-            <h2 className="text-[15px] font-semibold">لم يكملوا إيجار {monthName}</h2>
+            <h2 id="owing-heading" tabIndex={-1} className="text-[15px] font-semibold focus:outline-hidden">
+              لم يكملوا إيجار {monthName}
+            </h2>
             <button
               type="button"
               onClick={() => onNavigate('tenants')}
@@ -254,27 +263,46 @@ export function MallOverviewPanel({ onNavigate }: { onNavigate: (tab: MallTab) =
           ) : owingThisMonth.length === 0 ? (
             <Card className="px-4 py-8 text-center text-[13px] text-ink-mute">كل المستأجرين أكملوا إيجار {monthName}.</Card>
           ) : (
-            <ul className="surface divide-y divide-border overflow-hidden">
-              {owingThisMonth.slice(0, 8).map((t) => (
-                <li key={t.id}>
-                  <Link href={`/contacts/${t.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-canvas-sunken/60">
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13.5px] font-medium text-foreground">{t.name}</span>
-                      <span className="block text-[12px] text-ink-mute">
-                        محل {t.shop_number || '—'} · {t.current_month_status === 'paid_partial' ? `مسدّد ${formatMoney(t.paid, 'LYD')}` : 'لم يُسدَّد شيء'}
-                      </span>
-                    </span>
-                    <span className="shrink-0 text-end">
-                      <span className="block text-[13.5px] font-semibold tabular-nums text-danger-ink">{formatMoney(t.remaining, 'LYD')}</span>
-                      <span className="block text-[12px] text-ink-mute tabular-nums">من {formatMoney(t.amount, 'LYD')}</span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="surface divide-y divide-border overflow-hidden" aria-labelledby="owing-heading">
+                {owingThisMonth.slice(0, 8).map((t) => (
+                  <li key={t.id} className="px-4 py-3 sm:py-2.5">
+                    <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
+                      <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+                        <Link href={`/contacts/${t.id}`} className="min-w-0 flex-1 hover:underline">
+                          <span className="block truncate text-[13.5px] font-medium text-foreground">{t.name}</span>
+                          <span className="block text-[12px] text-ink-mute">
+                            محل {t.shop_number || '—'} · {t.current_month_status === 'paid_partial' ? `مسدّد ${formatMoney(t.paid, 'LYD')}` : 'لم يُسدَّد شيء'}
+                          </span>
+                        </Link>
+                        <span className="shrink-0 text-end">
+                          <span className="block text-[13.5px] font-semibold tabular-nums text-danger-ink">{formatMoney(t.remaining, 'LYD')}</span>
+                          <span className="block text-[12px] text-ink-mute tabular-nums">من {formatMoney(t.amount, 'LYD')}</span>
+                        </span>
+                      </div>
+                      <TenantRowActions
+                        tenant={t}
+                        owed={t.remaining}
+                        basis={reminderBasis}
+                        asOf={asOf}
+                        collect={canCollect ? collectControl : undefined}
+                        density="overview"
+                        className="sm:shrink-0"
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {owingThisMonth.length > 8 && (
+                <p className="px-1 text-[12px] text-ink-mute">
+                  الأعلى متبقياً: 8 من {arabicCount(owingThisMonth.length, ['مستأجر واحد', 'مستأجران', 'مستأجرين', 'مستأجراً'])}. الباقي في قائمة المستأجرين.
+                </p>
+              )}
+            </>
           )}
         </section>
       </div>
+      {collectDialog}
     </div>
   );
 }

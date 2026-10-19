@@ -60,7 +60,8 @@ const dummyTxs = [
   },
 ];
 
-const schedule = buildLandlordRentSchedule(landlordContact, dummyTxs, 2026);
+// the schedule is read as of a fixed day: only months up to the current one are owed
+const schedule = buildLandlordRentSchedule(landlordContact, dummyTxs, 2026, { today: '2026-10-19' });
 console.log('Schedule Summary:', {
   monthlyRent: schedule.monthlyRent,
   totalExpected: schedule.totalExpected,
@@ -72,11 +73,25 @@ console.log('Schedule Summary:', {
 });
 
 if (schedule.monthlyRent !== 5000) throw new Error('Invalid monthly rent');
-if (schedule.totalExpected !== 60000) throw new Error('Expected 60000 for 12 months');
+if (schedule.totalExpected !== 50000) throw new Error('Expected 50000 for the 10 months up to October');
 if (schedule.totalPaid !== 12500) throw new Error('Expected 12500 paid');
+if (schedule.totalOutstanding !== 37500) throw new Error('Expected 37500 outstanding');
 if (schedule.paidMonthsCount !== 2) throw new Error('Expected 2 fully paid months (Jan & Jul)');
 if (schedule.partialMonthsCount !== 1) throw new Error('Expected 1 partial month (Feb)');
-if (schedule.unpaidMonthsCount !== 9) throw new Error('Expected 9 unpaid months');
+if (schedule.unpaidMonthsCount !== 7) throw new Error('Expected 7 unpaid months (the others up to October)');
+if (schedule.months[10].status !== 'not_due' || schedule.months[11].status !== 'not_due') throw new Error('November and December are not owed yet');
+
+// a reconciled payment counts like a posted one; a draft does not
+const withStatuses = buildLandlordRentSchedule(
+  landlordContact,
+  [
+    { ...dummyTxs[0], id: 'tx-r', status: 'RECONCILED' },
+    { ...dummyTxs[1], id: 'tx-d', status: 'DRAFT' },
+  ],
+  2026,
+  { today: '2026-10-19' },
+);
+if (withStatuses.totalPaid !== 5000) throw new Error('Expected only the reconciled 5000 to count');
 
 // 3. Test Electricity Supplier
 const electricitySupplier = {

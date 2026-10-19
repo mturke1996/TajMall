@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import type { ContactRow, TransactionWithRelations, ContactKind } from '@/lib/db/types';
 import { extractTargetRentMonth } from '@/lib/period-journal-entry';
+import { getCountedContactTransactions } from '@/lib/contacts/contact-transactions';
+import { todayISODate } from '@/lib/utils';
 
 export type ContactBusinessRole =
   | 'TENANT'               // مستأجر محل بالمول
@@ -273,29 +275,61 @@ export function encodeContactRoleFields(role: ContactBusinessRole, existingNotes
 // جدول إيجار المؤجر للمول (Landlord Rent Month Matrix & Schedule)
 // -------------------------------------------------------------
 
-export type LandlordRentMonth = {
+/** What the schedule needs of a transaction: the full row and the slim dues query both fit. */
+export type LandlordRentTx = {
+  id: string;
+  kind?: string | null;
+  status?: string | null;
+  amount: string | number | null;
+  tx_date: string;
+  description?: string | null;
+  contact_id?: string | null;
+  contact?: { id: string } | null;
+};
+
+/** Why a month carries no rent: it has not come yet, the contract does not cover it, or no rent is set. */
+export type LandlordRentNotDueReason = 'future' | 'before_contract' | 'after_contract' | 'no_rent';
+
+export type LandlordRentMonth<T extends LandlordRentTx = TransactionWithRelations> = {
   monthKey: string;     // e.g. "2026-07"
   monthNum: number;     // 1 - 12
   monthNameAr: string;  // "يوليو"
   year: number;         // 2026
+  /** rent is owed for this month: it has started, the contract covers it and a rent is set */
+  due: boolean;
+  notDueReason: LandlordRentNotDueReason | null;
+  /** the monthly rent when due, 0 otherwise */
   expectedAmount: number;
+  /** everything paid for this month, also in advance or outside the contract */
   paidAmount: number;
   remainingAmount: number;
-  status: 'paid_full' | 'paid_partial' | 'unpaid';
+  /** paid beyond the rent of a due month */
+  overpaidAmount: number;
+  status: 'paid_full' | 'paid_partial' | 'unpaid' | 'not_due';
   paymentsCount: number;
-  paymentTransactions: TransactionWithRelations[];
+  paymentTransactions: T[];
 };
 
-export type LandlordRentSchedule = {
+export type LandlordRentSchedule<T extends LandlordRentTx = TransactionWithRelations> = {
   year: number;
+  /** the day the schedule was read on: later months are not owed yet */
+  asOf: string;
   monthlyRent: number;
+  /** rent of the due months only */
   totalExpected: number;
   totalPaid: number;
+  /** sum of what each due month still lacks; a surplus in one month never hides a gap in another */
   totalOutstanding: number;
+  overpaidAmount: number;
+  dueMonthsCount: number;
   paidMonthsCount: number;
   partialMonthsCount: number;
   unpaidMonthsCount: number;
-  months: LandlordRentMonth[];
+  /** no contract start is recorded, so the rent is counted from January */
+  contractStartMissing: boolean;
+  /** the contract ends before it starts: both dates are ignored */
+  contractDatesInvalid: boolean;
+  months: LandlordRentMonth<T>[];
 };
 
 const ARABIC_MONTHS = [
@@ -303,87 +337,170 @@ const ARABIC_MONTHS = [
   'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
 ];
 
+const RENT_EPS = 0.0005;
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
+const amountOf = (v: unknown) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+/** "2026-03-15" or a full timestamp → "2026-03"; anything else → null */
+const monthKeyOf = (d: string | null | undefined) => {
+  const s = String(d ?? '').slice(0, 7);
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(s) ? s : null;
+};
+
+export function landlordMonthName(monthNum: number): string {
+  return ARABIC_MONTHS[monthNum - 1] ?? '';
+}
+
+/**
+ * The month a payment is for: the one its description names ("سداد إيجار شهر مارس 2026"), otherwise the month
+ * it was paid in. The fallback reads the date text, so it does not move with the device time zone.
+ */
+export function landlordPaymentMonthKey(tx: { description?: string | null; tx_date: string }): string {
+  const paidIn = String(tx.tx_date ?? '').slice(0, 7);
+  const target = extractTargetRentMonth(tx.description, tx.tx_date);
+  return target.target_rent_month && target.target_rent_month_key ? target.target_rent_month_key : paidIn;
+}
+
+/**
+ * The description a landlord payment is prefilled with. The schedule reads the month back from this text, so
+ * it is checked to say the month it was written for: a landlord whose name holds a month word ("شركة أكتوبر")
+ * would otherwise pull the payment into October, so the name is left out in that case (the contact is
+ * linked to the transaction anyway).
+ */
+export function landlordPaymentDescription(landlordName: string, monthKey: string): string {
+  const name = (landlordName || '').trim();
+  const [y, m] = monthKey.split('-').map(Number);
+  if (!y || !m || m < 1 || m > 12) return name ? `سداد إيجار للمؤجر ${name}` : 'سداد إيجار';
+  const base = `سداد إيجار شهر ${ARABIC_MONTHS[m - 1]} ${y}`;
+  if (!name) return base;
+  const full = `${base} للمؤجر ${name}`;
+  // a date far from the month: only the words can make the text read as that month
+  return landlordPaymentMonthKey({ description: full, tx_date: '1999-06-15' }) === monthKey ? full : base;
+}
+
 /**
  * بناء جدول استحقاقات وسداد إيجار المؤجر للمول (شهراً بشهر)
+ *
+ * Rent is owed for a month when it has started (not later than the current month), the landlord's contract
+ * covers it (any day of the start and end months counts) and a monthly rent is set. Every other month owes
+ * nothing, though a payment made for it is still shown. Only counted transactions (POSTED and RECONCILED) are
+ * payments.
  */
-export function buildLandlordRentSchedule(
+export function buildLandlordRentSchedule<T extends LandlordRentTx = TransactionWithRelations>(
   contact: ContactRow,
-  transactions: TransactionWithRelations[],
-  targetYear = new Date().getFullYear()
-): LandlordRentSchedule {
-  const monthlyRent = Number(contact.monthly_rent || 0);
+  transactions: readonly T[],
+  targetYear?: number,
+  options: { today?: string } = {},
+): LandlordRentSchedule<T> {
+  const today = options.today ?? todayISODate();
+  const todayKey = today.slice(0, 7);
+  const year = targetYear ?? (Number(today.slice(0, 4)) || new Date().getFullYear());
+  const monthlyRent = Math.max(0, amountOf(contact.monthly_rent));
 
-  // تصفية معاملات المصروفات التابعة لهذا المؤجر
-  const expenseTxs = transactions.filter(
-    (t) =>
-      (t.contact?.id === contact.id || (t as unknown as { contact_id?: string }).contact_id === contact.id) &&
-      t.status === 'POSTED' &&
-      (t.kind === 'EXPENSE' || t.kind == null)
-  );
+  let startKey = monthKeyOf(contact.contract_start);
+  let endKey = monthKeyOf(contact.contract_end);
+  const contractDatesInvalid = !!startKey && !!endKey && endKey < startKey;
+  if (contractDatesInvalid) {
+    startKey = null;
+    endKey = null;
+  }
 
+  // payments by the month they are for
+  const byMonth = new Map<string, T[]>();
+  for (const tx of getCountedContactTransactions(transactions)) {
+    const ofLandlord = tx.contact?.id === contact.id || tx.contact_id === contact.id;
+    if (!ofLandlord || !(tx.kind === 'EXPENSE' || tx.kind == null)) continue;
+    const key = landlordPaymentMonthKey(tx);
+    const list = byMonth.get(key);
+    if (list) list.push(tx);
+    else byMonth.set(key, [tx]);
+  }
 
-  const months: LandlordRentMonth[] = [];
+  const months: LandlordRentMonth<T>[] = [];
   let totalExpected = 0;
   let totalPaid = 0;
+  let totalOutstanding = 0;
+  let overpaidAmount = 0;
+  let dueMonthsCount = 0;
   let paidMonthsCount = 0;
   let partialMonthsCount = 0;
   let unpaidMonthsCount = 0;
 
   for (let m = 1; m <= 12; m++) {
-    const monthKey = `${targetYear}-${String(m).padStart(2, '0')}`;
-    const monthNameAr = ARABIC_MONTHS[m - 1];
+    const monthKey = `${year}-${String(m).padStart(2, '0')}`;
+    const payments = byMonth.get(monthKey) ?? [];
 
-    // البحث عن المعاملات المسددة لهذا الشهر
-    const matchedPayments = expenseTxs.filter((tx) => {
-      const { target_rent_month_key } = extractTargetRentMonth(tx.description, tx.tx_date);
-      if (target_rent_month_key) {
-        return target_rent_month_key === monthKey;
+    const notDueReason: LandlordRentNotDueReason | null =
+      monthlyRent <= 0
+        ? 'no_rent'
+        : startKey && monthKey < startKey
+          ? 'before_contract'
+          : endKey && monthKey > endKey
+            ? 'after_contract'
+            : monthKey > todayKey
+              ? 'future'
+              : null;
+    const due = notDueReason === null;
+
+    const paid = round3(payments.reduce((sum, tx) => sum + amountOf(tx.amount), 0));
+    const expected = due ? monthlyRent : 0;
+    const gap = due ? round3(expected - paid) : 0;
+    const remaining = gap > RENT_EPS ? gap : 0;
+    const overpaid = due && -gap > RENT_EPS ? -gap : 0;
+
+    let status: LandlordRentMonth<T>['status'] = 'not_due';
+    if (due) {
+      dueMonthsCount++;
+      if (remaining === 0) {
+        status = 'paid_full';
+        paidMonthsCount++;
+      } else if (paid > RENT_EPS) {
+        status = 'paid_partial';
+        partialMonthsCount++;
+      } else {
+        status = 'unpaid';
+        unpaidMonthsCount++;
       }
-      // إذا لم يُذكر في البيان فيطابق تاريخ الصرف
-      return tx.tx_date && tx.tx_date.startsWith(monthKey);
-    });
-
-    const paidForMonth = matchedPayments.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
-    const expected = monthlyRent;
-    const remaining = Math.max(0, expected - paidForMonth);
-
-    let status: 'paid_full' | 'paid_partial' | 'unpaid' = 'unpaid';
-    if (paidForMonth >= expected && expected > 0) {
-      status = 'paid_full';
-      paidMonthsCount++;
-    } else if (paidForMonth > 0) {
-      status = 'paid_partial';
-      partialMonthsCount++;
-    } else {
-      unpaidMonthsCount++;
     }
 
     totalExpected += expected;
-    totalPaid += paidForMonth;
+    totalPaid += paid;
+    totalOutstanding += remaining;
+    overpaidAmount += overpaid;
 
     months.push({
       monthKey,
       monthNum: m,
-      monthNameAr,
-      year: targetYear,
+      monthNameAr: ARABIC_MONTHS[m - 1],
+      year,
+      due,
+      notDueReason,
       expectedAmount: expected,
-      paidAmount: paidForMonth,
+      paidAmount: paid,
       remainingAmount: remaining,
+      overpaidAmount: overpaid,
       status,
-      paymentsCount: matchedPayments.length,
-      paymentTransactions: matchedPayments,
+      paymentsCount: payments.length,
+      paymentTransactions: payments,
     });
   }
 
   return {
-    year: targetYear,
+    year,
+    asOf: today,
     monthlyRent,
-    totalExpected,
-    totalPaid,
-    totalOutstanding: Math.max(0, totalExpected - totalPaid),
+    totalExpected: round3(totalExpected),
+    totalPaid: round3(totalPaid),
+    totalOutstanding: round3(totalOutstanding),
+    overpaidAmount: round3(overpaidAmount),
+    dueMonthsCount,
     paidMonthsCount,
     partialMonthsCount,
     unpaidMonthsCount,
+    contractStartMissing: !startKey && !contractDatesInvalid,
+    contractDatesInvalid,
     months,
   };
 }

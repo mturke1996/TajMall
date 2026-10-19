@@ -12,6 +12,7 @@ import {
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { TenantsDirectory } from '@/components/tenants/tenants-directory';
 import { WriteGuard } from '@/components/auth/write-guard';
+import { useCollectRent } from '@/components/tenants/use-collect-rent';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { MallPanelToolbar } from '@/components/mall/panel-toolbar';
 import { peopleSegmentHref } from '@/lib/mall/routes';
@@ -34,6 +35,7 @@ import {
   sumMatchingMonthDetails,
 } from '@/lib/tenant-rent-period';
 import { getStatusFilterLabel } from '@/components/tenants/tenant-status-config';
+import { defaultTenantSort, nextTenantSort, sortTenants } from '@/lib/tenant-collection';
 
 export function MallTenantsPanel() {
   const router = useRouter();
@@ -46,6 +48,9 @@ export function MallTenantsPanel() {
   const setStatusFilter = useTenantsView((s) => s.setStatusFilter);
   const storedPeriod = useTenantsView((s) => s.periodSelection);
   const setPeriodSelection = useTenantsView((s) => s.setPeriodSelection);
+  const storedSort = useTenantsView((s) => s.sort);
+  const setSort = useTenantsView((s) => s.setSort);
+  const { canCollect, control: collectControl, dialog: collectDialog } = useCollectRent();
   // memoised so monthKeys keeps its identity between renders
   const periodSelection = useMemo(
     () => storedPeriod ?? defaultTenantRentPeriodSelection(),
@@ -128,6 +133,10 @@ export function MallTenantsPanel() {
     );
   }, [isSingleMonth, statusFilter, baseFiltered, matchingDetails]);
 
+  // until someone picks a column, a debtors filter lists the most owed first and everything else by name
+  const sort = useMemo(() => storedSort ?? defaultTenantSort(statusFilter), [storedSort, statusFilter]);
+  const sortedTenants = useMemo(() => sortTenants(filteredTenants, sort), [filteredTenants, sort]);
+
   const matchingMonthNumbersByTenantId = useMemo(() => {
     const out: Record<string, number[]> = {};
     for (const [id, d] of Object.entries(matchingDetails)) {
@@ -184,7 +193,8 @@ export function MallTenantsPanel() {
   const statusLabel = getStatusFilterLabel(statusFilter);
   /** كل التقارير تعرض أرقام الشهور (1، 2، 3…) مع القيم */
   const showMonthNumbersInPdf = true;
-  const pdfCacheKey = `${periodSelectionKey(periodSelection)}:${statusFilter}:${searchQuery.trim()}:months`;
+  // the PDF lists the rows in the order on screen, so the order is part of what makes a cached PDF stale
+  const pdfCacheKey = `${periodSelectionKey(periodSelection)}:${statusFilter}:${searchQuery.trim()}:${sort.key}-${sort.dir}:months`;
   const pdfFileName = `إيجارات-المستأجرين-${periodLabel.replace(/\s+/g, '-')}-${statusLabel}`;
   const pdfPeriod = buildTenantsReportPeriodContext(
     periodSelection,
@@ -208,7 +218,7 @@ export function MallTenantsPanel() {
               <TenantsReportPDF
                 titleAr="تقرير إيجارات المستأجرين"
                 subtitleAr={`${filteredTenants.length} مستأجر · ${periodLabel}${filterNote}`}
-                rows={filteredTenants}
+                rows={sortedTenants}
                 period={pdfPeriod}
                 monthNumbersByTenantId={matchingMonthNumbersByTenantId}
                 matchingDetailsByTenantId={matchingDetails}
@@ -262,7 +272,7 @@ export function MallTenantsPanel() {
       ) : (
         <TenantsDirectory
           tenants={tenants}
-          filteredTenants={filteredTenants}
+          filteredTenants={sortedTenants}
           isLoading={isLoading}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -272,6 +282,9 @@ export function MallTenantsPanel() {
           onPeriodSelectionChange={setPeriodSelection}
           stats={stats}
           matchingMonthsByTenantId={matchingMonthNumbersByTenantId}
+          sort={sort}
+          onSortChange={(key) => setSort(nextTenantSort(sort, key))}
+          collect={canCollect ? collectControl : undefined}
           onAddTenant={
             canWrite
               ? () => router.push(peopleSegmentHref('TENANT', { add: 'TENANT' }))
@@ -279,6 +292,7 @@ export function MallTenantsPanel() {
           }
         />
       )}
+      {collectDialog}
     </>
   );
 }

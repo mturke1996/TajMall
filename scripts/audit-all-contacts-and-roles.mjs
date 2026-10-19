@@ -180,7 +180,8 @@ const sampleTransactions = [
   },
 ];
 
-const schedule = buildLandlordRentSchedule(testLandlord, sampleTransactions, 2026);
+// read as of the end of the year: every one of the 12 months has started
+const schedule = buildLandlordRentSchedule(testLandlord, sampleTransactions, 2026, { today: '2026-12-31' });
 if (schedule.totalExpected !== 120000) throw new Error('Schedule expected total mismatch');
 if (schedule.totalPaid !== 23500) throw new Error('Schedule paid total mismatch');
 if (schedule.totalOutstanding !== 96500) throw new Error('Schedule outstanding mismatch');

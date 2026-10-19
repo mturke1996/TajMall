@@ -1,3 +1,4 @@
+import type { PaymentReceipt } from '@/lib/payment-receipt';
 import { arabicCount, formatDate, formatMoney } from '@/lib/utils';
 
 /**
@@ -54,18 +55,40 @@ export function buildContactWhatsAppMessage(input: {
   ].join('\n');
 }
 
+/**
+ * What the amount in a reminder is for. Without it the message says only "rent dues"; with it the tenant
+ * reads whether the figure is one month's rent, the months of a period, or everything unpaid.
+ */
+export type RentReminderBasis =
+  | { kind: 'month'; label: string }
+  | { kind: 'period'; label: string }
+  | { kind: 'all' };
+
+function reminderBasisPhrase(basis: RentReminderBasis): string {
+  if (basis.kind === 'month') return `من إيجار شهر ${basis.label}`;
+  if (basis.kind === 'period') return `من إيجار الفترة (${basis.label})`;
+  return 'من إيجار كل الأشهر غير المسدّدة';
+}
+
 /** رسالة تذكير جاهزة لمستأجر متأخر عن السداد — قابلة للتعديل قبل الإرسال داخل واتساب. */
 export function buildRentReminderMessage(input: {
   tenantName: string;
   amountOutstanding: number;
   shopNumber?: string | null;
   asOf?: string;
+  basis?: RentReminderBasis;
 }): string {
-  const { tenantName, amountOutstanding, shopNumber, asOf } = input;
+  const { tenantName, amountOutstanding, shopNumber, asOf, basis } = input;
+  const shop = shopNumber ? ` للمحل رقم ${shopNumber}` : '';
+  const upTo = asOf ? ` حتى تاريخ ${asOf}` : '';
+  const money = formatMoney(amountOutstanding, 'LYD');
+  const ask = basis
+    ? `نود تذكيركم بأن المستحق ${reminderBasisPhrase(basis)}${shop} هو ${money}${upTo}.`
+    : `نود تذكيركم بوجود مستحقات إيجار${shop} بقيمة ${money}${upTo}.`;
   const lines = [
     `السيد/ة ${tenantName}،`,
     '',
-    `نود تذكيركم بوجود مستحقات إيجار${shopNumber ? ` للمحل رقم ${shopNumber}` : ''} بقيمة ${formatMoney(amountOutstanding, 'LYD')}${asOf ? ` حتى تاريخ ${asOf}` : ''}.`,
+    ask,
     'يرجى التكرم بالتسديد في أقرب وقت ممكن، ونشكر لكم تعاونكم.',
     '',
     'إدارة تاج مول',
@@ -93,4 +116,43 @@ export function buildContractExpiryMessage(input: {
         ? `نفيدكم بأن عقد إيجار ${shop} ينتهي اليوم (${when}). نرجو التواصل مع الإدارة لتجديد العقد.`
         : `نفيدكم بأن عقد إيجار ${shop} ينتهي بتاريخ ${when} (بعد ${days(daysLeft)}). نرجو التواصل مع الإدارة قبل هذا التاريخ لتجديد العقد.`;
   return [`السيد/ة ${tenantName}،`, '', body, 'ونشكر لكم تعاونكم.', '', 'إدارة تاج مول'].join('\n');
+}
+
+/**
+ * The message that goes with a receipt: what was received, for which months, what is left and the receipt
+ * number. It says everything the paper does, so the tenant can keep it as the receipt itself.
+ */
+export function buildPaymentReceiptMessage(receipt: PaymentReceipt): string {
+  const name = receipt.payer.name;
+  // «للمحل» says what the money was for, which only rent does; another revenue from a tenant is not for the shop
+  const shop = receipt.kind === 'rent' && receipt.payer.shopNumber ? ` للمحل رقم ${receipt.payer.shopNumber}` : '';
+  const lines = [name ? `السيد/ة ${name}،` : 'تحية طيبة،', ''];
+  lines.push(`استلمنا منكم ${formatMoney(receipt.total, 'LYD')} بتاريخ ${formatDate(receipt.date)}${shop}.`);
+
+  if (receipt.kind === 'rent' && receipt.lines.length > 0) {
+    lines.push('', ...receipt.lines.map((l) => `${l.label}: ${l.statusLabel}`));
+    if (receipt.balance?.kind === 'remaining') {
+      lines.push('', `${receipt.balance.label}: ${formatMoney(receipt.balance.amount, 'LYD')}`);
+    } else if (receipt.balance?.kind === 'settled') {
+      lines.push('', receipt.balance.text);
+    }
+    if (receipt.otherOwed) {
+      lines.push(`${receipt.otherOwed.label}: ${receipt.otherOwed.detail}، ${formatMoney(receipt.otherOwed.amount, 'LYD')}.`);
+    }
+  } else if (receipt.purpose || receipt.category) {
+    lines.push(`البيان: ${receipt.purpose ?? receipt.category}`);
+  }
+
+  lines.push('');
+  if (receipt.number) lines.push(`رقم الإيصال: ${receipt.number}`);
+  lines.push(receipt.statusNote, 'نشكر لكم تعاونكم.', '', 'إدارة تاج مول');
+  return lines.join('\n');
+}
+
+/**
+ * The link that opens WhatsApp with a message: to the person's number when it is a valid one, otherwise
+ * without a number, where WhatsApp asks who to send it to.
+ */
+export function buildMessageShareLink(phone: string | null | undefined, message: string): string {
+  return (phone ? buildWhatsAppLink(phone, message) : null) ?? `https://wa.me/?text=${encodeURIComponent(message)}`;
 }

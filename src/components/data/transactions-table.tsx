@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ArrowDownLeft, ArrowUpRight, Briefcase, Building2, Receipt, SearchX, Trash2, User } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Briefcase, Building2, CopyPlus, Receipt, SearchX, Trash2, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -15,6 +15,7 @@ import { useDeleteTransaction } from '@/lib/db/queries';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/user-messages';
+import { useRepeatTransaction } from '@/components/transactions/use-repeat-transaction';
 
 export function transactionHighlightDomId(id: string) {
   return `transaction-${id}`;
@@ -75,6 +76,7 @@ export function TransactionsTable({
   const { can } = usePermission();
   const canDelete = (r: TransactionWithRelations) =>
     r.kind === 'REVENUE' ? can('revenue.delete') : can('expense.delete');
+  const { canRepeat, repeat } = useRepeatTransaction();
   const [pendingDelete, setPendingDelete] = useState<TransactionWithRelations | null>(null);
 
   async function confirmDelete() {
@@ -189,7 +191,7 @@ export function TransactionsTable({
           const positive = row.original.kind === 'REVENUE';
           return (
             <span
-              className={cn('font-mono font-semibold', positive ? 'text-pastel-greenInk' : 'text-pastel-redInk')}
+              className={cn('font-mono font-semibold', positive ? 'text-success-ink' : 'text-danger-ink')}
               dir="ltr"
             >
               {formatMoney(positive ? Number(row.original.amount) : -Number(row.original.amount), currency, { signed: true })}
@@ -201,7 +203,7 @@ export function TransactionsTable({
           const label = kindFilter ? '' : 'صافي ';
           return (
             <span
-              className={cn('font-mono', total >= 0 ? 'text-pastel-greenInk' : 'text-pastel-redInk')}
+              className={cn('font-mono', total >= 0 ? 'text-success-ink' : 'text-danger-ink')}
               dir="ltr"
             >
               {label && <span className="font-sans text-muted-foreground">{label}</span>}
@@ -215,22 +217,42 @@ export function TransactionsTable({
         header: () => <span className="sr-only">إجراءات</span>,
         enableSorting: false,
         meta: { alwaysVisible: true, align: 'end' },
-        cell: ({ row }) =>
-          canDelete(row.original) ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setPendingDelete(row.original)}
-              aria-label={`حذف المعاملة #${row.original.number}`}
-              title="حذف"
-            >
-              <Trash2 />
-            </Button>
-          ) : null,
+        cell: ({ row }) => {
+          const again = canRepeat(row.original);
+          const remove = canDelete(row.original);
+          if (!again && !remove) return null;
+          return (
+            <div className="flex items-center justify-end gap-0.5">
+              {again && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => repeat(row.original)}
+                  aria-label={`كرّر المعاملة #${row.original.number}`}
+                  title="كرّر المعاملة"
+                >
+                  <CopyPlus />
+                </Button>
+              )}
+              {remove && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setPendingDelete(row.original)}
+                  aria-label={`حذف المعاملة #${row.original.number}`}
+                  title="حذف"
+                >
+                  <Trash2 />
+                </Button>
+              )}
+            </div>
+          );
+        },
       },
     ],
-    // canDelete depends on permissions that load once per session.
+    // canDelete and canRepeat depend on permissions that load once per session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currency, kindFilter, can],
   );
@@ -283,6 +305,7 @@ export function TransactionsTable({
             <TransactionCard
               row={r}
               currency={currency}
+              onRepeat={canRepeat(r) ? () => repeat(r) : undefined}
               onDelete={canDelete(r) ? () => setPendingDelete(r) : undefined}
             />
           )}
@@ -316,10 +339,12 @@ export function TransactionsTable({
 function TransactionCard({
   row: r,
   currency,
+  onRepeat,
   onDelete,
 }: {
   row: TransactionWithRelations;
   currency: string;
+  onRepeat?: () => void;
   onDelete?: () => void;
 }) {
   const positive = r.kind === 'REVENUE';
@@ -328,13 +353,7 @@ function TransactionCard({
     <div className="surface flex min-w-0 max-w-full flex-col gap-2 overflow-hidden p-3">
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <span
-            className={cn(
-              'grid h-8 w-8 shrink-0 place-items-center rounded-md',
-              positive ? 'bg-pastel-green text-pastel-greenInk' : 'bg-pastel-red text-pastel-redInk',
-            )}
-            aria-hidden
-          >
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-canvas-sunken text-muted-foreground" aria-hidden>
             {positive ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
           </span>
           <div className="min-w-0 flex-1">
@@ -357,26 +376,34 @@ function TransactionCard({
         <span
           className={cn(
             'max-w-[42%] shrink-0 text-end font-mono text-sm font-semibold leading-tight',
-            positive ? 'text-pastel-greenInk' : 'text-pastel-redInk',
+            positive ? 'text-success-ink' : 'text-danger-ink',
           )}
           dir="ltr"
         >
           {formatMoney(positive ? Number(r.amount) : -Number(r.amount), currency, { signed: true })}
         </span>
       </div>
-      <div className="flex min-w-0 items-center justify-between gap-2 border-t border-border/50 pt-2 text-xs text-muted-foreground">
-        <span className="tabular-nums" dir="ltr">
+      {/* the 44px buttons overlap the card's padding, so the actions add almost no height */}
+      <div className="flex min-w-0 items-center gap-2 border-t border-border/50 pt-2 text-xs text-muted-foreground">
+        <span className="shrink-0 tabular-nums" dir="ltr">
           #{r.number} · {formatShortDate(r.tx_date)}
         </span>
-        <span className="min-w-0 truncate">{creatorName}</span>
+        <span className="min-w-0 flex-1 truncate">{creatorName}</span>
+        {onRepeat && (
+          <Button type="button" variant="ghost" onClick={onRepeat} aria-label={`كرّر المعاملة #${r.number}`} className="-my-2.5 h-11 shrink-0 gap-1 px-2.5 text-[13px]">
+            <CopyPlus /> كرّر
+          </Button>
+        )}
         {onDelete && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={onDelete}
-            className="flex shrink-0 items-center gap-1 text-pastel-redInk underline-offset-4 hover:underline"
+            aria-label={`حذف المعاملة #${r.number}`}
+            className="-my-2.5 h-11 shrink-0 gap-1 px-2.5 text-[13px] text-danger-ink"
           >
-            <Trash2 className="h-3 w-3" /> حذف
-          </button>
+            <Trash2 /> حذف
+          </Button>
         )}
       </div>
     </div>

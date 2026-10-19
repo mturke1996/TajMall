@@ -1,14 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   Coins,
   Plus,
   Loader2,
   AlertTriangle,
-  Calendar,
   User,
   Store,
   RefreshCw,
@@ -18,9 +17,10 @@ import {
   FileSpreadsheet,
   Search,
 } from 'lucide-react';
+import { BillingRunDialog, BillingStatusStrip } from '@/components/mall/billing-run-dialog';
 import { MallPanelToolbar } from '@/components/mall/panel-toolbar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,13 +42,15 @@ import { arabicCount, cn, formatMoney, formatDate } from '@/lib/utils';
 import {
   useTenantCharges,
   useCreateTenantCharge,
-  useGenerateMonthlyCharges,
   useLeaseContracts
 } from '@/lib/db/mall-queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { chargeToInvoiceModel } from '@/lib/charge-invoice';
 import { useSyncOverdueChargeReminders } from '@/lib/db/notification-queries';
 import { WriteGuard } from '@/components/auth/write-guard';
+import { usePermission } from '@/lib/supabase/use-permission';
+import { isMonthKey } from '@/lib/billing-preview';
+import { MALL_HREF } from '@/lib/mall/routes';
 import { useHighlightScroll, isHighlighted } from '@/lib/hooks/use-highlight-scroll';
 import { matchesSearch } from '@/lib/arabic-search';
 import { friendlyError } from '@/lib/user-messages';
@@ -95,16 +97,24 @@ function ChargePdfButton({ charge }: { charge: TenantChargeWithRelations }) {
 }
 
 export function MallChargesPanel() {
-  const highlightId = useSearchParams().get('highlight');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get('highlight');
+  const { can } = usePermission();
   const { data: charges = [], isLoading, isError, error } = useTenantCharges();
   const { data: contracts = [] } = useLeaseContracts();
   
   const createCharge = useCreateTenantCharge();
-  const generateMonthly = useGenerateMonthlyCharges();
   const syncReminders = useSyncOverdueChargeReminders();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [isGenerateOpen, setIsGenerateOpen] = useState(false);
+  // the billing dialog, opened by its buttons or by a link from the dashboard (?billing=YYYY-MM)
+  const [generate, setGenerate] = useState<{ month?: string } | null>(null);
+  const [linkDismissed, setLinkDismissed] = useState(false);
+  const linkMonth = searchParams.get('billing');
+  const fromLink = !linkDismissed && can('revenue.create') && isMonthKey(linkMonth);
+  const generateOpen = generate !== null || fromLink;
+  const generateMonth = generate?.month ?? (fromLink ? linkMonth ?? undefined : undefined);
 
   // Manual Charge Form State
   const [contractId, setContractId] = useState('');
@@ -113,14 +123,6 @@ export function MallChargesPanel() {
   const [type, setType] = useState<'RENT' | 'SERVICE' | 'FINE' | 'OTHER'>('RENT');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Generate Charges Form State
-  const [targetMonth, setTargetMonth] = useState(() => {
-    const d = new Date();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    return `${d.getFullYear()}-${mm}`;
-  });
-  const [isGenerating, setIsGenerating] = useState(false);
 
   useHighlightScroll(highlightId, chargeHighlightDomId, [charges.length]);
 
@@ -166,8 +168,18 @@ export function MallChargesPanel() {
     setIsOpen(true);
   };
 
-  const handleOpenGenerate = () => {
-    setIsGenerateOpen(true);
+  const handleOpenGenerate = (month?: string) => setGenerate({ month });
+
+  const handleGenerateOpenChange = (open: boolean) => {
+    if (open) return;
+    setGenerate(null);
+    if (fromLink) {
+      // the link has done its job: drop it so a reload does not open the dialog again
+      setLinkDismissed(true);
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete('billing');
+      router.replace(`${MALL_HREF}?${next.toString()}`, { scroll: false });
+    }
   };
 
   const handleSubmitManual = async (e: React.FormEvent) => {
@@ -192,21 +204,6 @@ export function MallChargesPanel() {
       // handled in hook
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleGenerateMonthly = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!targetMonth) return;
-
-    setIsGenerating(true);
-    try {
-      await generateMonthly.mutateAsync(targetMonth);
-      setIsGenerateOpen(false);
-    } catch (err) {
-      // handled in hook
-    } finally {
-      setIsGenerating(false);
     }
   };
 
@@ -251,7 +248,7 @@ export function MallChargesPanel() {
           </Button>
           <Button
             variant="outline"
-            onClick={handleOpenGenerate}
+            onClick={() => handleOpenGenerate()}
             className="h-11 flex-1 gap-2 border-border text-foreground touch-manipulation sm:flex-none md:h-9"
           >
             <RefreshCw className="h-4 w-4" />
@@ -283,13 +280,17 @@ export function MallChargesPanel() {
           <Coins className="h-9 w-9 text-ink-mute" aria-hidden />
           <p className="font-medium text-ink-soft">لا توجد مطالبات بعد</p>
           <WriteGuard permission="revenue.create">
-            <Button onClick={handleOpenGenerate} variant="outline" size="sm">
+            <Button onClick={() => handleOpenGenerate()} variant="outline" size="sm">
               توليد مطالبات الشهر الحالي
             </Button>
           </WriteGuard>
         </Card>
       ) : (
         <>
+          <WriteGuard permission="revenue.create">
+            <BillingStatusStrip onReview={handleOpenGenerate} />
+          </WriteGuard>
+
           <Card className="flex flex-col gap-3 p-3 sm:p-4">
             <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
               <div className="relative min-w-0 flex-1">
@@ -573,45 +574,7 @@ export function MallChargesPanel() {
         </DialogContent>
       </Dialog>
 
-      {/* Generate Monthly Charges Dialog */}
-      <Dialog open={isGenerateOpen} onOpenChange={setIsGenerateOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>توليد مطالبات الإيجار والخدمات الدورية</DialogTitle>
-            <CardDescription>
-              سيقوم النظام بمسح عقود الإيجار النشطة وتوليد الفواتير التلقائية للشهر المحدد إذا لم تكن موجودة بالفعل.
-            </CardDescription>
-          </DialogHeader>
-          <form onSubmit={handleGenerateMonthly} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="target-month">الشهر المستهدف للفواتير</Label>
-              <div className="relative">
-                <Input
-                  id="target-month"
-                  type="month"
-                  value={targetMonth}
-                  onChange={(e) => setTargetMonth(e.target.value)}
-                  required
-                />
-                <Calendar className="absolute inset-e-3 top-2.5 h-4.5 w-4.5 text-muted-foreground pointer-events-none" />
-              </div>
-            </div>
-
-            <DialogFooter className="gap-2 pt-4">
-              <Button type="submit" disabled={isGenerating}>
-                {isGenerating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  'توليد الفواتير الآن'
-                )}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setIsGenerateOpen(false)}>
-                إلغاء
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <BillingRunDialog open={generateOpen} onOpenChange={handleGenerateOpenChange} initialMonth={generateMonth} />
     </div>
   );
 }

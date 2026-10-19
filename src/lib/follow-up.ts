@@ -1,14 +1,17 @@
 /**
  * What needs the owner's attention today, as numbers: arrears gone past 60 days, leases that ended or end
- * within 30 days, rent still owed this month, vouchers waiting for approval, shops empty for months.
+ * within 30 days, rent still owed this month, vouchers waiting for approval, months whose charges were not
+ * all generated, shops empty for months.
  *
  * Each source is `undefined` when it does not apply (the user may not approve vouchers), `null` when it
  * could not be read, or its data. A source that could not be read is reported as unavailable, so a quiet
  * list is never mistaken for "nothing to do".
  */
+import type { BillingMonthStatus } from '@/lib/billing-preview';
+import { billingIsLate, latestIncompleteMonth } from '@/lib/billing-preview';
 import type { ContractExpiry } from '@/lib/contract-expiry';
 
-export type FollowUpKey = 'expired' | 'arrears60' | 'vouchers' | 'ending30' | 'rent' | 'vacant';
+export type FollowUpKey = 'expired' | 'arrears60' | 'vouchers' | 'ending30' | 'billing' | 'rent' | 'vacant';
 export type FollowUpTone = 'bad' | 'warn' | 'neutral';
 
 export type FollowUpItem = {
@@ -19,6 +22,8 @@ export type FollowUpItem = {
   /** money that goes with the count (arrears, rent at stake, rent still owed); null when there is none */
   amount: number | null;
   href: string;
+  /** only for 'billing': the month named, the leases it should bill, and how many earlier months are incomplete too */
+  billing?: { month: string; total: number; earlierMonths: number };
 };
 
 export type FollowUp = {
@@ -45,6 +50,8 @@ export type FollowUpInput = {
   pendingVouchers: number | null | undefined;
   /** shops free for months, from the occupancy picture */
   longVacant: number | null;
+  /** billing completeness of the current month and the two before; undefined when the user cannot generate charges */
+  billing?: BillingMonthStatus[] | null;
 };
 
 const EPS = 0.0005;
@@ -64,6 +71,8 @@ const HREF = {
   rent: '/mall?tab=tenants',
   vouchers: '/vouchers',
   vacant: '/mall?tab=units',
+  // the month is appended: the charges tab opens its generate dialog on it
+  billing: '/mall?tab=charges&billing=',
 } satisfies Record<FollowUpKey, string>;
 
 export function buildFollowUp(input: FollowUpInput): FollowUp {
@@ -102,6 +111,24 @@ export function buildFollowUp(input: FollowUpInput): FollowUp {
     items.push({ key: 'vouchers', tone: 'warn', count: input.pendingVouchers, amount: null, href: HREF.vouchers });
   }
 
+  // months whose charges were not all generated: until they are, they never reach aging, notices or the income statement
+  if (input.billing === null) {
+    unavailable.push('billing');
+  } else if (input.billing !== undefined) {
+    const late = latestIncompleteMonth(input.billing, input.today);
+    if (late) {
+      const { status, earlierMonths } = late;
+      items.push({
+        key: 'billing',
+        tone: billingIsLate(late, input.today) ? 'warn' : 'neutral',
+        count: status.missing,
+        amount: status.missingAmount > 0 ? status.missingAmount : null,
+        href: `${HREF.billing}${status.month}`,
+        billing: { month: status.month, total: status.total, earlierMonths },
+      });
+    }
+  }
+
   // rent still owed for the current month (exempt tenants and tenants with no rent set owe nothing)
   if (input.rent === null) {
     unavailable.push('rent');
@@ -128,7 +155,7 @@ export function buildFollowUp(input: FollowUpInput): FollowUp {
   }
 
   const rank: Record<FollowUpTone, number> = { bad: 0, warn: 1, neutral: 2 };
-  // stable: within a tone the order above (leases, arrears, vouchers, rent, shops) is kept
+  // stable: within a tone the order above (leases, arrears, vouchers, billing, rent, shops) is kept
   items.sort((a, b) => rank[a.tone] - rank[b.tone]);
   return { items, unavailable };
 }

@@ -17,6 +17,11 @@ export type TxDialogPrefill = {
   /** e.g. "سداد إيجار شهر مارس 2026 للمؤجر …": the month a schedule attributes the payment to */
   description?: string;
   amount?: number;
+  categoryId?: string;
+  cashboxId?: string;
+  method?: 'CASH' | 'CHEQUE' | 'TRANSFER' | 'CARD';
+  /** the transaction this entry repeats: the dialog says so and re-checks its party and account */
+  repeatOf?: { number: number; contactName?: string };
 };
 
 type State = {
@@ -28,20 +33,32 @@ type State = {
   prefillContactKind: ContactKind | 'ALL' | null;
   prefillDescription: string | null;
   prefillAmount: number | null;
+  prefillCategoryId: string | null;
+  prefillCashboxId: string | null;
+  prefillMethod: TxDialogPrefill['method'] | null;
+  repeatOf: TxDialogPrefill['repeatOf'] | null;
+  /** what had focus when the dialog opened: it gets focus back when the dialog closes */
+  opener: HTMLElement | null;
   open: (kindOrPrefill?: TxKind | TxDialogPrefill) => void;
   close: () => void;
 };
 
-function resolveOpen(arg?: TxKind | TxDialogPrefill): Omit<State, 'open' | 'close' | 'openedAt'> {
+type Resolved = Omit<State, 'open' | 'close' | 'openedAt' | 'opener'>;
+
+const NO_PREFILL = {
+  prefillContactId: null,
+  prefillContactKind: null,
+  prefillDescription: null,
+  prefillAmount: null,
+  prefillCategoryId: null,
+  prefillCashboxId: null,
+  prefillMethod: null,
+  repeatOf: null,
+} satisfies Partial<Resolved>;
+
+function resolveOpen(arg?: TxKind | TxDialogPrefill): Resolved {
   if (!arg || typeof arg === 'string') {
-    return {
-      isOpen: true,
-      defaultKind: arg ?? 'REVENUE',
-      prefillContactId: null,
-      prefillContactKind: null,
-      prefillDescription: null,
-      prefillAmount: null,
-    };
+    return { ...NO_PREFILL, isOpen: true, defaultKind: arg ?? 'REVENUE' };
   }
   return {
     isOpen: true,
@@ -51,6 +68,10 @@ function resolveOpen(arg?: TxKind | TxDialogPrefill): Omit<State, 'open' | 'clos
     prefillDescription: arg.description ?? null,
     // amounts computed by subtraction carry float noise (1249.5500000000002); the field takes 3 decimals
     prefillAmount: arg.amount != null && arg.amount > 0 ? Math.round(arg.amount * 1000) / 1000 : null,
+    prefillCategoryId: arg.categoryId ?? null,
+    prefillCashboxId: arg.cashboxId ?? null,
+    prefillMethod: arg.method ?? null,
+    repeatOf: arg.repeatOf ?? null,
   };
 }
 
@@ -58,17 +79,14 @@ export const useTxDialog = create<State>((set) => ({
   isOpen: false,
   openedAt: 0,
   defaultKind: 'REVENUE',
-  prefillContactId: null,
-  prefillContactKind: null,
-  prefillDescription: null,
-  prefillAmount: null,
-  open: (kindOrPrefill) => set((st) => ({ ...resolveOpen(kindOrPrefill), openedAt: st.openedAt + 1 })),
-  close: () =>
-    set({
-      isOpen: false,
-      prefillContactId: null,
-      prefillContactKind: null,
-      prefillDescription: null,
-      prefillAmount: null,
-    }),
+  ...NO_PREFILL,
+  opener: null,
+  open: (kindOrPrefill) =>
+    set((st) => ({
+      ...resolveOpen(kindOrPrefill),
+      openedAt: st.openedAt + 1,
+      // a second request while open keeps the first opener: focus inside the dialog is not a place to return to
+      opener: st.isOpen ? st.opener : typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null,
+    })),
+  close: () => set({ isOpen: false, ...NO_PREFILL }),
 }));

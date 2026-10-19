@@ -2,7 +2,7 @@
 
 import { MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { buildRentReminderMessage, buildWhatsAppLink } from '@/lib/whatsapp';
+import { buildRentReminderMessage, buildWhatsAppLink, type RentReminderBasis } from '@/lib/whatsapp';
 import { toast } from 'sonner';
 
 type Props = {
@@ -11,6 +11,8 @@ type Props = {
   amountOutstanding: number;
   shopNumber?: string | null;
   asOf?: string;
+  /** what the amount is for (a month, a period or everything unpaid); without it the message only says "rent dues" */
+  basis?: RentReminderBasis;
   size?: 'sm' | 'icon-sm';
   className?: string;
 };
@@ -26,6 +28,7 @@ export function WhatsAppReminderButton({
   amountOutstanding,
   shopNumber,
   asOf,
+  basis,
   size = 'sm',
   className,
 }: Props) {
@@ -34,7 +37,7 @@ export function WhatsAppReminderButton({
       toast.error('لا يوجد رقم هاتف مسجَّل لهذا المستأجر');
       return;
     }
-    const message = buildRentReminderMessage({ tenantName, amountOutstanding, shopNumber, asOf });
+    const message = buildRentReminderMessage({ tenantName, amountOutstanding, shopNumber, asOf, basis });
     const link = buildWhatsAppLink(phone, message);
     if (!link) {
       toast.error('رقم الهاتف غير صالح لفتح واتساب');
@@ -42,6 +45,9 @@ export function WhatsAppReminderButton({
     }
     window.open(link, '_blank', 'noopener,noreferrer');
   }
+
+  // many of these sit in one list: an icon alone must say whose reminder it opens
+  const label = phone ? `إرسال تذكير عبر واتساب إلى ${tenantName}` : 'لا يوجد رقم هاتف';
 
   return (
     <Button
@@ -51,9 +57,10 @@ export function WhatsAppReminderButton({
       className={className ?? 'touch-manipulation gap-1.5 text-success-ink hover:bg-success-soft hover:text-success-ink'}
       disabled={!phone}
       onClick={handleClick}
-      title={phone ? 'إرسال تذكير عبر واتساب' : 'لا يوجد رقم هاتف'}
+      title={label}
+      aria-label={size === 'icon-sm' ? label : undefined}
     >
-      <MessageCircle className="h-3.5 w-3.5" />
+      <MessageCircle className="h-3.5 w-3.5" aria-hidden />
       {size === 'sm' ? 'واتساب' : null}
     </Button>
   );

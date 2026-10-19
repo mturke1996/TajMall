@@ -4,9 +4,8 @@ import { useState, useMemo } from 'react';
 import {
   FileText,
   Plus,
-  Ban,
+  Scale,
   Loader2,
-  AlertTriangle,
   Calendar,
   DollarSign,
 } from 'lucide-react';
@@ -15,6 +14,7 @@ import { WriteGuard } from '@/components/auth/write-guard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -34,25 +34,23 @@ import {
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { ContractExpiryAlerts, whenText } from '@/components/mall/contract-expiry-alerts';
+import { LeaseSettlementDialog, type SettlementRequest } from '@/components/mall/lease-settlement-dialog';
 import { daysBetween } from '@/lib/mall-dates';
 import { cn, formatMoney, formatDate, todayISODate } from '@/lib/utils';
 import { useContacts } from '@/lib/db/queries';
-import { useConfirm } from '@/components/ui/confirm-dialog';
-import type { LeaseContractWithRelations } from '@/lib/db/types';
+import { friendlyError } from '@/lib/user-messages';
 import {
   useLeaseContracts,
   useCreateLeaseContract,
-  useTerminateLeaseContract,
   useMallUnits
 } from '@/lib/db/mall-queries';
 
 export function MallContractsPanel() {
-  const { data: contracts = [], isLoading, isError, error } = useLeaseContracts();
+  const { data: contracts = [], isLoading, isError, error, refetch } = useLeaseContracts();
   const { data: contacts = [] } = useContacts();
   const { data: units = [] } = useMallUnits();
 
   const createContract = useCreateLeaseContract();
-  const terminateContract = useTerminateLeaseContract();
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -124,29 +122,10 @@ export function MallContractsPanel() {
     }
   };
 
-  const confirm = useConfirm();
   // the day the panel opened: stable across re-renders
   const [today] = useState(() => todayISODate());
-
-  const handleTerminate = async (contract: LeaseContractWithRelations) => {
-    // name the lease: the cards sit close together and ending the neighbour's by a mis-tap frees the wrong shop
-    const ok = await confirm({
-      title: 'إنهاء عقد الإيجار',
-      description: 'ينتهي العقد بتاريخ اليوم، ويصبح المحل متاحاً، ولا تُولَّد مطالبات بعده.',
-      details: [
-        { label: 'المستأجر', value: contract.tenant?.name ?? '—' },
-        { label: 'المحل', value: <bdi>{contract.unit?.unit_number ?? '—'}</bdi> },
-        { label: 'نهاية العقد الحالية', value: formatDate(contract.end_date) },
-      ],
-      confirmLabel: 'أنهِ العقد',
-    });
-    if (!ok) return;
-    try {
-      await terminateContract.mutateAsync({ id: contract.id, unitId: contract.unit_id });
-    } catch {
-      // already handled by hook toast
-    }
-  };
+  // ending a lease goes through its closing statement: arrears, deposit and net are read before it is ended
+  const [settling, setSettling] = useState<SettlementRequest | null>(null);
 
   const getStatusBadge = (s: string) => {
     const configs: Record<string, { label: string; className: string }> = {
@@ -182,14 +161,25 @@ export function MallContractsPanel() {
       <Card>
         <CardContent className="pt-6">
           {isLoading ? (
-            <div className="flex h-64 items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="divide-y divide-border overflow-hidden rounded-xl border border-border" aria-busy="true">
+              <span className="sr-only">جارٍ تحميل عقود الإيجار</span>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center justify-between gap-4 px-3 py-4">
+                  <div className="flex flex-col gap-2">
+                    <Skeleton className="h-4 w-36" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              ))}
             </div>
           ) : isError ? (
-            <div className="flex h-64 flex-col items-center justify-center gap-2 text-danger bg-danger-soft rounded-lg p-4">
-              <AlertTriangle className="h-8 w-8" />
-              <p className="font-semibold">فشل تحميل عقود الإيجار</p>
-              <p className="text-sm text-danger">{(error as any)?.message}</p>
+            <div role="alert" className="flex flex-col items-center justify-center gap-3 rounded-lg border border-danger-line bg-danger-soft p-6 text-center text-danger-ink">
+              <p className="font-semibold">تعذّر تحميل عقود الإيجار</p>
+              <p className="text-sm">{friendlyError(error)}</p>
+              <Button variant="outline" className="h-11 md:h-9" onClick={() => void refetch()}>
+                إعادة المحاولة
+              </Button>
             </div>
           ) : contracts.length === 0 ? (
             <div className="flex h-64 flex-col items-center justify-center text-muted-foreground">
@@ -244,13 +234,12 @@ export function MallContractsPanel() {
                     <WriteGuard permission="document.create">
                       <Button
                         variant="outline"
-                        size="sm"
-                        className="mt-3 h-9 w-full text-ink-soft touch-manipulation"
-                        onClick={() => handleTerminate(contract)}
-                        disabled={terminateContract.isPending}
+                        className="mt-3 h-11 w-full touch-manipulation text-ink-soft"
+                        aria-label={`تصفية عقد ${contract.tenant?.name || 'المستأجر'}${contract.unit?.unit_number ? ` محل ${contract.unit.unit_number}` : ''}`}
+                        onClick={(e) => setSettling({ contract, opener: e.currentTarget })}
                       >
-                        <Ban className="h-3.5 w-3.5 me-1" />
-                        إنهاء العقد
+                        <Scale className="stroke-[1.6]" aria-hidden />
+                        تصفية
                       </Button>
                     </WriteGuard>
                   )}
@@ -316,12 +305,12 @@ export function MallContractsPanel() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 gap-1 text-[12.5px] text-ink-mute hover:bg-danger-soft hover:text-danger-ink"
-                                onClick={() => handleTerminate(contract)}
-                                disabled={terminateContract.isPending}
+                                className="h-9 gap-1.5 text-[12.5px] text-ink-soft"
+                                aria-label={`تصفية عقد ${contract.tenant?.name || 'المستأجر'}${contract.unit?.unit_number ? ` محل ${contract.unit.unit_number}` : ''}`}
+                                onClick={(e) => setSettling({ contract, opener: e.currentTarget })}
                               >
-                                <Ban className="h-3.5 w-3.5" aria-hidden />
-                                إنهاء العقد
+                                <Scale className="stroke-[1.6]" aria-hidden />
+                                تصفية
                               </Button>
                             </WriteGuard>
                           )}
@@ -336,6 +325,8 @@ export function MallContractsPanel() {
           )}
         </CardContent>
       </Card>
+
+      <LeaseSettlementDialog request={settling} onOpenChange={(open) => !open && setSettling(null)} />
 
       {/* Document New Contract Dialog */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
