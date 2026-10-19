@@ -18,6 +18,7 @@ import {
 import type { ContactRow, TransactionWithRelations, ContactKind } from '@/lib/db/types';
 import { extractTargetRentMonth } from '@/lib/period-journal-entry';
 import { getCountedContactTransactions } from '@/lib/contacts/contact-transactions';
+import { composeNotes, readTags, visibleNotes } from '@/lib/contacts/contact-tags';
 import { todayISODate } from '@/lib/utils';
 
 export type ContactBusinessRole =
@@ -190,17 +191,9 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
 export function extractContactBusinessRole(contact: Partial<ContactRow> | null | undefined): ContactBusinessRole {
   if (!contact) return 'OTHER';
 
-  const notesText = (contact.notes || '').toLowerCase();
-
-  // 1. الأولوية المطلقة للوسم الصريح المسجل في ملاحظات السجل
-  if (notesText.includes('role:landlord')) return 'LANDLORD';
-  if (notesText.includes('role:supplier_electricity')) return 'SUPPLIER_ELECTRICITY';
-  if (notesText.includes('role:supplier_water')) return 'SUPPLIER_WATER';
-  if (notesText.includes('role:supplier_goods')) return 'SUPPLIER_GOODS';
-  if (notesText.includes('role:service_provider')) return 'SERVICE_PROVIDER';
-  if (notesText.includes('role:tenant')) return 'TENANT';
-  if (notesText.includes('role:employee')) return 'EMPLOYEE';
-  if (notesText.includes('role:customer')) return 'CUSTOMER';
+  // 1. الأولوية المطلقة للوسم الصريح المسجل في ملاحظات السجل (القراءة في contact-tags.ts)
+  const tagged = readTags(contact.notes).role;
+  if (tagged && tagged !== 'OTHER') return tagged;
 
   // 2. فحص النوع الأساسي في قاعدة البيانات
   if (contact.kind === 'TENANT') return 'TENANT';
@@ -238,30 +231,32 @@ export function extractContactBusinessRole(contact: Partial<ContactRow> | null |
   return 'OTHER';
 }
 
-/** Notes as the user wrote them: without the stored role tag. Empty string when nothing is left. */
+/** Notes as the user wrote them: without any stored tag (role, tracking start). Empty string when nothing is left. */
 export function visibleContactNotes(notes: string | null | undefined): string {
-  return (notes || '')
-    .replace(/\[\s*role:[a-z_]+\s*\]/gi, '')
-    .replace(/role:[a-z_]+/gi, '')
-    .trim();
+  return visibleNotes(notes);
 }
 
 /**
  * تجهيز وسم الدور للتخزين في الملاحظات والمسمى مع تنظيف الوسوم السابقة
+ *
+ * The tracking-start tag `[since:YYYY-MM]` is kept as it is unless `options.since` says otherwise
+ * (a month sets it, null removes it): the edit form shows `visibleContactNotes`, which hides the tag, so
+ * the tag has to survive the round trip here.
  */
-export function encodeContactRoleFields(role: ContactBusinessRole, existingNotes?: string | null): {
+export function encodeContactRoleFields(
+  role: ContactBusinessRole,
+  existingNotes?: string | null,
+  options: { since?: string | null } = {},
+): {
   kind: ContactKind;
   roleTag: string;
   updatedNotes: string;
 } {
   const roleMeta = CONTACT_ROLES[role];
-  const cleanNotes = (existingNotes || '')
-    .replace(/\[\s*role:[a-z_]+\s*\]/gi, '')
-    .replace(/role:[a-z_]+/gi, '')
-    .trim();
+  const since = options.since === undefined ? readTags(existingNotes).since : options.since;
 
   const roleTag = `role:${role.toLowerCase()}`;
-  const updatedNotes = cleanNotes ? `${cleanNotes}\n[${roleTag}]` : `[${roleTag}]`;
+  const updatedNotes = composeNotes({ text: visibleNotes(existingNotes), role, since });
 
   return {
     kind: roleMeta.dbKind,
