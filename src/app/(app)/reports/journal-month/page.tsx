@@ -528,7 +528,7 @@ function JournalMonthContent() {
               variant="outline"
               size="sm"
               onClick={() => setPdfModalOpen(true)}
-              className="min-h-11 touch-manipulation gap-1.5 font-semibold text-success-ink border-success-line hover:bg-success-soft sm:min-h-9"
+              className="min-h-11 touch-manipulation gap-1.5 sm:min-h-9"
             >
               <SlidersHorizontal className="h-4 w-4" />
               خيارات تقرير PDF المتقدمة
@@ -1452,6 +1452,7 @@ function JournalMonthContent() {
             ? categoryFilterId
             : 'ALL'
         }
+        defaultKind={accountTypeFilter ?? undefined}
         defaultPeriod={{
           year: period.year,
           month: period.month ?? undefined,

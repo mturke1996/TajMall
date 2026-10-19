@@ -298,7 +298,10 @@ function rentOf(rows: ReportRentRow[]): RentMonth {
       continue;
     }
     const amount = num(r.current_month_amount) || num(r.monthly_rent);
-    const paid = num(r.current_month_paid);
+    // a month the database calls fully paid is paid in full, as the tenant's own calendar shows it, even when
+    // the amount recorded on it is short of the rent (a charge marked paid after a price change); otherwise
+    // the report would list money as remaining from tenants it counts as paid in full
+    const paid = status === 'paid_full' ? Math.max(num(r.current_month_paid), amount) : num(r.current_month_paid);
     out.due += amount;
     out.collected += paid;
     out.remaining += Math.max(amount - paid, 0);

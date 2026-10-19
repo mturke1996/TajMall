@@ -69,12 +69,12 @@ function PayrollScreen() {
       <PageHeader
         eyebrow="الموظفون"
         title="الرواتب"
-        description="هياكل الرواتب، المكافآت والخصومات، السلف، وكشف كل شهر من الإعداد حتى الصرف."
+        description="كشف كل شهر من الإعداد حتى الصرف."
         actions={
           !missing && (
             <div className="flex flex-wrap items-center gap-2">
               {(tab === 'run' || tab === 'adjustments') && <MonthSwitcher month={month} onChange={(m) => setParam('month', m)} />}
-              <Button variant="outline" size="sm" asChild>
+              <Button variant="outline" size="sm" className="max-sm:min-h-11" asChild>
                 <Link href="/mall?tab=people&segment=EMPLOYEE">
                   <Briefcase />
                   الموظفون
@@ -107,19 +107,19 @@ function PayrollScreen() {
         ) : (
           <Tabs value={tab} onValueChange={(v) => setParam('tab', v)} dir="rtl" className="flex flex-col gap-5">
             <TabsList className="self-start overflow-x-auto no-scrollbar max-w-full">
-              <TabsTrigger value="run">
+              <TabsTrigger value="run" className="max-sm:min-h-11">
                 <FileSpreadsheet />
                 كشف الشهر
               </TabsTrigger>
-              <TabsTrigger value="adjustments">
+              <TabsTrigger value="adjustments" className="max-sm:min-h-11">
                 <Scale />
                 المكافآت والخصومات
               </TabsTrigger>
-              <TabsTrigger value="advances">
+              <TabsTrigger value="advances" className="max-sm:min-h-11">
                 <HandCoins />
                 السلف
               </TabsTrigger>
-              <TabsTrigger value="structures">
+              <TabsTrigger value="structures" className="max-sm:min-h-11">
                 <Wallet />
                 هياكل الرواتب
               </TabsTrigger>

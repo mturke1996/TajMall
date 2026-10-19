@@ -69,12 +69,17 @@ export function aggregateMallRentKpis(
     };
   }
 
-  const expectedRent = tenants.reduce(
-    (s, t) => s + (Number(t.monthly_rent) || 0),
+  // no charge exists yet: this month's rent of the tenants who are asked for rent. A tenant excluded from the
+  // claim (exempt) or with no rent set is not expected to pay, so his rent must not lower the rate.
+  const claimed = tenants.filter(
+    (t) => t.current_month_status !== 'exempt' && t.current_month_status !== 'no_rent_set',
+  );
+  const expectedRent = claimed.reduce(
+    (s, t) => s + (Number(t.current_month_amount) || Number(t.monthly_rent) || 0),
     0,
   );
-  const collectedRent = tenants.reduce(
-    (s, t) => s + Number(t.current_month_paid ?? 0),
+  const collectedRent = claimed.reduce(
+    (s, t) => s + (Number(t.current_month_paid) || 0),
     0,
   );
   const outstandingRent = Math.max(0, expectedRent - collectedRent);

@@ -1,28 +1,30 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { BookOpen, Building2, CalendarCheck, CalendarDays, FileText, HandCoins, Hourglass, Pencil, Receipt, Wallet } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ContactLedgerPanel } from '@/components/contacts/contact-ledger-panel';
-import { LandlordDueBadge, LandlordPayButton, useLandlordPay } from '@/components/contacts/landlord-dues-parts';
-import {
-  buildLandlordRentSchedule,
-  landlordMonthName,
-  landlordPaymentDescription,
-  visibleContactNotes,
-  type LandlordRentMonth,
-  type LandlordRentSchedule,
-} from '@/lib/contacts/contact-roles';
+import { Callout, ErrorBlock, InfoList, KpiStrip, LoadingBlock, MonthGrid, SectionCard, type InfoItem, type KpiCardProps } from '@/components/people';
+import { ContactJournalsList, ContactTransactionsList } from '@/components/contacts/contact-ledger-panel';
+import { LandlordPayButton, useLandlordPay } from '@/components/contacts/landlord-dues-parts';
+import { LandlordPayments, MonthlyRentDialog, TrackingLine, TrackingStartDialog, YearSwitch } from '@/components/contacts/landlord-profile-parts';
+import { ProfilePanel, ProfileTabs, useProfileTab, type ProfileTabDef } from '@/components/contacts/profile/profile-tabs';
+import { UncountedNote } from '@/components/contacts/profile/profile-kpis';
 import { canCreateContactTransaction } from '@/lib/contacts/form-utils';
-import type { JournalEntryRow } from '@/lib/db/journal-queries';
-import { useContactTransactions } from '@/lib/db/queries';
+import { useMediaQuery } from '@/lib/hooks/use-media-query';
+import { useJournalEntries, type JournalEntryRow } from '@/lib/db/journal-queries';
+import { useContactTransactions, useContacts } from '@/lib/db/queries';
 import type { ContactRow, TransactionWithRelations } from '@/lib/db/types';
-import { buildLandlordDue, landlordArrearsText, LANDLORD_DUES_MONTHS, type LandlordDue } from '@/lib/landlord-dues';
+import { landlordPaymentFor } from '@/lib/landlord-dues';
+import { buildLandlordProfile, type LandlordProfileInput } from '@/lib/landlord-profile';
+import { goLiveMonthOf, obligationMonthsText, type ObligationMonth } from '@/lib/people/obligation-months';
+import { uncountedCount } from '@/lib/people/party-profile';
+import { formatMonthLabelAr } from '@/lib/rent-months';
+import { usePermission } from '@/lib/supabase/use-permission';
 import { useTxDialog } from '@/stores/transaction-dialog';
-import { cn, formatDate, formatMoney, todayISODate } from '@/lib/utils';
+import { formatDate, formatMoney, todayISODate } from '@/lib/utils';
 
 type Props = {
   contact: ContactRow;
@@ -32,512 +34,317 @@ type Props = {
   onEdit?: () => void;
 };
 
-function Figure({ label, hint, owed, children }: { label: string; hint?: string; owed?: boolean; children: React.ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1 bg-card p-4">
-      <p className="text-[12.5px] text-ink-mute">{label}</p>
-      <p className={cn('text-[18px] font-semibold tabular-nums text-foreground', owed && 'text-danger-ink')}>{children}</p>
-      {hint && <p className="text-[12px] text-ink-mute">{hint}</p>}
-    </div>
-  );
+const TABS = ['payments', 'transactions', 'journals'] as const;
+type TabId = (typeof TABS)[number];
+
+/** contract dates are calendar days; an ended or not-yet-started lease must not read as in force */
+function contractBadge(contact: ContactRow, today: string) {
+  const start = contact.contract_start?.slice(0, 10) ?? '';
+  const end = contact.contract_end?.slice(0, 10) ?? '';
+  if (!start && !end) return <Badge variant="outline">غير محدد</Badge>;
+  if (end && end < today) return <Badge variant="danger">منتهٍ</Badge>;
+  if (start && start > today) return <Badge variant="warning">لم يبدأ</Badge>;
+  return <Badge variant="success">ساري المفعول</Badge>;
 }
 
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 py-2">
-      <dt className="shrink-0 text-ink-mute">{label}</dt>
-      <dd className="min-w-0 text-end font-medium text-foreground">{children}</dd>
-    </div>
-  );
-}
-
-const NOT_DUE_TEXT = {
-  future: 'لم يحن بعد',
-  before_contract: 'قبل بداية العقد',
-  after_contract: 'بعد نهاية العقد',
-  no_rent: 'بلا إيجار مسجَّل',
-} as const;
-
-/** Text first, colour second: what the month is, in words. */
-function monthState(m: LandlordRentMonth<TransactionWithRelations>): { variant: 'success' | 'warning' | 'danger' | 'info' | 'neutral'; text: string } {
-  switch (m.status) {
-    case 'paid_full':
-      return { variant: 'success', text: 'مدفوع بالكامل' };
-    case 'paid_partial':
-      return { variant: 'warning', text: 'مسدد جزئياً' };
-    case 'unpaid':
-      return { variant: 'danger', text: 'غير مدفوع' };
-    case 'not_due':
-      if (m.paidAmount > 0) return { variant: 'info', text: m.notDueReason === 'future' ? 'مدفوع مقدماً' : 'مدفوع خارج مدة العقد' };
-      return { variant: 'neutral', text: NOT_DUE_TEXT[m.notDueReason ?? 'future'] };
-  }
-}
-
-function Loading() {
-  return (
-    <div className="flex flex-col gap-3" role="status" aria-busy="true">
-      <span className="sr-only">جارٍ تحميل حركات المؤجر…</span>
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4" aria-hidden>
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex flex-col gap-2 bg-card p-4">
-            <Skeleton className="h-3.5 w-24" />
-            <Skeleton className="h-5 w-28" />
-            <Skeleton className="h-3 w-16" />
-          </div>
-        ))}
-      </div>
-      <div className="surface divide-y divide-border overflow-hidden">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center justify-between gap-3 px-4 py-3.5">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-4 w-32" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function StatusLine({ due, hint }: { due: LandlordDue; hint: string | null }) {
-  const arrearsText = landlordArrearsText(due);
-  return (
-    <div className="min-w-0 flex-1">
-      <LandlordDueBadge row={due} />
-      <dl className={cn('flex flex-wrap gap-x-5 gap-y-1 text-[13px]', (due.due > 0 || due.arrears.amount > 0) && 'mt-2')}>
-        {due.due > 0 && (
-          <>
-            <div className="flex items-baseline gap-1.5">
-              <dt className="text-ink-mute">المستحق هذا الشهر</dt>
-              <dd className="font-medium tabular-nums text-foreground">{formatMoney(due.due, 'LYD')}</dd>
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <dt className="text-ink-mute">المسدد</dt>
-              <dd className="font-medium tabular-nums text-foreground">{formatMoney(due.paid, 'LYD')}</dd>
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <dt className="text-ink-mute">المتبقي</dt>
-              <dd className={cn('font-medium tabular-nums', due.remaining > 0 ? 'text-danger-ink' : 'text-foreground')}>{formatMoney(due.remaining, 'LYD')}</dd>
-            </div>
-          </>
-        )}
-        {due.arrears.amount > 0 && (
-          <div className="flex items-baseline gap-1.5">
-            <dt className="text-ink-mute">متأخرات سابقة{arrearsText ? ` (${arrearsText})` : ''}</dt>
-            <dd className="font-semibold tabular-nums text-danger-ink">{formatMoney(due.arrears.amount, 'LYD')}</dd>
-          </div>
-        )}
-      </dl>
-      {hint && <p className="mt-1.5 text-[12px] text-ink-mute">{hint}</p>}
-    </div>
-  );
-}
-
+/**
+ * A landlord's page below the header: four figures, the months of the year with what each one is (paid, due,
+ * upcoming, or paid before the system), the payments with the months they cover, the file's movements and
+ * entries, and the lease. Whether the file sits under customers or vendors changes nothing: the role tag decides.
+ */
 export function LandlordProfilePanel({ contact, transactions, journalEntries, txLoading, onEdit }: Props) {
   const today = useMemo(() => todayISODate(), []);
-  const currentYear = Number(today.slice(0, 4));
-  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const initialTab = useSearchParams().get('tab');
+  const [tab, setTab] = useProfileTab<TabId>(TABS, initialTab);
+  const [year, setYear] = useState<number>(Number(today.slice(0, 4)));
+  const [rentOpen, setRentOpen] = useState(false);
+  const [sinceOpen, setSinceOpen] = useState(false);
+
+  const { canWrite } = usePermission();
   const openTx = useTxDialog((s) => s.open);
   const { canPay, pay } = useLandlordPay();
   const mayRecordPayment = canCreateContactTransaction(contact.is_active, canPay);
 
-  // the page reads the same list; asking here too is one request, and tells a failed read from an empty one
+  // the page reads the same lists; asking here too is one request each, and tells a failed read from an empty one
   const history = useContactTransactions(contact.id);
+  const entries = useJournalEntries({ contactId: contact.id, status: 'ALL' }, 500);
+  const contacts = useContacts();
   const failed = history.isError && !history.data;
+  const loading = txLoading || contacts.isLoading;
+  const goLiveMonth = useMemo(() => goLiveMonthOf(contacts.data ?? []), [contacts.data]);
 
-  const schedule: LandlordRentSchedule<TransactionWithRelations> = useMemo(
-    () => buildLandlordRentSchedule(contact, transactions, selectedYear, { today }),
-    [contact, transactions, selectedYear, today],
-  );
-  const due = useMemo(() => buildLandlordDue(contact, transactions, today), [contact, transactions, today]);
-  // paid beyond a due month's rent, or for a month not owed (yet): it is in "المدفوع" but settles no other month
-  const setAside = useMemo(
-    () => Math.round((schedule.overpaidAmount + schedule.months.reduce((sum, m) => sum + (m.due ? 0 : m.paidAmount), 0)) * 1000) / 1000,
-    [schedule],
-  );
+  const input = useMemo<LandlordProfileInput>(() => ({ contact, payments: transactions, today, goLiveMonth }), [contact, transactions, today, goLiveMonth]);
+  const profile = useMemo(() => buildLandlordProfile({ ...input, year }), [input, year]);
+  const { view, due, totals, tracking, defaultTracking } = profile;
 
-  const payMonth = (m: LandlordRentMonth<TransactionWithRelations>) => {
-    if (!mayRecordPayment || m.remainingAmount <= 0) return;
-    pay(
-      contact.id,
-      {
-        monthKey: m.monthKey,
-        monthNameAr: m.monthNameAr,
-        year: m.year,
-        amount: m.remainingAmount,
-        late: m.monthKey < today.slice(0, 7),
-        description: landlordPaymentDescription(contact.name, m.monthKey),
-      },
-      contact.kind,
-    );
+  // on a phone, months settled before the system are one line (the tracking line above the grid), not a block of identical cells
+  const wide = useMediaQuery('(min-width: 640px)');
+  const settledMonths = view.months.filter((m) => m.status === 'before_system').length;
+  const gridMonths = !wide && settledMonths >= 2 ? view.months.filter((m) => m.status !== 'before_system') : view.months;
+
+  const payFor = (m: ObligationMonth) => pay(contact.id, landlordPaymentFor(contact.name, m, today), contact.kind);
+  // a payment with no month in mind; the engine files it under the month it is paid in
+  const payOther = mayRecordPayment
+    ? () =>
+        openTx({
+          kind: 'EXPENSE',
+          contactId: contact.id,
+          contactKind: contact.kind,
+          description: `سداد إيجار للمؤجر ${contact.name}`,
+        })
+    : undefined;
+
+  const state: KpiCardProps['state'] = failed ? 'error' : loading ? 'loading' : 'ready';
+  const retry = () => {
+    void history.refetch();
+    void contacts.refetch();
   };
 
-  // a payment with no month in mind; the schedule files it under the month it is paid in
-  const payOther = () => {
-    if (!mayRecordPayment) return;
-    openTx({ kind: 'EXPENSE', contactId: contact.id, contactKind: contact.kind, description: `سداد إيجار للمؤجر ${contact.name}` });
-  };
+  const estimated = view.amountSource === 'estimate';
+  const rentKnown = view.amountSource === 'monthly_rent';
+  const oldestOwed = due.arrears.months[0]?.monthKey ?? null;
+  // months are owed but none has a known amount (no monthly rent, no month to copy it from): a dash, never a zero
+  const owedUnknown = due.owedMonths > 0 && due.owed <= 0;
 
-  // contract dates are calendar days; an ended or not-yet-started lease must not read as in force
-  const contractStart = contact.contract_start?.slice(0, 10) ?? '';
-  const contractEnd = contact.contract_end?.slice(0, 10) ?? '';
-  const contractState =
-    !contractStart && !contractEnd
-      ? 'unset'
-      : contractEnd && contractEnd < today
-        ? 'ended'
-        : contractStart && contractStart > today
-          ? 'upcoming'
-          : 'active';
+  const kpis: KpiCardProps[] = [
+    {
+      label: 'الإيجار الشهري',
+      icon: Building2,
+      accent: 'violet',
+      value: view.monthlyAmount,
+      context: rentKnown ? 'حسب بيانات العقد' : estimated ? 'تقدير من آخر شهر مسدّد' : 'غير مسجّل',
+      contextTone: rentKnown ? 'mute' : 'warn',
+      state,
+      onRetry: retry,
+    },
+    {
+      label: `المسدّد عن ${profile.year}`,
+      icon: HandCoins,
+      accent: 'green',
+      value: totals.paid,
+      context:
+        [
+          totals.paidMonths > 0 && `مسدّد: ${obligationMonthsText(totals.paidMonths)}`,
+          totals.ahead > 0 && `منه ${formatMoney(totals.ahead, 'LYD')} لأشهر قادمة`,
+        ]
+          .filter(Boolean)
+          .join(' · ') || 'لا دفعات عن هذه السنة',
+      state,
+    },
+    {
+      label: 'المستحق الآن',
+      icon: Hourglass,
+      accent: 'red',
+      value: owedUnknown ? null : due.owed,
+      tone: due.owedMonths === 0 ? 'good' : oldestOwed ? 'bad' : 'warn',
+      context:
+        due.owedMonths === 0
+          ? 'لا مستحقات'
+          : [
+              obligationMonthsText(due.owedMonths),
+              oldestOwed && `الأقدم ${formatMonthLabelAr(oldestOwed)}`,
+              owedUnknown ? 'المبلغ غير معروف' : due.owedEstimated && 'تقديري',
+              !owedUnknown && !due.owedComplete && 'على الأقل',
+            ]
+              .filter(Boolean)
+              .join(' · '),
+      contextTone: due.owedMonths === 0 ? 'good' : oldestOwed ? 'bad' : 'warn',
+      state,
+    },
+    {
+      label: 'آخر دفعة',
+      icon: CalendarCheck,
+      accent: 'amber',
+      value: profile.lastPayment?.amount ?? null,
+      context: profile.lastPayment ? formatDate(profile.lastPayment.date) : 'لا دفعات بعد',
+      state,
+    },
+  ];
 
-  const hint = due.contractDatesInvalid
-    ? 'تاريخا العقد غير منطقيين؛ راجع بيانات العقد.'
-    : due.arrears.amount > 0 && due.contractStartMissing
-      ? 'تاريخ بداية العقد غير مسجَّل، فتُحسب المتأخرات من يناير.'
-      : null;
+  const tabs: ProfileTabDef<TabId>[] = [
+    {
+      id: 'payments',
+      label: 'الدفعات',
+      count: loading || failed ? null : profile.payments.length,
+      icon: Wallet,
+    },
+    {
+      id: 'transactions',
+      label: 'الحركات',
+      count: loading || failed ? null : transactions.length,
+      icon: Receipt,
+    },
+    {
+      id: 'journals',
+      label: 'القيود',
+      count: entries.isLoading || entries.isError ? null : (entries.data ?? journalEntries).length,
+      icon: BookOpen,
+    },
+  ];
 
-  const next = due.next;
-  const thisYear = selectedYear === currentYear;
-  const noRent = schedule.monthlyRent <= 0;
-  const currentMonthKey = today.slice(0, 7);
-  const loadError = (
-    <Card role="alert" className="flex flex-col items-center gap-3 border-danger-line bg-danger-soft p-6 text-center text-danger-ink">
-      <p className="text-[13px]">تعذّر تحميل حركات المؤجر، فلا يمكن حساب ما عليه. تحقق من الاتصال ثم أعد المحاولة.</p>
-      <Button type="button" variant="outline" size="sm" className="min-h-11 sm:min-h-8" onClick={() => void history.refetch()}>
-        إعادة المحاولة
-      </Button>
-    </Card>
-  );
+  const rentValue =
+    Number(contact.monthly_rent) > 0 ? (
+      <span className="inline-flex flex-wrap items-center gap-x-3">
+        <span className="tabular-nums">{formatMoney(Number(contact.monthly_rent), 'LYD')}</span>
+        {canWrite && (
+          <button
+            type="button"
+            onClick={() => setRentOpen(true)}
+            className="-my-3 inline-flex min-h-11 items-center text-[12.5px] text-info-ink underline underline-offset-4"
+          >
+            تعديل
+          </button>
+        )}
+      </span>
+    ) : canWrite ? (
+      <button type="button" onClick={() => setRentOpen(true)} className="-my-3 inline-flex min-h-11 items-center text-info-ink underline underline-offset-4">
+        غير مسجّل، سجّله
+      </button>
+    ) : null;
+
+  const siteItems: InfoItem[] = [
+    { label: 'العقار / الموقع', value: contact.shop_number?.trim() || null },
+    { label: 'الطابق', value: contact.floor?.trim() || null },
+    {
+      label: 'المساحة',
+      value: contact.area_sqm ? `${contact.area_sqm} م²` : null,
+    },
+  ];
+  const contractItems: InfoItem[] = [
+    { label: 'الإيجار الشهري', value: rentValue },
+    {
+      label: 'بداية العقد',
+      value: contact.contract_start ? formatDate(contact.contract_start) : null,
+    },
+    {
+      label: 'نهاية العقد',
+      value: contact.contract_end ? formatDate(contact.contract_end) : null,
+    },
+    { label: 'حالة العقد', value: contractBadge(contact, today) },
+  ];
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* who the landlord is, and where this month stands */}
-      <section className="surface overflow-hidden" aria-label="حالة إيجار هذا الشهر">
-        <div className="flex flex-col gap-3 p-4 sm:p-5 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">مؤجر للمول (المول مستأجر منه)</Badge>
-              {!contact.is_active && <Badge variant="neutral">غير نشط</Badge>}
-            </div>
-            <p className="mt-1.5 text-[12.5px] text-ink-mute">
-              {contact.shop_number ? `الموقع/العقار: ${contact.shop_number}` : 'عقار مؤجر للمول'}
-              {contact.area_sqm ? ` · المساحة: ${contact.area_sqm} م²` : ''}
-              {contact.phone ? (
-                <>
-                  {' · الهاتف: '}
-                  <span dir="ltr" className="tabular-nums">
-                    {contact.phone}
-                  </span>
-                </>
-              ) : null}
-            </p>
-          </div>
-          <div className="hidden items-center gap-2 md:flex">
-            {mayRecordPayment && (
-              <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={payOther}>
-                <Plus aria-hidden />
-                تسجيل سداد إيجار
-              </Button>
-            )}
-            {onEdit && (
-              <Button type="button" variant="outline" size="sm" onClick={onEdit}>
-                تعديل بيانات العقد
-              </Button>
-            )}
-          </div>
-        </div>
+    <div className="flex min-w-0 flex-col gap-4 sm:gap-5">
+      <KpiStrip label={`مستحقات ${contact.name}`} items={kpis} />
 
-        {/* a failed read is said once, by the card below, which also offers the retry */}
-        {!failed && (
-          <div className="border-t border-border px-4 py-3.5 sm:px-5">
-            {txLoading ? (
-              <div className="flex flex-col gap-2" aria-busy="true">
-                <Skeleton className="h-5 w-40" />
-                <Skeleton className="h-4 w-64 max-w-full" />
-              </div>
+      {!loading && !failed && <UncountedNote count={uncountedCount(transactions)} />}
+
+      {!loading && !failed && !rentKnown && (
+        <Callout
+          tone="info"
+          title={estimated ? 'الإيجار الشهري غير مسجّل' : 'الإيجار الشهري غير مسجّل، ولا دفعة تدلّ عليه'}
+          action={
+            canWrite ? (
+              <Button type="button" variant="outline" onClick={() => setRentOpen(true)}>
+                سجّل الإيجار الشهري
+              </Button>
+            ) : undefined
+          }
+        >
+          {estimated
+            ? `المستحق يُقدَّر بـ ${formatMoney(view.monthlyAmount ?? 0, 'LYD')}، من آخر شهر مسدّد. سجّل الإيجار الفعلي ليصير المبلغ ثابتاً.`
+            : 'سجّل الإيجار الشهري ليظهر ما يستحقه المؤجر كل شهر.'}
+        </Callout>
+      )}
+
+      {!loading && due.contractDatesInvalid && <Callout tone="warning">نهاية العقد قبل بدايته. راجع بيانات العقد.</Callout>}
+
+      <SectionCard
+        title={`أشهر ${profile.year}`}
+        icon={CalendarDays}
+        accent="violet"
+        actions={<YearSwitch year={profile.year} min={profile.years.min} max={profile.years.max} onChange={setYear} />}
+      >
+        {failed ? (
+          <ErrorBlock message="تعذّر تحميل حركات المؤجر، فلا يمكن تحديد حالة الأشهر. تحقق من الاتصال ثم أعد المحاولة." onRetry={retry} className="py-6" />
+        ) : (
+          <div className="flex flex-col gap-4">
+            {!loading && <TrackingLine tracking={tracking} onChange={canWrite ? () => setSinceOpen(true) : undefined} />}
+            {gridMonths.length === 0 && !loading ? (
+              <p className="text-[13px] text-ink-mute">كل أشهر {profile.year} مسدّدة قبل المنظومة.</p>
             ) : (
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <StatusLine due={due} hint={hint} />
-                {next && mayRecordPayment && (
-                  <LandlordPayButton name={contact.name} next={next} onPay={() => pay(contact.id, next, contact.kind)} className="w-full sm:w-auto" />
-                )}
-              </div>
+              <MonthGrid
+                months={gridMonths}
+                columns={6}
+                loading={loading}
+                renderAction={(m) =>
+                  (m.status === 'due' || m.status === 'partial') && mayRecordPayment ? (
+                    <LandlordPayButton
+                      compact
+                      name={contact.name}
+                      next={landlordPaymentFor(contact.name, m, today)}
+                      onPay={() => payFor(m)}
+                      className="w-full"
+                    />
+                  ) : null
+                }
+                footnote={
+                  <>
+                    الشهر يُقرأ من بيان السداد، وإن لم يُذكر فهو شهر تاريخ الصرف.
+                    {totals.ahead > 0 && ` المدفوع لأشهر لم تبدأ بعد (${formatMoney(totals.ahead, 'LYD')}) لا يُعدّ مستحقاً.`}
+                  </>
+                }
+              />
             )}
           </div>
         )}
-      </section>
+      </SectionCard>
 
-      {failed ? (
-        loadError
-      ) : txLoading ? (
-        <Loading />
-      ) : noRent ? (
-        <div className="surface px-4 py-8 text-center">
-          <p className="text-[13.5px] font-medium text-foreground">لم يُسجَّل إيجار شهري لهذا المؤجر.</p>
-          <p className="mt-1 text-[12.5px] text-ink-mute">سجّله في بيانات العقد لتُحسب مستحقاته شهراً بشهر.</p>
-          {onEdit && (
-            <Button type="button" variant="outline" size="sm" className="mt-3 min-h-11 sm:min-h-8" onClick={onEdit}>
-              تعديل بيانات العقد
+      <ProfileTabs tabs={tabs} value={tab} onValueChange={setTab} label={`سجل ${contact.name}`}>
+        <ProfilePanel id="payments">
+          <Card className="min-w-0 overflow-hidden">
+            {failed ? (
+              <ErrorBlock message="تعذّر تحميل دفعات المؤجر." onRetry={retry} />
+            ) : loading ? (
+              <LoadingBlock rows={4} />
+            ) : (
+              <LandlordPayments rows={profile.payments} onAdd={payOther} />
+            )}
+          </Card>
+        </ProfilePanel>
+        <ProfilePanel id="transactions">
+          <ContactTransactionsList
+            contact={contact}
+            transactions={transactions}
+            direction="out"
+            loading={txLoading}
+            error={failed ? history.error : undefined}
+            onRetry={retry}
+          />
+        </ProfilePanel>
+        <ProfilePanel id="journals">
+          <ContactJournalsList
+            entries={entries.data ?? journalEntries}
+            loading={entries.isLoading}
+            error={entries.isError ? entries.error : undefined}
+            onRetry={() => void entries.refetch()}
+          />
+        </ProfilePanel>
+      </ProfileTabs>
+
+      <SectionCard
+        title="العقار والعقد"
+        icon={FileText}
+        accent="blue"
+        actions={
+          onEdit && (
+            <Button type="button" variant="outline" className="min-h-11 gap-1.5 sm:min-h-9" onClick={onEdit}>
+              <Pencil aria-hidden />
+              تعديل
             </Button>
-          )}
+          )
+        }
+      >
+        <div className="grid gap-x-8 gap-y-3 md:grid-cols-2">
+          <InfoList items={siteItems} />
+          {/* on a phone the two lists stack: a hairline keeps the second one from reading as more of the first */}
+          <InfoList items={contractItems} className="max-md:border-t max-md:border-border max-md:pt-3" />
         </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4">
-            <Figure label="الإيجار الشهري" hint="حسب عقد الإيجار">
-              {formatMoney(schedule.monthlyRent, 'LYD')}
-            </Figure>
-            <Figure
-              label={thisYear ? `المستحق حتى ${landlordMonthName(Number(currentMonthKey.slice(5, 7)))}` : `المستحق في ${selectedYear}`}
-              hint={schedule.dueMonthsCount > 0 ? `عن ${LANDLORD_DUES_MONTHS(schedule.dueMonthsCount)}` : 'لا أشهر مستحقة'}
-            >
-              {formatMoney(schedule.totalExpected, 'LYD')}
-            </Figure>
-            <Figure
-              label={`المدفوع للمؤجر (${selectedYear})`}
-              hint={schedule.paidMonthsCount > 0 ? `مسدد بالكامل: ${LANDLORD_DUES_MONTHS(schedule.paidMonthsCount)}` : 'لا شهر مسدد بالكامل'}
-            >
-              {formatMoney(schedule.totalPaid, 'LYD')}
-            </Figure>
-            <Figure
-              label="المتبقي"
-              owed={schedule.totalOutstanding > 0}
-              hint={
-                schedule.totalOutstanding > 0
-                  ? [
-                      schedule.unpaidMonthsCount > 0 && `بلا دفع: ${LANDLORD_DUES_MONTHS(schedule.unpaidMonthsCount)}`,
-                      schedule.partialMonthsCount > 0 && `جزئياً: ${LANDLORD_DUES_MONTHS(schedule.partialMonthsCount)}`,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')
-                  : 'لا شيء مستحق'
-              }
-            >
-              {formatMoney(schedule.totalOutstanding, 'LYD')}
-            </Figure>
-          </div>
-          {setAside > 0 && (
-            <p className="-mt-3 px-1 text-[12px] text-ink-mute">
-              من المدفوع {formatMoney(setAside, 'LYD')} زيادة على المستحق أو عن أشهر غير مستحقة؛ ولا يُخصم من شهر آخر.
-            </p>
-          )}
+      </SectionCard>
 
-          <section aria-labelledby="landlord-schedule-heading" className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1">
-              <h2 id="landlord-schedule-heading" className="text-[15px] font-semibold text-foreground">
-                جدول إيجار {selectedYear}
-              </h2>
-              <div className="flex items-center gap-1 rounded-lg border border-border bg-canvas-sunken p-0.5" role="group" aria-label="السنة">
-                <button
-                  type="button"
-                  aria-label="السنة السابقة"
-                  onClick={() => setSelectedYear((y) => y - 1)}
-                  className="grid h-11 w-11 place-items-center rounded-md text-ink-mute hover:bg-card hover:text-foreground sm:h-8 sm:w-8"
-                >
-                  <ChevronRight className="h-4 w-4" aria-hidden />
-                </button>
-                <span className="min-w-12 px-2 text-center text-[13px] font-semibold tabular-nums" aria-live="polite">
-                  {selectedYear}
-                </span>
-                <button
-                  type="button"
-                  aria-label="السنة التالية"
-                  onClick={() => setSelectedYear((y) => y + 1)}
-                  className="grid h-11 w-11 place-items-center rounded-md text-ink-mute hover:bg-card hover:text-foreground sm:h-8 sm:w-8"
-                >
-                  <ChevronLeft className="h-4 w-4" aria-hidden />
-                </button>
-              </div>
-            </div>
-
-            {/* phone and tablet: one card per month (the sidebar leaves a tablet little width) */}
-            <ul className="surface divide-y divide-border overflow-hidden xl:hidden" aria-label={`أشهر ${selectedYear}`}>
-              {schedule.months.map((m) => {
-                const state = monthState(m);
-                return (
-                  <li key={m.monthKey} className="px-4 py-3" aria-current={m.monthKey === currentMonthKey ? 'date' : undefined}>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-[14px] font-medium text-foreground">
-                        {m.monthNameAr}
-                        {m.monthKey === currentMonthKey && <span className="ms-2 text-[12px] font-normal text-ink-mute">الشهر الحالي</span>}
-                      </span>
-                      <Badge variant={state.variant}>{state.text}</Badge>
-                    </div>
-                    {m.status === 'paid_full' && (
-                      <p className="mt-1 text-[12.5px] text-ink-mute">
-                        المسدد <span className="tabular-nums text-foreground">{formatMoney(m.paidAmount, 'LYD')}</span>
-                      </p>
-                    )}
-                    {m.status !== 'paid_full' && (m.due || m.paidAmount > 0) && (
-                      <dl className="mt-2 grid grid-cols-3 gap-x-3 text-[12.5px]">
-                        <div>
-                          <dt className="text-ink-mute">المستحق</dt>
-                          <dd className="mt-0.5 tabular-nums text-foreground">{m.due ? formatMoney(m.expectedAmount, '') : '—'}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-ink-mute">المسدد</dt>
-                          <dd className="mt-0.5 tabular-nums text-foreground">{formatMoney(m.paidAmount, '')}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-ink-mute">المتبقي</dt>
-                          <dd className={cn('mt-0.5 tabular-nums', m.remainingAmount > 0 ? 'font-semibold text-danger-ink' : 'text-foreground')}>
-                            {m.due ? formatMoney(m.remainingAmount, '') : '—'}
-                          </dd>
-                        </div>
-                      </dl>
-                    )}
-                    {m.remainingAmount > 0 && mayRecordPayment && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="mt-2.5 h-11 w-full"
-                        aria-label={`سداد شهر ${m.monthNameAr} ${m.year}، المبلغ ${formatMoney(m.remainingAmount, 'LYD')}`}
-                        onClick={() => payMonth(m)}
-                      >
-                        سداد شهر {m.monthNameAr}
-                      </Button>
-                    )}
-                  </li>
-                );
-              })}
-              <li className="bg-canvas-sunken/40 px-4 py-3">
-                <p className="text-[13px] font-semibold text-foreground">الإجمالي</p>
-                <dl className="mt-1.5 grid grid-cols-3 gap-x-3 text-[12.5px]">
-                  <div>
-                    <dt className="text-ink-mute">المستحق</dt>
-                    <dd className="mt-0.5 font-semibold tabular-nums text-foreground">{formatMoney(schedule.totalExpected, '')}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-ink-mute">المسدد</dt>
-                    <dd className="mt-0.5 font-semibold tabular-nums text-foreground">{formatMoney(schedule.totalPaid, '')}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-ink-mute">المتبقي</dt>
-                    <dd className={cn('mt-0.5 font-semibold tabular-nums', schedule.totalOutstanding > 0 ? 'text-danger-ink' : 'text-foreground')}>
-                      {formatMoney(schedule.totalOutstanding, '')}
-                    </dd>
-                  </div>
-                </dl>
-              </li>
-            </ul>
-
-            {/* wide screens: the month table */}
-            <div className="hidden overflow-x-auto rounded-xl border border-border bg-card xl:block">
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="border-b border-border bg-canvas-sunken text-[12.5px] text-ink-mute">
-                    <th scope="col" className="px-4 py-2.5 text-start font-medium">الشهر</th>
-                    <th scope="col" className="px-4 py-2.5 text-end font-medium">المستحق</th>
-                    <th scope="col" className="px-4 py-2.5 text-end font-medium">المسدد</th>
-                    <th scope="col" className="px-4 py-2.5 text-end font-medium">المتبقي</th>
-                    <th scope="col" className="px-4 py-2.5 text-start font-medium">الحالة</th>
-                    <th scope="col" className="px-4 py-2.5 text-end font-medium">
-                      <span className="sr-only">سداد</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {schedule.months.map((m) => {
-                    const state = monthState(m);
-                    return (
-                      <tr key={m.monthKey} className={cn(m.monthKey === currentMonthKey && 'bg-canvas-sunken/50')} aria-current={m.monthKey === currentMonthKey ? 'date' : undefined}>
-                        <th scope="row" className="px-4 py-2.5 text-start font-medium text-foreground">
-                          {m.monthNameAr}
-                          {m.monthKey === currentMonthKey && <span className="ms-2 text-[12px] font-normal text-ink-mute">الشهر الحالي</span>}
-                        </th>
-                        <td className="px-4 py-2.5 text-end tabular-nums">{m.due ? formatMoney(m.expectedAmount, '') : '—'}</td>
-                        <td className="px-4 py-2.5 text-end tabular-nums">{m.due || m.paidAmount > 0 ? formatMoney(m.paidAmount, '') : '—'}</td>
-                        <td className={cn('px-4 py-2.5 text-end tabular-nums', m.remainingAmount > 0 ? 'font-semibold text-danger-ink' : 'text-ink-mute')}>
-                          {m.due ? formatMoney(m.remainingAmount, '') : '—'}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <Badge variant={state.variant}>{state.text}</Badge>
-                        </td>
-                        <td className="px-4 py-2 text-end">
-                          {m.remainingAmount > 0 && mayRecordPayment && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              aria-label={`سداد شهر ${m.monthNameAr} ${m.year}، المبلغ ${formatMoney(m.remainingAmount, 'LYD')}`}
-                              onClick={() => payMonth(m)}
-                            >
-                              سداد شهر {m.monthNameAr}
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot className="border-t border-border bg-canvas-sunken/40 font-semibold">
-                  <tr>
-                    <td className="px-4 py-2.5">الإجمالي</td>
-                    <td className="px-4 py-2.5 text-end tabular-nums">{formatMoney(schedule.totalExpected, '')}</td>
-                    <td className="px-4 py-2.5 text-end tabular-nums">{formatMoney(schedule.totalPaid, '')}</td>
-                    <td className={cn('px-4 py-2.5 text-end tabular-nums', schedule.totalOutstanding > 0 && 'text-danger-ink')}>{formatMoney(schedule.totalOutstanding, '')}</td>
-                    <td colSpan={2} className="px-4 py-2.5 text-[12.5px] font-normal text-ink-mute">
-                      {schedule.dueMonthsCount > 0 ? `مسدد بالكامل: ${schedule.paidMonthsCount} من ${LANDLORD_DUES_MONTHS(schedule.dueMonthsCount)}` : 'لا أشهر مستحقة في هذه السنة'}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-            <p className="px-1 text-[12px] text-ink-mute">
-              المستحق يشمل الأشهر التي بدأت وتغطيها مدة العقد. الأرقام من المعاملات المرحّلة والمُسوّاة، والشهر يُقرأ من بيان السداد.
-            </p>
-          </section>
-        </>
-      )}
-
-      {/* the leased site and the contract */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <section className="surface p-4" aria-labelledby="landlord-site-heading">
-          <h2 id="landlord-site-heading" className="text-[14px] font-semibold text-foreground">
-            الموقع والعقار المستأجر
-          </h2>
-          <dl className="mt-1 divide-y divide-border text-[13px]">
-            <Fact label="اسم العقار / الموقع">{contact.shop_number || 'غير محدد'}</Fact>
-            <Fact label="الموقع / الطابق">{contact.floor || 'المول / خارجي'}</Fact>
-            <Fact label="المساحة المستأجرة">{contact.area_sqm ? `${contact.area_sqm} م²` : 'غير محدد'}</Fact>
-            <Fact label="العنوان">{contact.address || '—'}</Fact>
-          </dl>
-        </section>
-
-        <section className="surface p-4" aria-labelledby="landlord-contract-heading">
-          <h2 id="landlord-contract-heading" className="text-[14px] font-semibold text-foreground">
-            شروط العقد والتواريخ
-          </h2>
-          <dl className="mt-1 divide-y divide-border text-[13px]">
-            <Fact label="بداية العقد">
-              <span className="tabular-nums">{contact.contract_start ? formatDate(contact.contract_start) : '—'}</span>
-            </Fact>
-            <Fact label="نهاية العقد">
-              <span className="tabular-nums">{contact.contract_end ? formatDate(contact.contract_end) : '—'}</span>
-            </Fact>
-            <Fact label="ملاحظات العقد">{visibleContactNotes(contact.notes) || 'لا توجد ملاحظات'}</Fact>
-            <Fact label="حالة العقد">
-              {contractState === 'unset' ? (
-                <Badge variant="outline">غير محدد</Badge>
-              ) : contractState === 'ended' ? (
-                <Badge variant="danger">منتهٍ</Badge>
-              ) : contractState === 'upcoming' ? (
-                <Badge variant="warning">لم يبدأ</Badge>
-              ) : (
-                <Badge variant="success">ساري المفعول</Badge>
-              )}
-            </Fact>
-          </dl>
-        </section>
-      </div>
-
-      {/* the full ledger and journal entries */}
-      <section aria-labelledby="landlord-ledger-heading" className="flex flex-col gap-2">
-        <h2 id="landlord-ledger-heading" className="px-1 text-[15px] font-semibold text-foreground">
-          كشف الحساب المالي وسجل القيود والدفعات للمؤجر
-        </h2>
-        <ContactLedgerPanel contact={contact} transactions={transactions} journalEntries={journalEntries} txLoading={txLoading} />
-      </section>
+      {/* mounted only while open, so each opening starts from the file as it is now */}
+      {rentOpen && <MonthlyRentDialog open onOpenChange={setRentOpen} contact={contact} estimate={estimated ? view.monthlyAmount : null} />}
+      {sinceOpen && <TrackingStartDialog open onOpenChange={setSinceOpen} contact={contact} input={input} tracking={tracking} suggested={defaultTracking} />}
     </div>
   );
 }

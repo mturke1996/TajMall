@@ -133,7 +133,7 @@ function CashFlowContent() {
         periodLabel: `عام ${selectedYear}`,
         periodSlugEn: `fy-${selectedYear}`,
         statsLine: cashFlowData
-          ? `صافي التغير ${cashFlowData.summary.netChange >= 0 ? '+' : ''}${cashFlowData.summary.netChange.toLocaleString('ar-LY')} د.ل.`
+          ? `صافي التغير ${formatMoney(cashFlowData.summary.netChange, 'LYD', { signed: true })}`
           : undefined,
       }),
     [selectedYear, cashFlowData],

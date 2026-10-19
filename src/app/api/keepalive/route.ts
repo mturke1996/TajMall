@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { bearerToken, safeEqual } from "@/lib/supabase/request-guard";
 
 /**
  * Keep-alive endpoint to prevent Supabase free-tier inactivity suspension.
@@ -11,9 +12,10 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 function authorized(req: NextRequest): boolean {
-  const auth = req.headers.get("authorization") ?? "";
   const secret = process.env.KEEPALIVE_SECRET;
-  return Boolean(secret && auth === `Bearer ${secret}`);
+  const token = bearerToken(req);
+  // constant-time comparison: a plain === tells a caller, by response time, how many leading characters matched
+  return Boolean(secret && token && safeEqual(token, secret));
 }
 
 async function checkDatabaseConnectivity(): Promise<{

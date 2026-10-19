@@ -34,10 +34,13 @@ const s = StyleSheet.create({
   },
   last: { borderBottomWidth: 0 },
   amount: { width: '35%' },
-  label: { fontSize: 9, color: PDF.text, textAlign: 'right' },
-  hint: { fontSize: 7.5, color: PDF.muted, textAlign: 'right', marginTop: 1 },
+  /** the label and its reason take the rest of the row: a long reason wraps inside this column instead of running across the amount */
+  labelCol: { width: '62%' },
+  /** react-pdf does not pass a box's direction down to its text: the text carries it (the ":" and "·" of a reason keep their place) */
+  label: { direction: 'rtl', fontSize: 9, color: PDF.text, textAlign: 'right' },
+  hint: { direction: 'rtl', fontSize: 7.5, color: PDF.muted, textAlign: 'right', marginTop: 1 },
   subtotal: { backgroundColor: PDF.rowAlt },
-  subtotalLabel: { fontSize: 9, fontWeight: 'bold', color: PDF.text, textAlign: 'right' },
+  subtotalLabel: { direction: 'rtl', fontSize: 9, fontWeight: 'bold', color: PDF.text, textAlign: 'right' },
   net: {
     ...PDF_TABLE_ROW,
     justifyContent: 'space-between',
@@ -60,7 +63,7 @@ function Line({ label, hint, amount, last, strong }: { label: string; hint?: str
       <View style={s.amount}>
         <PdfMoneyText amount={amount} align="left" style={{ fontSize: 9, fontWeight: strong ? 'bold' : 'normal' }} />
       </View>
-      <View>
+      <View style={s.labelCol}>
         <Text style={strong ? s.subtotalLabel : s.label}>{ar(label)}</Text>
         {hint ? <Text style={s.hint}>{ar(hint)}</Text> : null}
       </View>
@@ -103,7 +106,8 @@ export function PayslipPDF({
   return (
     <ReportShell
       title="قسيمة راتب"
-      subtitle={`${line.employee_name} — ${monthAr}`}
+      titleEn="PAYSLIP"
+      subtitle={`${line.employee_name} · ${monthAr}`}
       documentTitle={`قسيمة راتب ${line.employee_name} ${monthAr}`}
       periodSummary={{
         eyebrow: 'Payslip',
@@ -112,21 +116,24 @@ export function PayslipPDF({
         hint: [line.job_title, line.department].filter(Boolean).join(' · '),
       }}
       metaCells={[
-        { label: 'الموظف', value: line.employee_name },
+        // the employee's name is already in the title line and in the period cell: a third, large copy wrapped to four lines for a long name and made this card a quarter of the page
         { label: 'صافي الراتب', moneyAmount: n(line.net), adaptiveMoney: true },
         { label: 'صُرف', moneyAmount: n(line.paid), adaptiveMoney: true },
       ]}
     >
-      <Text style={pdfBase.sectionTitle}>{ar('المستحقات')}</Text>
-      <View style={s.table}>
-        {earnings.map((r) => (
-          <Line key={r.label} label={r.label} hint={r.hint} amount={r.amount} />
-        ))}
-        <Line label="إجمالي المستحقات" amount={earned} strong last />
+      {/* each section (title + table) stays whole, and the net, the balance and the signatures stay together */}
+      <View wrap={false}>
+        <Text style={pdfBase.sectionTitle}>{ar('المستحقات')}</Text>
+        <View style={s.table}>
+          {earnings.map((r) => (
+            <Line key={r.label} label={r.label} hint={r.hint} amount={r.amount} />
+          ))}
+          <Line label="إجمالي المستحقات" amount={earned} strong last />
+        </View>
       </View>
 
       {deductions.length > 0 && (
-        <>
+        <View wrap={false}>
           <Text style={pdfBase.sectionTitle}>{ar('الاستقطاعات')}</Text>
           <View style={s.table}>
             {deductions.map((r) => (
@@ -134,28 +141,30 @@ export function PayslipPDF({
             ))}
             <Line label="إجمالي الاستقطاعات" amount={deducted} strong last />
           </View>
-        </>
+        </View>
       )}
 
-      <View style={s.net} wrap={false}>
-        <View style={s.amount}>
-          <PdfMoneyText amount={n(line.net)} align="left" style={{ fontSize: 13, fontWeight: 'bold' }} />
-        </View>
-        <Text style={s.netLabel}>{ar('صافي الراتب')}</Text>
-      </View>
-
-      {n(line.outstanding) > 0.0005 && line.run_status === 'POSTED' && (
-        <View style={[s.row, { marginTop: 6, borderBottomWidth: 0 }]} wrap={false}>
+      <View wrap={false}>
+        <View style={s.net}>
           <View style={s.amount}>
-            <PdfMoneyText amount={n(line.outstanding)} align="left" style={{ fontSize: 9 }} />
+            <PdfMoneyText amount={n(line.net)} align="left" style={{ fontSize: 13, fontWeight: 'bold' }} />
           </View>
-          <Text style={s.label}>{ar('المتبقي للصرف')}</Text>
+          <Text style={s.netLabel}>{ar('صافي الراتب')}</Text>
         </View>
-      )}
 
-      <View style={s.sign} wrap={false}>
-        <View style={s.signBox}><Text style={s.signText}>{ar('توقيع المحاسب')}</Text></View>
-        <View style={s.signBox}><Text style={s.signText}>{ar('توقيع الموظف بالاستلام')}</Text></View>
+        {n(line.outstanding) > 0.0005 && line.run_status === 'POSTED' && (
+          <View style={[s.row, { marginTop: 6, borderBottomWidth: 0 }]}>
+            <View style={s.amount}>
+              <PdfMoneyText amount={n(line.outstanding)} align="left" style={{ fontSize: 9 }} />
+            </View>
+            <Text style={s.label}>{ar('المتبقي للصرف')}</Text>
+          </View>
+        )}
+
+        <View style={s.sign}>
+          <View style={s.signBox}><Text style={s.signText}>{ar('توقيع المحاسب')}</Text></View>
+          <View style={s.signBox}><Text style={s.signText}>{ar('توقيع الموظف بالاستلام')}</Text></View>
+        </View>
       </View>
     </ReportShell>
   );

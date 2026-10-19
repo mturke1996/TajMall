@@ -27,6 +27,7 @@ import { CONTACT_LIST_COLUMNS } from "@/lib/db/contact-columns";
 import { fetchAllContactPages } from "@/lib/contacts/contact-transactions";
 import { friendlyError } from "@/lib/user-messages";
 import { fetchAllPages } from "@/lib/db/fetch-all";
+import { clampSummaryToClaimStart } from "@/lib/rent-summary-claim-start";
 
 /**
  * Centralised TanStack Query hooks over Supabase JS.
@@ -601,9 +602,11 @@ async function fetchTenantRentSummaryForMonth(
     p_month_key: monthKey,
   });
   if (error) throw error;
-  return ((data as TenantRentSummary[]) ?? []).sort((a, b) =>
-    a.name.localeCompare(b.name, "ar"),
-  );
+  // a month before the tenant's claim start is never owed. The database already answers «exempt» for it; this only
+  // acts on a row that carries `rent_claim_start` (the month function does not return it today)
+  return ((data as TenantRentSummary[]) ?? [])
+    .map((row) => clampSummaryToClaimStart(row, monthKey))
+    .sort((a, b) => a.name.localeCompare(b.name, "ar"));
 }
 
 export function useTenantRentSummaryForMonth(monthKey: string | null) {

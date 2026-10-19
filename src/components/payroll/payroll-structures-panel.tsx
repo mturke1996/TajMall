@@ -9,9 +9,9 @@ import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/data/data-table';
 import { EmptyState } from '@/components/data/empty-state';
 import type { ContactRow } from '@/lib/db/types';
-import { formatMonthKeyAr } from '@/lib/utils';
+import { arabicCount, formatMonthKeyAr } from '@/lib/utils';
 import { structureTotal, type PayrollSalaryStructure } from '@/lib/db/payroll-queries';
-import { Amount, SectionHeading, StatStrip } from './payroll-ui';
+import { Amount, PHONE_TAP, SectionHeading, StatStrip } from './payroll-ui';
 import { SalaryStructureDialog } from './payroll-dialogs';
 
 type Row = {
@@ -115,12 +115,12 @@ export function PayrollStructuresPanel({
       },
       {
         id: 'actions',
-        header: '',
+        header: () => <span className="sr-only">إجراءات</span>,
         enableSorting: false,
         meta: { alwaysVisible: true, align: 'end' },
         cell: ({ row }) =>
           canManage ? (
-            <Button size="sm" variant={row.original.current ? 'ghost' : 'outline'} onClick={() => setDialogFor(row.original.employee.id)}>
+            <Button size="sm" variant={row.original.current ? 'ghost' : 'outline'} className={PHONE_TAP} onClick={() => setDialogFor(row.original.employee.id)}>
               {row.original.current ? <Pencil /> : <Plus />}
               {row.original.current ? 'تعديل' : 'حدّد الراتب'}
             </Button>
@@ -137,7 +137,7 @@ export function PayrollStructuresPanel({
         description="الراتب الأساسي والبدلات لكل موظف. كل تعديل يسري من شهر محدد ويبقى ما قبله في السجل كما هو."
         actions={
           canManage ? (
-            <Button variant="outline" onClick={() => setDialogFor(null)} disabled={employees.length === 0}>
+            <Button variant="outline" className={PHONE_TAP} onClick={() => setDialogFor(null)} disabled={employees.length === 0}>
               <Plus />
               هيكل راتب
             </Button>
@@ -152,7 +152,7 @@ export function PayrollStructuresPanel({
             {
               label: 'بهيكل راتب',
               value: <span className="tabular-nums">{withStructure.length}</span>,
-              hint: employees.length > withStructure.length ? `${employees.length - withStructure.length} بلا هيكل` : 'الكل جاهز للكشف',
+              hint: employees.length > withStructure.length ? `${arabicCount(employees.length - withStructure.length, ['موظف واحد', 'موظفان', 'موظفين', 'موظفاً'])} بلا هيكل` : 'الكل جاهز للكشف',
             },
             { label: 'تكلفة الرواتب الشهرية', value: <Amount value={monthlyTotal} />, emphasis: true },
           ]}
@@ -161,6 +161,7 @@ export function PayrollStructuresPanel({
 
       <DataTable
         tableId="payroll-structures"
+        caption="هياكل رواتب الموظفين"
         data={rows}
         columns={columns}
         getRowId={(r) => r.employee.id}
@@ -182,7 +183,7 @@ export function PayrollStructuresPanel({
             <div className="flex items-center gap-2">
               {r.current ? <Amount value={structureTotal(r.current)} /> : <Badge variant="warning">بلا هيكل</Badge>}
               {canManage && (
-                <Button size="icon-sm" variant="ghost" onClick={() => setDialogFor(r.employee.id)} aria-label="تعديل الراتب">
+                <Button size="icon-sm" variant="ghost" className="max-sm:size-11" onClick={() => setDialogFor(r.employee.id)} aria-label={`تعديل راتب ${r.employee.name}`}>
                   <Pencil />
                 </Button>
               )}

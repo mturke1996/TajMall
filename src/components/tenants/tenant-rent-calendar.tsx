@@ -61,7 +61,7 @@ export function TenantRentCalendar({
 
       {exemptCount > 0 && (
         <p className="text-[11px] text-ink-mute">
-          استُبعد {arabicCount(exemptCount, ['شهر واحد', 'شهران', 'أشهر', 'شهراً'])} من المطالبة، فلا يدخل في العرض والإجماليات
+          استُبعد {arabicCount(exemptCount, ['شهر واحد', 'شهران', 'أشهر', 'شهراً'])} من المطالبة، قبل بدايتها أو بقرار، فلا يدخل في العرض والإجماليات
         </p>
       )}
 

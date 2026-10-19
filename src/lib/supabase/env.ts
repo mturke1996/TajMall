@@ -49,3 +49,14 @@ export function getSupabaseServiceRoleKey(): string {
   }
   return key;
 }
+
+/**
+ * True when a request reached the app over https: the first value of the x-forwarded-proto header (set by
+ * the hosting proxy) or the protocol of the request URL ("https:"). Used to mark the auth cookies Secure
+ * without breaking a plain-http localhost session.
+ */
+export function isHttpsRequest(forwardedProto: string | null | undefined, urlProtocol?: string | null): boolean {
+  const first = forwardedProto?.split(',')[0]?.trim().toLowerCase();
+  if (first) return first === 'https';
+  return urlProtocol === 'https:';
+}

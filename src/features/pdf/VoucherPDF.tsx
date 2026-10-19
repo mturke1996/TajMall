@@ -25,9 +25,14 @@ export type VoucherPdfModel = {
   status?: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | string;
 };
 
+/**
+ * react-pdf (textkit) drops all but one of the same lam-alef ligature on one line, so a line that repeats «لا» loses words:
+ * «بانتظار الاعتماد — لا يُصرف بموجبه قبل الاعتماد» printed as «بانتظار اعتماد — يُصرف بموجبه قبل الاعتماد», the opposite of what it says.
+ * These three lines each carry at most one «لا».
+ */
 const NOT_APPROVED: Record<string, string> = {
   DRAFT: 'مسودة — غير معتمد ولا يُصرف بموجبه',
-  PENDING_APPROVAL: 'بانتظار الاعتماد — لا يُصرف بموجبه قبل الاعتماد',
+  PENDING_APPROVAL: 'بانتظار الاعتماد — يُمنع الصرف بموجبه قبل اعتماده',
   REJECTED: 'مرفوض — لا يُصرف بموجبه',
 };
 
@@ -49,9 +54,13 @@ const s = StyleSheet.create({
   },
   heroCell: { width: '31%', direction: 'rtl' },
   heroLabel: { fontSize: 8.5, color: PDF.muted, marginBottom: 4, textAlign: 'right' },
-  heroValue: { fontSize: 11, fontWeight: 'bold', color: PDF.text, textAlign: 'right' },
+  heroValue: { direction: 'rtl', fontSize: 11, fontWeight: 'bold', color: PDF.text, textAlign: 'right' },
+  /** the account number is its own left-to-right run: inside one Arabic line its digit groups come out reversed */
+  heroAccount: { fontSize: 9, color: PDF.muted, textAlign: 'right', direction: 'ltr', marginTop: 2 },
 
   th_desc: { flex: 1, textAlign: 'right' },
+  /** the row is laid out left to right; the statement text itself must be read right to left (a leading digit stays at the right edge) */
+  descRtl: { direction: 'rtl' },
   th_amount: { width: 110, textAlign: 'center' },
 
   /** رأس وجسم جدول البيان — نفس نمط pdfBase: ltr + row-reverse لوضع البيان يميناً والمبلغ يساراً */
@@ -129,7 +138,8 @@ const s = StyleSheet.create({
     borderRadius: 2,
   },
   notesLabel: { fontSize: 8.5, color: PDF.muted, marginBottom: 4, textAlign: 'right' },
-  notesText: { fontSize: 10, color: PDF.text, lineHeight: 1.5, textAlign: 'right' },
+  /** react-pdf does not pass the box's direction down to its text: the text carries it (a trailing full stop and a leading digit stay on the right side) */
+  notesText: { direction: 'rtl', fontSize: 10, color: PDF.text, lineHeight: 1.5, textAlign: 'right' },
 
   signRow: {
     direction: 'ltr',
@@ -153,6 +163,15 @@ const s = StyleSheet.create({
 
 });
 
+/**
+ * A name longer than this is left out of the summary card at the top: that cell is a quarter of the width, so a long name wrapped to
+ * five or six lines and made the card a third of the page. The card below it ("يصرف إلى") prints the full name.
+ */
+const SUMMARY_NAME_CHARS = 28;
+
+/** notes longer than this may flow onto the next page; shorter ones stay with the total and the signatures */
+const KEEP_NOTES_CHARS = 700;
+
 export function VoucherPDF({
   voucher,
   currency = 'د.ل',
@@ -165,17 +184,19 @@ export function VoucherPDF({
       ? voucher.contactName.trim()
       : null;
   const payeeDisplay = voucher.payee?.trim() || linkedParty || 'المستفيد';
+  const keepClosing = (voucher.notes ?? '').length <= KEEP_NOTES_CHARS;
 
   return (
     <ReportShell
       title="إذن صرف"
+      titleEn="VOUCHER"
       subtitle={`رقم ${voucher.number}`}
       documentTitle={`إذن صرف ${voucher.number}`}
       summaryPrimaryDateIso={voucher.voucherDate}
       summaryPrimaryDateLabel="تاريخ الإذن"
       metaCells={[
-        { label: 'المستفيد', value: payeeDisplay },
-        ...(linkedParty && linkedParty !== payeeDisplay
+        ...(payeeDisplay.length <= SUMMARY_NAME_CHARS ? [{ label: 'المستفيد', value: payeeDisplay }] : []),
+        ...(linkedParty && linkedParty !== payeeDisplay && linkedParty.length <= SUMMARY_NAME_CHARS
           ? [{ label: 'الجهة المرتبطة', value: linkedParty }]
           : voucher.contactKindLabelAr
             ? [{ label: 'نوع الجهة', value: voucher.contactKindLabelAr }]
@@ -204,7 +225,7 @@ export function VoucherPDF({
           <Text style={s.heroLabel}>{ar('يصرف إلى')}</Text>
           <Text style={s.heroValue}>{ar(payeeDisplay)}</Text>
           {linkedParty && linkedParty !== payeeDisplay ? (
-            <Text style={[s.heroLabel, { marginTop: 6 }]}>
+            <Text style={[s.heroLabel, { marginTop: 6, direction: 'rtl' }]}>
               {ar(
                 voucher.contactKindLabelAr
                   ? `${voucher.contactKindLabelAr}: ${linkedParty}`
@@ -219,66 +240,74 @@ export function VoucherPDF({
         </View>
         <View style={s.heroCell}>
           <Text style={s.heroLabel}>{ar('المصرف / الحساب')}</Text>
-          <Text style={s.heroValue}>
-            {voucher.bank ? ar(`${voucher.bank} · ${voucher.account ?? ''}`) : ar('—')}
-          </Text>
+          <Text style={s.heroValue}>{voucher.bank ? ar(voucher.bank) : ar('—')}</Text>
+          {voucher.bank && voucher.account?.trim() ? <Text style={s.heroAccount}>{voucher.account.trim()}</Text> : null}
         </View>
       </View>
 
       {/* جدول البنود (البيان + المبلغ) — الإجمالي منفصل أسفله */}
-      <View style={s.tableHeadRtl}>
+      <View style={s.tableHeadRtl} wrap={false} minPresenceAhead={60}>
         <Text style={[pdfBase.th, s.th_desc]}>{ar('البيـان')}</Text>
         <Text style={[pdfBase.th, s.th_amount, { textAlign: 'center' }]}>{ar('المبلغ')}</Text>
       </View>
       {voucher.lines.map((l, i) => (
-        <View key={i} style={[s.tableRowRtl, i % 2 !== 0 && pdfBase.rowEven]}>
-          <Text style={[pdfBase.td, s.th_desc]}>{ar(l.description)}</Text>
+        <View
+          key={i}
+          style={[s.tableRowRtl, i % 2 !== 0 && pdfBase.rowEven]}
+          wrap={false}
+          // the last row travels with the closing block (total, notes, signatures): the page that carries the total carries a row above it
+          {...(i === voucher.lines.length - 1 ? { minPresenceAhead: keepClosing ? 1000 : 60 } : {})}
+        >
+          <Text style={[pdfBase.td, s.th_desc, s.descRtl]}>{ar(l.description)}</Text>
           <View style={[pdfBase.td, s.th_amount]}>
             <PdfMoneyText amount={l.amount} style={s.tdAmountNum} align="center" />
           </View>
         </View>
       ))}
 
-      {/* إجمالي الإذن — مبلغ واحد معزول: الرقم ثم العملة */}
-      <View style={s.totalBox} wrap={false}>
-        <PdfMoneyText
-          amount={voucher.total}
-          currency={currency}
-          light
-          align="left"
-          style={s.totalNum}
-          currStyle={s.totalCurr}
-          containerStyle={{ width: 'auto', flexShrink: 0 }}
-        />
-        <Text style={s.totalLabel}>{ar('إجمالي مبلغ الإذن')}</Text>
-      </View>
+      {/* the total, the notes and the signatures move together: a signature line never stands alone on a page */}
+      <View wrap={!keepClosing}>
+        {/* إجمالي الإذن — مبلغ واحد معزول: الرقم ثم العملة */}
+        <View style={s.totalBox} wrap={false}>
+          <PdfMoneyText
+            amount={voucher.total}
+            currency={currency}
+            light
+            align="left"
+            style={s.totalNum}
+            currStyle={s.totalCurr}
+            containerStyle={{ width: 'auto', flexShrink: 0 }}
+          />
+          <Text style={s.totalLabel}>{ar('إجمالي مبلغ الإذن')}</Text>
+        </View>
 
-      {/* Notes */}
-      {voucher.notes ? (
-        <View style={s.notes}>
-          <Text style={s.notesLabel}>{ar('ملاحظات')}</Text>
-          <Text style={s.notesText}>{ar(voucher.notes)}</Text>
-        </View>
-      ) : null}
+        {/* Notes */}
+        {voucher.notes ? (
+          <View style={s.notes}>
+            <Text style={s.notesLabel}>{ar('ملاحظات')}</Text>
+            <Text style={s.notesText}>{ar(voucher.notes)}</Text>
+          </View>
+        ) : null}
 
-      {/* Signatures */}
-      <View style={s.signRow} wrap={false}>
-        <View style={s.signBox}>
-          <Text style={s.signLabel}>{ar('المستلم')}</Text>
-          <View style={s.signLine}>
-            <Text style={s.signName}>{ar('الاسم والتوقيع')}</Text>
+        {/* Signatures */}
+        <View style={s.signRow} wrap={false}>
+          <View style={s.signBox}>
+            <Text style={s.signLabel}>{ar('المستلم')}</Text>
+            <View style={s.signLine}>
+              <Text style={s.signName}>{ar('الاسم والتوقيع')}</Text>
+            </View>
           </View>
-        </View>
-        <View style={s.signBox}>
-          <Text style={s.signLabel}>{ar('المراجع')}</Text>
-          <View style={s.signLine}>
-            <Text style={s.signName}>{ar('الاسم والتوقيع')}</Text>
+          <View style={s.signBox}>
+            <Text style={s.signLabel}>{ar('المراجع')}</Text>
+            <View style={s.signLine}>
+              <Text style={s.signName}>{ar('الاسم والتوقيع')}</Text>
+            </View>
           </View>
-        </View>
-        <View style={s.signBox}>
-          <Text style={s.signLabel}>{ar('المدير المالي')}</Text>
-          <View style={s.signLine}>
-            <Text style={s.signName}>{ar('الاسم والتوقيع')}</Text>
+          <View style={s.signBox}>
+            <Text style={s.signLabel}>{ar('المدير المالي')}</Text>
+            <View style={s.signLine}>
+              <Text style={s.signName}>{ar('الاسم والتوقيع')}</Text>
+            </View>
           </View>
         </View>
       </View>

@@ -1,28 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import { Building2, CalendarClock, HandCoins, Hourglass } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { LandlordDueBadge, LandlordPayButton, useLandlordPay } from '@/components/contacts/landlord-dues-parts';
+import { Callout, EmptyBlock, ErrorBlock, KpiStrip, LoadingBlock, PartyAvatar, type KpiCardProps } from '@/components/people';
+import { LandlordDueBadge, LandlordMonthStrip, LandlordPayButton, useLandlordPay } from '@/components/contacts/landlord-dues-parts';
 import { useLandlordDues } from '@/lib/db/landlord-dues-queries';
 import { landlordArrearsText, landlordIdleText, type LandlordDue, type LandlordDues } from '@/lib/landlord-dues';
+import { usePermission } from '@/lib/supabase/use-permission';
 import { arabicCount, cn, formatMoney } from '@/lib/utils';
 
 const LANDLORDS: [string, string, string, string] = ['مؤجر واحد', 'مؤجران', 'مؤجرين', 'مؤجراً'];
 
-function Figure({ label, hint, owed, children }: { label: string; hint?: string; owed?: boolean; children: React.ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1 bg-card p-4">
-      <p className="text-[12.5px] text-ink-mute">{label}</p>
-      <p className={cn('text-[18px] font-semibold tabular-nums text-foreground', owed && 'text-danger-ink')}>{children}</p>
-      {hint && <p className="text-[12px] text-ink-mute">{hint}</p>}
-    </div>
-  );
-}
-
 /** A landlord with no rent this month shows a dash: nothing is due, so a zero would claim a settled month. */
 const cell = (row: LandlordDue, value: number) => (row.idleReason ? '—' : formatMoney(value, ''));
+/**
+ * What is due or left for the month. With no monthly rent recorded and no payment to go by, the amount is not
+ * known, so it is a dash and not a zero that would read as «nothing to pay».
+ */
+const owedCell = (row: LandlordDue, value: number) => (row.amountSource === 'unknown' ? '—' : cell(row, value));
 
 function names(list: string[]) {
   return list.length <= 3 ? list.join('، ') : `${list.slice(0, 3).join('، ')} وغيرهم`;
@@ -30,48 +26,62 @@ function names(list: string[]) {
 
 type PayProps = { canPay: boolean; onPay: (row: LandlordDue) => void };
 
+/** The amount of the month is a guess from the latest paid month: the row says so and where to fix it. */
+function EstimateNote({ row }: { row: LandlordDue }) {
+  if (row.amountSource === 'monthly_rent') return null;
+  return (
+    <p className="flex items-center justify-between gap-3 text-[12px] text-ink-mute">
+      <span>{row.amountSource === 'estimate' ? 'الإيجار الشهري غير مسجّل، والمبلغ تقدير' : 'الإيجار الشهري غير مسجّل'}</span>
+      <Link href={`/contacts/${row.contactId}`} className="inline-flex min-h-11 shrink-0 items-center text-info-ink underline underline-offset-4">
+        حدّد الإيجار
+      </Link>
+    </p>
+  );
+}
+
 function PhoneRow({ row, canPay, onPay }: PayProps & { row: LandlordDue }) {
   const arrearsText = landlordArrearsText(row);
   // the badge already says it when nothing else does
   const idle = row.status === 'none' ? null : landlordIdleText(row.idleReason);
   return (
-    <li className="px-4 py-3.5">
-      {/* the padding widens the tap area to 44px; the equal negative margin keeps the layout as it was */}
-      <Link href={`/contacts/${row.contactId}`} className="-my-3 block truncate py-3 text-[14px] font-semibold text-foreground hover:underline">
-        {row.name}
-      </Link>
-      <p className="mt-0.5 truncate text-[12.5px] text-ink-mute">
-        {row.site ?? 'عقار مؤجَّر للمول'} · إيجار شهري <span className="tabular-nums">{formatMoney(row.monthlyRent, 'LYD')}</span>
-      </p>
-      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+    <li className="flex flex-col gap-3 px-4 py-4">
+      <div className="flex items-center gap-3">
+        <PartyAvatar name={row.name} role="LANDLORD" size="sm" className="whitespace-nowrap text-[12px]" />
+        <div className="min-w-0 flex-1">
+          {/* the padding widens the tap area to 44px; the equal negative margin keeps the layout as it was */}
+          <Link href={`/contacts/${row.contactId}`} className="-my-3 block truncate py-3 text-[14.5px] font-semibold text-foreground hover:underline">
+            {row.name}
+          </Link>
+          {row.site && <p className="truncate text-[12.5px] text-ink-mute">{row.site}</p>}
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
         <LandlordDueBadge row={row} />
         {idle && <span className="text-[12px] text-ink-mute">{idle}</span>}
       </div>
-      <dl className="mt-2.5 grid grid-cols-3 gap-x-3 text-[12.5px]">
+      <LandlordMonthStrip months={row.yearMonths} />
+      <dl className="grid grid-cols-3 gap-x-3 text-[12.5px]">
         <div>
           <dt className="text-ink-mute">المستحق</dt>
-          <dd className="mt-0.5 tabular-nums text-foreground">{cell(row, row.due)}</dd>
+          <dd className="mt-0.5 tabular-nums text-foreground">{owedCell(row, row.due)}</dd>
         </div>
         <div>
-          <dt className="text-ink-mute">المسدد</dt>
+          <dt className="text-ink-mute">المسدّد</dt>
           <dd className="mt-0.5 tabular-nums text-foreground">{cell(row, row.paid)}</dd>
         </div>
         <div>
           <dt className="text-ink-mute">المتبقي</dt>
-          <dd className={cn('mt-0.5 tabular-nums', row.remaining > 0 ? 'font-semibold text-danger-ink' : 'text-foreground')}>{cell(row, row.remaining)}</dd>
+          <dd className={cn('mt-0.5 tabular-nums', row.remaining > 0 ? 'font-semibold text-danger-ink' : 'text-foreground')}>{owedCell(row, row.remaining)}</dd>
         </div>
       </dl>
       {row.arrears.amount > 0 && (
-        <p className="mt-2 flex items-baseline justify-between gap-3 text-[12.5px]">
+        <p className="flex items-baseline justify-between gap-3 text-[12.5px]">
           <span className="min-w-0 text-ink-mute">متأخرات سابقة{arrearsText ? ` · ${arrearsText}` : ''}</span>
           <span className="shrink-0 font-semibold tabular-nums text-danger-ink">{formatMoney(row.arrears.amount, 'LYD')}</span>
         </p>
       )}
-      {row.next && canPay && (
-        <div className="mt-3 flex sm:justify-end">
-          <LandlordPayButton name={row.name} next={row.next} onPay={() => onPay(row)} className="w-full sm:w-auto" />
-        </div>
-      )}
+      <EstimateNote row={row} />
+      {row.next && canPay && <LandlordPayButton name={row.name} next={row.next} onPay={() => onPay(row)} className="w-full" />}
     </li>
   );
 }
@@ -79,16 +89,17 @@ function PhoneRow({ row, canPay, onPay }: PayProps & { row: LandlordDue }) {
 function DeskTable({ dues, canPay, onPay }: PayProps & { dues: LandlordDues }) {
   const t = dues.totals;
   return (
-    <div className="hidden overflow-x-auto rounded-xl border border-border bg-card xl:block">
+    <div className="hidden overflow-x-auto xl:block">
       <table className="w-full text-[13px]">
+        <caption className="sr-only">مستحقات المؤجرين شهراً بشهر</caption>
         <thead>
           <tr className="border-b border-border bg-canvas-sunken text-[12.5px] text-ink-mute">
             <th scope="col" className="px-4 py-2.5 text-start font-medium">المؤجر</th>
-            <th scope="col" className="px-4 py-2.5 text-start font-medium">الحالة</th>
-            <th scope="col" className="px-4 py-2.5 text-end font-medium">المستحق</th>
-            <th scope="col" className="px-4 py-2.5 text-end font-medium">المسدد</th>
-            <th scope="col" className="px-4 py-2.5 text-end font-medium">المتبقي</th>
-            <th scope="col" className="px-4 py-2.5 text-end font-medium">متأخرات سابقة</th>
+            <th scope="col" className="px-3 py-2.5 text-start font-medium">أشهر {dues.year}</th>
+            <th scope="col" className="px-3 py-2.5 text-end font-medium">المستحق</th>
+            <th scope="col" className="px-3 py-2.5 text-end font-medium">المسدّد</th>
+            <th scope="col" className="px-3 py-2.5 text-end font-medium">المتبقي</th>
+            <th scope="col" className="px-3 py-2.5 text-end font-medium">متأخرات سابقة</th>
             <th scope="col" className="px-4 py-2.5 text-end font-medium">
               <span className="sr-only">سداد</span>
             </th>
@@ -100,26 +111,35 @@ function DeskTable({ dues, canPay, onPay }: PayProps & { dues: LandlordDues }) {
             const idle = row.status === 'none' ? null : landlordIdleText(row.idleReason);
             return (
               <tr key={row.contactId} className="align-top">
-                <th scope="row" className="px-4 py-3 text-start font-normal">
-                  <Link href={`/contacts/${row.contactId}`} className="block font-semibold text-foreground hover:underline">
-                    {row.name}
-                  </Link>
-                  <span className="mt-0.5 block text-[12px] text-ink-mute">{row.site ?? 'عقار مؤجَّر للمول'}</span>
+                <th scope="row" className="px-4 py-3.5 text-start font-normal">
+                  <div className="flex items-start gap-3">
+                    <PartyAvatar name={row.name} role="LANDLORD" size="sm" className="whitespace-nowrap text-[12px]" />
+                    <div className="min-w-0">
+                      <Link href={`/contacts/${row.contactId}`} className="block font-semibold text-foreground hover:underline">
+                        {row.name}
+                      </Link>
+                      {row.site && <span className="mt-0.5 block text-[12px] text-ink-mute">{row.site}</span>}
+                      <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <LandlordDueBadge row={row} />
+                        {idle && <span className="text-[12px] text-ink-mute">{idle}</span>}
+                      </span>
+                      {arrearsText && <span className="mt-1 block text-[12px] text-ink-mute">{arrearsText}</span>}
+                    </div>
+                  </div>
                 </th>
-                <td className="px-4 py-3">
-                  <LandlordDueBadge row={row} />
-                  {arrearsText && <span className="mt-1 block text-[12px] text-ink-mute">{arrearsText}</span>}
-                  {idle && <span className="mt-1 block text-[12px] text-ink-mute">{idle}</span>}
+                <td className="px-3 py-4">
+                  <LandlordMonthStrip months={row.yearMonths} />
                 </td>
-                <td className="px-4 py-3 text-end tabular-nums">{cell(row, row.due)}</td>
-                <td className="px-4 py-3 text-end tabular-nums">{cell(row, row.paid)}</td>
-                <td className={cn('px-4 py-3 text-end tabular-nums', row.remaining > 0 && 'font-semibold text-danger-ink')}>{cell(row, row.remaining)}</td>
-                <td className={cn('px-4 py-3 text-end tabular-nums', row.arrears.amount > 0 ? 'font-semibold text-danger-ink' : 'text-ink-mute')}>
+                <td className="px-3 py-3.5 text-end tabular-nums">
+                  {owedCell(row, row.due)}
+                  {row.amountSource === 'estimate' && !row.idleReason && <span className="block text-[11.5px] text-ink-mute">تقديري</span>}
+                </td>
+                <td className="px-3 py-3.5 text-end tabular-nums">{cell(row, row.paid)}</td>
+                <td className={cn('px-3 py-3.5 text-end tabular-nums', row.remaining > 0 && 'font-semibold text-danger-ink')}>{owedCell(row, row.remaining)}</td>
+                <td className={cn('px-3 py-3.5 text-end tabular-nums', row.arrears.amount > 0 ? 'font-semibold text-danger-ink' : 'text-ink-mute')}>
                   {row.arrears.amount > 0 ? formatMoney(row.arrears.amount, '') : '—'}
                 </td>
-                <td className="px-4 py-3 text-end">
-                  {row.next && canPay && <LandlordPayButton name={row.name} next={row.next} onPay={() => onPay(row)} />}
-                </td>
+                <td className="px-4 py-3 text-end">{row.next && canPay && <LandlordPayButton name={row.name} next={row.next} onPay={() => onPay(row)} />}</td>
               </tr>
             );
           })}
@@ -129,10 +149,10 @@ function DeskTable({ dues, canPay, onPay }: PayProps & { dues: LandlordDues }) {
             <td className="px-4 py-2.5" colSpan={2}>
               المجموع · {arabicCount(t.landlords, LANDLORDS)}
             </td>
-            <td className="px-4 py-2.5 text-end tabular-nums">{formatMoney(t.due, '')}</td>
-            <td className="px-4 py-2.5 text-end tabular-nums">{formatMoney(t.paid, '')}</td>
-            <td className={cn('px-4 py-2.5 text-end tabular-nums', t.remaining > 0 && 'text-danger-ink')}>{formatMoney(t.remaining, '')}</td>
-            <td className={cn('px-4 py-2.5 text-end tabular-nums', t.arrears > 0 && 'text-danger-ink')}>{formatMoney(t.arrears, '')}</td>
+            <td className="px-3 py-2.5 text-end tabular-nums">{formatMoney(t.due, '')}</td>
+            <td className="px-3 py-2.5 text-end tabular-nums">{formatMoney(t.paid, '')}</td>
+            <td className={cn('px-3 py-2.5 text-end tabular-nums', t.remaining > 0 && 'text-danger-ink')}>{formatMoney(t.remaining, '')}</td>
+            <td className={cn('px-3 py-2.5 text-end tabular-nums', t.arrears > 0 && 'text-danger-ink')}>{formatMoney(t.arrears, '')}</td>
             <td />
           </tr>
         </tfoot>
@@ -141,47 +161,68 @@ function DeskTable({ dues, canPay, onPay }: PayProps & { dues: LandlordDues }) {
   );
 }
 
-function Loading() {
-  return (
-    <div className="flex flex-col gap-3" role="status" aria-busy="true">
-      <span className="sr-only">جارٍ تحميل مستحقات المؤجرين…</span>
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4" aria-hidden>
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex flex-col gap-2 bg-card p-4">
-            <Skeleton className="h-3.5 w-24" />
-            <Skeleton className="h-5 w-28" />
-            <Skeleton className="h-3 w-16" />
-          </div>
-        ))}
-      </div>
-      <div className="surface divide-y divide-border overflow-hidden">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="flex flex-col gap-2 px-4 py-3.5">
-            <Skeleton className="h-4 w-40" />
-            <Skeleton className="h-3.5 w-56 max-w-full" />
-            <Skeleton className="h-9 w-full" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+function figures(dues: LandlordDues | null, failed: boolean, retry?: () => void): KpiCardProps[] {
+  const state: KpiCardProps['state'] = failed ? 'error' : dues ? 'ready' : 'loading';
+  const t = dues?.totals;
+  return [
+    {
+      label: 'الإيجار هذا الشهر',
+      icon: Building2,
+      accent: 'violet',
+      value: t?.due ?? null,
+      context: t ? arabicCount(t.landlords, LANDLORDS) : undefined,
+      state,
+      onRetry: retry,
+    },
+    {
+      label: 'المسدّد هذا الشهر',
+      icon: HandCoins,
+      accent: 'green',
+      value: t?.paid ?? null,
+      context: t ? (t.paid > 0 ? 'من الدفعات المرحّلة' : 'لا دفعات هذا الشهر') : undefined,
+      state,
+    },
+    {
+      label: 'المتبقي هذا الشهر',
+      icon: Hourglass,
+      accent: 'amber',
+      value: t?.remaining ?? null,
+      context: t ? (t.remaining > 0 ? undefined : 'لا متبقي') : undefined,
+      contextTone: t && t.remaining > 0 ? 'warn' : 'good',
+      state,
+    },
+    {
+      label: 'متأخرات سابقة',
+      icon: CalendarClock,
+      accent: 'red',
+      value: t?.arrears ?? null,
+      tone: t && t.arrears > 0 ? 'bad' : 'plain',
+      context: t ? (t.behind > 0 ? `المتأخر: ${arabicCount(t.behind, LANDLORDS)}${t.incomplete > 0 ? ' · على الأقل' : ''}` : 'لا متأخرات') : undefined,
+      contextTone: t && t.behind > 0 ? 'bad' : 'good',
+      state,
+    },
+  ];
 }
 
-/** What the mall owes each landlord this month and for the earlier months of the year, most urgent first. */
+/** What the mall owes each landlord this month and for the earlier months, most urgent first. */
 export function LandlordDuesPanel() {
-  const result = useLandlordDues();
+  // rent paid to landlords is an expense: a role that may not see expenses is shown nothing, and nothing is read for it
+  const { can } = usePermission();
+  const result = useLandlordDues(can('expense.view'));
   const { canPay, pay } = useLandlordPay();
   const onPay = (row: LandlordDue) => {
-    if (row.next) pay(row.contactId, row.next);
+    if (row.next) pay(row.contactId, row.next, row.kind);
   };
 
   const ready = result.state === 'ready' ? result : null;
-  const dues = ready?.dues;
-  const behindWithoutStart = dues?.rows.filter((r) => r.arrears.amount > 0 && r.contractStartMissing).map((r) => r.name) ?? [];
+  const dues = ready?.dues ?? null;
+  const failed = result.state === 'error';
   const badDates = dues?.rows.filter((r) => r.contractDatesInvalid).map((r) => r.name) ?? [];
 
+  if (result.state === 'off') return null;
+
   return (
-    <section aria-labelledby="landlord-dues-heading" className="flex flex-col gap-2">
+    <section aria-labelledby="landlord-dues-heading" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-1">
         <h2 id="landlord-dues-heading" className="text-[15px] font-semibold text-foreground">
           مستحقات المؤجرين
@@ -191,51 +232,43 @@ export function LandlordDuesPanel() {
         </p>
       </div>
 
-      {result.state === 'loading' ? (
-        <Loading />
-      ) : result.state === 'error' ? (
-        <Card role="alert" className="flex flex-col items-center gap-3 border-danger-line bg-danger-soft p-6 text-center text-danger-ink">
-          <p className="text-[13px]">تعذّر تحميل مستحقات المؤجرين. تحقق من الاتصال ثم أعد المحاولة.</p>
-          <Button type="button" variant="outline" size="sm" className="min-h-11 sm:min-h-8" onClick={result.retry}>
-            إعادة المحاولة
-          </Button>
+      {failed ? (
+        <Card>
+          <ErrorBlock message="تعذّر تحميل مستحقات المؤجرين. تحقق من الاتصال ثم أعد المحاولة." onRetry={result.retry} />
         </Card>
-      ) : dues && dues.rows.length === 0 ? (
-        <div className="surface px-4 py-8 text-center">
-          <p className="text-[13.5px] font-medium text-foreground">لا يوجد مؤجر بإيجار شهري مسجَّل.</p>
-          <p className="mt-1 text-[12.5px] text-ink-mute">سجّل الإيجار الشهري في ملف المؤجر لتظهر مستحقاته هنا.</p>
-        </div>
-      ) : dues ? (
+      ) : !dues ? (
         <>
-          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4">
-            <Figure label="المستحق هذا الشهر" hint={arabicCount(dues.totals.landlords, LANDLORDS)}>
-              {formatMoney(dues.totals.due, 'LYD')}
-            </Figure>
-            <Figure label="المسدد هذا الشهر">{formatMoney(dues.totals.paid, 'LYD')}</Figure>
-            <Figure label="المتبقي هذا الشهر" owed={dues.totals.remaining > 0}>
-              {formatMoney(dues.totals.remaining, 'LYD')}
-            </Figure>
-            <Figure
-              label="متأخرات سابقة"
-              owed={dues.totals.arrears > 0}
-              hint={dues.totals.behind > 0 ? `عند ${arabicCount(dues.totals.behind, LANDLORDS)}` : `لا متأخرات في ${dues.year}`}
-            >
-              {formatMoney(dues.totals.arrears, 'LYD')}
-            </Figure>
-          </div>
+          <KpiStrip label="ملخص مستحقات المؤجرين" items={figures(null, false)} />
+          <Card>
+            <LoadingBlock rows={3} />
+          </Card>
+        </>
+      ) : dues.rows.length === 0 ? (
+        <Card>
+          <EmptyBlock>لا يوجد مؤجر مسجّل. اعتمد جهة مؤجراً من ملفها لتظهر مستحقاتها هنا.</EmptyBlock>
+        </Card>
+      ) : (
+        <>
+          <KpiStrip label="ملخص مستحقات المؤجرين" items={figures(dues, false)} />
 
-          <ul className="surface divide-y divide-border overflow-hidden xl:hidden" aria-label="مستحقات كل مؤجر">
-            {dues.rows.map((row) => (
-              <PhoneRow key={row.contactId} row={row} canPay={canPay} onPay={onPay} />
-            ))}
-          </ul>
-          <DeskTable dues={dues} canPay={canPay} onPay={onPay} />
+          {dues.totals.estimated > 0 && (
+            <Callout tone="info">
+              {arabicCount(dues.totals.estimated, LANDLORDS)} بلا إيجار شهري مسجّل: المبلغ تقدير من آخر شهر مسدّد. سجّل الإيجار في ملف المؤجر ليصير المبلغ ثابتاً.
+            </Callout>
+          )}
+
+          <Card className="overflow-hidden">
+            <ul className="divide-y divide-border xl:hidden" aria-label="مستحقات كل مؤجر">
+              {dues.rows.map((row) => (
+                <PhoneRow key={row.contactId} row={row} canPay={canPay} onPay={onPay} />
+              ))}
+            </ul>
+            <DeskTable dues={dues} canPay={canPay} onPay={onPay} />
+          </Card>
 
           <div className="flex flex-col gap-1 px-1 text-[12px] leading-relaxed text-ink-mute">
-            <p>الأرقام من المعاملات المرحّلة والمُسوّاة، والشهر يُقرأ من بيان السداد (وإن لم يُذكر فهو شهر تاريخ الصرف). المتأخرات تخص أشهر {dues.year} فقط، وما قبلها يظهر في كشف المؤجر.</p>
-            {dues.noRent > 0 && <p>لا تظهر هنا مستحقات المؤجرين الذين بلا إيجار شهري مسجَّل ({arabicCount(dues.noRent, LANDLORDS)}).</p>}
-            {behindWithoutStart.length > 0 && <p>تُحسب المتأخرات من يناير لأن تاريخ بداية العقد غير مسجَّل عند: {names(behindWithoutStart)}.</p>}
-            {badDates.length > 0 && <p className="text-warning-ink">تاريخا العقد غير منطقيين عند: {names(badDates)}. راجع بيانات العقد.</p>}
+            <p>الأرقام من المعاملات المرحّلة والمطابَقة. الشهر يُقرأ من بيان السداد، وإن لم يُذكر فهو شهر الصرف. الأشهر قبل بداية المتابعة مسدّدة قبل المنظومة.</p>
+            {badDates.length > 0 && <p className="text-warning-ink">نهاية العقد قبل بدايته عند: {names(badDates)}. راجع بيانات العقد.</p>}
             {ready?.refreshFailed && (
               <p className="text-warning-ink">
                 تعذّر تحديث الأرقام، وقد لا تشمل آخر سداد.{' '}
@@ -246,7 +279,7 @@ export function LandlordDuesPanel() {
             )}
           </div>
         </>
-      ) : null}
+      )}
     </section>
   );
 }

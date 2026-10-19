@@ -6,7 +6,7 @@
 import { buildMergedTenantRentCalendar } from '@/lib/rent-calendar-from-charges';
 import { deriveTenantRentYears } from '@/lib/rent-calendar-years';
 import { resolveRentAmount, type RentPricing } from '@/lib/rent-allocation';
-import { buildTenantRentAccount } from '@/lib/tenant-rent-account';
+import { buildTenantRentAccount, tenantClaimEnd } from '@/lib/tenant-rent-account';
 import { currentMonthKey, currentYear } from '@/lib/rent-months';
 import type { TenantChargeWithRelations } from '@/lib/db/types';
 
@@ -33,8 +33,10 @@ export function buildTenantRentAccountFromData(input: {
   charges: TenantChargeWithRelations[];
   manualExemptMonths: string[];
   pricing: RentPricing;
+  /** `tenantClaimEnd(leases)`: set when every lease of the tenant has ended, so later months are not claimed */
+  claimEnd?: string | null;
 }) {
-  const { tenantId, contactRent, claimStart, years, charges, manualExemptMonths, pricing } = input;
+  const { tenantId, contactRent, claimStart, years, charges, manualExemptMonths, pricing, claimEnd } = input;
   const exemptOptions = { claimStart, manualExemptMonths };
   const amountForMonth = (mk: string) => resolveRentAmount(mk, pricing);
   const calendars = years.map((year) =>
@@ -52,9 +54,12 @@ export function buildTenantRentAccountFromData(input: {
     pricing,
     claimStart,
     manualExemptMonths,
+    claimEnd,
     now: currentMonthKey(),
   });
 }
+
+export { tenantClaimEnd };
 
 /** The lease rent the profile uses: the active lease that started last. */
 export function activeLeaseRent(

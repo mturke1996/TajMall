@@ -25,7 +25,7 @@ import {
   type PayrollRun,
   type PayrollRunLine,
 } from '@/lib/db/payroll-queries';
-import { Amount, PayrollLoadError, RunSteps, SectionHeading, StatStrip } from './payroll-ui';
+import { Amount, PayrollLoadError, PHONE_TAP, RunSteps, SectionHeading, StatStrip } from './payroll-ui';
 import { PayAllDialog, PayLineDialog, ReasonDialog } from './payroll-dialogs';
 
 const num = (v: string | number | null | undefined) => Number(v) || 0;
@@ -208,7 +208,7 @@ export function PayrollRunPanel({
       },
       {
         id: 'actions',
-        header: '',
+        header: () => <span className="sr-only">إجراءات</span>,
         enableSorting: false,
         meta: { alwaysVisible: true, align: 'end' },
         cell: ({ row }) =>
@@ -266,7 +266,7 @@ export function PayrollRunPanel({
     if (!canManage) return null;
     if (!run)
       return (
-        <Button onClick={() => setConfirm('prepare')} disabled={employeeCount === 0}>
+        <Button className={PHONE_TAP} onClick={() => setConfirm('prepare')} disabled={employeeCount === 0}>
           <FileSpreadsheet />
           أعدّ كشف الشهر
         </Button>
@@ -274,12 +274,12 @@ export function PayrollRunPanel({
     if (status === 'DRAFT')
       return (
         <>
-          <Button variant="outline" onClick={() => setConfirm('prepare')}>
+          <Button variant="outline" className={PHONE_TAP} onClick={() => setConfirm('prepare')}>
             <RefreshCw />
             أعد الإعداد
           </Button>
           {canApprove ? (
-            <Button onClick={() => setConfirm('approve')} disabled={lines.length === 0 || stale}>
+            <Button className={PHONE_TAP} onClick={() => setConfirm('approve')} disabled={lines.length === 0 || stale}>
               <ClipboardCheck />
               اعتمد الكشف
             </Button>
@@ -291,11 +291,11 @@ export function PayrollRunPanel({
     if (status === 'APPROVED')
       return (
         <>
-          <Button variant="outline" onClick={() => setConfirm('prepare')}>
+          <Button variant="outline" className={PHONE_TAP} onClick={() => setConfirm('prepare')}>
             <RefreshCw />
             أعد الإعداد
           </Button>
-          <Button onClick={() => setConfirm('post')} disabled={stale}>
+          <Button className={PHONE_TAP} onClick={() => setConfirm('post')} disabled={stale}>
             <BookCheck />
             رحّل إلى الدفاتر
           </Button>
@@ -307,14 +307,14 @@ export function PayrollRunPanel({
   // Paying is a cashier's job too, so it sits outside the manager-only actions above.
   const payAllAction =
     canPay && status === 'POSTED' && totals.outstanding >= 0.0005 ? (
-      <Button onClick={() => setPayAllOpen(true)}>
+      <Button className={PHONE_TAP} onClick={() => setPayAllOpen(true)}>
         <HandCoins />
         اصرف كل المتبقي
       </Button>
     ) : null;
   const reverseAction =
     canManage && canApprove && status === 'POSTED' && totals.paid < 0.0005 ? (
-      <Button variant="ghost" onClick={() => setReverseOpen(true)}>
+      <Button variant="ghost" className={PHONE_TAP} onClick={() => setReverseOpen(true)}>
         <Undo2 />
         اعكس الترحيل
       </Button>
@@ -356,19 +356,20 @@ export function PayrollRunPanel({
         {stale && (
           <div className="flex flex-col gap-2 rounded-lg border border-warning-line bg-warning-soft px-3 py-2.5 text-[12.5px] text-warning-ink sm:flex-row sm:items-center sm:justify-between">
             <p>
-              تغيّرت بيانات {staleCount === 1 ? 'موظف واحد' : `${staleCount} موظفين`} بعد إعداد الكشف (حركة اعتُمدت أو أُلغيت،
+              تغيّرت بيانات {arabicCount(staleCount, ['موظف واحد', 'موظفين', 'موظفين', 'موظفاً'])} بعد إعداد الكشف (حركة اعتُمدت أو أُلغيت،
               سلفة، أو تعديل راتب). أعد إعداد الكشف ليعكس البيانات الحالية قبل الاعتماد أو الترحيل.
             </p>
-            <Button size="sm" variant="outline" className="shrink-0" onClick={() => setConfirm('prepare')}>
+            <Button size="sm" variant="outline" className={cn('shrink-0', PHONE_TAP)} onClick={() => setConfirm('prepare')}>
               <RefreshCw />
               أعد الإعداد
             </Button>
           </div>
         )}
         {employeesWithoutStructure > 0 && canManage && (!run || status === 'DRAFT') && (
-          <p className="rounded-lg border border-pastel-yellowInk/20 bg-pastel-yellow px-3 py-2 text-[12.5px] text-pastel-yellowInk">
-            {employeesWithoutStructure === 1 ? 'موظف واحد نشط' : `${employeesWithoutStructure} موظفين نشطين`} بلا هيكل راتب لن
-            {employeesWithoutStructure === 1 ? ' يدخل' : ' يدخلوا'} الكشف. حدّد هياكلهم من تبويب «هياكل الرواتب».
+          <p className="rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-[12.5px] text-warning-ink">
+            {arabicCount(employeesWithoutStructure, ['موظف نشط واحد', 'موظفان نشطان', 'موظفين نشطين', 'موظفاً نشطاً'])} بلا هيكل راتب لن{' '}
+            {employeesWithoutStructure === 1 ? 'يدخل' : employeesWithoutStructure === 2 ? 'يدخلا' : 'يدخلوا'} الكشف. حدّد{' '}
+            {employeesWithoutStructure === 1 ? 'هيكله' : 'هياكلهم'} من تبويب «هياكل الرواتب».
           </p>
         )}
         {run?.posted_at && run.journal_entry_id && (
@@ -417,7 +418,7 @@ export function PayrollRunPanel({
           description={
             employeeCount === 0
               ? 'لا يوجد موظف بهيكل راتب. ابدأ بتحديد هياكل الرواتب.'
-              : `${employeeCount} ${employeeCount === 1 ? 'موظف جاهز' : 'موظفين جاهزين'} للكشف. سجّل المكافآت والخصومات واعتمدها أولاً، ثم أعدّ الكشف.`
+              : `${arabicCount(employeeCount, ['موظف واحد جاهز', 'موظفان جاهزان', 'موظفين جاهزين', 'موظفاً جاهزاً'])} للكشف. سجّل المكافآت والخصومات واعتمدها أولاً، ثم أعدّ الكشف.`
           }
           action={canManage && employeeCount > 0 ? { label: 'أعدّ كشف الشهر', onClick: () => setConfirm('prepare') } : undefined}
         />
@@ -426,6 +427,7 @@ export function PayrollRunPanel({
           <SectionHeading title="تفاصيل الكشف" description="الفرق الصغير تحت الصافي مقارنة بالشهر السابق." />
           <DataTable
             tableId="payroll-run-lines"
+            caption={`كشف رواتب ${formatMonthKeyAr(month)} بحسب الموظف`}
             data={lines}
             columns={columns}
             getRowId={(l) => l.id}

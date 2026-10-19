@@ -1,32 +1,49 @@
 /**
  * What the mall owes its landlords: for each landlord this month's rent (due, paid, remaining), the earlier
- * months of the year that were never paid, and who to pay first.
+ * months that were not paid, and who to pay first.
  *
- * It is a reading of `buildLandlordRentSchedule`, so the directory, the landlord's profile and any
- * dashboard row show one answer. Rent is owed for a month that has started, inside the landlord's
- * contract; a payment is a counted (POSTED or RECONCILED) expense to the landlord, and the month it is for
- * is the one its description names. Months before January of the current year are not looked at.
+ * It is a reading of the month engine (`people/obligation-months.ts`), the same one the landlord's profile
+ * draws its month grid from, so the directory, the profile and the dashboard show one answer:
+ *   - a landlord is the contact the role tag (or the older rules) says is one, whether the file sits under
+ *     vendors or customers;
+ *   - months before the tracking start (the `[since]` tag, else the first recorded payment, else the month the
+ *     system went live) were paid before the system and are never owed;
+ *   - a landlord with no monthly rent is not dropped: the amount of the latest paid month stands in for it and
+ *     every figure that depends on it is flagged as an estimate;
+ *   - a payment is a counted (POSTED or RECONCILED) expense to the landlord; the month it is for is the one
+ *     its description names.
  */
+import { landlordMonthName, landlordPaymentDescription } from '@/lib/contacts/contact-roles';
+import { isLandlord } from '@/lib/contacts/contact-tags';
+import type { ContactKind, ContactRow } from '@/lib/db/types';
 import {
-  buildLandlordRentSchedule,
-  extractContactBusinessRole,
-  landlordMonthName,
-  landlordPaymentDescription,
-  type LandlordRentNotDueReason,
-  type LandlordRentTx,
-} from '@/lib/contacts/contact-roles';
-import type { ContactRow } from '@/lib/db/types';
+  buildObligationYear,
+  goLiveMonthOf,
+  groupPaymentsByContact,
+  type ObligationMonth,
+  type ObligationPayment,
+  type ObligationView,
+  type TrackingStart,
+} from '@/lib/people/obligation-months';
 import { arabicCount } from '@/lib/utils';
 
 export type LandlordDueStatus = 'arrears' | 'unpaid' | 'partial' | 'paid' | 'none';
+
+/** Why this month carries no rent. */
+export type LandlordIdleReason = 'before_contract' | 'after_contract' | 'before_system' | 'unknown_start';
 
 export type LandlordOwedMonth = {
   monthKey: string;
   monthNameAr: string;
   year: number;
-  due: number;
+  /** what the month should hold; null when nothing says */
+  due: number | null;
   paid: number;
+  /** what still lacks (0 when `remainingKnown` is false) */
   remaining: number;
+  remainingKnown: boolean;
+  /** `due` is a guess from the latest paid month */
+  estimated: boolean;
 };
 
 /** The payment the "سداد" action starts: the oldest month that still lacks money. */
@@ -34,36 +51,51 @@ export type LandlordNextPayment = {
   monthKey: string;
   monthNameAr: string;
   year: number;
-  /** what that month still lacks */
-  amount: number;
+  /** what that month still lacks; null when it is not known or only estimated, so the form is left empty */
+  amount: number | null;
+  /** the amount of the month is a guess */
+  estimated: boolean;
   /** an earlier month than the current one */
   late: boolean;
-  /** text for the new transaction; the schedule reads the month back from it */
+  /** text for the new transaction; the month engine reads the month back from it */
   description: string;
 };
+
+/** One month of the current year as the strip under a landlord's name draws it. */
+export type LandlordStripMonth = Pick<ObligationMonth, 'monthKey' | 'monthNameAr' | 'status' | 'overdue' | 'current' | 'paid' | 'expected' | 'estimated'>;
 
 export type LandlordDue = {
   contactId: string;
   name: string;
+  kind: ContactKind;
   /** the leased site */
   site: string | null;
   phone: string | null;
-  monthlyRent: number;
+  /** the monthly rent, or the estimate; null when nothing says */
+  monthlyAmount: number | null;
+  amountSource: 'monthly_rent' | 'estimate' | 'unknown';
   status: LandlordDueStatus;
-  /** why this month carries no rent (contract ended or not begun yet); null when it does */
-  idleReason: Extract<LandlordRentNotDueReason, 'before_contract' | 'after_contract' | 'no_rent'> | null;
+  /** why this month carries no rent; null when it does */
+  idleReason: LandlordIdleReason | null;
   /** this month */
   due: number;
   paid: number;
   remaining: number;
-  /** earlier months of the year, oldest first, that still lack money */
-  arrears: { months: LandlordOwedMonth[]; amount: number };
-  /** this month's remainder plus the arrears */
+  /** earlier months, oldest first, that still lack money */
+  arrears: { months: LandlordOwedMonth[]; amount: number; amountComplete: boolean };
+  /** this month's remainder plus the arrears (a floor when `owedComplete` is false) */
   owed: number;
+  /** months owed up to now, this one included */
+  owedMonths: number;
+  /** every owed month has a known amount */
+  owedComplete: boolean;
+  /** some of `owed` is an estimate */
+  owedEstimated: boolean;
   next: LandlordNextPayment | null;
-  /** no contract start is recorded, so the arrears are counted from January */
-  contractStartMissing: boolean;
+  tracking: TrackingStart;
   contractDatesInvalid: boolean;
+  /** the twelve months of the current year, oldest first */
+  yearMonths: LandlordStripMonth[];
 };
 
 export type LandlordDues = {
@@ -87,98 +119,152 @@ export type LandlordDues = {
     owing: number;
     /** landlords with an earlier month unpaid */
     behind: number;
+    /** landlords whose monthly rent is not recorded, so their figures are estimates */
+    estimated: number;
+    /** landlords with an owed month whose amount is not known */
+    incomplete: number;
   };
-  /** landlords left out because no monthly rent is recorded for them */
-  noRent: number;
 };
 
 const EPS = 0.0005;
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
+/** How far back the months before this year are looked at: the engine does not walk further either. */
+const MAX_YEARS_BACK = 20;
 const MONTH_FORMS: [string, string, string, string] = ['شهر واحد', 'شهران', 'أشهر', 'شهراً'];
 export const LANDLORD_DUES_MONTHS = (n: number) => arabicCount(n, MONTH_FORMS);
 
-/** The people directory with the landlords filter (the `role` parameter is read once the directory supports it; until then it opens the directory). */
+/** The people directory with the landlords filter. */
 export const LANDLORD_DUES_HREF = '/mall?tab=people&role=LANDLORD';
 
-/**
- * First day the payments are read from. A rent is often paid ahead (January's in December, or a half year
- * ahead), so the read starts six months before the year; an older payment is not for this year's months.
- */
-export function landlordDuesWindowStart(today: string): string {
-  const year = Number(today.slice(0, 4));
-  return `${year - 1}-07-01`;
+/** Active landlords, whatever list they are filed under. An inactive file owes nothing new. */
+export function selectDueLandlords(contacts: readonly ContactRow[]): ContactRow[] {
+  return contacts.filter((c) => c.is_active !== false && isLandlord(c));
 }
 
-/** Landlords with a monthly rent, and how many were left out for having none. Inactive files owe nothing new. */
-export function selectDueLandlords(contacts: readonly ContactRow[]): { landlords: ContactRow[]; noRent: number } {
-  const landlords: ContactRow[] = [];
-  let noRent = 0;
-  for (const c of contacts) {
-    if (c.is_active === false || extractContactBusinessRole(c) !== 'LANDLORD') continue;
-    if (Number(c.monthly_rent) > 0) landlords.push(c);
-    else noRent += 1;
-  }
-  return { landlords, noRent };
+type EngineInput = {
+  contact: ContactRow;
+  payments: readonly ObligationPayment[];
+  today: string;
+  goLiveMonth: string | null;
+};
+
+/** The one place the engine is called, so the dues and the profile always ask it the same way. */
+export function landlordYearView(input: EngineInput, year: number): ObligationView {
+  return buildObligationYear({
+    contact: input.contact,
+    payments: input.payments,
+    today: input.today,
+    goLiveMonth: input.goLiveMonth,
+    kind: 'EXPENSE',
+    year,
+  });
 }
+
+/** Every month before the current one that is due or part-paid, oldest first, across years. */
+function earlierOwedMonths(input: EngineInput, current: ObligationView): ObligationMonth[] {
+  const trackingMonth = current.tracking.month;
+  if (!trackingMonth) return [];
+  const thisYear = Number(current.currentMonth.slice(0, 4));
+  const firstYear = Math.max(Number(trackingMonth.slice(0, 4)), thisYear - MAX_YEARS_BACK);
+  const out: ObligationMonth[] = [];
+  for (let y = firstYear; y <= thisYear; y++) {
+    const view = y === thisYear ? current : landlordYearView(input, y);
+    for (const m of view.months) {
+      if (m.monthKey < current.currentMonth && (m.status === 'due' || m.status === 'partial')) out.push(m);
+    }
+  }
+  return out;
+}
+
+/**
+ * The payment that settles one month: the amount it still lacks (left empty when that is only a guess, so a
+ * wrong figure is never typed in for the accountant) and the text that names the month, which the month engine
+ * reads back.
+ */
+export function landlordPaymentFor(
+  contactName: string,
+  month: Pick<ObligationMonth, 'monthKey' | 'monthNameAr' | 'year' | 'remaining' | 'remainingKnown' | 'estimated'>,
+  today: string,
+): LandlordNextPayment {
+  return {
+    monthKey: month.monthKey,
+    monthNameAr: month.monthNameAr,
+    year: month.year,
+    amount: month.remainingKnown && !month.estimated && month.remaining > EPS ? month.remaining : null,
+    estimated: month.estimated,
+    late: month.monthKey < today.slice(0, 7),
+    description: landlordPaymentDescription(contactName, month.monthKey),
+  };
+}
+
+const owedMonthOf = (m: ObligationMonth): LandlordOwedMonth => ({
+  monthKey: m.monthKey,
+  monthNameAr: m.monthNameAr,
+  year: m.year,
+  due: m.expected,
+  paid: m.paid,
+  remaining: m.remainingKnown ? m.remaining : 0,
+  remainingKnown: m.remainingKnown,
+  estimated: m.estimated,
+});
 
 /** One landlord's position on `today`, from any list of transactions that includes their payments. */
-export function buildLandlordDue(contact: ContactRow, transactions: readonly LandlordRentTx[], today: string): LandlordDue {
-  const year = Number(today.slice(0, 4));
-  const monthKey = today.slice(0, 7);
-  const schedule = buildLandlordRentSchedule(contact, transactions, year, { today });
-  const current = schedule.months.find((m) => m.monthKey === monthKey);
+export function buildLandlordDue(
+  contact: ContactRow,
+  payments: readonly ObligationPayment[],
+  today: string,
+  options: { goLiveMonth?: string | null } = {},
+): LandlordDue {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) throw new RangeError(`today is not a date: ${today}`);
+  const input: EngineInput = { contact, payments, today, goLiveMonth: options.goLiveMonth ?? null };
+  const view = landlordYearView(input, Number(today.slice(0, 4)));
+  const current = view.months.find((m) => m.current);
   if (!current) throw new RangeError(`today is not a date: ${today}`);
 
-  const owedMonth = (m: (typeof schedule.months)[number]): LandlordOwedMonth => ({
-    monthKey: m.monthKey,
-    monthNameAr: m.monthNameAr,
-    year: m.year,
-    due: m.expectedAmount,
-    paid: m.paidAmount,
-    remaining: m.remainingAmount,
-  });
-  const arrearsMonths = schedule.months.filter((m) => m.monthKey < monthKey && m.remainingAmount > 0).map(owedMonth);
-  const arrearsAmount = round3(arrearsMonths.reduce((s, m) => s + m.remaining, 0));
+  const earlier = earlierOwedMonths(input, view).map(owedMonthOf);
+  const arrearsAmount = round3(earlier.reduce((s, m) => s + m.remaining, 0));
+  const currentOwed = current.status === 'due' || current.status === 'partial';
+  const currentRemaining = currentOwed && current.remainingKnown ? current.remaining : 0;
 
   const status: LandlordDueStatus =
-    arrearsMonths.length > 0
+    earlier.length > 0
       ? 'arrears'
-      : !current.due
-        ? 'none'
-        : current.remainingAmount > 0
-          ? current.paidAmount > EPS
-            ? 'partial'
-            : 'unpaid'
-          : 'paid';
+      : current.status === 'due'
+        ? 'unpaid'
+        : current.status === 'partial'
+          ? 'partial'
+          : current.status === 'paid'
+            ? 'paid'
+            : 'none';
 
-  const target = arrearsMonths[0] ?? (current.remainingAmount > 0 ? owedMonth(current) : null);
-  const reason = current.notDueReason;
+  const idleReason: LandlordIdleReason | null =
+    current.status === 'before_system' ? 'before_system' : current.status === 'idle' ? (current.idleReason ?? null) : null;
+
+  const target = earlier[0] ?? (currentOwed ? owedMonthOf(current) : null);
+  const amountComplete = earlier.every((m) => m.remainingKnown);
 
   return {
     contactId: contact.id,
     name: contact.name,
+    kind: contact.kind,
     site: contact.shop_number?.trim() || null,
     phone: contact.phone?.trim() || null,
-    monthlyRent: schedule.monthlyRent,
+    monthlyAmount: view.monthlyAmount,
+    amountSource: view.amountSource,
     status,
-    idleReason: reason === 'before_contract' || reason === 'after_contract' || reason === 'no_rent' ? reason : null,
-    due: current.expectedAmount,
-    paid: current.paidAmount,
-    remaining: current.remainingAmount,
-    arrears: { months: arrearsMonths, amount: arrearsAmount },
-    owed: round3(current.remainingAmount + arrearsAmount),
-    next: target
-      ? {
-          monthKey: target.monthKey,
-          monthNameAr: target.monthNameAr,
-          year: target.year,
-          amount: target.remaining,
-          late: target.monthKey < monthKey,
-          description: landlordPaymentDescription(contact.name, target.monthKey),
-        }
-      : null,
-    contractStartMissing: schedule.contractStartMissing,
-    contractDatesInvalid: schedule.contractDatesInvalid,
+    idleReason,
+    due: current.expected ?? (current.paid > EPS ? current.paid : 0),
+    paid: current.paid,
+    remaining: currentRemaining,
+    arrears: { months: earlier, amount: arrearsAmount, amountComplete },
+    owed: round3(currentRemaining + arrearsAmount),
+    owedMonths: earlier.length + (currentOwed ? 1 : 0),
+    owedComplete: amountComplete && (!currentOwed || current.remainingKnown),
+    owedEstimated: earlier.some((m) => m.estimated) || (currentOwed && current.estimated),
+    next: target ? landlordPaymentFor(contact.name, target, today) : null,
+    tracking: view.tracking,
+    contractDatesInvalid: view.contract.datesInvalid,
+    yearMonths: view.months.map(({ monthKey, monthNameAr, status, overdue, current, paid, expected, estimated }) => ({ monthKey, monthNameAr, status, overdue, current, paid, expected, estimated })),
   };
 }
 
@@ -198,16 +284,24 @@ export function compareLandlordDues(a: LandlordDue, b: LandlordDue): number {
   return a.name.localeCompare(b.name, 'ar');
 }
 
-/** Every landlord with a monthly rent, with this month's position, from the contacts and their payments. */
+/**
+ * Every landlord with this month's position. `contacts` is the whole list (the go-live month is the earliest
+ * file in it); `transactions` may hold anyone's rows, each landlord reads only their own.
+ */
 export function buildLandlordDues(input: {
   contacts: readonly ContactRow[];
-  transactions: readonly LandlordRentTx[];
+  transactions: readonly ObligationPayment[];
   /** "YYYY-MM-DD" */
   today: string;
+  /** "YYYY-MM"; default: the month of the earliest contact */
+  goLiveMonth?: string | null;
 }): LandlordDues {
   const { today } = input;
-  const { landlords, noRent } = selectDueLandlords(input.contacts);
-  const rows = landlords.map((c) => buildLandlordDue(c, input.transactions, today)).sort(compareLandlordDues);
+  const goLiveMonth = input.goLiveMonth === undefined ? goLiveMonthOf(input.contacts) : input.goLiveMonth;
+  const byContact = groupPaymentsByContact(input.transactions);
+  const rows = selectDueLandlords(input.contacts)
+    .map((c) => buildLandlordDue(c, byContact.get(c.id) ?? [], today, { goLiveMonth }))
+    .sort(compareLandlordDues);
   const sum = (pick: (r: LandlordDue) => number) => round3(rows.reduce((s, r) => s + pick(r), 0));
   const month = today.slice(0, 7);
 
@@ -224,10 +318,11 @@ export function buildLandlordDues(input: {
       remaining: sum((r) => r.remaining),
       arrears: sum((r) => r.arrears.amount),
       owed: sum((r) => r.owed),
-      owing: rows.filter((r) => r.owed > EPS).length,
+      owing: rows.filter((r) => r.owedMonths > 0).length,
       behind: rows.filter((r) => r.arrears.months.length > 0).length,
+      estimated: rows.filter((r) => r.amountSource !== 'monthly_rent').length,
+      incomplete: rows.filter((r) => !r.owedComplete).length,
     },
-    noRent,
   };
 }
 
@@ -235,11 +330,27 @@ export function buildLandlordDues(input: {
  * What a dashboard follow-up row needs: how many landlords the mall owes, how much, whether any is behind
  * (bad) or it is only this month's rent (warn), and where to go. Null when nothing is owed.
  */
-export function landlordDuesAttention(dues: LandlordDues): { count: number; amount: number; tone: 'bad' | 'warn'; href: string } | null {
+export type LandlordAttention = {
+  count: number;
+  amount: number;
+  /** false when an owed month has no known amount, so `amount` is a floor */
+  amountComplete: boolean;
+  /** some of `amount` is a guess from the latest paid month, because the monthly rent is not recorded */
+  estimated: boolean;
+  /** landlords with an earlier month unpaid */
+  behind: number;
+  tone: 'bad' | 'warn';
+  href: string;
+};
+
+export function landlordDuesAttention(dues: LandlordDues): LandlordAttention | null {
   if (dues.totals.owing === 0) return null;
   return {
     count: dues.totals.owing,
     amount: dues.totals.owed,
+    amountComplete: dues.totals.incomplete === 0,
+    estimated: dues.rows.some((r) => r.owedEstimated),
+    behind: dues.totals.behind,
     tone: dues.totals.behind > 0 ? 'bad' : 'warn',
     href: LANDLORD_DUES_HREF,
   };
@@ -254,8 +365,10 @@ export function landlordIdleText(reason: LandlordDue['idleReason']): string | nu
       return 'العقد منتهٍ، لا إيجار هذا الشهر';
     case 'before_contract':
       return 'العقد لم يبدأ، لا إيجار هذا الشهر';
-    case 'no_rent':
-      return 'الإيجار الشهري غير مسجَّل';
+    case 'before_system':
+      return 'مسدّد قبل المنظومة';
+    case 'unknown_start':
+      return 'بداية المتابعة غير محدّدة';
     default:
       return null;
   }
@@ -287,6 +400,6 @@ export function landlordArrearsText(row: Pick<LandlordDue, 'arrears'>): string |
 }
 
 /** The label of the pay action: names the month it pays. */
-export function landlordPayLabel(next: LandlordNextPayment): string {
+export function landlordPayLabel(next: Pick<LandlordNextPayment, 'monthNameAr'>): string {
   return `سداد ${next.monthNameAr}`;
 }

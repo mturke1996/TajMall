@@ -8,6 +8,37 @@ import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTab
 
 const W = { balance: '22%', name: '58%', code: '20%' };
 
+/**
+ * Page-break rules (the tables themselves are unchanged):
+ * - a row never splits across pages (a split row used to be cut by the footer);
+ * - a section band never sits alone at the foot of a page, away from its table;
+ * - the last row travels with the section total;
+ * - the last section's final rows, its total and the closing bar are one block, so the
+ *   closing bar is never alone on a page (the frame is kept continuous across the cut).
+ */
+const KEEP_BAND_WITH_TABLE = 80;
+/** band of a section whose whole table is one unbreakable block: it stays only if that block fits after it */
+const KEEP_WHOLE_BLOCK = 2000;
+/**
+ * Spacing between two tables is the next band's top margin, never a bottom margin on a table:
+ * react-pdf counts a block's bottom margin as part of its "presence", so a long table that ends
+ * within its own margin of the page foot is moved whole to the next page (a huge blank area).
+ */
+const GAP_AFTER_TABLE = 36;
+const KEEP_LAST_ROW_WITH_TOTAL = 40;
+const TAIL_ROWS = 2;
+const FRAME_OPEN_BOTTOM = {
+  borderBottomWidth: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  marginBottom: 0,
+};
+const FRAME_OPEN_TOP = {
+  borderTopWidth: 0,
+  borderTopLeftRadius: 0,
+  borderTopRightRadius: 0,
+};
+
 export type BalanceSheetReportPdfProps = {
   asOf: string;
   assets: Array<{ category_code: string; category_name: string; balance: number }>;
@@ -24,46 +55,99 @@ export type BalanceSheetReportPdfProps = {
 function SectionBlock({
   title,
   rows,
+  bandGap,
+  closing,
 }: {
   title: string;
   rows: BalanceSheetReportPdfProps['assets'];
+  /** top margin of the band when the section follows another table */
+  bandGap?: number;
+  /** passed to the last section only: the closing bar, kept together with this section's tail */
+  closing?: React.ReactNode;
 }) {
   if (!rows.length) return null;
   const total = rows.reduce((s, r) => s + Number(r.balance || 0), 0);
-  return (
-    <View style={{ marginBottom: 10 }}>
-      <View style={pdfReportTable.sectionBand}>
-        <Text style={pdfReportTable.sectionBandText}>{ar(title)}</Text>
-      </View>
-      <View style={pdfReportTable.tableWrap}>
-        <View style={pdfReportTable.tableHead} wrap={false}>
-          <Text style={[pdfReportTable.th, { width: W.balance }]}>{ar('الرصيد')}</Text>
-          <Text style={[pdfReportTable.thAr, { width: W.name }]}>{ar('الحساب')}</Text>
-          <Text style={[pdfReportTable.thAr, { width: W.code }]}>{ar('الرمز')}</Text>
-        </View>
-        {rows.map((r, i) => (
-          <View
-            key={r.category_code}
-            style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]}
-          >
-            <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
-              <PdfReportMoney amount={Number(r.balance)} />
-            </View>
-            <Text style={[pdfReportTable.tdAr, { width: W.name }]}>{ar(r.category_name)}</Text>
-            <Text style={[pdfReportTable.tdMuted, { width: W.code }]}>{r.category_code}</Text>
-          </View>
-        ))}
-        <View style={[pdfReportTable.tableRow, { backgroundColor: PDF.logoGreenSoft }]}>
-          <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
-            <PdfReportMoney amount={total} bold />
-          </View>
-          <Text style={[pdfReportTable.tdAr, { width: W.name, fontWeight: 'bold' }]}>
-            {ar(`إجمالي ${title}`)}
-          </Text>
-          <Text style={{ width: W.code }} />
-        </View>
-      </View>
+
+  const head = (
+    <View style={pdfReportTable.tableHead} wrap={false}>
+      <Text style={[pdfReportTable.th, { width: W.balance }]}>{ar('الرصيد')}</Text>
+      <Text style={[pdfReportTable.thAr, { width: W.name }]}>{ar('الحساب')}</Text>
+      <Text style={[pdfReportTable.thAr, { width: W.code }]}>{ar('الرمز')}</Text>
     </View>
+  );
+
+  const renderRow = (r, i, keepWithTotal) => (
+    <View
+      key={r.category_code}
+      style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]}
+      wrap={false}
+      minPresenceAhead={keepWithTotal && i === rows.length - 1 ? KEEP_LAST_ROW_WITH_TOTAL : 0}
+    >
+      <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
+        <PdfReportMoney amount={Number(r.balance)} />
+      </View>
+      <Text style={[pdfReportTable.tdAr, { width: W.name }]}>{ar(r.category_name)}</Text>
+      <Text style={[pdfReportTable.tdMuted, { width: W.code }]}>{r.category_code}</Text>
+    </View>
+  );
+
+  const totalRow = (
+    <View style={[pdfReportTable.tableRow, { backgroundColor: PDF.logoGreenSoft }]} wrap={false}>
+      <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
+        <PdfReportMoney amount={total} bold />
+      </View>
+      <Text style={[pdfReportTable.tdAr, { width: W.name, fontWeight: 'bold' }]}>
+        {ar(`إجمالي ${title}`)}
+      </Text>
+      <Text style={{ width: W.code }} />
+    </View>
+  );
+
+  const renderBand = (keepAhead: number) => (
+    <View
+      style={[pdfReportTable.sectionBand, bandGap ? { marginTop: bandGap } : {}]}
+      minPresenceAhead={keepAhead}
+    >
+      <Text style={pdfReportTable.sectionBandText}>{ar(title)}</Text>
+    </View>
+  );
+
+  // band and table are direct children of the page flow (not wrapped in a section View):
+  // react-pdf only moves an element that has something before it, so a wrapped band would
+  // stay alone at the foot of the page
+  if (!closing) {
+    return (
+      <>
+        {renderBand(KEEP_BAND_WITH_TABLE)}
+        <View style={[pdfReportTable.tableWrap, { marginBottom: 0 }]}>
+          {head}
+          {rows.map((r, i) => renderRow(r, i, true))}
+          {totalRow}
+        </View>
+      </>
+    );
+  }
+
+  // last section: [head + rows before the tail] + [last rows, total, closing bar] as one block
+  const tailFrom = rows.length > TAIL_ROWS ? rows.length - TAIL_ROWS : 0;
+  return (
+    <>
+      {renderBand(tailFrom > 0 ? KEEP_BAND_WITH_TABLE : KEEP_WHOLE_BLOCK)}
+      {tailFrom > 0 ? (
+        <View style={[pdfReportTable.tableWrap, FRAME_OPEN_BOTTOM]}>
+          {head}
+          {rows.slice(0, tailFrom).map((r, i) => renderRow(r, i, false))}
+        </View>
+      ) : null}
+      <View wrap={false}>
+        <View style={[pdfReportTable.tableWrap, tailFrom > 0 ? FRAME_OPEN_TOP : {}]}>
+          {tailFrom > 0 ? null : head}
+          {rows.slice(tailFrom).map((r, i) => renderRow(r, tailFrom + i, false))}
+          {totalRow}
+        </View>
+        <View style={{ marginTop: 10 }}>{closing}</View>
+      </View>
+    </>
   );
 }
 
@@ -78,6 +162,39 @@ export function BalanceSheetReportPDF({
   const balanced =
     Math.abs(summary.totalAssets - (summary.totalLiab + summary.totalEquity)) < 0.01;
   const periodLabel = `حتى ${asOf}`;
+
+  // sections without rows are not printed; the closing bar follows the last printed one
+  const sections = [
+    ['الأصول', assets],
+    ['الخصوم', liabilities],
+    ['حقوق الملكية', equity],
+  ].filter(([, rows]) => rows.length > 0);
+
+  const closing = (
+    <>
+      <View
+        style={[pdfReportTable.totalBar, !balanced ? pdfReportTable.totalBarWarn : {}]}
+        wrap={false}
+      >
+        <View style={pdfReportTable.totalCluster}>
+          <View style={pdfReportTable.totalMini}>
+            <Text style={pdfReportTable.totalMiniLabel}>{ar('أصول')}</Text>
+            {/* light: dark digits on the dark bar were unreadable */}
+            <PdfReportMoney amount={summary.totalAssets} bold light />
+          </View>
+          <View style={pdfReportTable.totalMini}>
+            <Text style={pdfReportTable.totalMiniLabel}>{ar('خصوم+ملكية')}</Text>
+            <PdfReportMoney amount={summary.totalLiab + summary.totalEquity} bold light />
+          </View>
+        </View>
+        <Text style={pdfReportTable.totalLabel}>
+          {ar(balanced ? 'الميزانية متوازنة' : 'الميزانية غير متوازنة')}
+        </Text>
+      </View>
+
+      <PdfReportCaption />
+    </>
+  );
 
   return (
     <ReportShell
@@ -100,30 +217,16 @@ export function BalanceSheetReportPDF({
         },
       ]}
     >
-      <SectionBlock title="الأصول" rows={assets} />
-      <SectionBlock title="الخصوم" rows={liabilities} />
-      <SectionBlock title="حقوق الملكية" rows={equity} />
-
-      <View
-        style={[pdfReportTable.totalBar, !balanced ? pdfReportTable.totalBarWarn : {}]}
-        wrap={false}
-      >
-        <View style={pdfReportTable.totalCluster}>
-          <View style={pdfReportTable.totalMini}>
-            <Text style={pdfReportTable.totalMiniLabel}>{ar('أصول')}</Text>
-            <PdfReportMoney amount={summary.totalAssets} bold />
-          </View>
-          <View style={pdfReportTable.totalMini}>
-            <Text style={pdfReportTable.totalMiniLabel}>{ar('خصوم+ملكية')}</Text>
-            <PdfReportMoney amount={summary.totalLiab + summary.totalEquity} bold />
-          </View>
-        </View>
-        <Text style={pdfReportTable.totalLabel}>
-          {ar(balanced ? 'الميزانية متوازنة' : 'الميزانية غير متوازنة')}
-        </Text>
-      </View>
-
-      <PdfReportCaption />
+      {sections.map(([title, rows], i) => (
+        <SectionBlock
+          key={title}
+          title={title}
+          rows={rows}
+          bandGap={i > 0 ? GAP_AFTER_TABLE : undefined}
+          closing={i === sections.length - 1 ? closing : undefined}
+        />
+      ))}
+      {sections.length === 0 ? closing : null}
     </ReportShell>
   );
 }

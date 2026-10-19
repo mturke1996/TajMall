@@ -50,3 +50,6 @@ src-tauri/Cargo.lock
 
 # audit script outputs (contain production data — never commit)
 tmp-*.json
+
+# screenshots of real tenant data from a review session
+dogfood-output/

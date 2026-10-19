@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Check, ChevronLeft, ChevronRight, DatabaseZap } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,13 +12,21 @@ import type { ContactRow } from '@/lib/db/types';
 
 const amountFormatter = new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
 
-/** An amount in dinars with tabular digits, kept left-to-right so the sign and currency never flip. */
+/** A button or link is at least 44px high on a phone; from 640px it keeps the size of the rest of the page. */
+export const PHONE_TAP = 'max-sm:min-h-11';
+
+/**
+ * An amount in dinars with tabular digits. Read right to left like `formatMoney`: the number first (its own
+ * left-to-right isolate, so sign and digits keep their order), the currency after it on its left. A wrapper set
+ * to dir="ltr" would put the currency on the right, i.e. read first.
+ */
 export function Amount({
   value,
   tone = 'default',
   muted,
   className,
   hideZero,
+  signed,
 }: {
   value: number | string | null | undefined;
   tone?: 'default' | 'positive' | 'negative';
@@ -26,18 +34,21 @@ export function Amount({
   className?: string;
   /** Shows a dash instead of 0, so columns with few values stay readable. */
   hideZero?: boolean;
+  /** Shows − on a negative amount and + on a positive one (the sign is part of the number's isolate). */
+  signed?: boolean;
 }) {
   // null = not shown to this role (a cashier sees net and outstanding, not the salary breakdown).
   if (value === null || value === undefined) {
     return <span className={cn('text-ink-mute', className)} aria-label="غير متاح">—</span>;
   }
-  const n = Number(value) || 0;
+  const n = Math.round((Number(value) || 0) * 1000) / 1000;
   if (hideZero && Math.abs(n) < 0.0005) {
     return <span className={cn('text-ink-mute', className)}>—</span>;
   }
+  const sign = n < 0 ? '−' : signed && n > 0 ? '+' : '';
   return (
     <span
-      dir="ltr"
+      dir="rtl"
       className={cn(
         'inline-block whitespace-nowrap font-medium tabular-nums',
         tone === 'positive' && 'text-pastel-greenInk',
@@ -46,7 +57,10 @@ export function Amount({
         className,
       )}
     >
-      {amountFormatter.format(n)}
+      <bdi dir="ltr">
+        {sign}
+        {amountFormatter.format(Math.abs(n))}
+      </bdi>
       <span className="ms-1 text-[0.8em] font-normal text-ink-mute">د.ل</span>
     </span>
   );
@@ -103,6 +117,7 @@ export function MonthSwitcher({ month, onChange }: { month: string; onChange: (m
         type="button"
         variant="ghost"
         size="icon-sm"
+        className="size-11 sm:size-8"
         onClick={() => onChange(shiftMonth(month, -1))}
         aria-label="الشهر السابق"
         title="الشهر السابق"
@@ -114,6 +129,7 @@ export function MonthSwitcher({ month, onChange }: { month: string; onChange: (m
         type="button"
         variant="ghost"
         size="icon-sm"
+        className="size-11 sm:size-8"
         onClick={() => onChange(shiftMonth(month, 1))}
         aria-label="الشهر التالي"
         title="الشهر التالي"
@@ -214,14 +230,14 @@ export function EmployeeSelect({
 }) {
   return (
     <Select value={value} onValueChange={onChange} disabled={disabled}>
-      <SelectTrigger id={id}>
+      <SelectTrigger id={id} className="h-11 sm:h-9">
         <SelectValue placeholder="اختر الموظف" />
       </SelectTrigger>
       <SelectContent>
         {employees.map((e) => (
           <SelectItem key={e.id} value={e.id}>
             {e.name}
-            {e.job_title ? <span className="ms-1.5 text-muted-foreground">— {e.job_title}</span> : null}
+            {e.job_title ? <span className="ms-1.5 text-muted-foreground">· {e.job_title}</span> : null}
           </SelectItem>
         ))}
       </SelectContent>
@@ -229,25 +245,25 @@ export function EmployeeSelect({
   );
 }
 
-/** Shown instead of the payroll screens until migration 080 is applied to the database. */
+/** Shown instead of the payroll screens while the database has no payroll yet. */
 export function PayrollSchemaMissing() {
   return (
     <section className="mx-auto flex max-w-xl flex-col gap-4 rounded-xl border border-border bg-card p-5 sm:p-6">
       <div className="flex items-start gap-3">
-        <DatabaseZap className="mt-0.5 h-5 w-5 shrink-0 text-ink-mute" aria-hidden />
+        <Database className="mt-0.5 h-5 w-5 shrink-0 text-ink-mute" aria-hidden />
         <div className="flex flex-col gap-1">
           <h2 className="text-[15px] font-semibold">الرواتب غير مفعّلة بعد</h2>
           <p className="text-[13px] leading-relaxed text-ink-mute">
-            تحتاج قاعدة البيانات إلى تحديث قبل استخدام كشوف الرواتب والسلف والمكافآت. أبلغ مسؤول النظام، وتظهر
-            الشاشات هنا مباشرة بعد التحديث. إلى ذلك الحين تُسجَّل الرواتب كمصروف من ملف الموظف.
+            تحتاج قاعدة البيانات إلى تحديث قبل استخدام كشوف الرواتب والسلف والمكافآت. أبلغ مسؤول النظام. إلى ذلك الحين تُسجَّل
+            الرواتب كمصروف من قائمة الموظفين.
           </p>
         </div>
       </div>
       <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="outline" size="sm" className="min-h-11 sm:min-h-8">
           <Link href="/mall?tab=people&segment=EMPLOYEE">الموظفون</Link>
         </Button>
-        <Button asChild variant="ghost" size="sm">
+        <Button asChild variant="ghost" size="sm" className="min-h-11 sm:min-h-8">
           <Link href="/reports/employee-spend">تقرير إنفاق الموظفين</Link>
         </Button>
       </div>

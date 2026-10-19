@@ -3,10 +3,11 @@ import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ReportPageFrame } from './ReportPageFrame';
 import { ar } from './arabicPDF';
-import { PDF, pdfBase, PDF_PAGINATION } from './pdfBase';
+import { PDF, pdfBase } from './pdfBase';
 import { PDF_TABLE_ROW, PDF_AR_CELL, PDF_NUM_CELL } from './pdfTable';
 import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTable';
 import { TajMallPdfFooter, PdfReportHeaderFlow } from './pdfBrandKit';
+import { PdfPrintLine, PdfScopeNote, PdfSignatureBlock } from './options/PdfReportExtras';
 import { BRAND } from '@/lib/brand';
 import type { CashboxKind } from '@/lib/db/types';
 
@@ -31,6 +32,28 @@ const W_DETAILED = {
   date: '13%',
   number: '9%',
 } as const;
+
+/** room a bank band needs below it: the column head and two rows, so a band is never left alone at the foot of a page */
+const DETAIL_HEAD_ROOM = 96;
+/** room the grand total bar and the caption need after the last table (its bottom margin is counted separately) */
+const CLOSING_AFTER_TABLE = 84;
+const CLOSING_AFTER_GROUP = 72;
+/**
+ * A detailed table is drawn as one card in two seamless halves: the last rows and the subtotal row sit in the
+ * second half, so they can travel to the next page together (and, for the last bank, with the grand total bar).
+ */
+const DETAIL_TAIL_ROWS = 1;
+const CARD_OPEN_BOTTOM = {
+  borderBottomWidth: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  marginBottom: 0,
+};
+const CARD_OPEN_TOP = {
+  borderTopWidth: 0,
+  borderTopLeftRadius: 0,
+  borderTopRightRadius: 0,
+};
 
 const s = StyleSheet.create({
   scopeStrip: {
@@ -250,6 +273,16 @@ export type PeriodJournalExecutivePdfProps = {
   bankGroups: PeriodJournalBankGroup[];
   categoriesSummary?: Array<{ name: string; code: string; count: number; total: number }>;
   paymentMethodsSummary?: Array<{ method: string; labelAr: string; count: number; total: number }>;
+  /**
+   * Added for the options dialog; every one is optional and a report that sets none of them renders as before.
+   * One muted line under the scope strip saying which filters were applied.
+   */
+  scopeNote?: string;
+  /** who made the report and when, printed under the totals */
+  printedBy?: string;
+  printedAt?: string;
+  /** the «أعدّه / اعتمده» lines after the totals */
+  signature?: boolean;
 };
 
 export function PeriodJournalExecutivePDF({
@@ -271,6 +304,10 @@ export function PeriodJournalExecutivePDF({
   bankGroups,
   categoriesSummary = [],
   paymentMethodsSummary = [],
+  scopeNote,
+  printedBy,
+  printedAt,
+  signature,
 }: PeriodJournalExecutivePdfProps) {
   const subtitle = subtitleAr || `${periodLabel} · ${categoryLabel} · ${basisLabel}`;
   const docTitle = documentTitle || `${BRAND.name} - ${titleAr} - ${periodLabel}`;
@@ -283,7 +320,7 @@ export function PeriodJournalExecutivePDF({
           <PdfReportHeaderFlow title={titleAr} subtitle={subtitle} titleEn="JOURNAL ENTRY" />
 
           {/* 1. Scope & Meta Strip */}
-          <View style={s.scopeStrip} wrap={false}>
+          <View style={scopeNote ? [s.scopeStrip, { marginBottom: 4 }] : s.scopeStrip} wrap={false}>
             <View style={s.scopeItem}>
               <Text style={s.scopeLabel}>{ar('الفترة المحاسبية')}</Text>
               <Text style={s.scopeValue}>{ar(periodLabel)}</Text>
@@ -307,6 +344,8 @@ export function PeriodJournalExecutivePDF({
               <PdfReportMoney amount={grandTotal} bold color={PDF.primary} />
             </View>
           </View>
+
+          {scopeNote ? <PdfScopeNote text={scopeNote} /> : null}
 
           {/* 2. KPI Summary Cards */}
           <View style={s.kpiStrip} wrap={false}>
@@ -360,262 +399,323 @@ export function PeriodJournalExecutivePDF({
                 : [s.categoryBand, s.categoryBandBank];
               const sectionAmount = bg.totalDebit > 0 ? bg.totalDebit : bg.totalCredit;
 
-              return (
-                <View key={bg.cashboxId} style={{ marginBottom: 14 }}>
-                  {/* Category Band Bar */}
-                  <View style={bandStyle} wrap={false}>
-                    <View style={s.badgeOk}>
-                      <Text style={s.badgeTextOk}>
-                        {ar(viewLevel === 'SUMMARY_ONLY' ? 'قيد مجمّع متوازن' : `${bg.entryCount} حركة`)}
-                      </Text>
-                    </View>
-                    <View style={s.categoryBandTitle}>
-                      <Text style={s.categoryBandEyebrow}>
-                        {ar(
-                          isCash
-                            ? 'الخزينة النقدية الرئيسية · قيد المقبوضات النقدية'
-                            : `الحساب المصرفي · ${bg.name}`
-                        )}
-                      </Text>
-                      <Text style={s.categoryBandName}>{ar(bg.name)}</Text>
-                      <Text style={s.categoryBandMeta}>
-                        {ar(
-                          `إجمالي حركة الحساب: ${sectionAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ل · عدد الحركات: ${bg.entryCount}`
-                        )}
-                      </Text>
-                    </View>
+              const detailed = viewLevel !== 'SUMMARY_ONLY';
+              const isLastGroup = bgIdx === bankGroups.length - 1;
+
+              /* Category Band Bar — in the detailed view it carries a keep-with-next rule for its table head */
+              const band = (
+              <View
+                style={detailed && bgIdx > 0 ? [...bandStyle, { marginTop: 24 }] : bandStyle}
+                wrap={false}
+                {...(detailed ? { minPresenceAhead: DETAIL_HEAD_ROOM } : {})}
+              >
+                <View style={s.badgeOk}>
+                  <Text style={s.badgeTextOk}>
+                    {ar(viewLevel === 'SUMMARY_ONLY' ? 'قيد مجمّع متوازن' : `${bg.entryCount} حركة`)}
+                  </Text>
+                </View>
+                <View style={s.categoryBandTitle}>
+                  <Text style={s.categoryBandEyebrow}>
+                    {ar(
+                      isCash
+                        ? 'الخزينة النقدية الرئيسية · قيد المقبوضات النقدية'
+                        : `الحساب المصرفي · ${bg.name}`
+                    )}
+                  </Text>
+                  <Text style={s.categoryBandName}>{ar(bg.name)}</Text>
+                  <Text style={s.categoryBandMeta}>
+                    {ar(
+                      `إجمالي حركة الحساب: ${sectionAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} د.ل · عدد الحركات: ${bg.entryCount}`
+                    )}
+                  </Text>
+                </View>
+              </View>
+              );
+
+              // ================= 3A: SUMMARY ONLY (مجموع البند فقط) =================
+              const summaryTable = (
+                <View style={pdfReportTable.tableWrap}>
+                  <View style={pdfReportTable.tableHead} fixed>
+                    <Text style={[pdfReportTable.th, { width: W_SUMMARY.net }]}>{ar('الصافي')}</Text>
+                    <Text style={[pdfReportTable.th, { width: W_SUMMARY.credit }]}>{ar('دائن')}</Text>
+                    <Text style={[pdfReportTable.th, { width: W_SUMMARY.debit }]}>{ar('مدين')}</Text>
+                    <Text style={[pdfReportTable.thAr, { width: W_SUMMARY.role }]}>{ar('الدور المحاسبي')}</Text>
+                    <Text style={[pdfReportTable.thAr, { width: W_SUMMARY.name }]}>{ar('الطرف / الحساب')}</Text>
+                    <Text style={[pdfReportTable.th, { width: W_SUMMARY.code }]}>{ar('الرمز')}</Text>
                   </View>
 
-                  {viewLevel === 'SUMMARY_ONLY' ? (
-                    // ================= 3A: SUMMARY ONLY (مجموع البند فقط) =================
-                    <View style={pdfReportTable.tableWrap}>
-                      <View style={pdfReportTable.tableHead} fixed>
-                        <Text style={[pdfReportTable.th, { width: W_SUMMARY.net }]}>{ar('الصافي')}</Text>
-                        <Text style={[pdfReportTable.th, { width: W_SUMMARY.credit }]}>{ar('دائن')}</Text>
-                        <Text style={[pdfReportTable.th, { width: W_SUMMARY.debit }]}>{ar('مدين')}</Text>
-                        <Text style={[pdfReportTable.thAr, { width: W_SUMMARY.role }]}>{ar('الدور المحاسبي')}</Text>
-                        <Text style={[pdfReportTable.thAr, { width: W_SUMMARY.name }]}>{ar('الطرف / الحساب')}</Text>
-                        <Text style={[pdfReportTable.th, { width: W_SUMMARY.code }]}>{ar('الرمز')}</Text>
-                      </View>
-
-                      {/* Line 1: Focus Category (البند المحدد) */}
-                      <View
-                        style={[pdfReportTable.tableRow, { backgroundColor: PDF.logoGreenSoft }]}
-                        wrap={false}
-                      >
-                        <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.net }]}>
-                          <PdfReportMoney amount={bg.focusAmount} bold showZero />
-                        </View>
-                        <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.credit }]}>
-                          <PdfReportMoney
-                            amount={bg.isCredit ? bg.focusAmount : 0}
-                            bold
-                            color={bg.isCredit ? PDF.danger : undefined}
-                            showZero
-                          />
-                        </View>
-                        <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.debit }]}>
-                          <PdfReportMoney
-                            amount={!bg.isCredit ? bg.focusAmount : 0}
-                            bold
-                            color={!bg.isCredit ? PDF.success : undefined}
-                            showZero
-                          />
-                        </View>
-                        <Text
-                          style={[
-                            pdfReportTable.tdAr,
-                            { width: W_SUMMARY.role, fontWeight: 'bold', color: PDF.primary },
-                          ]}
-                        >
-                          {ar(bg.isCredit ? 'دائن — إجمالي البند' : 'مدين — إجمالي البند')}
-                        </Text>
-                        <View style={{ width: W_SUMMARY.name, ...pdfReportTable.tdAr }}>
-                          <Text style={{ fontSize: 9, fontWeight: 'bold', color: PDF.text }}>
-                            {ar(bg.focusLineName)}
-                          </Text>
-                          <Text style={{ fontSize: 7, color: PDF.muted }}>
-                            {ar('إجمالي حركة الفترة للبند')}
-                          </Text>
-                        </View>
-                        <Text style={[pdfReportTable.tdMuted, { width: W_SUMMARY.code, fontWeight: 'bold' }]}>
-                          {ar(bg.focusLineCode || '—')}
-                        </Text>
-                      </View>
-
-                      {/* Line 2: Contra Account (الخزينة/المصرف) */}
-                      <View style={pdfReportTable.tableRow} wrap={false}>
-                        <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.net }]}>
-                          <PdfReportMoney amount={bg.contraAmount} showZero />
-                        </View>
-                        <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.credit }]}>
-                          <PdfReportMoney
-                            amount={!bg.isCredit ? bg.contraAmount : 0}
-                            color={!bg.isCredit ? PDF.danger : undefined}
-                            showZero
-                          />
-                        </View>
-                        <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.debit }]}>
-                          <PdfReportMoney
-                            amount={bg.isCredit ? bg.contraAmount : 0}
-                            color={bg.isCredit ? PDF.success : undefined}
-                            showZero
-                          />
-                        </View>
-                        <Text style={[pdfReportTable.tdAr, { width: W_SUMMARY.role }]}>
-                          {ar(!bg.isCredit ? `دائن ${bg.name}` : `مدين ${bg.name}`)}
-                        </Text>
-                        <View style={{ width: W_SUMMARY.name, ...pdfReportTable.tdAr }}>
-                          <Text style={{ fontSize: 8.5, fontWeight: 'bold', color: PDF.text }}>
-                            {ar(bg.name)}
-                          </Text>
-                          <Text style={{ fontSize: 7, color: PDF.muted }}>
-                            {ar(isCash ? 'خزينة نقدية' : 'حساب بنكي')}
-                          </Text>
-                        </View>
-                        <Text style={[pdfReportTable.tdMuted, { width: W_SUMMARY.code }]}>
-                          {ar(isCash ? '1101' : '1102')}
-                        </Text>
-                      </View>
-
-                      {/* Total Double-Entry Row */}
-                      <View style={pdfReportTable.totalsRow} wrap={false}>
-                        <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.net }]}>
-                          <PdfReportMoney amount={0} bold showZero />
-                        </View>
-                        <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.credit }]}>
-                          <PdfReportMoney
-                            amount={bg.totalCredit}
-                            bold
-                            color={PDF.danger}
-                            showZero
-                          />
-                        </View>
-                        <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.debit }]}>
-                          <PdfReportMoney
-                            amount={bg.totalDebit}
-                            bold
-                            color={PDF.success}
-                            showZero
-                          />
-                        </View>
-                        <Text style={[pdfReportTable.tdMuted, { width: W_SUMMARY.role }]}>{ar('')}</Text>
-                        <Text style={[pdfReportTable.totalsRowLabel, { width: W_SUMMARY.name }]}>
-                          {ar('مجموع القيد — متوازن')}
-                        </Text>
-                        <Text style={[pdfReportTable.tdMuted, { width: W_SUMMARY.code }]}>{ar('')}</Text>
-                      </View>
+                  {/* Line 1: Focus Category (البند المحدد) */}
+                  <View
+                    style={[pdfReportTable.tableRow, { backgroundColor: PDF.logoGreenSoft }]}
+                    wrap={false}
+                  >
+                    <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.net }]}>
+                      <PdfReportMoney amount={bg.focusAmount} bold showZero />
                     </View>
-                  ) : (
-                    // ================= 3B: DETAILED (تفصيلي بكافة القيود) =================
-                    <View style={pdfReportTable.tableWrap}>
-                      <View style={pdfReportTable.tableHead} fixed>
-                        <Text style={[pdfReportTable.th, { width: W_DETAILED.amount }]}>{ar('المبلغ')}</Text>
-                        <Text style={[pdfReportTable.thAr, { width: W_DETAILED.desc }]}>{ar('البيان والتفاصيل')}</Text>
-                        <Text style={[pdfReportTable.thAr, { width: W_DETAILED.tenant }]}>{ar('المستأجر / المحل')}</Text>
-                        <Text style={[pdfReportTable.th, { width: W_DETAILED.targetMonth }]}>{ar('شهر الاستحقاق')}</Text>
-                        <Text style={[pdfReportTable.th, { width: W_DETAILED.date }]}>{ar('تاريخ التسجيل')}</Text>
-                        <Text style={[pdfReportTable.th, { width: W_DETAILED.number }]}>{ar('رقم السند')}</Text>
-                      </View>
-
-                      {bg.items.map((it, idx) => {
-                        const isAlt = idx % 2 === 1;
-                        return (
-                          <View
-                            key={it.id || idx}
-                            style={[pdfReportTable.tableRow, isAlt ? pdfReportTable.rowAlt : {}]}
-                            wrap={false}
-                          >
-                            <View style={[pdfReportTable.tdNum, { width: W_DETAILED.amount }]}>
-                              <PdfReportMoney amount={it.amount} bold color={PDF.primary} />
-                            </View>
-
-                            <Text
-                              style={[pdfReportTable.tdAr, { width: W_DETAILED.desc, fontSize: 8 }]}
-                              numberOfLines={2}
-                            >
-                              {ar(it.description || '—')}
-                            </Text>
-
-                            <View style={{ width: W_DETAILED.tenant, ...pdfReportTable.tdAr }}>
-                              <Text style={{ fontSize: 8.5, fontWeight: 'bold', color: PDF.text }}>
-                                {ar(it.tenantName || 'عميل / جهة عامة')}
-                              </Text>
-                              {it.shopNumber ? (
-                                <Text style={{ fontSize: 7, color: PDF.muted }}>
-                                  {ar(`محل رقم: ${it.shopNumber}`)}
-                                </Text>
-                              ) : null}
-                            </View>
-
-                            <View style={{ width: W_DETAILED.targetMonth, alignItems: 'center' }}>
-                              {it.targetMonthStatus === 'PRIOR' ? (
-                                <Text style={s.rentBadgePrior}>
-                                  {ar(`⏳ سابق: ${it.targetRentMonth || 'متأخر'}`)}
-                                </Text>
-                              ) : it.targetMonthStatus === 'FUTURE' ? (
-                                <Text style={s.rentBadgeFuture}>
-                                  {ar(`مقدم: ${it.targetRentMonth || 'مستقبلي'}`)}
-                                </Text>
-                              ) : (
-                                <Text style={s.rentBadgeCurrent}>
-                                  {ar(it.targetRentMonth || 'الشهر الحالي')}
-                                </Text>
-                              )}
-                            </View>
-
-                            <Text style={[pdfReportTable.tdMuted, { width: W_DETAILED.date }]}>
-                              {ar(it.date ? it.date.slice(0, 10) : '—')}
-                            </Text>
-
-                            <Text
-                              style={[
-                                pdfReportTable.tdMuted,
-                                { width: W_DETAILED.number, fontWeight: 'bold', color: PDF.primary },
-                              ]}
-                            >
-                              {ar(`#${it.number}`)}
-                            </Text>
-                          </View>
-                        );
-                      })}
-
-                      {/* Subtotal row */}
-                      <View style={pdfReportTable.totalsRow} wrap={false}>
-                        <View style={[pdfReportTable.tdNum, { width: W_DETAILED.amount }]}>
-                          <PdfReportMoney amount={sectionAmount} bold color={PDF.primary} />
-                        </View>
-                        <Text style={[pdfReportTable.totalsRowLabel, { width: '84%', textAlign: 'right' }]}>
-                          {ar(`مجموع حركات ${bg.name} (${bg.items.length} حركة)`)}
-                        </Text>
-                      </View>
+                    <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.credit }]}>
+                      <PdfReportMoney
+                        amount={bg.isCredit ? bg.focusAmount : 0}
+                        bold
+                        color={bg.isCredit ? PDF.danger : undefined}
+                        showZero
+                      />
                     </View>
-                  )}
+                    <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.debit }]}>
+                      <PdfReportMoney
+                        amount={!bg.isCredit ? bg.focusAmount : 0}
+                        bold
+                        color={!bg.isCredit ? PDF.success : undefined}
+                        showZero
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        pdfReportTable.tdAr,
+                        { width: W_SUMMARY.role, fontWeight: 'bold', color: PDF.primary },
+                      ]}
+                    >
+                      {ar(bg.isCredit ? 'دائن — إجمالي البند' : 'مدين — إجمالي البند')}
+                    </Text>
+                    <View style={{ width: W_SUMMARY.name, ...pdfReportTable.tdAr }}>
+                      <Text style={{ fontSize: 9, fontWeight: 'bold', color: PDF.text }}>
+                        {ar(bg.focusLineName)}
+                      </Text>
+                      <Text style={{ fontSize: 7, color: PDF.muted }}>
+                        {ar('إجمالي حركة الفترة للبند')}
+                      </Text>
+                    </View>
+                    <Text style={[pdfReportTable.tdMuted, { width: W_SUMMARY.code, fontWeight: 'bold' }]}>
+                      {ar(bg.focusLineCode || '—')}
+                    </Text>
+                  </View>
+
+                  {/* Line 2: Contra Account (الخزينة/المصرف) */}
+                  <View style={pdfReportTable.tableRow} wrap={false}>
+                    <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.net }]}>
+                      <PdfReportMoney amount={bg.contraAmount} showZero />
+                    </View>
+                    <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.credit }]}>
+                      <PdfReportMoney
+                        amount={!bg.isCredit ? bg.contraAmount : 0}
+                        color={!bg.isCredit ? PDF.danger : undefined}
+                        showZero
+                      />
+                    </View>
+                    <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.debit }]}>
+                      <PdfReportMoney
+                        amount={bg.isCredit ? bg.contraAmount : 0}
+                        color={bg.isCredit ? PDF.success : undefined}
+                        showZero
+                      />
+                    </View>
+                    <Text style={[pdfReportTable.tdAr, { width: W_SUMMARY.role }]}>
+                      {ar(!bg.isCredit ? `دائن ${bg.name}` : `مدين ${bg.name}`)}
+                    </Text>
+                    <View style={{ width: W_SUMMARY.name, ...pdfReportTable.tdAr }}>
+                      <Text style={{ fontSize: 8.5, fontWeight: 'bold', color: PDF.text }}>
+                        {ar(bg.name)}
+                      </Text>
+                      <Text style={{ fontSize: 7, color: PDF.muted }}>
+                        {ar(isCash ? 'خزينة نقدية' : 'حساب بنكي')}
+                      </Text>
+                    </View>
+                    <Text style={[pdfReportTable.tdMuted, { width: W_SUMMARY.code }]}>
+                      {ar(isCash ? '1101' : '1102')}
+                    </Text>
+                  </View>
+
+                  {/* Total Double-Entry Row */}
+                  <View style={pdfReportTable.totalsRow} wrap={false}>
+                    <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.net }]}>
+                      <PdfReportMoney amount={0} bold showZero />
+                    </View>
+                    <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.credit }]}>
+                      <PdfReportMoney
+                        amount={bg.totalCredit}
+                        bold
+                        color={PDF.danger}
+                        showZero
+                      />
+                    </View>
+                    <View style={[pdfReportTable.tdNum, { width: W_SUMMARY.debit }]}>
+                      <PdfReportMoney
+                        amount={bg.totalDebit}
+                        bold
+                        color={PDF.success}
+                        showZero
+                      />
+                    </View>
+                    <Text style={[pdfReportTable.tdMuted, { width: W_SUMMARY.role }]}>{ar('')}</Text>
+                    <Text style={[pdfReportTable.totalsRowLabel, { width: W_SUMMARY.name }]}>
+                      {ar('مجموع القيد — متوازن')}
+                    </Text>
+                    <Text style={[pdfReportTable.tdMuted, { width: W_SUMMARY.code }]}>{ar('')}</Text>
+                  </View>
                 </View>
+              );
+
+              const renderItem = (it, idx) => {
+                const isAlt = idx % 2 === 1;
+                return (
+                  <View
+                    key={it.id || idx}
+                    style={[pdfReportTable.tableRow, isAlt ? pdfReportTable.rowAlt : {}]}
+                    wrap={false}
+                  >
+                    <View style={[pdfReportTable.tdNum, { width: W_DETAILED.amount }]}>
+                      <PdfReportMoney amount={it.amount} bold color={PDF.primary} />
+                    </View>
+
+                    <Text
+                      style={[pdfReportTable.tdAr, { width: W_DETAILED.desc, fontSize: 8 }]}
+                      numberOfLines={2}
+                    >
+                      {ar(it.description || '—')}
+                    </Text>
+
+                    <View style={{ width: W_DETAILED.tenant, ...pdfReportTable.tdAr }}>
+                      <Text style={{ fontSize: 8.5, fontWeight: 'bold', color: PDF.text }}>
+                        {ar(it.tenantName || 'عميل / جهة عامة')}
+                      </Text>
+                      {it.shopNumber ? (
+                        <Text style={{ fontSize: 7, color: PDF.muted }}>
+                          {ar(`محل رقم: ${it.shopNumber}`)}
+                        </Text>
+                      ) : null}
+                    </View>
+
+                    <View style={{ width: W_DETAILED.targetMonth, alignItems: 'center' }}>
+                      {it.targetMonthStatus === 'PRIOR' ? (
+                        <Text style={s.rentBadgePrior}>
+                          {ar(`سابق: ${it.targetRentMonth || 'متأخر'}`)}
+                        </Text>
+                      ) : it.targetMonthStatus === 'FUTURE' ? (
+                        <Text style={s.rentBadgeFuture}>
+                          {ar(`مقدم: ${it.targetRentMonth || 'مستقبلي'}`)}
+                        </Text>
+                      ) : (
+                        <Text style={s.rentBadgeCurrent}>
+                          {ar(it.targetRentMonth || 'الشهر الحالي')}
+                        </Text>
+                      )}
+                    </View>
+
+                    <Text style={[pdfReportTable.tdMuted, { width: W_DETAILED.date }]}>
+                      {ar(it.date ? it.date.slice(0, 10) : '—')}
+                    </Text>
+
+                    <Text
+                      style={[
+                        pdfReportTable.tdMuted,
+                        { width: W_DETAILED.number, fontWeight: 'bold', color: PDF.primary },
+                      ]}
+                    >
+                      {ar(`#${it.number}`)}
+                    </Text>
+                  </View>
+                );
+              };
+
+              // ================= 3B: DETAILED (تفصيلي بكافة القيود) =================
+              const detailSplit = bg.items.length > DETAIL_TAIL_ROWS;
+              const topItems = detailSplit ? bg.items.slice(0, bg.items.length - DETAIL_TAIL_ROWS) : bg.items;
+              const tailItems = detailSplit ? bg.items.slice(bg.items.length - DETAIL_TAIL_ROWS) : [];
+
+              const subtotalRow = (
+                <View style={pdfReportTable.totalsRow} wrap={false}>
+                  <View style={[pdfReportTable.tdNum, { width: W_DETAILED.amount }]}>
+                    <PdfReportMoney amount={sectionAmount} bold color={PDF.primary} />
+                  </View>
+                  <Text style={[pdfReportTable.totalsRowLabel, { width: '84%', textAlign: 'right' }]}>
+                    {ar(`مجموع حركات ${bg.name} (${bg.items.length} حركة)`)}
+                  </Text>
+                </View>
+              );
+
+              const detailTable = (
+                <>
+                  <View style={[pdfReportTable.tableWrap, detailSplit ? CARD_OPEN_BOTTOM : null]}>
+                    <View style={pdfReportTable.tableHead} fixed>
+                      <Text style={[pdfReportTable.th, { width: W_DETAILED.amount }]}>{ar('المبلغ')}</Text>
+                      <Text style={[pdfReportTable.thAr, { width: W_DETAILED.desc }]}>{ar('البيان والتفاصيل')}</Text>
+                      <Text style={[pdfReportTable.thAr, { width: W_DETAILED.tenant }]}>{ar('المستأجر / المحل')}</Text>
+                      <Text style={[pdfReportTable.th, { width: W_DETAILED.targetMonth }]}>{ar('شهر الاستحقاق')}</Text>
+                      <Text style={[pdfReportTable.th, { width: W_DETAILED.date }]}>{ar('تاريخ التسجيل')}</Text>
+                      <Text style={[pdfReportTable.th, { width: W_DETAILED.number }]}>{ar('رقم السند')}</Text>
+                    </View>
+
+                    {topItems.map((it, idx) => renderItem(it, idx))}
+                    {detailSplit ? null : subtotalRow}
+                  </View>
+
+                  {/* the last rows and the subtotal row: one unit (and, for the last bank, kept with the grand total bar) */}
+                  {detailSplit ? (
+                    <View
+                      style={[pdfReportTable.tableWrap, CARD_OPEN_TOP]}
+                      wrap={false}
+                      {...(isLastGroup ? { minPresenceAhead: CLOSING_AFTER_TABLE } : {})}
+                    >
+                      {tailItems.map((it, k) => renderItem(it, topItems.length + k))}
+                      {subtotalRow}
+                    </View>
+                  ) : null}
+                </>
+              );
+
+              // the small summary groups are never split; the detailed ones flow, but their band keeps its table head with it
+              if (!detailed) {
+                return (
+                  <View
+                    key={bg.cashboxId}
+                    style={{ marginBottom: 14 }}
+                    wrap={false}
+                    {...(isLastGroup ? { minPresenceAhead: CLOSING_AFTER_GROUP } : {})}
+                  >
+                    {band}
+                    {summaryTable}
+                  </View>
+                );
+              }
+
+              return (
+                <React.Fragment key={bg.cashboxId}>
+                  {band}
+                  {detailTable}
+                </React.Fragment>
               );
             })
           )}
 
-          {/* 4. Final Balanced Grand Total Bar */}
-          <View style={pdfReportTable.totalBar} wrap={false}>
-            <View style={pdfReportTable.totalCluster}>
-              <View style={pdfReportTable.totalMini}>
-                <Text style={pdfReportTable.totalMiniLabel}>{ar('إجمالي المبلغ المعتمد')}</Text>
-                <PdfReportMoney amount={grandTotal} bold light />
+          {/* 4. Final Balanced Grand Total Bar — kept with the caption (14pt of air after the detailed tables, as the summary groups have) */}
+          <View wrap={false} style={viewLevel !== 'SUMMARY_ONLY' && bankGroups.length > 0 ? { marginTop: 14 } : null}>
+            <View style={pdfReportTable.totalBar}>
+              <View style={pdfReportTable.totalCluster}>
+                <View style={pdfReportTable.totalMini}>
+                  <Text style={pdfReportTable.totalMiniLabel}>{ar('إجمالي المبلغ المعتمد')}</Text>
+                  <PdfReportMoney amount={grandTotal} bold light />
+                </View>
+                <View style={pdfReportTable.totalMini}>
+                  <Text style={pdfReportTable.totalMiniLabel}>{ar('عدد القيود والحركات')}</Text>
+                  <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: '#fff', textAlign: 'center' }}>
+                    {ar(`${totalEntries} قيداً`)}
+                  </Text>
+                </View>
               </View>
-              <View style={pdfReportTable.totalMini}>
-                <Text style={pdfReportTable.totalMiniLabel}>{ar('عدد القيود والحركات')}</Text>
-                <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: '#fff', textAlign: 'center' }}>
-                  {ar(`${totalEntries} قيداً`)}
-                </Text>
-              </View>
+              <Text style={pdfReportTable.totalLabel}>
+                {ar(`الإجمالي العام لقيد الفترة — ${periodLabel}`)}
+              </Text>
             </View>
-            <Text style={pdfReportTable.totalLabel}>
-              {ar(`الإجمالي العام لقيد الفترة — ${periodLabel}`)}
-            </Text>
+
+            <PdfReportCaption />
           </View>
 
-          <PdfReportCaption />
+          {/* print line and signature lines: one block, so the line is never left alone on a page without its signature lines */}
+          {printedBy || printedAt || signature ? (
+            <View wrap={false}>
+              <PdfPrintLine printedBy={printedBy} printedAt={printedAt} />
+              {signature ? <PdfSignatureBlock preparedBy={printedBy} /> : null}
+            </View>
+          ) : null}
         </View>
 
         <TajMallPdfFooter fixed />

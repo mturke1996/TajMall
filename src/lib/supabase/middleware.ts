@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { getSupabaseUrl, getSupabasePublicKey } from './env';
+import { getSupabaseUrl, getSupabasePublicKey, isHttpsRequest } from './env';
 
 type CookieItem = { name: string; value: string; options?: CookieOptions };
 
@@ -48,8 +48,10 @@ export async function updateSession(request: NextRequest) {
           response = NextResponse.next({
             request: { headers: request.headers },
           });
+          // the session cookies are Secure whenever the request came in over https
+          const secure = isHttpsRequest(request.headers.get('x-forwarded-proto'), request.nextUrl.protocol);
           items.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
+            response.cookies.set(name, value, secure ? { ...options, secure: true } : options);
           });
         },
       },

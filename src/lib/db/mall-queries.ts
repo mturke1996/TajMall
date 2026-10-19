@@ -13,7 +13,7 @@ import type {
   TenantChargeWithRelations,
   AccountMappingRow
 } from './types';
-import { todayISODate } from '@/lib/utils';
+import { formatMoney, todayISODate } from '@/lib/utils';
 import { invalidateMoneyQueries } from '@/lib/db/invalidate';
 import { friendlyError } from '@/lib/user-messages';
 import { fetchAllPages } from '@/lib/db/fetch-all';
@@ -172,7 +172,7 @@ export function useCloseFiscalYear() {
       qc.invalidateQueries({ queryKey: ['categories'] });
       invalidateMoneyQueries(qc);
       toast.success(`تم إنشاء قيد إقفال سنة ${data.year}`, {
-        description: `صافي النتيجة: ${Number(data.net_income).toLocaleString('ar-LY')} د.ل${
+        description: `صافي النتيجة: ${formatMoney(data.net_income)}${
           data.periods_auto_closed ? ' · أُغلقت فترات السنة' : ' · أغلق الفترات يدوياً إن رغبت'
         }`,
       });

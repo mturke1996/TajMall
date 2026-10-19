@@ -10,6 +10,7 @@ import { ar } from './arabicPDF';
 import { PDF } from './pdfBase';
 import { PdfMoneyText } from './pdfBrandKit';
 import { pdfReportTable, PdfReportMoney } from './pdfReportTable';
+import { TAIL_ROWS, FRAME_OPEN_BOTTOM, FRAME_OPEN_TOP } from './TenantStatementPDF';
 import type { PaymentReceipt, ReceiptLine } from '@/lib/payment-receipt';
 
 /** كل نص عربي بالاتجاه الصريح: السطر الذي يبدأ برقم أو بحرف لاتيني (اسم محل، مرجع) لا يُعاد ترتيبه */
@@ -32,6 +33,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 10,
   },
+  // from TIGHT_FROM months on, the spacing around the table is tighter, so a half-year paid by cheque still fits one page
+  heroTight: { paddingVertical: 8, marginBottom: 7 },
+  factsTight: { marginBottom: 7 },
+  signTight: { marginTop: 16 },
+  captionTight: { marginTop: 6 },
   heroPayer: { flex: 1.35, minWidth: 0, ...RTL },
   heroAmount: { flex: 1, minWidth: 0, ...RTL },
   heroLabel: { fontSize: 7.5, color: PDF.muted, fontWeight: 'bold', marginBottom: 4, ...RTL },
@@ -61,7 +67,7 @@ const s = StyleSheet.create({
 
   // a receipt lists few rows, so they are tighter than a report's, and four months still fit one page
   monthRow: { paddingVertical: 5, minHeight: 22 },
-  // a whole year of months is tighter still, so the table and the signatures stay on one page
+  // more than half a year of months is tighter still
   monthRowDense: { paddingVertical: 3, minHeight: 18 },
 
   balance: {
@@ -93,6 +99,8 @@ const s = StyleSheet.create({
 
 /** more month rows than this are drawn tighter */
 const DENSE_FROM = 6;
+/** this many months or more: the spacing around the table is tighter too (see the *Tight styles) */
+const TIGHT_FROM = 5;
 
 type ColumnKey = 'month' | 'status' | 'value' | 'before' | 'paid' | 'remaining';
 
@@ -113,8 +121,18 @@ function columnsFor(lines: ReceiptLine[]): { key: ColumnKey; label: string; weig
   return cols.map((c) => ({ ...c, width: `${((c.weight / total) * 100).toFixed(2)}%` }));
 }
 
-/** the first column in the list is the right-most on paper; rows are laid out left to right, so they are reversed */
-function MonthsTable({ receipt }: { receipt: PaymentReceipt }) {
+/**
+ * the first column in the list is the right-most on paper; rows are laid out left to right, so they are reversed.
+ *
+ * Page-break rules (the table itself is unchanged; see TenantStatementPDF for the reasons):
+ * - the table is cut in two: everything above the last TAIL_ROWS months, and a tail that holds those months, the
+ *   total row and `children` (the balance box and the signatures) as one block, so the signatures are never alone
+ *   on a page and always sit next to the total they confirm;
+ * - the frame is open at the cut, so the two halves read as one table when they share a page;
+ * - the gap under the table belongs to the block that follows it, not to the table.
+ */
+function MonthsTable({ receipt, children }: { receipt: PaymentReceipt; children?: React.ReactNode }) {
+  const tight = receipt.lines.length >= TIGHT_FROM;
   const cols = columnsFor(receipt.lines);
   const physical = [...cols].reverse();
   const totalRemaining = receipt.lines.some((l) => l.remaining != null)
@@ -139,36 +157,58 @@ function MonthsTable({ receipt }: { receipt: PaymentReceipt }) {
     }
   };
 
-  return (
-    <View style={pdfReportTable.tableWrap}>
-      <View style={pdfReportTable.tableHead} wrap={false} fixed>
-        {physical.map((c) => (
-          <Text key={c.key} style={[c.key === 'month' ? pdfReportTable.thAr : pdfReportTable.th, { width: c.width, direction: 'rtl' }]}>
-            {ar(c.label)}
-          </Text>
-        ))}
-      </View>
-      {receipt.lines.map((line, i) => (
-        <View key={i} style={[pdfReportTable.tableRow, receipt.lines.length > DENSE_FROM ? s.monthRowDense : s.monthRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]} wrap={false}>
-          {physical.map((c) => (
-            <React.Fragment key={c.key}>{cell(c, line)}</React.Fragment>
-          ))}
+  const rows = receipt.lines.map((line, i) => (
+    <View key={i} style={[pdfReportTable.tableRow, receipt.lines.length > DENSE_FROM ? s.monthRowDense : s.monthRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]} wrap={false}>
+      {physical.map((c) => (
+        <React.Fragment key={c.key}>{cell(c, line)}</React.Fragment>
+      ))}
+    </View>
+  ));
+  const tailFrom = Math.max(0, rows.length - TAIL_ROWS);
+
+  const head = (
+    <View style={pdfReportTable.tableHead} wrap={false} {...(tailFrom > 0 ? { fixed: true } : {})}>
+      {physical.map((c) => (
+        <Text key={c.key} style={[c.key === 'month' ? pdfReportTable.thAr : pdfReportTable.th, { width: c.width, direction: 'rtl' }]}>
+          {ar(c.label)}
+        </Text>
+      ))}
+    </View>
+  );
+
+  const totals = (
+    <View style={pdfReportTable.totalsRow} wrap={false}>
+      {physical.map((c) => (
+        <View key={c.key} style={{ width: c.width }}>
+          {c.key === 'month' ? (
+            <Text style={[pdfReportTable.totalsRowLabel, RTL]}>{ar('الإجمالي')}</Text>
+          ) : c.key === 'paid' ? (
+            <PdfReportMoney amount={receipt.total} bold showZero />
+          ) : c.key === 'remaining' && totalRemaining != null ? (
+            <PdfReportMoney amount={totalRemaining} bold showZero />
+          ) : null}
         </View>
       ))}
-      <View style={pdfReportTable.totalsRow} wrap={false}>
-        {physical.map((c) => (
-          <View key={c.key} style={{ width: c.width }}>
-            {c.key === 'month' ? (
-              <Text style={[pdfReportTable.totalsRowLabel, RTL]}>{ar('الإجمالي')}</Text>
-            ) : c.key === 'paid' ? (
-              <PdfReportMoney amount={receipt.total} bold showZero />
-            ) : c.key === 'remaining' && totalRemaining != null ? (
-              <PdfReportMoney amount={totalRemaining} bold showZero />
-            ) : null}
-          </View>
-        ))}
-      </View>
     </View>
+  );
+
+  return (
+    <>
+      {tailFrom > 0 ? (
+        <View style={[pdfReportTable.tableWrap, FRAME_OPEN_BOTTOM]}>
+          {head}
+          {rows.slice(0, tailFrom)}
+        </View>
+      ) : null}
+      <View wrap={false}>
+        <View style={[pdfReportTable.tableWrap, tailFrom > 0 ? FRAME_OPEN_TOP : { marginBottom: 0 }]}>
+          {tailFrom > 0 ? null : head}
+          {rows.slice(tailFrom)}
+          {totals}
+        </View>
+        <View style={{ marginTop: tight ? 10 : 16 }}>{children}</View>
+      </View>
+    </>
   );
 }
 
@@ -220,6 +260,31 @@ export function PaymentReceiptPDF({ receipt }: { receipt: PaymentReceipt }) {
   ].filter(Boolean);
   const factRows = [...wide.map((f) => [f]), ...Array.from({ length: Math.ceil(short.length / 2) }, (_, i) => short.slice(i * 2, i * 2 + 2))];
 
+  const tight = receipt.lines.length >= TIGHT_FROM;
+  // the balance box, the signatures and the closing line: one block, never split across pages
+  const closing = (
+    <>
+      <Balance receipt={receipt} />
+      <View wrap={false}>
+        <View style={[s.sign, tight ? s.signTight : {}]}>
+          <View style={s.signBox}>
+            <Text style={s.signText}>{ar('المستلم')}</Text>
+          </View>
+          <View style={s.signBox}>
+            <Text style={s.signText}>{ar('الدافع')}</Text>
+          </View>
+        </View>
+        <Text style={[s.caption, tight ? s.captionTight : {}]}>
+          {ar(
+            receipt.txNumber
+              ? `يُثبت هذا الإيصال استلام المبلغ المذكور وفق المعاملة المرحّلة رقم ${receipt.txNumber} في منظومة تاج مول.`
+              : 'يُثبت هذا الإيصال استلام المبلغ المذكور وفق المعاملة المرحّلة في منظومة تاج مول.',
+          )}
+        </Text>
+      </View>
+    </>
+  );
+
   return (
     <ReportShell
       titleEn="RECEIPT"
@@ -233,7 +298,7 @@ export function PaymentReceiptPDF({ receipt }: { receipt: PaymentReceipt }) {
         { label: 'طريقة الدفع', value: receipt.methodLabel },
       ].filter(Boolean)}
     >
-      <View style={s.hero} wrap={false}>
+      <View style={[s.hero, tight ? s.heroTight : {}]} wrap={false}>
         <View style={s.heroPayer}>
           <Text style={s.heroLabel}>{ar(isRent ? 'استلمنا من المستأجر' : 'استلمنا من')}</Text>
           <Text style={s.heroPayerName}>{ar(receipt.payer.name ?? '—')}</Text>
@@ -246,7 +311,7 @@ export function PaymentReceiptPDF({ receipt }: { receipt: PaymentReceipt }) {
       </View>
 
       {factRows.length > 0 ? (
-        <View style={s.facts} wrap={false}>
+        <View style={[s.facts, tight ? s.factsTight : {}]} wrap={false}>
           {factRows.map((row, i) => (
             <View key={i} style={[s.fact, i === factRows.length - 1 ? s.factLast : {}]}>
               {row.map((f) => (
@@ -262,33 +327,19 @@ export function PaymentReceiptPDF({ receipt }: { receipt: PaymentReceipt }) {
 
       {receipt.lines.length > 0 ? (
         <>
-          <Text style={[pdfReportTable.sectionTitle, { marginTop: 0, marginBottom: 6 }]} minPresenceAhead={80}>
+          {/* a heading never sits alone at the foot of a page: it moves with the first rows (or, when the whole
+              table is the closing block, with all of it) */}
+          <Text
+            style={[pdfReportTable.sectionTitle, { marginTop: 0, marginBottom: 6 }]}
+            minPresenceAhead={receipt.lines.length > TAIL_ROWS ? 80 : 400}
+          >
             {ar('توزيع الدفعة على الأشهر')}
           </Text>
-          <MonthsTable receipt={receipt} />
+          <MonthsTable receipt={receipt}>{closing}</MonthsTable>
         </>
-      ) : null}
-
-      <Balance receipt={receipt} />
-
-      {/* the signatures and the closing line move together, and never into the footer */}
-      <View wrap={false}>
-        <View style={s.sign}>
-          <View style={s.signBox}>
-            <Text style={s.signText}>{ar('المستلم')}</Text>
-          </View>
-          <View style={s.signBox}>
-            <Text style={s.signText}>{ar('الدافع')}</Text>
-          </View>
-        </View>
-        <Text style={s.caption}>
-          {ar(
-            receipt.txNumber
-              ? `يُثبت هذا الإيصال استلام المبلغ المذكور وفق المعاملة المرحّلة رقم ${receipt.txNumber} في منظومة تاج مول.`
-              : 'يُثبت هذا الإيصال استلام المبلغ المذكور وفق المعاملة المرحّلة في منظومة تاج مول.',
-          )}
-        </Text>
-      </View>
+      ) : (
+        closing
+      )}
     </ReportShell>
   );
 }

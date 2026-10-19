@@ -379,6 +379,76 @@ export function TenantsReportPDF({
         ? ar(`شهور ${period.statusFilterLabel}`)
         : ar('أرقام الشهور (1–12)');
 
+  // the totals row and the caption never sit alone on a page: they travel with the last row of the list
+  const footEl = showMonths ? (
+    <View style={col.foot} wrap={false}>
+      <Text style={col.phone} />
+      <Text style={col.status} />
+      <View style={col.monthVal}>
+        <Text style={col.footHint}>{ar('متبقي')}</Text>
+        <TableMoney amount={totalOutstanding} bold />
+      </View>
+      <View style={col.monthVal}>
+        <Text style={col.footHint}>{ar('محصّل')}</Text>
+        <TableMoney amount={totalCollected} bold color={PDF.success} />
+      </View>
+      <View style={col.monthVal}>
+        <Text style={col.footHint}>{ar('قيمة')}</Text>
+        <TableMoney amount={totalExpected} bold />
+      </View>
+      <View style={col.months}>
+        <Text style={col.footHint}>{ar('إجمالي الشهور')}</Text>
+        <Text style={col.tdMonths}>{pdfFmtNum(totalMatchingMonths)}</Text>
+      </View>
+      <Text style={[col.footLabel, col.tenant]}>
+        {ar(`إجمالي ${period.periodShortAr}`)}
+      </Text>
+      <Text style={[col.tdMuted, col.shop]}>{pdfFmtNum(rows.length)}</Text>
+    </View>
+  ) : (
+    <View style={col.foot} wrap={false}>
+      <Text style={col.phone} />
+      <Text style={col.status} />
+      <View style={col.remaining}>
+        <Text style={col.footHint}>{ar('متبقي')}</Text>
+        <TableMoney amount={totalOutstanding} bold />
+      </View>
+      <View style={col.paid}>
+        <Text style={col.footHint}>{ar('محصّل')}</Text>
+        <TableMoney amount={totalCollected} bold color={PDF.success} />
+      </View>
+      <View style={col.rent}>
+        <Text style={col.footHint}>{ar('مطلوب')}</Text>
+        <TableMoney amount={totalExpected} bold />
+      </View>
+      <Text style={[col.footLabel, col.tenant]}>
+        {ar(period.monthCount > 1 ? `إجمالي ${period.periodShortAr}` : 'إجمالي الفترة')}
+      </Text>
+      <Text style={[col.tdMuted, col.shop]}>{pdfFmtNum(rows.length)}</Text>
+    </View>
+  );
+  const captionEl = (
+    <Text style={pdfBase.caption}>
+      {ar(
+        showMonths
+          ? `وثيقة مُولَّدة آلياً · ${period.periodLabelAr} (${period.periodRangeAr}) · شهور بحالة «${period.statusFilterLabel ?? '—'}» · مجموع ${totalMatchingMonths} شهراً بقيمة ${pdfFmtNum(totalExpected)}`
+          : period.statusFilterLabel
+            ? `وثيقة مُولَّدة آلياً · ${period.periodLabelAr} · عرض: ${period.statusFilterLabel} فقط`
+            : `وثيقة مُولَّدة آلياً · ${period.periodLabelAr} (${period.periodRangeAr})`,
+      )}
+    </Text>
+  );
+  const withTail = (rowEl, i) =>
+    i === rows.length - 1 ? (
+      <View key={rowEl.key} wrap={false}>
+        {rowEl}
+        {footEl}
+        {captionEl}
+      </View>
+    ) : (
+      rowEl
+    );
+
   return (
     <ReportShell
       title={titleAr}
@@ -433,7 +503,7 @@ export function TenantsReportPDF({
         totalMatchingMonths={totalMatchingMonths}
       />
 
-      <Text style={pdfBase.sectionTitle}>
+      <Text style={pdfBase.sectionTitle} minPresenceAhead={70}>
         {ar(
           showMonths
             ? `تفاصيل الشهور والقيم — ${period.periodLabelAr} · ${period.statusFilterLabel ?? ''}`
@@ -445,7 +515,7 @@ export function TenantsReportPDF({
 
       {showMonths ? (
         <>
-          <View style={col.head} wrap={false}>
+          <View style={col.head} wrap={false} fixed>
             <Text style={[col.th, col.phone]}>{ar('الهاتف')}</Text>
             <Text style={[col.th, col.status]}>{ar('الحالة')}</Text>
             <Text style={[col.th, col.monthVal]}>{ar('المتبقي')}</Text>
@@ -469,7 +539,7 @@ export function TenantsReportPDF({
               : '—';
             const monthsNames = monthNumbersNamesAr(months, period.year);
 
-            return (
+            return withTail(
               <View
                 key={r.id}
                 style={[col.row, i % 2 === 1 ? col.rowAlt : {}]}
@@ -494,40 +564,17 @@ export function TenantsReportPDF({
                   </Text>
                   <Text style={col.footHint}>{ar(monthsNames)}</Text>
                 </View>
-                <Text style={[col.td, col.tenant]}>{ar(r.name)}</Text>
+                <Text style={[col.td, col.tenant, { direction: 'rtl' }]}>{ar(r.name)}</Text>
                 <Text style={[col.tdMuted, col.shop]}>{ar(shopLabel)}</Text>
-              </View>
+              </View>,
+              i,
             );
           })}
-
-          <View style={col.foot} wrap={false}>
-            <Text style={col.phone} />
-            <Text style={col.status} />
-            <View style={col.monthVal}>
-              <Text style={col.footHint}>{ar('متبقي')}</Text>
-              <TableMoney amount={totalOutstanding} bold />
-            </View>
-            <View style={col.monthVal}>
-              <Text style={col.footHint}>{ar('محصّل')}</Text>
-              <TableMoney amount={totalCollected} bold color={PDF.success} />
-            </View>
-            <View style={col.monthVal}>
-              <Text style={col.footHint}>{ar('قيمة')}</Text>
-              <TableMoney amount={totalExpected} bold />
-            </View>
-            <View style={col.months}>
-              <Text style={col.footHint}>{ar('إجمالي الشهور')}</Text>
-              <Text style={col.tdMonths}>{pdfFmtNum(totalMatchingMonths)}</Text>
-            </View>
-            <Text style={[col.footLabel, col.tenant]}>
-              {ar(`إجمالي ${period.periodShortAr}`)}
-            </Text>
-            <Text style={[col.tdMuted, col.shop]}>{pdfFmtNum(rows.length)}</Text>
-          </View>
+          {rows.length === 0 ? <>{footEl}{captionEl}</> : null}
         </>
       ) : (
         <>
-          <View style={col.head} wrap={false}>
+          <View style={col.head} wrap={false} fixed>
             <Text style={[col.th, col.phone]}>{ar('الهاتف')}</Text>
             <Text style={[col.th, col.status]}>{ar('الحالة')}</Text>
             <Text style={[col.th, col.remaining]}>{ar('المتبقي')}</Text>
@@ -547,7 +594,7 @@ export function TenantsReportPDF({
                 : r.shop_number
               : '—';
 
-            return (
+            return withTail(
               <View
                 key={r.id}
                 style={[col.row, i % 2 === 1 ? col.rowAlt : {}]}
@@ -566,44 +613,15 @@ export function TenantsReportPDF({
                 <View style={col.rent}>
                   <TableMoney amount={rent} />
                 </View>
-                <Text style={[col.td, col.tenant]}>{ar(r.name)}</Text>
+                <Text style={[col.td, col.tenant, { direction: 'rtl' }]}>{ar(r.name)}</Text>
                 <Text style={[col.tdMuted, col.shop]}>{ar(shopLabel)}</Text>
-              </View>
+              </View>,
+              i,
             );
           })}
-
-          <View style={col.foot} wrap={false}>
-            <Text style={col.phone} />
-            <Text style={col.status} />
-            <View style={col.remaining}>
-              <Text style={col.footHint}>{ar('متبقي')}</Text>
-              <TableMoney amount={totalOutstanding} bold />
-            </View>
-            <View style={col.paid}>
-              <Text style={col.footHint}>{ar('محصّل')}</Text>
-              <TableMoney amount={totalCollected} bold color={PDF.success} />
-            </View>
-            <View style={col.rent}>
-              <Text style={col.footHint}>{ar('مطلوب')}</Text>
-              <TableMoney amount={totalExpected} bold />
-            </View>
-            <Text style={[col.footLabel, col.tenant]}>
-              {ar(period.monthCount > 1 ? `إجمالي ${period.periodShortAr}` : 'إجمالي الفترة')}
-            </Text>
-            <Text style={[col.tdMuted, col.shop]}>{pdfFmtNum(rows.length)}</Text>
-          </View>
+          {rows.length === 0 ? <>{footEl}{captionEl}</> : null}
         </>
       )}
-
-      <Text style={pdfBase.caption}>
-        {ar(
-          showMonths
-            ? `وثيقة مُولَّدة آلياً · ${period.periodLabelAr} (${period.periodRangeAr}) · شهور بحالة «${period.statusFilterLabel ?? '—'}» · مجموع ${totalMatchingMonths} شهراً بقيمة ${pdfFmtNum(totalExpected)}`
-            : period.statusFilterLabel
-              ? `وثيقة مُولَّدة آلياً · ${period.periodLabelAr} · عرض: ${period.statusFilterLabel} فقط`
-              : `وثيقة مُولَّدة آلياً · ${period.periodLabelAr} (${period.periodRangeAr})`,
-        )}
-      </Text>
     </ReportShell>
   );
 }

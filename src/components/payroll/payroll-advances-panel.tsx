@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
 import { HandCoins, Plus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,7 +20,7 @@ import {
   type PayrollAdvance,
   type PayrollAdvanceStatus,
 } from '@/lib/db/payroll-queries';
-import { Amount, PayrollLoadError, SectionHeading, StatStrip } from './payroll-ui';
+import { Amount, PayrollLoadError, PHONE_TAP, SectionHeading, StatStrip } from './payroll-ui';
 import { AdvanceDialog, ReasonDialog, monthsLabel } from './payroll-dialogs';
 
 const STATUS_VARIANT: Record<PayrollAdvanceStatus, 'warning' | 'success' | 'neutral'> = {
@@ -62,7 +63,9 @@ export function PayrollAdvancesPanel({
         meta: { label: 'الموظف', alwaysVisible: true },
         cell: ({ row }) => (
           <div className="flex flex-col">
-            <span className="font-medium">{row.original.employee_name}</span>
+            <Link href={`/payroll/employees/${row.original.employee_id}`} className="font-medium hover:underline">
+              {row.original.employee_name}
+            </Link>
             <span className="line-clamp-1 text-[11.5px] text-muted-foreground">{row.original.reason}</span>
           </div>
         ),
@@ -117,12 +120,12 @@ export function PayrollAdvancesPanel({
       },
       {
         id: 'actions',
-        header: '',
+        header: () => <span className="sr-only">إجراءات</span>,
         enableSorting: false,
         meta: { alwaysVisible: true, align: 'end' },
         cell: ({ row }) =>
           canApprove && row.original.status === 'OPEN' && Number(row.original.repaid) < 0.0005 ? (
-            <Button size="sm" variant="ghost" onClick={() => setCancelId(row.original.id)}>
+            <Button size="sm" variant="ghost" className={PHONE_TAP} onClick={() => setCancelId(row.original.id)}>
               ألغِ
             </Button>
           ) : null,
@@ -135,10 +138,10 @@ export function PayrollAdvancesPanel({
     <div className="flex flex-col gap-5">
       <SectionHeading
         title="السلف"
-        description="تُصرف السلفة من الخزينة فوراً، ويُستقطع قسطها من كشف كل شهر حتى تُسدَّد، دون أن ينزل صافي الراتب تحت الصفر."
+        description="تُصرف السلفة من الخزينة فوراً، ويُستقطع قسطها من كشف كل شهر حتى تُسدَّد، على ألا ينزل صافي الراتب تحت الصفر."
         actions={
           canManage ? (
-            <Button onClick={() => setDialogOpen(true)} disabled={employees.length === 0}>
+            <Button className={PHONE_TAP} onClick={() => setDialogOpen(true)} disabled={employees.length === 0}>
               <Plus />
               صرف سلفة
             </Button>
@@ -157,9 +160,9 @@ export function PayrollAdvancesPanel({
       )}
 
       {rows.length > open.length && (
-        <label className="flex items-center gap-2 self-start text-[12.5px] text-ink-soft">
+        <label className="flex min-h-11 items-center gap-2 self-start text-[12.5px] text-ink-soft sm:min-h-9">
           <input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} className="h-4 w-4 accent-foreground" />
-          إظهار السلف المسددة والملغاة ({rows.length - open.length})
+          إظهار السلف المسدّدة والملغاة ({rows.length - open.length})
         </label>
       )}
 
@@ -168,6 +171,7 @@ export function PayrollAdvancesPanel({
       ) : (
         <DataTable
           tableId="payroll-advances"
+          caption="سلف الموظفين"
           data={visible}
           columns={columns}
           getRowId={(a) => a.id}
@@ -178,16 +182,18 @@ export function PayrollAdvancesPanel({
             <EmptyState
               icon={HandCoins}
               title="لا توجد سلف"
-              description="عند صرف سلفة تظهر هنا مع رصيدها المتبقي وأقساطها."
+              description="لم تُصرف سلفة لأي موظف بعد."
               action={canManage && employees.length > 0 ? { label: 'صرف سلفة', onClick: () => setDialogOpen(true) } : undefined}
             />
           }
-          noResults={<EmptyState icon={HandCoins} title="لا توجد سلف قائمة" description="كل السلف مسددة أو ملغاة." />}
+          noResults={<EmptyState icon={HandCoins} title="لا توجد سلف قائمة" description="كل السلف مسدّدة أو ملغاة." />}
           renderMobileRow={(a) => (
             <div className="flex flex-col gap-2 p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-col">
-                  <span className="font-medium">{a.employee_name}</span>
+                  <Link href={`/payroll/employees/${a.employee_id}`} className="-my-2.5 inline-block py-2.5 font-medium hover:underline">
+                    {a.employee_name}
+                  </Link>
                   <span className="text-[11.5px] text-muted-foreground">{formatDate(a.issued_on)}</span>
                 </div>
                 <Badge variant={STATUS_VARIANT[a.status]}>{ADVANCE_STATUS_LABEL[a.status]}</Badge>

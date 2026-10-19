@@ -12,7 +12,7 @@
  * Versioned by SW_VERSION — bump to force a fresh cache.
  */
 
-const SW_VERSION = 'fluxen-v3';
+const SW_VERSION = 'fluxen-v4';
 const SHELL_CACHE = `${SW_VERSION}-shell`;
 const ASSETS_CACHE = `${SW_VERSION}-assets`;
 
@@ -58,10 +58,11 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // API / auth → never cache. Always network.
+  // API / auth / the tenant portal (its address is the credential) → never cache. Always network.
   if (
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/auth/') ||
+    url.pathname.startsWith('/portal/') ||
     url.pathname.includes('/_next/data/')
   ) {
     return; // let the browser handle it normally

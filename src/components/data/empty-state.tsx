@@ -45,14 +45,14 @@ export function EmptyState({
 
       {action && (
         action.href ? (
-          <Button asChild size="sm" className="mt-1 gap-1.5">
+          <Button asChild size="sm" className="mt-1 gap-1.5 max-sm:min-h-11">
             <Link href={action.href}>
               {action.label}
               <ArrowLeft className="h-3.5 w-3.5 stroke-[1.6]" />
             </Link>
           </Button>
         ) : (
-          <Button size="sm" className="mt-1 gap-1.5" onClick={action.onClick}>
+          <Button size="sm" className="mt-1 gap-1.5 max-sm:min-h-11" onClick={action.onClick}>
             {action.label}
           </Button>
         )

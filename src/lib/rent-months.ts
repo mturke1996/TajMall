@@ -1,4 +1,5 @@
 /** مفاتيح شهر بصيغة YYYY-MM */
+import { libyaDateParts } from '@/lib/utils';
 
 export type RentMonthStatus =
   | 'paid'
@@ -49,12 +50,13 @@ const AR_MONTHS = [
   'ديسمبر',
 ] as const;
 
+/** The year, and month (1-12), it is now in Libya: the rent screens turn over with the mall's calendar. */
 export function currentYear(): number {
-  return new Date().getFullYear();
+  return libyaDateParts().year;
 }
 
 export function currentCalendarMonthIndex(): number {
-  return new Date().getMonth() + 1;
+  return libyaDateParts().month;
 }
 
 export function currentMonthKey(year = currentYear()): string {
@@ -110,9 +112,15 @@ export function formatMonthsLabelAr(months: string[]): string {
   return months.map(formatMonthLabelAr).join('، ');
 }
 
+/**
+ * "1,234.5 / 2,000 د.ل". Latin digits with a comma for thousands and a point for decimals, like every other
+ * figure in the app: the Libyan locale writes the same amount "1.234,5", and "2.000" would read as two dinars.
+ */
+const progressFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 3 });
 export function formatRentMonthPartialProgress(paid: number, amount: number): string {
-  if (amount <= 0) return '';
-  return `${paid.toLocaleString('ar-LY')} / ${amount.toLocaleString('ar-LY')} د.ل`;
+  // an unreadable figure is no label at all, not a 0
+  if (!(amount > 0) || !Number.isFinite(amount) || !Number.isFinite(paid)) return '';
+  return `${progressFormatter.format(paid)} / ${progressFormatter.format(amount)} د.ل`;
 }
 
 /** كل شهور سنة (١–١٢) */
@@ -122,9 +130,8 @@ export function yearMonthsAll(year: number): string[] {
 
 /** شهور السنة الحالية حتى الشهر الجاري */
 export function yearMonthsThroughCurrent(year = currentYear()): string[] {
-  const now = new Date();
-  const end =
-    year < now.getFullYear() ? 12 : year === now.getFullYear() ? now.getMonth() + 1 : 0;
+  const now = libyaDateParts();
+  const end = year < now.year ? 12 : year === now.year ? now.month : 0;
   return Array.from({ length: end }, (_, i) => monthKey(year, i + 1));
 }
 

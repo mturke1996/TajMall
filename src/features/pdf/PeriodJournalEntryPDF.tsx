@@ -40,6 +40,25 @@ const W = {
   code: '12%',
 } as const;
 
+/** room needed after the summary table: its bottom margin, the grand total bar and the caption */
+const SUMMARY_CLOSING_HEIGHT = 80;
+/**
+ * The summary table is drawn as one card in two seamless halves: the last rows and the totals row sit in the
+ * second half, so they can travel to the next page together with the grand total bar (never a lone bar).
+ */
+const SUMMARY_TAIL_ROWS = 1;
+const CARD_OPEN_BOTTOM = {
+  borderBottomWidth: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  marginBottom: 0,
+};
+const CARD_OPEN_TOP = {
+  borderTopWidth: 0,
+  borderTopLeftRadius: 0,
+  borderTopRightRadius: 0,
+};
+
 const TYPE_ORDER: Record<string, number> = {
   ASSET: 1,
   LIABILITY: 2,
@@ -223,70 +242,93 @@ function UnifiedSummaryTable({ lines }: { lines: PeriodJournalLine[] }) {
   const totalDebit = lines.reduce((sum, l) => sum + l.debit, 0);
   const totalCredit = lines.reduce((sum, l) => sum + l.credit, 0);
 
-  return (
-    <View style={pdfReportTable.tableWrap}>
-      <View style={pdfReportTable.tableHead} fixed>
-        <Text style={[pdfReportTable.th, { width: W.net }]}>{ar('الصافي')}</Text>
-        <Text style={[pdfReportTable.th, { width: W.credit }]}>{ar('دائن')}</Text>
-        <Text style={[pdfReportTable.th, { width: W.debit }]}>{ar('مدين')}</Text>
-        <Text style={[pdfReportTable.th, { width: W.type }]}>{ar('الخزينة')}</Text>
-        <Text style={[pdfReportTable.thAr, { width: W.name }]}>{ar('الحساب')}</Text>
-        <Text style={[pdfReportTable.thAr, { width: W.code }]}>{ar('الرمز')}</Text>
+  const renderRow = (line: PeriodJournalLine, i: number) => (
+    <View
+      key={line.rowKey}
+      style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]}
+      wrap={false}
+    >
+      <View style={[pdfReportTable.tdNum, { width: W.net }]}>
+        <PdfReportMoney amount={Math.abs(line.net)} showZero />
       </View>
-
-      {sorted.map((line, i) => (
-        <View
-          key={line.rowKey}
-          style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]}
-          wrap={false}
-        >
-          <View style={[pdfReportTable.tdNum, { width: W.net }]}>
-            <PdfReportMoney amount={Math.abs(line.net)} showZero />
-          </View>
-          <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
-            <PdfReportMoney amount={line.credit} color={PDF.danger} showZero />
-          </View>
-          <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
-            <PdfReportMoney amount={line.debit} color={PDF.success} showZero />
-          </View>
-          <Text style={[pdfReportTable.tdMuted, { width: W.type, fontSize: 7.5 }]}>
-            {ar(periodLineCashboxKindsLabel(line))}
-          </Text>
-          <View style={{ width: W.name, ...pdfReportTable.tdAr }}>
-            <Text style={pdfReportTable.tdAr}>
-              {ar(line.cashbox_name || line.category_name)}
-            </Text>
-            <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>
-              {ar(
-                line.cashbox_name
-                  ? line.category_name
-                  : accountTypeLabelAr(line.category_type),
-              )}
-            </Text>
-          </View>
-          <Text style={[pdfReportTable.tdMuted, { width: W.code }]}>
-            {ar(line.category_code || '—')}
-          </Text>
-        </View>
-      ))}
-
-      <View style={pdfReportTable.totalsRow} wrap={false}>
-        <View style={[pdfReportTable.tdNum, { width: W.net }]}>
-          <PdfReportMoney amount={Math.abs(totalDebit - totalCredit)} bold showZero />
-        </View>
-        <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
-          <PdfReportMoney amount={totalCredit} bold color={PDF.danger} showZero />
-        </View>
-        <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
-          <PdfReportMoney amount={totalDebit} bold color={PDF.success} showZero />
-        </View>
-        <Text style={[pdfReportTable.tdMuted, { width: W.type }]}>{ar('')}</Text>
-        <Text style={[pdfReportTable.totalsRowLabel, { width: W.name }]}>
-          {ar(`الإجمالي — ${sorted.length} بند`)}
+      <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
+        <PdfReportMoney amount={line.credit} color={PDF.danger} showZero />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
+        <PdfReportMoney amount={line.debit} color={PDF.success} showZero />
+      </View>
+      <Text style={[pdfReportTable.tdMuted, { width: W.type, fontSize: 7.5 }]}>
+        {ar(periodLineCashboxKindsLabel(line))}
+      </Text>
+      <View style={{ width: W.name, ...pdfReportTable.tdAr }}>
+        <Text style={pdfReportTable.tdAr}>
+          {ar(line.cashbox_name || line.category_name)}
         </Text>
-        <Text style={[pdfReportTable.tdMuted, { width: W.code }]}>{ar('')}</Text>
+        <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>
+          {ar(
+            line.cashbox_name
+              ? line.category_name
+              : accountTypeLabelAr(line.category_type),
+          )}
+        </Text>
       </View>
+      <Text style={[pdfReportTable.tdMuted, { width: W.code }]}>
+        {ar(line.category_code || '—')}
+      </Text>
     </View>
+  );
+
+  const totalsRow = (
+    <View style={pdfReportTable.totalsRow} wrap={false}>
+      <View style={[pdfReportTable.tdNum, { width: W.net }]}>
+        <PdfReportMoney amount={Math.abs(totalDebit - totalCredit)} bold showZero />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
+        <PdfReportMoney amount={totalCredit} bold color={PDF.danger} showZero />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
+        <PdfReportMoney amount={totalDebit} bold color={PDF.success} showZero />
+      </View>
+      <Text style={[pdfReportTable.tdMuted, { width: W.type }]}>{ar('')}</Text>
+      <Text style={[pdfReportTable.totalsRowLabel, { width: W.name }]}>
+        {ar(`الإجمالي — ${sorted.length} بند`)}
+      </Text>
+      <Text style={[pdfReportTable.tdMuted, { width: W.code }]}>{ar('')}</Text>
+    </View>
+  );
+
+  const split = sorted.length > SUMMARY_TAIL_ROWS;
+  const topRows = split ? sorted.slice(0, sorted.length - SUMMARY_TAIL_ROWS) : sorted;
+  const tailRows = split ? sorted.slice(sorted.length - SUMMARY_TAIL_ROWS) : [];
+
+  return (
+    <>
+      <View style={[pdfReportTable.tableWrap, split ? CARD_OPEN_BOTTOM : null]}>
+        <View style={pdfReportTable.tableHead} fixed>
+          <Text style={[pdfReportTable.th, { width: W.net }]}>{ar('الصافي')}</Text>
+          <Text style={[pdfReportTable.th, { width: W.credit }]}>{ar('دائن')}</Text>
+          <Text style={[pdfReportTable.th, { width: W.debit }]}>{ar('مدين')}</Text>
+          <Text style={[pdfReportTable.th, { width: W.type }]}>{ar('الخزينة')}</Text>
+          <Text style={[pdfReportTable.thAr, { width: W.name }]}>{ar('الحساب')}</Text>
+          <Text style={[pdfReportTable.thAr, { width: W.code }]}>{ar('الرمز')}</Text>
+        </View>
+
+        {topRows.map((line, i) => renderRow(line, i))}
+        {split ? null : totalsRow}
+      </View>
+
+      {/* the last rows and the totals row: one unit, kept with the grand total bar that follows */}
+      {split ? (
+        <View
+          style={[pdfReportTable.tableWrap, CARD_OPEN_TOP]}
+          wrap={false}
+          minPresenceAhead={SUMMARY_CLOSING_HEIGHT}
+        >
+          {tailRows.map((line, k) => renderRow(line, topRows.length + k))}
+          {totalsRow}
+        </View>
+      ) : null}
+    </>
   );
 }
 
@@ -367,7 +409,7 @@ function CategoryTotalPage({
 
   return (
     <View>
-      <View style={sectionBandStyle(sectionKind ?? 'NONE')}>
+      <View style={sectionBandStyle(sectionKind ?? 'NONE')} wrap={false}>
         <View style={balanced ? s.badgeOk : s.badgeWarn}>
           <Text style={balanced ? s.badgeTextOk : s.badgeTextWarn}>
             {ar(balanced ? 'متوازن' : 'مراجعة')}
@@ -394,7 +436,7 @@ function CategoryTotalPage({
         </View>
       </View>
 
-      <View style={pdfReportTable.docInfoStrip}>
+      <View style={pdfReportTable.docInfoStrip} wrap={false}>
         <View style={pdfReportTable.docInfoCell}>
           <Text style={pdfReportTable.docInfoLabel}>
             {ar(display.headerFocusLabel)}
@@ -491,7 +533,7 @@ function CategoryTotalPage({
           </View>
         ))}
 
-        <View style={pdfReportTable.totalsRow}>
+        <View style={pdfReportTable.totalsRow} wrap={false}>
           <View style={[pdfReportTable.tdNum, s.colCredit]}>
             <PdfReportMoney amount={totalCredit} bold color={PDF.danger} showZero />
           </View>
@@ -556,7 +598,7 @@ function ComprehensiveSummaryPage({ model }: { model: PeriodJournalEntryModel })
         <Text style={pdfReportTable.totalLabel}>
           {ar(
             model.balanced
-              ? 'إجمالي قيد الفترة — متوازن ✓'
+              ? 'إجمالي قيد الفترة — متوازن'
               : 'إجمالي قيد الفترة — مراجعة',
           )}
         </Text>

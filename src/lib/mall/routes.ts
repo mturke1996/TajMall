@@ -63,7 +63,14 @@ export const LEGACY_PEOPLE_SEGMENT: Record<string, PeopleSegment> = {
   '/customers': 'CUSTOMER',
 };
 
-export function contactBackHref(kind: string) {
+/**
+ * Where «العودة» from a contact's profile goes. A landlord is listed under customers whether its file is a
+ * vendor or a customer, so pass `landlord` (from `isLandlord`) and the way back is the landlords list.
+ */
+export function contactBackHref(kind: string, options?: { landlord?: boolean }) {
+  if (options?.landlord && (kind === 'VENDOR' || kind === 'CUSTOMER')) {
+    return peopleSegmentHref('CUSTOMER', { role: 'LANDLORD' });
+  }
   switch (kind) {
     case 'TENANT':
       return mallTabHref('tenants');

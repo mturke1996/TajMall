@@ -52,16 +52,69 @@ const rows = await contactLedgerUtils.fetchAllContactPages(async (offset, pageSi
 }, 100);
 assert.equal(rows.length, 250, 'profile ledger must include rows beyond the first 200 transactions');
 assert.deepEqual(requestedPages, [[0, 100], [100, 100], [200, 100]], 'pagination must stop after the final short page');
-assert.equal(typeof contactLedgerUtils.getPostedContactTransactions, 'function', 'financial summaries should use posted transactions only');
+assert.equal(typeof contactLedgerUtils.getCountedContactTransactions, 'function', 'financial summaries should count posted and reconciled transactions');
 assert.deepEqual(
-  contactLedgerUtils.getPostedContactTransactions([
+  contactLedgerUtils.getCountedContactTransactions([
     { id: 'posted', status: 'POSTED' },
     { id: 'draft', status: 'DRAFT' },
     { id: 'voided', status: 'VOIDED' },
     { id: 'reconciled', status: 'RECONCILED' },
+    { id: 'none' },
   ]).map((transaction) => transaction.id),
-  ['posted'],
-  'draft, voided and reconciled entries must not inflate posted profile totals',
+  ['posted', 'reconciled'],
+  'draft and voided entries must not inflate profile totals, while reconciled entries are real money and must count',
+);
+assert.deepEqual(contactLedgerUtils.getCountedContactTransactions([]), [], 'a contact with no transactions counts nothing');
+
+// ── what an edit must never wipe: the machine tags in the notes, the tracking month, the kind a landlord is filed under ──
+
+const landlord = {
+  ...contact,
+  id: 'landlord-test-id',
+  kind: 'CUSTOMER',
+  name: 'ميلاد الورفلي',
+  phone: '+218 91 3000222',
+  phone2: 'مكتب 021-480',
+  email: null,
+  job_title: 'مؤجر للمول',
+  monthly_rent: '27000',
+  shop_number: 'أرض المواقف',
+  contract_start: '2026-01-01',
+  contract_end: '2026-12-31',
+  is_active: true,
+  notes: 'عقد سنوي يُجدد في يناير\n[role:landlord]\n[since:2026-06]',
+};
+const opened = contactFormUtils.contactToFormState(landlord);
+assert.equal(opened.notes, 'عقد سنوي يُجدد في يناير', 'the form shows the note without its machine tags');
+assert.equal(opened.since, '2026-06', 'the tracking month is carried by the form, not shown as text');
+assert.equal(opened.businessRole, 'LANDLORD');
+
+const untouched = contactFormUtils.buildContactPayload(opened, opened);
+assert.equal(untouched.notes, landlord.notes, 'saving an unchanged form rewrites the notes exactly');
+assert.equal(untouched.kind, 'CUSTOMER', 'a landlord filed under customers stays there (the role alone would say vendor)');
+assert.equal(untouched.phone, '+218 91 3000222', 'a phone number that was not touched is saved as it was');
+assert.equal(untouched.phone2, 'مكتب 021-480', 'text that is not a number is never thrown away');
+for (const key of ['job_title', 'monthly_rent', 'shop_number', 'contract_start', 'contract_end']) {
+  assert.equal(untouched[key], landlord[key], `editing must preserve ${key}`);
+}
+
+const edited = contactFormUtils.buildContactPayload({ ...opened, notes: 'عقد سنوي، تغيّر الإيجار', phone: '٠٩١٣٠٠٠٢٢٢' }, opened);
+assert.equal(edited.notes, 'عقد سنوي، تغيّر الإيجار\n[role:landlord]\n[since:2026-06]', 'a changed note keeps both tags');
+assert.equal(edited.phone, '0913000222', 'a phone that was typed is written the standard way');
+
+// a rent typed with a thousands comma is the rent: dropping it would leave the landlord with nothing owed
+const rentTyped = contactFormUtils.buildContactPayload({ ...opened, monthly_rent: '25,000' }, opened);
+assert.equal(rentTyped.monthly_rent, '25000', 'a monthly rent typed as 25,000 is saved as 25000, not lost');
+assert.equal(rentTyped.notes, landlord.notes, 'and nothing else about the file changes with it');
+
+const cleared = contactFormUtils.buildContactPayload({ ...opened, notes: '' }, opened);
+assert.equal(cleared.notes, '[role:landlord]\n[since:2026-06]', 'emptying the note leaves the tags, not a role-less file');
+
+const profileLib = await import('../src/lib/people/party-profile.ts');
+assert.deepEqual(
+  profileLib.reconcileSavePayload(untouched, landlord, opened),
+  untouched,
+  'the profile page correction has nothing left to fix on a payload built by this form',
 );
 
-console.log('PASS: contact fields, inactive-state policy, complete pagination, and posted-only totals');
+console.log('PASS: contact fields, inactive-state policy, complete pagination, counted (posted and reconciled) totals, and notes tags, tracking month and kind surviving an edit');

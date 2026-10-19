@@ -1,421 +1,211 @@
 'use client';
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import {
-  Plus,
-  Search,
-  Loader2,
-  Building2,
-  Building,
-  Zap,
-  Droplets,
-  Package,
-  Wrench,
-  Briefcase,
-  User,
-  Store,
-  Edit2,
-  Trash2,
-} from 'lucide-react';
-import { ContactPhoneActions } from '@/components/contacts/contact-phone-actions';
-import { LandlordDuesPanel } from '@/components/contacts/landlord-dues-panel';
+import { useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { cn, formatDate, formatMoney } from '@/lib/utils';
-import type { ContactKind, ContactRow } from '@/lib/db/types';
-import { useTxDialog } from '@/stores/transaction-dialog';
+import { WriteGuard } from '@/components/auth/write-guard';
+import { LandlordDuesPanel } from '@/components/contacts/landlord-dues-panel';
+import { DirectoryTable } from '@/components/contacts/directory/directory-table';
+import { DirectoryCard, DirectoryTableRow } from '@/components/contacts/directory/directory-row';
+import { DirectoryEmpty, DirectoryError, DirectoryNoMatch, DirectorySkeleton } from '@/components/contacts/directory/directory-states';
+import { DirectorySummaryStrip } from '@/components/contacts/directory/directory-summary';
+import { DirectoryToolbar, RoleChips } from '@/components/contacts/directory/directory-toolbar';
+import { LandlordHints } from '@/components/contacts/directory/landlord-hints';
+import type { RowContext } from '@/components/contacts/directory/directory-types';
+import type { ContactsDirectoryState } from '@/components/contacts/use-contacts-directory';
+import { roleChipsFor, type DirectoryRow, type RoleFilter } from '@/lib/contacts/directory';
+import { landlordMonthName } from '@/lib/contacts/contact-roles';
+import { last12MonthKeys } from '@/lib/people/party-stats';
+import type { PeopleSegment } from '@/lib/mall/routes';
+import { useCategories } from '@/lib/db/queries';
 import { usePermission } from '@/lib/supabase/use-permission';
-import { usePartyActivity, type PartyActivity } from '@/lib/db/party-report-queries';
-import { useContacts } from '@/lib/db/queries';
-import {
-  extractContactBusinessRole,
-  visibleContactNotes,
-  CONTACT_ROLES,
-  type ContactBusinessRole,
-} from '@/lib/contacts/contact-roles';
+import { useTxDialog } from '@/stores/transaction-dialog';
+import { arabicCount, todayISODate } from '@/lib/utils';
 
-export type ContactsDirectoryProps = {
-  contacts: ContactRow[];
-  filteredContacts: ContactRow[];
-  isLoading: boolean;
-  searchQuery: string;
-  onSearchChange: (q: string) => void;
-  roleFilter?: ContactBusinessRole | 'ALL';
-  onRoleFilterChange?: (r: ContactBusinessRole | 'ALL') => void;
-  kindFilter?: ContactKind | 'ALL';
-  onKindFilterChange?: (k: ContactKind | 'ALL') => void;
-  stats: {
-    total: number;
-    tenants: number;
-    landlords: number;
-    electricity: number;
-    water: number;
-    goods: number;
-    services: number;
-    employees: number;
-    customers: number;
-  };
-  onAdd: (role?: ContactBusinessRole) => void;
-  onEdit: (contact: ContactRow) => void;
-  onDelete: (id: string) => void;
-  hideKindFilters?: boolean;
-  allowMutate?: boolean;
-  showInactive?: boolean;
-  onShowInactiveChange?: (show: boolean) => void;
-  inactiveCount?: number;
+const FILES: [string, string, string, string] = ['جهة واحدة', 'جهتان', 'جهات', 'جهة'];
+
+const COPY: Record<PeopleSegment, { empty: string; add: string; table: string; search: string; placeholder: string }> = {
+  all: { empty: 'لا توجد جهات بعد.', add: 'إضافة جهة', table: 'الدليل الشامل', search: 'بحث في الدليل', placeholder: 'الاسم أو الهاتف أو رقم المحل' },
+  TENANT: { empty: 'لا يوجد مستأجرون بعد.', add: 'إضافة مستأجر', table: 'المستأجرون', search: 'بحث في المستأجرين', placeholder: 'الاسم أو الهاتف أو رقم المحل' },
+  EMPLOYEE: { empty: 'لا يوجد موظفون بعد.', add: 'إضافة موظف', table: 'الموظفون', search: 'بحث في الموظفين', placeholder: 'الاسم أو الهاتف أو الرمز' },
+  VENDOR: { empty: 'لا يوجد موردون بعد.', add: 'إضافة مورد', table: 'الموردون', search: 'بحث في الموردين', placeholder: 'الاسم أو الهاتف أو الرمز' },
+  CUSTOMER: { empty: 'لا يوجد عملاء بعد.', add: 'إضافة عميل', table: 'العملاء والمؤجرون', search: 'بحث في العملاء والمؤجرين', placeholder: 'الاسم أو الهاتف أو الرمز' },
 };
 
-const PAYABLE_ROLES: ContactBusinessRole[] = [
-  'LANDLORD',
-  'SUPPLIER_ELECTRICITY',
-  'SUPPLIER_WATER',
-  'SUPPLIER_GOODS',
-  'SERVICE_PROVIDER',
-  'EMPLOYEE',
-];
+export const ADD_LABEL: Record<PeopleSegment, string> = {
+  all: COPY.all.add,
+  TENANT: COPY.TENANT.add,
+  EMPLOYEE: COPY.EMPLOYEE.add,
+  VENDOR: COPY.VENDOR.add,
+  CUSTOMER: COPY.CUSTOMER.add,
+};
 
-const countAr = (n: number) => (n === 1 ? 'حركة واحدة' : n === 2 ? 'حركتان' : n <= 10 ? `${n} حركات` : `${n} حركة`);
+export type ContactsDirectoryProps = {
+  directory: ContactsDirectoryState;
+  segment: PeopleSegment;
+  /** the role filter, from the address bar */
+  role: RoleFilter;
+  onRoleChange: (role: RoleFilter) => void;
+};
 
-function QuickTxButton({ contact, className }: { contact: ContactRow; className?: string }) {
-  const open = useTxDialog((s) => s.open);
-  const { can, loading } = usePermission();
-  const role = extractContactBusinessRole(contact);
-  const isPayable = PAYABLE_ROLES.includes(role);
-  const kind = isPayable ? 'EXPENSE' : 'REVENUE';
-  const perm = kind === 'REVENUE' ? 'revenue.create' : 'expense.create';
+/**
+ * The people of one list: figures for the list, the role filters, the search, and the rows as a table on a
+ * wide screen or cards below it. What the person types lives in `directory`; the role lives in the address.
+ */
+export function ContactsDirectory({ directory: d, segment, role, onRoleChange }: ContactsDirectoryProps) {
+  const perm = usePermission();
+  const canExpense = perm.can('expense.create');
+  const canRevenue = perm.can('revenue.create');
+  const openVoucher = useTxDialog((s) => s.open);
+  const { data: categories } = useCategories();
+  const rentCategoryId = categories?.find((c) => c.code === 'EXP-RNT')?.id;
+  const copy = COPY[segment];
 
-  if (loading || !can(perm) || !contact.is_active) return null;
+  const monthLabels = useMemo(() => last12MonthKeys(todayISODate()).map((k) => landlordMonthName(Number(k.slice(5, 7)))), []);
+  const hintIds = useMemo(() => new Set(d.hints.map((r) => r.contact.id)), [d.hints]);
 
-  return (
-    <Button
-      size="sm"
-      variant="outline"
-      className={cn('h-11 gap-1 px-2.5 text-[12.5px] md:h-8', className)}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        open({ kind, contactId: contact.id, contactKind: contact.kind });
-      }}
-    >
-      <Plus className="h-3.5 w-3.5" aria-hidden />
-      {role === 'LANDLORD' ? 'سداد إيجار' : isPayable ? 'سند صرف' : 'سند قبض'}
-    </Button>
+  const canVoucher = useCallback((direction: 'in' | 'out') => (direction === 'out' ? canExpense : canRevenue), [canExpense, canRevenue]);
+  const onVoucher = useCallback(
+    (row: DirectoryRow) =>
+      openVoucher({
+        kind: row.direction === 'out' ? 'EXPENSE' : 'REVENUE',
+        contactId: row.contact.id,
+        contactKind: row.contact.kind,
+        // rent paid to a landlord opens on the rent account
+        categoryId: row.landlord && row.direction === 'out' ? rentCategoryId : undefined,
+      }),
+    [openVoucher, rentCategoryId],
   );
-}
 
-/** What identifies this contact beyond the name: shop, meter, job, or where to reach them. */
-function contactDetail(contact: ContactRow): string | null {
-  const role = extractContactBusinessRole(contact);
-  const rent = Number(contact.monthly_rent) > 0 ? `إيجار ${formatMoney(Number(contact.monthly_rent), 'LYD')} شهرياً` : null;
-  if (role === 'LANDLORD') return [contact.shop_number ? `موقع ${contact.shop_number}` : 'عقار مؤجَّر للمول', rent].filter(Boolean).join(' · ');
-  if (role === 'TENANT')
-    return [`محل ${contact.shop_number || '—'}`, contact.floor && `الطابق ${contact.floor}`, rent].filter(Boolean).join(' · ');
-  if (role === 'SUPPLIER_ELECTRICITY' || role === 'SUPPLIER_WATER')
-    return [contact.shop_number && `عداد ${contact.shop_number}`, contact.department].filter(Boolean).join(' · ') || null;
-  if (contact.job_title || contact.department) return [contact.job_title, contact.department].filter(Boolean).join(' · ');
-  const notes = visibleContactNotes(contact.notes).split('\n')[0];
-  return [contact.address, contact.email, notes].filter(Boolean).join(' · ') || null;
-}
+  const mayMutate = d.canWrite;
+  const { activityState, startEdit, handleDelete } = d;
+  const ctx: RowContext = useMemo(
+    () => ({ activityState, monthLabels, canVoucher, onVoucher, mayMutate, onEdit: startEdit, onDelete: handleDelete, hintIds }),
+    [activityState, monthLabels, canVoucher, onVoucher, mayMutate, startEdit, handleDelete, hintIds],
+  );
 
-type ActivityState = 'pending' | 'error' | 'ready';
+  const chips = roleChipsFor(segment);
+  // what is owed to landlords sits above their files when that role is the one being looked at
+  const showLandlordDues = role === 'LANDLORD' && (segment === 'CUSTOMER' || segment === 'all');
+  const filtering = d.searchQuery.trim() !== '' || role !== 'ALL';
+  const onlyInactiveLeft = d.rows.length === 0 && !filtering && !d.showInactive && d.inactiveCount > 0;
 
-function ActivityCell({
-  contact,
-  activity,
-  state,
-}: {
-  contact: ContactRow;
-  activity: PartyActivity | undefined;
-  state: ActivityState;
-}) {
-  // "no movements" is only true once the activity request has answered; while loading or after a failure it would be a false claim
-  if (state === 'pending') return <span className="text-ink-mute">—</span>;
-  if (state === 'error') return <span className="text-ink-mute">تعذّر تحميل النشاط</span>;
-  if (!activity || activity.count === 0) return <span className="text-ink-mute">لا حركات</span>;
-  const payable = PAYABLE_ROLES.includes(extractContactBusinessRole(contact));
-  const main = payable ? activity.expense : activity.revenue;
-  const other = payable ? activity.revenue : activity.expense;
+  if (d.loadFailed) return <DirectoryError onRetry={d.retryContacts} />;
+
+  const clearFilters = () => {
+    d.setSearchQuery('');
+    onRoleChange('ALL');
+  };
+
   return (
-    <span className="flex flex-col gap-0.5">
-      <span className="font-semibold tabular-nums text-foreground">
-        {payable ? 'مدفوع' : 'مقبوض'} {formatMoney(main, 'LYD')}
-      </span>
-      {other > 0 && (
-        <span className="text-[12px] tabular-nums text-ink-mute">
-          {payable ? 'مقبوض' : 'مدفوع'} {formatMoney(other, 'LYD')}
-        </span>
+    <div className="space-y-5">
+      <DirectorySummaryStrip
+        segment={segment}
+        summary={d.summary}
+        groups={d.groupSummaries}
+        loading={d.isLoading}
+        activityState={d.activityState}
+        onRetryActivity={d.retryActivity}
+      />
+
+      {!d.isLoading && segment !== 'TENANT' && (
+        <LandlordHints hints={d.hints} canWrite={d.canWrite} approving={d.approving} onApprove={() => void d.approveHints()} onDismiss={d.dismissHints} />
       )}
-      <span className="text-[12px] text-ink-mute">
-        {countAr(activity.count)}
-        {activity.lastDate && ` · آخرها ${formatDate(activity.lastDate)}`}
-      </span>
-    </span>
-  );
-}
 
-export function ContactsDirectory({
-  filteredContacts,
-  isLoading,
-  searchQuery,
-  onSearchChange,
-  roleFilter = 'ALL',
-  onRoleFilterChange,
-  stats,
-  onEdit,
-  onDelete,
-  hideKindFilters = false,
-  allowMutate = true,
-  showInactive = false,
-  onShowInactiveChange,
-  inactiveCount = 0,
-}: ContactsDirectoryProps) {
-  const router = useRouter();
-  const { canWrite } = usePermission();
-  const { data: activity, isPending: activityPending, isError: activityError } = usePartyActivity();
-  // same arguments as use-contacts-directory.ts so this shares its cache entry
-  const { data: loadedContacts, isError: contactsError, refetch: refetchContacts } = useContacts(undefined, { includeInactive: true });
-  // a failed background refetch keeps the data already shown; only a request that never answered replaces the list
-  const contactsFailed = contactsError && !loadedContacts;
-  const activityState: ActivityState = activity ? 'ready' : activityError ? 'error' : activityPending ? 'pending' : 'ready';
-  const mayMutate = allowMutate && canWrite;
-  // what the mall owes its landlords sits above their files when that role is the one being looked at
-  const showLandlordDues = roleFilter === 'LANDLORD' && !hideKindFilters;
-
-  const filterTabs: Array<{ id: ContactBusinessRole | 'ALL'; label: string; count: number; icon: typeof User }> = [
-    { id: 'ALL', label: 'الكل', count: stats.total, icon: Store },
-    { id: 'TENANT', label: 'مستأجرو المحلات', count: stats.tenants, icon: Building2 },
-    { id: 'LANDLORD', label: 'مؤجرون للمول', count: stats.landlords, icon: Building },
-    { id: 'SUPPLIER_ELECTRICITY', label: 'كهرباء وطاقة', count: stats.electricity, icon: Zap },
-    { id: 'SUPPLIER_WATER', label: 'مياه وصرف', count: stats.water, icon: Droplets },
-    { id: 'SUPPLIER_GOODS', label: 'بضائع ومواد', count: stats.goods, icon: Package },
-    { id: 'SERVICE_PROVIDER', label: 'خدمات ومقاولات', count: stats.services, icon: Wrench },
-    { id: 'EMPLOYEE', label: 'الموظفون', count: stats.employees, icon: Briefcase },
-    { id: 'CUSTOMER', label: 'العملاء', count: stats.customers, icon: User },
-  ];
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" aria-hidden />
-          <Input
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="بحث بالاسم أو الهاتف أو رقم المحل أو الرمز…"
-            aria-label="بحث في الجهات"
-            className="h-11 ps-9 sm:h-10"
-          />
-        </div>
-        {onShowInactiveChange && inactiveCount > 0 && (
-          <label className="flex h-11 shrink-0 cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 text-[13px] text-ink-mute touch-manipulation sm:h-10">
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-foreground"
-              checked={showInactive}
-              onChange={(e) => onShowInactiveChange(e.target.checked)}
-            />
-            إظهار غير النشطة ({inactiveCount})
-          </label>
-        )}
+      <div className="space-y-3">
+        <DirectoryToolbar
+          searchQuery={d.searchQuery}
+          onSearchChange={d.setSearchQuery}
+          sort={d.sort}
+          onSortChange={d.setSort}
+          showInactive={d.showInactive}
+          onShowInactiveChange={d.setShowInactive}
+          inactiveCount={d.inactiveCount}
+          searchLabel={copy.search}
+          placeholder={copy.placeholder}
+        />
+        <RoleChips chips={chips} counts={d.roleCounts} value={role} onChange={onRoleChange} />
       </div>
 
-      {!hideKindFilters && onRoleFilterChange && (
-        <div className="-mx-1 overflow-x-auto px-1 pb-1 no-scrollbar" role="group" aria-label="تصفية حسب الدور">
-          <div className="flex w-max gap-1.5">
-            {filterTabs.map((tab) => {
-              const selected = roleFilter === tab.id;
-              const TabIcon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => onRoleFilterChange(tab.id)}
-                  className={cn(
-                    'flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[12.5px] font-medium transition-colors sm:h-8',
-                    selected
-                      ? 'border-foreground bg-foreground text-background'
-                      : 'border-border bg-card text-ink-mute hover:text-foreground',
-                  )}
-                >
-                  <TabIcon className="h-3.5 w-3.5" aria-hidden />
-                  {tab.label}
-                  <span className="tabular-nums opacity-75">{tab.count}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* always on the page, so a screen reader hears the new number when a search or a filter changes the list */}
+      <p role="status" className="sr-only">
+        {d.isLoading || d.loadFailed || d.segmentRows.length === 0
+          ? ''
+          : d.rows.length === 0
+            ? d.searchQuery.trim() !== ''
+              ? 'لا يوجد ما يطابق البحث.'
+              : 'لا توجد جهات بهذه الصفة.'
+            : arabicCount(d.rows.length, FILES)}
+      </p>
 
       {showLandlordDues && (
-        <>
+        <div className="space-y-3">
           <LandlordDuesPanel />
           <h2 className="px-1 pt-2 text-[15px] font-semibold text-foreground">ملفات المؤجرين</h2>
-        </>
+        </div>
       )}
 
-      {isLoading ? (
-        <div className="flex flex-col items-center gap-2 p-12 text-center text-ink-mute">
-          <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
-          <span className="text-[13px]">جارٍ تحميل الجهات…</span>
-        </div>
-      ) : contactsFailed ? (
-        <Card
-          role="alert"
-          className="flex flex-col items-center gap-3 border-danger-line bg-danger-soft p-8 text-center text-danger-ink"
+      {d.isLoading ? (
+        <DirectorySkeleton />
+      ) : d.segmentRows.length === 0 ? (
+        <DirectoryEmpty
+          action={
+            <WriteGuard permission="document.create">
+              <Button type="button" className="min-h-11 sm:min-h-9" onClick={() => d.openAdd()}>
+                {copy.add}
+              </Button>
+            </WriteGuard>
+          }
         >
-          <p className="text-[13px]">تعذّر تحميل الجهات. تحقق من الاتصال ثم أعد المحاولة.</p>
-          <Button type="button" variant="outline" size="sm" onClick={() => void refetchContacts()}>
-            إعادة المحاولة
-          </Button>
-        </Card>
-      ) : filteredContacts.length === 0 ? (
-        <Card className="p-12 text-center">
-          <Store className="mx-auto mb-2 h-8 w-8 text-ink-mute opacity-50" aria-hidden />
-          <h3 className="text-sm font-semibold text-foreground">لا توجد جهات مطابقة</h3>
-          <p className="mt-1 text-[12.5px] text-ink-mute">جرّب عبارة بحث أخرى أو دوراً آخر.</p>
-        </Card>
+          {copy.empty}
+        </DirectoryEmpty>
+      ) : onlyInactiveLeft ? (
+        <DirectoryEmpty
+          action={
+            <Button type="button" variant="outline" className="min-h-11 sm:min-h-9" onClick={() => d.setShowInactive(true)}>
+              إظهار غير النشطين
+            </Button>
+          }
+        >
+          لا توجد ملفات نشطة في هذه القائمة.
+        </DirectoryEmpty>
+      ) : d.rows.length === 0 ? (
+        <DirectoryNoMatch onClear={clearFilters} searching={d.searchQuery.trim() !== ''} />
       ) : (
-        <>
-          <p className="px-1 text-[12.5px] text-ink-mute">
-            {filteredContacts.length} جهة · النشاط عن آخر 12 شهراً (معاملات مُرحّلة)
-          </p>
+        <section aria-label={copy.table} className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-1 text-[12.5px] text-ink-mute">
+            <p>{arabicCount(d.rows.length, FILES)}</p>
+            {d.activityState === 'error' && (
+              <p className="flex items-center gap-1 text-danger-ink">
+                تعذّر تحميل الحركات
+                <Button type="button" variant="ghost" size="sm" className="min-h-11 px-2 text-danger-ink sm:min-h-8" onClick={d.retryActivity}>
+                  إعادة المحاولة
+                </Button>
+              </p>
+            )}
+          </div>
 
-          {/* phone: cards */}
-          <ul className="flex flex-col gap-2 md:hidden">
-            {filteredContacts.map((contact) => {
-              const roleMeta = CONTACT_ROLES[extractContactBusinessRole(contact)] || CONTACT_ROLES.OTHER;
-              const RoleIcon = roleMeta.icon;
-              const detail = contactDetail(contact);
-              return (
-                <li key={contact.id}>
-                  <Card className={cn('p-3', !contact.is_active && 'opacity-75')}>
-                    <div className="flex items-start gap-3">
-                      <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-lg', roleMeta.bgColor, roleMeta.color)} aria-hidden>
-                        <RoleIcon className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <Link href={`/contacts/${contact.id}`} className="block truncate text-[14px] font-semibold text-foreground hover:underline">
-                          {contact.name}
-                        </Link>
-                        <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] text-ink-mute">
-                          <span>{roleMeta.badge}</span>
-                          {contact.code && <span className="tabular-nums">· {contact.code}</span>}
-                          {!contact.is_active && <Badge variant="neutral">غير نشط</Badge>}
-                        </p>
-                        {detail && <p className="mt-0.5 truncate text-[12.5px] text-ink-mute">{detail}</p>}
-                      </div>
-                    </div>
-                    <div className="mt-2.5 flex items-end justify-between gap-2 border-t border-border pt-2.5 text-[13px]">
-                      <ActivityCell contact={contact} activity={activity?.get(contact.id)} state={activityState} />
-                      <QuickTxButton contact={contact} />
-                    </div>
-                    {contact.phone && (
-                      <div className="mt-2">
-                        <ContactPhoneActions phone={contact.phone} name={contact.name} kind={contact.kind} />
-                      </div>
-                    )}
-                  </Card>
-                </li>
-              );
-            })}
+          <DirectoryTable sort={d.sort} onSort={d.setSort} label={copy.table}>
+            {d.visibleRows.map((row) => (
+              <DirectoryTableRow key={row.contact.id} row={row} ctx={ctx} />
+            ))}
+          </DirectoryTable>
+
+          <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:hidden" aria-label={copy.table}>
+            {d.visibleRows.map((row) => (
+              <li key={row.contact.id}>
+                <DirectoryCard row={row} ctx={ctx} />
+              </li>
+            ))}
           </ul>
 
-          {/* desktop: table */}
-          <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="border-b border-border bg-canvas-sunken text-start text-[12.5px] text-ink-mute">
-                  <th scope="col" className="px-4 py-2.5 text-start font-medium">الجهة</th>
-                  <th scope="col" className="px-4 py-2.5 text-start font-medium">التفاصيل</th>
-                  <th scope="col" className="px-4 py-2.5 text-start font-medium">التواصل</th>
-                  <th scope="col" className="px-4 py-2.5 text-start font-medium">النشاط (12 شهراً)</th>
-                  <th scope="col" className="px-4 py-2.5 text-end font-medium">
-                    <span className="sr-only">إجراءات</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredContacts.map((contact) => {
-                  const roleMeta = CONTACT_ROLES[extractContactBusinessRole(contact)] || CONTACT_ROLES.OTHER;
-                  const RoleIcon = roleMeta.icon;
-                  const detail = contactDetail(contact);
-                  return (
-                    <tr
-                      key={contact.id}
-                      className={cn('cursor-pointer align-top transition-colors hover:bg-canvas-sunken/50', !contact.is_active && 'text-ink-mute')}
-                      onClick={() => router.push(`/contacts/${contact.id}`)}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-start gap-2.5">
-                          <span className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-lg', roleMeta.bgColor, roleMeta.color)} aria-hidden>
-                            <RoleIcon className="h-4 w-4" />
-                          </span>
-                          <div className="min-w-0">
-                            <Link
-                              href={`/contacts/${contact.id}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="font-semibold text-foreground hover:underline"
-                            >
-                              {contact.name}
-                            </Link>
-                            <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] text-ink-mute">
-                              <span>{roleMeta.badge}</span>
-                              {contact.code && <span className="tabular-nums">· {contact.code}</span>}
-                              {!contact.is_active && <Badge variant="neutral">غير نشط</Badge>}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="max-w-64 px-4 py-3 text-ink-mute">{detail ?? '—'}</td>
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        {contact.phone ? (
-                          <ContactPhoneActions phone={contact.phone} name={contact.name} kind={contact.kind} compact />
-                        ) : (
-                          <span className="text-ink-mute">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <ActivityCell contact={contact} activity={activity?.get(contact.id)} state={activityState} />
-                      </td>
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1">
-                          <QuickTxButton contact={contact} />
-                          {mayMutate && (
-                            <>
-                              <Button
-                                aria-label={`تعديل ${contact.name}`}
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 text-ink-mute hover:text-foreground"
-                                onClick={() => onEdit(contact)}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                aria-label={`حذف ${contact.name}`}
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 text-danger-ink hover:bg-danger-soft"
-                                onClick={() => onDelete(contact.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </>
+          {d.hasMore && (
+            <div className="flex justify-center pt-1">
+              <Button type="button" variant="outline" className="h-11 min-w-48 sm:h-9" onClick={d.showMore}>
+                عرض المزيد ({d.remaining})
+              </Button>
+            </div>
+          )}
+        </section>
       )}
     </div>
   );

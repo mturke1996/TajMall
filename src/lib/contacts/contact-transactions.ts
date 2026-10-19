@@ -14,16 +14,6 @@ export function getCountedContactTransactions<T extends { status?: string | null
   return transactions.filter(isCountedTransaction);
 }
 
-/**
- * POSTED only. Kept for the callers that rely on it; any total of money should use
- * `getCountedContactTransactions`, which also counts reconciled entries.
- */
-export function getPostedContactTransactions<T extends { status: string }>(
-  transactions: readonly T[],
-): T[] {
-  return transactions.filter((transaction) => transaction.status === 'POSTED');
-}
-
 /** Load every page in a stable, bounded sequence instead of silently capping profile totals. */
 export async function fetchAllContactPages<T>(
   loadPage: ContactPageLoader<T>,

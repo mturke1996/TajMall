@@ -14,6 +14,7 @@ import {
   useSyncOverdueChargeReminders,
 } from '@/lib/db/notification-queries';
 import { NEEDS_DB_UPDATE, friendlyError } from '@/lib/user-messages';
+import { safeInternalPath } from '@/lib/supabase/safe-redirect';
 
 const SEVERITY: Record<string, string> = {
   info: 'border-border bg-canvas-sunken',
@@ -109,9 +110,9 @@ export default function NotificationsPage() {
                     <p className="text-[11px] text-muted-foreground">{formatDate(n.created_at)}</p>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    {n.href && (
+                    {safeInternalPath(n.href, '') && (
                       <Button variant="outline" size="sm" asChild className="touch-manipulation">
-                        <Link href={n.href}>فتح</Link>
+                        <Link href={safeInternalPath(n.href, '/dashboard')}>فتح</Link>
                       </Button>
                     )}
                     {!n.is_read && (

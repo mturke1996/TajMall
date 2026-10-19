@@ -18,6 +18,7 @@ import {
 import type { ContactRow, TransactionWithRelations, ContactKind } from '@/lib/db/types';
 import { extractTargetRentMonth } from '@/lib/period-journal-entry';
 import { getCountedContactTransactions } from '@/lib/contacts/contact-transactions';
+import { composeNotes, readTags, visibleNotes } from '@/lib/contacts/contact-tags';
 import { todayISODate } from '@/lib/utils';
 
 export type ContactBusinessRole =
@@ -27,8 +28,8 @@ export type ContactBusinessRole =
   | 'SUPPLIER_WATER'       // مورد مياه وصرف صحي / صهاريج
   | 'SUPPLIER_GOODS'       // مورد بضاعة ومواد تشغيلية
   | 'SERVICE_PROVIDER'     // مقدم خدمات وصيانة ومقاولات
-  | 'EMPLOYEE'             // موظف / كادر إداري
-  | 'CUSTOMER'             // عميل عام / مستفيد
+  | 'EMPLOYEE'             // موظف
+  | 'CUSTOMER'             // عميل
   | 'OTHER';               // جهة أخرى
 
 export type ContactRoleMeta = {
@@ -36,7 +37,6 @@ export type ContactRoleMeta = {
   label: string;
   labelEn: string;
   badge: string;
-  description: string;
   icon: LucideIcon;
   color: string;
   bgColor: string;
@@ -53,7 +53,6 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
     label: 'مستأجر محل بالمول',
     labelEn: 'Mall Tenant',
     badge: 'مستأجر محل',
-    description: 'يستأجر مساحة أو محلاً تجارياً داخل المول ويدفع إيجاراً شهرياً.',
     icon: Building2,
     color: 'text-success-ink',
     bgColor: 'bg-success-soft',
@@ -65,10 +64,9 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
   },
   LANDLORD: {
     role: 'LANDLORD',
-    label: 'مؤجر للمول (المول مستأجر منه)',
+    label: 'مؤجر للمول',
     labelEn: 'Mall Landlord',
     badge: 'مؤجر للمول',
-    description: 'يؤجر للمول عقاراً أو أرضاً (أرضية مولدات، مخازن، مواقف) ويستحق إيجاراً دورياً.',
     icon: Building,
     color: 'text-warning-ink',
     bgColor: 'bg-warning-soft',
@@ -80,10 +78,9 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
   },
   SUPPLIER_ELECTRICITY: {
     role: 'SUPPLIER_ELECTRICITY',
-    label: 'مورّد كهرباء وطاقة ومحروقات',
+    label: 'مورد كهرباء وطاقة ومحروقات',
     labelEn: 'Electricity & Fuel Supplier',
     badge: 'توريد كهرباء وطاقة',
-    description: 'تزويد الطاقة والكهرباء، وقود الديزل للمولدات، وقطع غيار المحطات الكهربائية.',
     icon: Zap,
     color: 'text-warning-ink',
     bgColor: 'bg-warning-soft',
@@ -95,10 +92,9 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
   },
   SUPPLIER_WATER: {
     role: 'SUPPLIER_WATER',
-    label: 'مورّد مياه وصرف صحي',
+    label: 'مورد مياه وصرف صحي',
     labelEn: 'Water & Sanitation Supplier',
     badge: 'توريد مياه',
-    description: 'تزويد مياه الشرب والصهاريج، شبكات الصرف، وصيانة خزانات المياه.',
     icon: Droplets,
     color: 'text-info-ink',
     bgColor: 'bg-info-soft',
@@ -110,10 +106,9 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
   },
   SUPPLIER_GOODS: {
     role: 'SUPPLIER_GOODS',
-    label: 'مورّد بضاعة ومواد تشغيل',
+    label: 'مورد بضاعة ومواد تشغيل',
     labelEn: 'Goods & Materials Supplier',
     badge: 'توريد بضاعة ومواد',
-    description: 'توريد المواد الاستهلاكية، قطع الغيار، ومواد التشغيل للمول.',
     icon: Package,
     color: 'text-info-ink',
     bgColor: 'bg-info-soft',
@@ -128,7 +123,6 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
     label: 'مقدّم خدمات ومقاولات وصيانة',
     labelEn: 'Service Contractor',
     badge: 'خدمات ومقاولات',
-    description: 'شركات النظافة، الحراسة والأمن، صيانة المصاعد والتكييف، والأنظمة البرمجية.',
     icon: Wrench,
     color: 'text-info-ink',
     bgColor: 'bg-info-soft',
@@ -140,10 +134,9 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
   },
   EMPLOYEE: {
     role: 'EMPLOYEE',
-    label: 'موظف / كادر إداري',
+    label: 'موظف',
     labelEn: 'Employee',
     badge: 'موظف',
-    description: 'موظف في الكادر الإداري أو الفني للمول يستحق مرتباً شهرياً.',
     icon: Briefcase,
     color: 'text-plum-ink',
     bgColor: 'bg-plum-soft',
@@ -155,10 +148,9 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
   },
   CUSTOMER: {
     role: 'CUSTOMER',
-    label: 'عميل عام / مستفيد',
+    label: 'عميل',
     labelEn: 'General Customer',
-    badge: 'عميل عام',
-    description: 'عملاء الإعلانات، المواقف، الفعاليات، أو الخدمات العامة.',
+    badge: 'عميل',
     icon: User,
     color: 'text-success-ink',
     bgColor: 'bg-success-soft',
@@ -173,7 +165,6 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
     label: 'جهة أخرى',
     labelEn: 'Other Party',
     badge: 'جهة أخرى',
-    description: 'جهات حكومية، بنوك، أو جهات غير مصنفة.',
     icon: Store,
     color: 'text-ink-soft',
     bgColor: 'bg-canvas-sunken',
@@ -190,17 +181,9 @@ export const CONTACT_ROLES: Record<ContactBusinessRole, ContactRoleMeta> = {
 export function extractContactBusinessRole(contact: Partial<ContactRow> | null | undefined): ContactBusinessRole {
   if (!contact) return 'OTHER';
 
-  const notesText = (contact.notes || '').toLowerCase();
-
-  // 1. الأولوية المطلقة للوسم الصريح المسجل في ملاحظات السجل
-  if (notesText.includes('role:landlord')) return 'LANDLORD';
-  if (notesText.includes('role:supplier_electricity')) return 'SUPPLIER_ELECTRICITY';
-  if (notesText.includes('role:supplier_water')) return 'SUPPLIER_WATER';
-  if (notesText.includes('role:supplier_goods')) return 'SUPPLIER_GOODS';
-  if (notesText.includes('role:service_provider')) return 'SERVICE_PROVIDER';
-  if (notesText.includes('role:tenant')) return 'TENANT';
-  if (notesText.includes('role:employee')) return 'EMPLOYEE';
-  if (notesText.includes('role:customer')) return 'CUSTOMER';
+  // 1. الأولوية المطلقة للوسم الصريح المسجل في ملاحظات السجل (القراءة في contact-tags.ts)
+  const tagged = readTags(contact.notes).role;
+  if (tagged && tagged !== 'OTHER') return tagged;
 
   // 2. فحص النوع الأساسي في قاعدة البيانات
   if (contact.kind === 'TENANT') return 'TENANT';
@@ -238,30 +221,32 @@ export function extractContactBusinessRole(contact: Partial<ContactRow> | null |
   return 'OTHER';
 }
 
-/** Notes as the user wrote them: without the stored role tag. Empty string when nothing is left. */
+/** Notes as the user wrote them: without any stored tag (role, tracking start). Empty string when nothing is left. */
 export function visibleContactNotes(notes: string | null | undefined): string {
-  return (notes || '')
-    .replace(/\[\s*role:[a-z_]+\s*\]/gi, '')
-    .replace(/role:[a-z_]+/gi, '')
-    .trim();
+  return visibleNotes(notes);
 }
 
 /**
  * تجهيز وسم الدور للتخزين في الملاحظات والمسمى مع تنظيف الوسوم السابقة
+ *
+ * The tracking-start tag `[since:YYYY-MM]` is kept as it is unless `options.since` says otherwise
+ * (a month sets it, null removes it): the edit form shows `visibleContactNotes`, which hides the tag, so
+ * the tag has to survive the round trip here.
  */
-export function encodeContactRoleFields(role: ContactBusinessRole, existingNotes?: string | null): {
+export function encodeContactRoleFields(
+  role: ContactBusinessRole,
+  existingNotes?: string | null,
+  options: { since?: string | null } = {},
+): {
   kind: ContactKind;
   roleTag: string;
   updatedNotes: string;
 } {
   const roleMeta = CONTACT_ROLES[role];
-  const cleanNotes = (existingNotes || '')
-    .replace(/\[\s*role:[a-z_]+\s*\]/gi, '')
-    .replace(/role:[a-z_]+/gi, '')
-    .trim();
+  const since = options.since === undefined ? readTags(existingNotes).since : options.since;
 
   const roleTag = `role:${role.toLowerCase()}`;
-  const updatedNotes = cleanNotes ? `${cleanNotes}\n[${roleTag}]` : `[${roleTag}]`;
+  const updatedNotes = composeNotes({ text: visibleNotes(existingNotes), role, since });
 
   return {
     kind: roleMeta.dbKind,

@@ -2,18 +2,22 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
+import { Banknote, Building2, CalendarClock, CalendarX2, ChevronLeft, ClipboardCheck, DoorOpen, Receipt, TriangleAlert } from 'lucide-react';
+import type { ElementType } from 'react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { IconTile, type Accent } from '@/components/dashboard/dashboard-ui';
 import { billingFollowUpDetail, billingFollowUpTitle, buildBillingPreview } from '@/lib/billing-preview';
 import { buildContractExpiry } from '@/lib/contract-expiry';
 import { useBillingSources } from '@/lib/db/billing-queries';
+import { useLandlordDues } from '@/lib/db/landlord-dues-queries';
 import { useLeaseContracts, useMallUnits, useTenantArAging } from '@/lib/db/mall-queries';
 import { usePendingVoucherCount, useTenantRentSummary } from '@/lib/db/queries';
-import { buildFollowUp, type FollowUpAgingRow, type FollowUpKey, type FollowUpTone } from '@/lib/follow-up';
+import { buildFollowUp, landlordFollowUpDetail, landlordFollowUpTitle, type FollowUpAgingRow, type FollowUpKey, type FollowUpTone } from '@/lib/follow-up';
+import { landlordDuesAttention } from '@/lib/landlord-dues';
 import { buildMallOccupancy } from '@/lib/mall-occupancy';
 import { usePermission } from '@/lib/supabase/use-permission';
-import { arabicCount, cn, formatMoney, todayISODate } from '@/lib/utils';
+import { arabicCount, formatMoney, todayISODate } from '@/lib/utils';
 
 const TENANTS: [string, string, string, string] = ['مستأجر واحد', 'مستأجران', 'مستأجرين', 'مستأجراً'];
 const LEASES: [string, string, string, string] = ['عقد واحد', 'عقدان', 'عقود', 'عقداً'];
@@ -26,14 +30,23 @@ const META: Record<FollowUpKey, { title: string; unit: [string, string, string, 
   // the row names its month and counts leases against the month's total (see billingFollowUpTitle / Detail)
   billing: { title: 'مطالبات الشهر لم تُولَّد كاملة', unit: LEASES, source: 'المطالبات الشهرية' },
   rent: { title: 'إيجار هذا الشهر غير مكتمل', unit: TENANTS, amountLabel: 'المتبقي', source: 'إيجار الشهر' },
+  // the title follows the tone and the detail names the landlords owed (see landlordFollowUpTitle / Detail)
+  landlords: { title: 'إيجار مستحق للمؤجرين', unit: ['مؤجر واحد', 'مؤجران', 'مؤجرين', 'مؤجراً'], amountLabel: 'المستحق للمؤجرين', source: 'مستحقات المؤجرين' },
   vacant: { title: 'محلات شاغرة منذ 3 أشهر أو أكثر', unit: ['محل واحد', 'محلان', 'محلات', 'محلاً'], source: 'المحلات' },
 };
 
-const DOT: Record<FollowUpTone, string> = {
-  bad: 'bg-danger-ink',
-  warn: 'bg-warning-ink',
-  neutral: 'bg-ink-mute',
+/** The tile of a row: the kind of thing in its icon, how pressing it is in its colour (the title says it in words). */
+const ICON: Record<FollowUpKey, ElementType> = {
+  expired: CalendarX2,
+  ending30: CalendarClock,
+  arrears60: TriangleAlert,
+  vouchers: ClipboardCheck,
+  billing: Receipt,
+  rent: Banknote,
+  landlords: Building2,
+  vacant: DoorOpen,
 };
+const TONE_ACCENT: Record<FollowUpTone, Accent> = { bad: 'red', warn: 'amber', neutral: 'blue' };
 
 /** What needs action today, drawn from the same queries as the screens each row opens. */
 export function FollowUpCard() {
@@ -41,6 +54,8 @@ export function FollowUpCard() {
   const { can } = usePermission();
   const canApprove = can('voucher.approve');
   const canBill = can('revenue.create');
+  // landlords' rent is an expense: a role that may not see expenses is not shown it (and nothing is read for it)
+  const canSeeLandlords = can('expense.view');
 
   const aging = useTenantArAging(today);
   const contracts = useLeaseContracts();
@@ -49,13 +64,17 @@ export function FollowUpCard() {
   const vouchers = usePendingVoucherCount(canApprove);
   // the recent months' rent and service charges; skipped for users who cannot generate charges
   const billing = useBillingSources(today, canBill);
+  const landlords = useLandlordDues(canSeeLandlords);
 
-  const loading = aging.isLoading || contracts.isLoading || units.isLoading || rent.isLoading || (canApprove && vouchers.isLoading) || billing.state === 'loading';
+  const loading = aging.isLoading || contracts.isLoading || units.isLoading || rent.isLoading || (canApprove && vouchers.isLoading) || billing.state === 'loading' || landlords.state === 'loading';
 
   const billingContracts = billing.state === 'ready' ? billing.contracts : undefined;
   const billingCharges = billing.state === 'ready' ? billing.charges : undefined;
   const billingExempt = billing.state === 'ready' ? billing.exempt : undefined;
   const billingState = billing.state;
+  // three states like the other sources: off (undefined), unreadable (null), read (a count, 0 when nothing is owed)
+  const landlordDues = landlords.state === 'ready' ? landlords.dues : null;
+  const landlordsOff = landlords.state === 'off';
 
   const followUp = useMemo(() => {
     if (loading) return null;
@@ -66,6 +85,7 @@ export function FollowUpCard() {
       expiry: contracts.isSuccess ? buildContractExpiry({ contracts: contracts.data ?? [], today }) : null,
       rent: rent.isSuccess ? rent.data ?? [] : null,
       pendingVouchers: canApprove ? (vouchers.isSuccess ? vouchers.data : null) : undefined,
+      landlords: landlordsOff ? undefined : landlordDues ? (landlordDuesAttention(landlordDues) ?? { count: 0, amount: 0, amountComplete: true, behind: 0 }) : null,
       longVacant: units.isSuccess && contracts.isSuccess ? buildMallOccupancy({ units: units.data ?? [], contracts: contracts.data ?? [], today }).longVacant.length : null,
       // unread exempt marks make the count unavailable too: it would include tenants who owe nothing
       billing:
@@ -75,7 +95,7 @@ export function FollowUpCard() {
             ? buildBillingPreview({ contracts: billingContracts, charges: billingCharges, month: today.slice(0, 7), today, exemptMonths: billingExempt }).recent
             : null,
     });
-  }, [loading, today, canApprove, aging.isSuccess, aging.data, contracts.isSuccess, contracts.data, rent.isSuccess, rent.data, vouchers.isSuccess, vouchers.data, units.isSuccess, units.data, billingState, billingContracts, billingCharges, billingExempt]);
+  }, [loading, today, canApprove, aging.isSuccess, aging.data, contracts.isSuccess, contracts.data, rent.isSuccess, rent.data, vouchers.isSuccess, vouchers.data, units.isSuccess, units.data, billingState, billingContracts, billingCharges, billingExempt, landlordsOff, landlordDues]);
 
   const failed = followUp ? [...new Set(followUp.unavailable.map((k) => META[k].source))] : [];
 
@@ -101,15 +121,22 @@ export function FollowUpCard() {
             <ul className="divide-y divide-border">
               {followUp.items.map((item) => {
                 const meta = META[item.key];
-                const title = item.key === 'billing' && item.billing ? billingFollowUpTitle(item.billing.month) : meta.title;
+                const title =
+                  item.key === 'billing' && item.billing
+                    ? billingFollowUpTitle(item.billing.month)
+                    : item.key === 'landlords'
+                      ? landlordFollowUpTitle(item.tone)
+                      : meta.title;
                 const detail =
                   item.key === 'billing'
                     ? billingFollowUpDetail(item)
-                    : `${arabicCount(item.count, meta.unit)}${item.amount != null && meta.amountLabel ? ` · ${meta.amountLabel} ${formatMoney(item.amount, 'LYD')}` : ''}`;
+                    : item.key === 'landlords'
+                      ? landlordFollowUpDetail(item)
+                      : `${arabicCount(item.count, meta.unit)}${item.amount != null && meta.amountLabel ? ` · ${meta.amountLabel} ${formatMoney(item.amount, 'LYD')}` : ''}`;
                 return (
                   <li key={item.key}>
                     <Link href={item.href} className="group flex items-center gap-3 px-4 py-3 hover:bg-canvas-sunken focus-visible:bg-canvas-sunken focus-visible:outline-hidden">
-                      <span className={cn('h-2 w-2 shrink-0 rounded-full', DOT[item.tone])} aria-hidden />
+                      <IconTile icon={ICON[item.key]} accent={TONE_ACCENT[item.tone]} className="h-9 w-9 rounded-lg" />
                       <span className="min-w-0 flex-1">
                         <span className="block text-[13.5px] font-medium text-foreground">{title}</span>
                         <span className="block text-[12.5px] text-ink-mute">{detail}</span>

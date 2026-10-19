@@ -17,14 +17,22 @@ export function normalizeLibyanPhone(raw: string): string | null {
   if (!digits) return null;
 
   if (digits.startsWith('00')) digits = digits.slice(2);
+  let normalized: string;
   if (digits.startsWith('218')) {
     // "+218 091 234 5678": the trunk 0 is written after the country code by habit
     const rest = digits.slice(3);
-    return `218${rest.startsWith('0') ? rest.slice(1) : rest}`;
+    normalized = `218${rest.startsWith('0') ? rest.slice(1) : rest}`;
+  } else if (digits.startsWith('0')) {
+    normalized = `218${digits.slice(1)}`;
+  } else if (digits.length === 9) {
+    normalized = `218${digits}`;
+  } else {
+    normalized = digits;
   }
-  if (digits.startsWith('0')) return `218${digits.slice(1)}`;
-  if (digits.length === 9) return `218${digits}`;
-  return digits;
+  // An international number is 8 to 15 digits (E.164). Two numbers typed into one field ("0912345678 / 0922…")
+  // or a note with digits in it would otherwise become a long number that is somebody else's, and the tenant's
+  // balance would be sent to a stranger: better no link than a wrong one.
+  return normalized.length >= 8 && normalized.length <= 15 ? normalized : null;
 }
 
 export function buildWhatsAppLink(phone: string, message: string): string | null {

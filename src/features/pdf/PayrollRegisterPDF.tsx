@@ -35,8 +35,9 @@ const s = StyleSheet.create({
   th: { color: PDF.white, fontSize: 7.5, fontWeight: 'bold', textAlign: 'center' },
   thAr: { color: PDF.white, fontSize: 7.5, fontWeight: 'bold', textAlign: 'right' },
   name: { width: '22%', paddingRight: 4 },
-  nameText: { fontSize: 8.5, color: PDF.text, textAlign: 'right' },
-  sub: { fontSize: 7, color: PDF.muted, textAlign: 'right', marginTop: 1 },
+  /** react-pdf does not pass a box's direction down to its text: the text carries it (a name or a title that starts with a digit keeps it on the right) */
+  nameText: { direction: 'rtl', fontSize: 8.5, color: PDF.text, textAlign: 'right' },
+  sub: { direction: 'rtl', fontSize: 7, color: PDF.muted, textAlign: 'right', marginTop: 1 },
   num: { width: '13%', alignItems: 'center' },
   foot: {
     ...PDF_TABLE_ROW,
@@ -57,6 +58,9 @@ const s = StyleSheet.create({
   signBox: { width: '28%', borderTopWidth: 0.8, borderTopColor: PDF.border, paddingTop: 5 },
   signText: { fontSize: 8, color: PDF.muted, textAlign: 'center' },
 });
+
+/** the last employee row keeps the total and the signatures under it: they never stand alone on a page */
+const lastRowKeepsClosing = { minPresenceAhead: 130 };
 
 const STATUS_AR: Record<PayrollRunStatus, string> = { DRAFT: 'مسودة', APPROVED: 'معتمد', POSTED: 'مُرحَّل' };
 
@@ -86,12 +90,14 @@ export function PayrollRegisterPDF({
   return (
     <ReportShell
       title="كشف الرواتب الشهري"
+      titleEn="PAYROLL"
       subtitle={monthAr}
       documentTitle={`كشف رواتب ${monthAr}`}
       periodSummary={{
         eyebrow: 'Payroll register',
         title: monthAr,
-        subtitle: `${lines.length} موظف`,
+        // not «N موظف»: react-pdf sets a line that starts with a digit with the digit last when read right to left («موظف 3» for three employees); the count is in the cell beside it
+        subtitle: 'كشف الموظفين',
         hint: status ? `حالة الكشف: ${STATUS_AR[status]}` : '',
         badge: status ? STATUS_AR[status] : undefined,
       }}
@@ -101,7 +107,9 @@ export function PayrollRegisterPDF({
         { label: 'صافي الرواتب', moneyAmount: net, adaptiveMoney: true },
       ]}
     >
-      <Text style={pdfBase.sectionTitle}>{ar('تفاصيل الكشف')}</Text>
+      <Text style={pdfBase.sectionTitle} minPresenceAhead={90}>
+        {ar('تفاصيل الكشف')}
+      </Text>
 
       <View style={s.head} fixed>
         <Text style={[s.th, s.num]}>{ar('الصافي')}</Text>
@@ -114,7 +122,12 @@ export function PayrollRegisterPDF({
       </View>
 
       {lines.map((l, i) => (
-        <View key={l.id} style={[s.row, i % 2 === 1 ? s.rowAlt : {}]} wrap={false}>
+        <View
+          key={l.id}
+          style={[s.row, i % 2 === 1 ? s.rowAlt : {}]}
+          wrap={false}
+          {...(i === lines.length - 1 ? lastRowKeepsClosing : {})}
+        >
           <View style={s.num}><Money amount={n(l.net)} bold /></View>
           <View style={s.num}><Money amount={n(l.advance_repayment)} /></View>
           <View style={s.num}><Money amount={n(l.absence_deduction) + n(l.penalties) + n(l.other_deductions)} /></View>

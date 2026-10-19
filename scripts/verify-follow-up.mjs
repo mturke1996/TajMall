@@ -6,7 +6,8 @@
  */
 import assert from 'node:assert/strict';
 
-const { buildFollowUp } = await import('../src/lib/follow-up.ts');
+const { buildFollowUp, landlordFollowUpTitle, landlordFollowUpDetail } = await import('../src/lib/follow-up.ts');
+const { buildLandlordDues, landlordDuesAttention, LANDLORD_DUES_HREF } = await import('../src/lib/landlord-dues.ts');
 const { buildContractExpiry } = await import('../src/lib/contract-expiry.ts');
 const { addDaysISO } = await import('../src/lib/mall-dates.ts');
 
@@ -220,6 +221,120 @@ check('billing: a failed billing source does not hide the others', () => {
   const f = buildFollowUp({ ...quiet, billing: null, pendingVouchers: 1 });
   assert.deepEqual(keys(f), ['vouchers']);
   assert.deepEqual(f.unavailable, ['billing']);
+});
+
+// ---------- rent the mall owes its landlords ----------
+
+const owed = (over = {}) => ({ count: 2, amount: 57000, amountComplete: true, behind: 1, ...over });
+const landlordRow = (f) => f.items.find((i) => i.key === 'landlords');
+
+check('landlords: not shown to a user who may not see expenses, and not called unavailable', () => {
+  const f = buildFollowUp({ ...quiet, landlords: undefined });
+  assert.deepEqual(f.items, []);
+  assert.deepEqual(f.unavailable, []);
+});
+
+check('landlords: a read that failed is unavailable, never "nothing owed", and hides no other row', () => {
+  const f = buildFollowUp({ ...quiet, landlords: null, pendingVouchers: 1 });
+  assert.deepEqual(keys(f), ['vouchers']);
+  assert.deepEqual(f.unavailable, ['landlords']);
+});
+
+check('landlords: nobody owed means no row', () => {
+  assert.deepEqual(buildFollowUp({ ...quiet, landlords: { count: 0, amount: 0, amountComplete: true, behind: 0 } }).items, []);
+});
+
+check('landlords: bad once a landlord is behind, a warning while it is only this month; the row opens the landlords list', () => {
+  const behind = landlordRow(buildFollowUp({ ...quiet, landlords: owed() }));
+  assert.equal(behind.tone, 'bad');
+  assert.equal(behind.count, 2);
+  assert.equal(behind.amount, 57000);
+  assert.equal(behind.atLeast, undefined);
+  assert.equal(behind.href, '/mall?tab=people&role=LANDLORD');
+  const thisMonth = landlordRow(buildFollowUp({ ...quiet, landlords: owed({ behind: 0 }) }));
+  assert.equal(thisMonth.tone, 'warn');
+});
+
+check('landlords: an owed month with no known amount makes the sum a floor; nothing known leaves the amount empty', () => {
+  assert.equal(landlordRow(buildFollowUp({ ...quiet, landlords: owed({ amountComplete: false }) })).atLeast, true);
+  const none = landlordRow(buildFollowUp({ ...quiet, landlords: owed({ amount: 0, amountComplete: false }) }));
+  assert.equal(none.amount, null);
+  assert.equal(none.atLeast, true);
+});
+
+check('landlords: ranks after arrears and before shops, and a bad row comes before a warning row', () => {
+  const f = buildFollowUp({
+    ...quiet,
+    expiry: expiry([lease(1, day(10), 1200)]),
+    aging: [{ total_outstanding: 9000, bucket_90_plus: 4000 }],
+    rent: [rentRow('unpaid', 500, 0)],
+    pendingVouchers: 2,
+    longVacant: 1,
+    landlords: owed(),
+  });
+  assert.deepEqual(keys(f), ['arrears60', 'landlords', 'ending30', 'vouchers', 'rent', 'vacant']);
+  assert.deepEqual(f.items.map((i) => i.tone), ['bad', 'bad', 'warn', 'warn', 'warn', 'neutral']);
+});
+
+check('landlords: wording follows the tone and agrees with the count', () => {
+  assert.equal(landlordFollowUpTitle('bad'), 'إيجار متأخر للمؤجرين');
+  assert.equal(landlordFollowUpTitle('warn'), 'إيجار هذا الشهر للمؤجرين لم يُسدَّد');
+  const detail = (count, amount, atLeast) => landlordFollowUpDetail({ count, amount, atLeast });
+  assert.equal(detail(1, null), 'مؤجر واحد');
+  assert.ok(detail(2, 52000).startsWith('مؤجران · المستحق للمؤجرين '));
+  assert.ok(detail(3, 52000).startsWith('3 مؤجرين · '));
+  assert.ok(detail(11, 52000).startsWith('11 مؤجراً · '));
+  assert.ok(detail(1, 52000, true).endsWith(' على الأقل'));
+  assert.ok(!detail(1, 52000).includes('على الأقل'));
+  // a sum that stands on a guess says so; a floor needs only one qualifier
+  const guessed = (atLeast) => landlordFollowUpDetail({ count: 2, amount: 52000, atLeast, estimated: true });
+  assert.ok(guessed(undefined).endsWith(' تقريباً'));
+  assert.ok(guessed(true).endsWith(' على الأقل') && !guessed(true).includes('تقريباً'));
+  assert.ok(!landlordFollowUpDetail({ count: 2, amount: 52000, estimated: false }).includes('تقريباً'));
+  assert.equal(landlordFollowUpDetail({ count: 2, amount: null, estimated: true }), 'مؤجران', 'no sum, nothing to qualify');
+});
+
+check('landlords: the estimate flag passes from the dues to the row, and is absent when the sum is exact', () => {
+  assert.equal(landlordRow(buildFollowUp({ ...quiet, landlords: owed({ estimated: true }) })).estimated, true);
+  assert.equal(landlordRow(buildFollowUp({ ...quiet, landlords: owed({ estimated: false }) })).estimated, undefined);
+  assert.equal(landlordRow(buildFollowUp({ ...quiet, landlords: owed() })).estimated, undefined);
+});
+
+check('landlords: from the dues, a landlord filed under vendors and one under customers both count, an untagged customer does not', () => {
+  const contact = (o) => ({ id: 'x', kind: 'VENDOR', name: 'x', notes: null, is_active: true, monthly_rent: null, contract_start: null, contract_end: null, job_title: null, department: null, created_at: '2026-06-01T10:00:00Z', ...o });
+  const pay = (id, contact_id, tx_date, amount, description = null) => ({ id, contact_id, tx_date, amount, description, kind: 'EXPENSE', status: 'POSTED' });
+  const contacts = [
+    contact({ id: 'v', kind: 'VENDOR', name: 'عبدالله', notes: '[role:landlord]' }),
+    contact({ id: 'c', kind: 'CUSTOMER', name: 'سالم', notes: '[role:landlord]', monthly_rent: '5000' }),
+    contact({ id: 'n', kind: 'CUSTOMER', name: 'شركة', notes: '[role:customer]' }),
+  ];
+  const transactions = [
+    pay('1', 'v', '2026-07-30', 25000),
+    pay('2', 'v', '2026-07-31', 27000),
+    pay('3', 'v', '2026-08-31', 52000),
+    ...['2026-07', '2026-08', '2026-09', '2026-10'].map((m, i) => pay(`c${i}`, 'c', `${m}-05`, 5000)),
+    pay('9', 'n', '2026-09-05', 800, 'ايجار شهر سبتمبر'),
+  ];
+  const dues = buildLandlordDues({ contacts, transactions, today: TODAY });
+  assert.deepEqual(dues.rows.map((r) => r.contactId), ['v', 'c']);
+  const attention = landlordDuesAttention(dues);
+  // the vendor landlord paid July and August: September and October are owed at the estimated 52,000
+  assert.deepEqual({ ...attention, href: undefined }, { count: 1, amount: 104000, amountComplete: true, estimated: true, behind: 1, tone: 'bad', href: undefined });
+  assert.equal(attention.href, LANDLORD_DUES_HREF);
+  const f = buildFollowUp({ ...quiet, landlords: attention });
+  assert.deepEqual(landlordRow(f), { key: 'landlords', tone: 'bad', count: 1, amount: 104000, estimated: true, href: '/mall?tab=people&role=LANDLORD' });
+  // everyone paid up: no attention, so no row
+  assert.equal(landlordDuesAttention(buildLandlordDues({ contacts: [contacts[1]], transactions, today: TODAY })), null);
+});
+
+check('landlords: months before the system are never owed, so a landlord with no payment yet is only this month', () => {
+  const contact = { id: 'v', kind: 'VENDOR', name: 'عبدالله', notes: '[role:landlord]', is_active: true, monthly_rent: '10000', contract_start: null, contract_end: null, job_title: null, department: null, created_at: '2026-06-01T10:00:00Z' };
+  const dues = buildLandlordDues({ contacts: [contact], transactions: [], today: TODAY });
+  const attention = landlordDuesAttention(dues);
+  assert.equal(attention.count, 1);
+  // June to October have started and nothing was paid: from the go-live month they are owed; January to May are not
+  assert.equal(attention.amount, 50000);
+  assert.equal(dues.rows[0].arrears.months[0].monthKey, '2026-06');
 });
 
 console.log(`\n${passed} checks passed`);

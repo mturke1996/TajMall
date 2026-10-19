@@ -1,84 +1,112 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useEmployeeSummary, useContacts } from '@/lib/db/queries';
-import { EmployeesDirectory } from '@/components/employees/employees-directory';
-import type { EnrichedEmployee } from '@/components/employees/employees-directory';
-import { RecordSalaryPaymentDialog } from '@/components/employees/record-salary-payment-dialog';
+import { EmployeesDirectory, type DirectorySource, type DirectorySources, type RowAction } from '@/components/employees/employees-directory';
+import { useEmployeeActions } from '@/components/employees/employee-actions';
+import { useContacts, useEmployeeSummary } from '@/lib/db/queries';
+import { isLeaveSchemaMissing, useAllEmployeeDetails, useEmployeesOnLeave } from '@/lib/db/leave-queries';
+import {
+  isPayrollSchemaMissing,
+  useOutstandingPayrollLines,
+  usePayrollAdvances,
+  usePendingPayrollAdjustments,
+} from '@/lib/db/payroll-queries';
+import { buildDirectoryRows, type DirectoryRow } from '@/lib/employees/employee-profile';
+import { leavePowers } from '@/lib/leave';
 import { peopleSegmentHref } from '@/lib/mall/routes';
-import { cn } from '@/lib/utils';
-import { matchesSearch } from '@/lib/arabic-search';
-import { MOBILE_PAGE_ACTION_PADDING } from '@/components/layout/mobile-page-action-bar';
+import { usePermission } from '@/lib/supabase/use-permission';
+import { todayISODate } from '@/lib/utils';
 
-export function MallEmployeesPanel({
-  embedded,
-  onAddEmployee,
-}: {
-  embedded?: boolean;
-  onAddEmployee?: () => void;
-}) {
+type SourceQuery = { isLoading: boolean; isError: boolean; error: unknown; refetch: () => unknown };
+
+/** How one query stands for the directory: off for a role that may not read it, missing when the database lacks it. */
+function sourceOf(query: SourceQuery, enabled: boolean, isMissing: (error: unknown) => boolean): DirectorySource {
+  if (!enabled) return { state: 'off' };
+  if (query.isError) return isMissing(query.error) ? { state: 'missing' } : { state: 'error', retry: () => void query.refetch() };
+  return { state: query.isLoading ? 'loading' : 'ready' };
+}
+
+export function MallEmployeesPanel({ embedded: _embedded, onAddEmployee }: { embedded?: boolean; onAddEmployee?: () => void }) {
   const router = useRouter();
-  const { data: employees = [], isLoading: summaryLoading } = useEmployeeSummary();
-  const { data: contacts = [] } = useContacts('EMPLOYEE');
+  const { role, can, loading: permLoading } = usePermission();
+  const powers = leavePowers(role);
+  const canManage = !permLoading && powers.canManage;
+  const canPay = !permLoading && can('expense.create');
+  const canAdd = !permLoading && can('document.create');
+  const today = useMemo(() => todayISODate(), []);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [salaryEmployee, setSalaryEmployee] = useState<EnrichedEmployee | null>(null);
+  const contacts = useContacts('EMPLOYEE', { includeInactive: true });
+  const summary = useEmployeeSummary();
+  // the database shows payroll to managers and cashiers, and leave to every role that can write
+  const dueEnabled = canManage || canPay;
+  const outstanding = useOutstandingPayrollLines(dueEnabled);
+  const pending = usePendingPayrollAdjustments(canManage);
+  const advances = usePayrollAdvances(canManage);
+  const onLeave = useEmployeesOnLeave(undefined, !permLoading && powers.canSeeOnLeave);
+  const details = useAllEmployeeDetails(canManage);
 
-  const enrichedEmployees = useMemo((): EnrichedEmployee[] => {
-    return employees.map((emp) => {
-      const contact = contacts.find((c) => c.id === emp.id);
-      return {
-        ...emp,
-        name: contact?.name ?? emp.name,
-        phone: contact?.phone ?? emp.phone,
-        job_title: contact?.job_title ?? emp.job_title,
-        department: contact?.department ?? emp.department,
-        salary: contact?.salary ?? emp.salary,
-      };
-    });
-  }, [employees, contacts]);
+  const sources: DirectorySources = {
+    due: sourceOf(outstanding, dueEnabled, isPayrollSchemaMissing),
+    pending: sourceOf(pending, canManage, isPayrollSchemaMissing),
+    advances: sourceOf(advances, canManage, isPayrollSchemaMissing),
+    leave: sourceOf(onLeave, !permLoading && powers.canSeeOnLeave, isLeaveSchemaMissing),
+    paid: sourceOf(summary, true, () => false),
+  };
 
-  const filteredEmployees = useMemo(() => {
-    return enrichedEmployees.filter((e) =>
-      matchesSearch(searchQuery, [e.name, e.job_title, e.department, e.phone]),
-    );
-  }, [enrichedEmployees, searchQuery]);
+  const rows = useMemo<DirectoryRow[]>(
+    () =>
+      buildDirectoryRows({
+        contacts: contacts.data ?? [],
+        summaries: summary.data,
+        outstanding: outstanding.data,
+        pendingAdjustments: pending.data,
+        advances: advances.data,
+        onLeave: onLeave.data,
+        // the file (contract dates, end of service) is only an extra: a missing or failed one never hides an employee
+        details: details.data,
+        today,
+      }),
+    [contacts.data, summary.data, outstanding.data, pending.data, advances.data, onLeave.data, details.data, today],
+  );
 
-  const stats = useMemo(() => {
-    const total = employees.length;
-    const totalSalary = employees.reduce((sum, e) => sum + (Number(e.salary) || 0), 0);
-    const totalPaid = employees.reduce(
-      (sum, e) => sum + (Number(e.last_12_months_salary_paid) || 0),
-      0,
-    );
-    return { total, totalSalary, totalPaid };
-  }, [employees]);
+  const { open, dialogs } = useEmployeeActions(powers);
+
+  function handleAction(action: RowAction, row: DirectoryRow, opener: HTMLElement | null) {
+    const employee = {
+      id: row.id,
+      name: row.name,
+      job_title: row.jobTitle,
+      department: row.department,
+      salary: row.salary,
+      hire_date: row.hireDate,
+      last_12_months_salary_paid: row.paid12,
+    };
+    const returnTo = { current: opener };
+    if (action === 'pay') {
+      // payroll on: pay the oldest posted month that still owes; payroll off: record the salary as an expense
+      const line = sources.due.state === 'missing' ? null : (outstanding.data ?? []).find((l) => l.id === row.dueLineId) ?? null;
+      open({ action: 'pay', employee, line, returnTo });
+    } else {
+      open({ action, employee, returnTo });
+    }
+  }
 
   return (
     <>
-      <div className={cn(!embedded && MOBILE_PAGE_ACTION_PADDING)}>
-        <EmployeesDirectory
-          employees={enrichedEmployees}
-          filteredEmployees={filteredEmployees}
-          isLoading={summaryLoading}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          stats={stats}
-          onRecordSalary={setSalaryEmployee}
-          onAddEmployee={
-            onAddEmployee ??
-            (() =>
-              router.push(peopleSegmentHref('EMPLOYEE', { add: 'EMPLOYEE' })))
-          }
-        />
-      </div>
-
-      <RecordSalaryPaymentDialog
-        employee={salaryEmployee}
-        open={!!salaryEmployee}
-        onOpenChange={(open) => !open && setSalaryEmployee(null)}
+      <EmployeesDirectory
+        rows={rows}
+        loading={permLoading || contacts.isLoading}
+        error={contacts.isError ? contacts.error : null}
+        onRetry={() => void contacts.refetch()}
+        sources={sources}
+        canManage={canManage}
+        canPay={canPay}
+        canAdd={canAdd}
+        onAction={handleAction}
+        onAddEmployee={onAddEmployee ?? (() => router.push(peopleSegmentHref('EMPLOYEE', { add: 'EMPLOYEE' })))}
       />
+      {dialogs}
     </>
   );
 }
