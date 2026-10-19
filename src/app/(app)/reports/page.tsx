@@ -28,6 +28,7 @@ import {
   AccountingError,
   AccountingLoading,
 } from '@/components/accounting/accounting-states';
+import { IconTile, type Accent } from '@/components/dashboard/dashboard-ui';
 import { useJournalEntriesForPeriod } from '@/lib/db/journal-queries';
 import {
   formatReportPeriodLabelAr,
@@ -40,10 +41,10 @@ import {
 
 type ReportGroup = 'statements' | 'books' | 'analysis';
 
-const GROUPS: { id: ReportGroup; title: string }[] = [
-  { id: 'statements', title: 'القوائم المالية' },
-  { id: 'books', title: 'الدفاتر والقيود' },
-  { id: 'analysis', title: 'التحليلات' },
+const GROUPS: { id: ReportGroup; title: string; accent: Accent }[] = [
+  { id: 'statements', title: 'القوائم المالية', accent: 'blue' },
+  { id: 'books', title: 'الدفاتر والقيود', accent: 'violet' },
+  { id: 'analysis', title: 'التحليلات', accent: 'teal' },
 ];
 
 type ReportCard = {
@@ -255,7 +256,7 @@ function ReportsHubContent() {
         <div className="grid gap-5 lg:grid-cols-3">
           {GROUPS.map((group) => (
             <section key={group.id} className="flex flex-col gap-2" aria-labelledby={`reports-${group.id}`}>
-              <h2 id={`reports-${group.id}`} className="px-1 text-[12.5px] font-medium text-ink-mute">
+              <h2 id={`reports-${group.id}`} className="px-1 text-[13.5px] font-semibold text-foreground">
                 {group.title}
               </h2>
               <ul className="surface divide-y divide-border overflow-hidden">
@@ -265,14 +266,14 @@ function ReportsHubContent() {
                     <li key={card.href}>
                       <Link
                         href={reportsHref(card.href, period)}
-                        className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-canvas-sunken/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-canvas-sunken/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                       >
-                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-ink-mute" aria-hidden />
+                        <IconTile icon={Icon} accent={group.accent} className="h-9 w-9 rounded-lg" />
                         <span className="min-w-0 flex-1">
                           <span className="block text-[14px] font-medium text-foreground">{card.titleAr}</span>
                           <span className="mt-0.5 block text-[12.5px] leading-relaxed text-ink-mute">{card.description}</span>
                         </span>
-                        <ArrowLeft className="mt-1 h-4 w-4 shrink-0 text-ink-mute" aria-hidden />
+                        <ArrowLeft className="h-4 w-4 shrink-0 text-ink-mute" aria-hidden />
                       </Link>
                     </li>
                   );

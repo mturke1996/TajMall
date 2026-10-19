@@ -94,10 +94,11 @@ const fullFormatter = new Intl.NumberFormat('en-US', {
 });
 
 /**
- * "1,250.5 د.ل" — the number, then the currency, the same order as the PDFs.
- * The result is wrapped in a left-to-right isolate (U+2066 … U+2069) so the sign, digits and
- * currency keep their order inside Arabic sentences and right-aligned cells; without it the
- * browser moved the currency to the other side of the number in some places and not others.
+ * "262,150.5 د.ل" — in an Arabic (right-to-left) line the number comes first on the right and the currency
+ * follows it on the left, the way it is read aloud. Only the number (sign and digits) sits in a
+ * left-to-right isolate (U+2066 … U+2069) so it keeps its own order; the currency stays in the line's
+ * direction. Putting both inside one isolate — as an earlier version did — drew the currency on the right,
+ * before the number.
  * A negative amount always carries − (an overdrawn box or a net loss must never read as positive);
  * pass `signed` to also show + on positive amounts, and Math.abs() when a label already gives the side.
  */
@@ -109,14 +110,14 @@ export function formatMoney(
   const label = CURRENCY_LABEL[currency] ?? currency;
   const unit = label ? ` ${label}` : '';
   const raw = typeof amount === 'string' ? Number(amount) : Number(amount);
-  if (!Number.isFinite(raw)) return `⁦0${unit}⁩`;
+  if (!Number.isFinite(raw)) return `⁦0⁩${unit}`;
 
   // the sign follows the rounded value, so -0.0001 is shown as 0, not as a negative zero
   const n = Math.round(raw * 1000) / 1000;
   const sign = n < 0 ? '−' : options?.signed && n > 0 ? '+' : '';
   const abs = Math.abs(n);
   const digits = options?.compact && abs >= 1000 ? compactFormatter.format(abs) : fullFormatter.format(abs);
-  return `⁦${sign}${digits}${unit}⁩`;
+  return `⁦${sign}${digits}⁩${unit}`;
 }
 
 /**

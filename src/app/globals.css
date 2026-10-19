@@ -118,6 +118,14 @@
   --color-plum-line: hsl(var(--plum-line));
   --color-plum-ink: hsl(var(--plum-ink));
 
+  /* vivid accents for charts and icon tiles; text uses the *-ink tokens above */
+  --color-chart-green: hsl(var(--chart-green));
+  --color-chart-red: hsl(var(--chart-red));
+  --color-chart-amber: hsl(var(--chart-amber));
+  --color-chart-blue: hsl(var(--chart-blue));
+  --color-chart-violet: hsl(var(--chart-violet));
+  --color-chart-teal: hsl(var(--chart-teal));
+
   --color-pastel-green: hsl(var(--success-soft));
   --color-pastel-greenInk: hsl(var(--success-ink));
   --color-pastel-red: hsl(var(--danger-soft));
@@ -399,6 +407,14 @@
     --plum-soft: 300 24% 94%;
     --plum-line: 300 18% 85%;
     --plum-ink: 292 28% 30%;
+
+    /* vivid accents: chart series, donut slices and icon tiles (tint with /15 for a tile) */
+    --chart-green: 158 76% 36%;
+    --chart-red: 349 78% 55%;
+    --chart-amber: 36 92% 48%;
+    --chart-blue: 214 84% 54%;
+    --chart-violet: 262 64% 58%;
+    --chart-teal: 184 72% 36%;
   }
 
   /* ── DARK MODE ─────────────────────────────────────────────── */
@@ -460,6 +476,13 @@
     --plum-soft: 292 20% 16%;
     --plum-line: 292 16% 28%;
     --plum-ink: 292 44% 80%;
+
+    --chart-green: 158 62% 50%;
+    --chart-red: 349 82% 66%;
+    --chart-amber: 38 92% 58%;
+    --chart-blue: 214 88% 68%;
+    --chart-violet: 262 78% 74%;
+    --chart-teal: 184 64% 50%;
   }
 
   * {

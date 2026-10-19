@@ -2,6 +2,11 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts';
 import { formatMoney } from '@/lib/utils';
+import { ACCENT_VAR, type Accent } from '@/components/dashboard/dashboard-ui';
+
+/** slices take the dashboard's palette in order, so the ring reads the same on every screen and in both themes */
+const PALETTE: Accent[] = ['red', 'amber', 'blue', 'violet', 'teal', 'green'];
+const sliceColor = (i: number) => ACCENT_VAR[PALETTE[i % PALETTE.length]];
 
 export type Slice = { label: string; value: number; color: string };
 
@@ -46,7 +51,7 @@ export function CategoryBreakdown({
                   animationDuration={600}
                 >
                   {data.map((s, i) => (
-                    <Cell key={i} fill={s.color} />
+                    <Cell key={i} fill={sliceColor(i)} />
                   ))}
                 </Pie>
               </PieChart>
@@ -80,7 +85,7 @@ export function CategoryBreakdown({
               >
                 <span
                   className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ background: s.color }}
+                  style={{ background: sliceColor(i) }}
                 />
                 <span className="flex-1 truncate text-[13px] text-foreground">
                   {s.label}

@@ -1,6 +1,10 @@
 import type { LucideIcon } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatMoney } from '@/lib/utils';
+import { TILE, type Accent } from '@/components/dashboard/dashboard-ui';
+
+/** Callers name the colour by meaning; the tile uses the matching vivid accent (neutral stays grey). */
+const COLOR_ACCENT: Record<string, Accent> = { emerald: 'green', rose: 'red', amber: 'amber', blue: 'blue' };
 
 export function Stat({
   label,
@@ -8,6 +12,7 @@ export function Stat({
   icon: Icon,
   currency,
   className,
+  color = 'neutral',
   loading,
   trend,
   trendLabel,
@@ -22,7 +27,7 @@ export function Stat({
   loading?: boolean;
   trend?: number;
   trendLabel?: string;
-  /** Kept for existing callers; icons are neutral so colour only marks figures that carry meaning. */
+  /** the icon tile's colour: money in (emerald), money out (rose), cash and cheques (amber), counts (blue) */
   color?: 'neutral' | 'emerald' | 'rose' | 'amber' | 'blue';
   onClick?: () => void;
   active?: boolean;
@@ -59,16 +64,18 @@ export function Stat({
   const inner = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <span className="text-[11px] font-semibold text-muted-foreground">
+        <span className="pt-0.5 text-[12.5px] font-medium text-muted-foreground">
           {label}
         </span>
         {Icon && (
           <span
             className={cn(
-              'grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border bg-canvas-sunken text-muted-foreground',
+              'grid h-10 w-10 shrink-0 place-items-center rounded-xl',
+              COLOR_ACCENT[color] ? TILE[COLOR_ACCENT[color]] : 'border border-border bg-canvas-sunken text-muted-foreground',
             )}
+            aria-hidden
           >
-            <Icon className="h-4 w-4" />
+            <Icon className="h-[18px] w-[18px]" />
           </span>
         )}
       </div>

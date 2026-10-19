@@ -16,6 +16,7 @@ import { CashboxTransfersHistory } from '@/components/cashboxes/cashbox-transfer
 import { usePermission } from '@/lib/supabase/use-permission';
 import type { CashboxRow } from '@/lib/db/types';
 import { useHighlightScroll, isHighlighted } from '@/lib/hooks/use-highlight-scroll';
+import { TILE } from '@/components/dashboard/dashboard-ui';
 
 function cashboxHighlightDomId(id: string) {
   return `cashbox-${id}`;
@@ -151,16 +152,10 @@ export default function CashboxesPage() {
                       <header className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
                           <span
-                            className="grid h-10 w-10 shrink-0 place-items-center rounded-md border"
-                            style={{
-                              background: `${c.color ?? '#6E7470'}1f`,
-                              borderColor: `${c.color ?? '#6E7470'}55`,
-                            }}
+                            className={cn('grid h-11 w-11 shrink-0 place-items-center rounded-xl', !c.color && TILE[c.kind === 'CASH' ? 'amber' : 'blue'])}
+                            style={c.color ? { background: `${c.color}26`, color: c.color } : undefined}
                           >
-                            <Icon
-                              className="h-[16px] w-[16px] stroke-[1.5]"
-                              style={{ color: c.color ?? undefined }}
-                            />
+                            <Icon className="h-[18px] w-[18px] stroke-[1.6]" />
                           </span>
                           <div className="flex min-w-0 flex-col">
                             <h3 className="text-[15px] font-semibold tracking-tight truncate">
@@ -223,19 +218,19 @@ export default function CashboxesPage() {
                       </div>
 
                       <div className="grid grid-cols-2 gap-3 text-[12px]">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-[11px] text-ink-mute">
+                        <div className="flex flex-col gap-0.5 rounded-lg border border-success-line bg-success-soft px-3 py-2">
+                          <span className="text-[12px] text-success-ink">
                             وارد الشهر
                           </span>
-                          <span className="num font-semibold text-pastel-greenInk tabular-nums">
+                          <span className="num font-semibold text-success-ink tabular-nums">
                             {formatMoney(Math.abs(inflow), c.currency || 'LYD', { signed: true })}
                           </span>
                         </div>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-[11px] text-ink-mute">
+                        <div className="flex flex-col gap-0.5 rounded-lg border border-danger-line bg-danger-soft px-3 py-2">
+                          <span className="text-[12px] text-danger-ink">
                             صادر الشهر
                           </span>
-                          <span className="num font-semibold text-pastel-redInk tabular-nums">
+                          <span className="num font-semibold text-danger-ink tabular-nums">
                             {formatMoney(-Math.abs(outflow), c.currency || 'LYD', { signed: true })}
                           </span>
                         </div>

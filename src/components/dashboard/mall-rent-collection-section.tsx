@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, Info } from 'lucide-react';
+import { Building2, ChevronLeft, Info } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { keepSeriesOrder } from '@/lib/chart-order';
 import { Card } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import { useMallRentChargesForYear } from '@/lib/db/mall-rent-dashboard-queries'
 import { buildMallRentDashboardModel, getMallRentDashboardYear } from '@/lib/mall-rent-collection-series';
 import { aggregateMallRentKpis, theoreticalYtdRentFromTenants } from '@/lib/mall-rent-kpis';
 import { currentMonthNameAr } from '@/lib/rent-months';
+import { ACCENT_VAR, IconTile } from '@/components/dashboard/dashboard-ui';
 
 type ChartRow = { month: string; مسدّد: number; متبقي: number; rate: number };
 
@@ -30,12 +31,26 @@ function RentTooltip({ active, payload, label }: { active?: boolean; payload?: {
   );
 }
 
-function Figure({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'danger' }) {
+type Tone = 'info' | 'success' | 'danger' | 'warning' | 'neutral';
+const FIGURE_TONE: Record<Tone, string> = {
+  info: 'border-info-line bg-info-soft text-info-ink',
+  success: 'border-success-line bg-success-soft text-success-ink',
+  danger: 'border-danger-line bg-danger-soft text-danger-ink',
+  warning: 'border-warning-line bg-warning-soft text-warning-ink',
+  neutral: 'border-border bg-canvas-sunken text-foreground',
+};
+
+function Figure({ label, value, sub, tone, meter }: { label: string; value: string; sub?: string; tone: Tone; meter?: number }) {
   return (
-    <div className="bg-card p-4">
-      <p className="text-[12.5px] text-ink-mute">{label}</p>
-      <p className={cn('mt-1 text-[18px] font-semibold tabular-nums text-foreground', tone === 'danger' && 'text-danger-ink')}>{value}</p>
-      {sub && <p className="mt-0.5 text-[12px] text-ink-mute">{sub}</p>}
+    <div className={cn('rounded-xl border p-3.5', FIGURE_TONE[tone])}>
+      <p className="text-[12.5px] font-medium opacity-90">{label}</p>
+      <p className="mt-1 text-[18px] font-bold tabular-nums leading-tight sm:text-[20px]">{value}</p>
+      {meter !== undefined && (
+        <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-foreground/10" aria-hidden>
+          <span className="block h-full rounded-full bg-current" style={{ width: `${Math.min(100, Math.max(0, meter))}%` }} />
+        </span>
+      )}
+      {sub && <p className="mt-1 text-[12px] opacity-80">{sub}</p>}
     </div>
   );
 }
@@ -65,7 +80,8 @@ export function MallRentCollectionSection() {
   return (
     <section className="flex flex-col gap-2" aria-labelledby="dash-rent">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <h2 id="dash-rent" className="text-[15px] font-semibold text-foreground">
+        <h2 id="dash-rent" className="flex items-center gap-2.5 text-[15px] font-semibold text-foreground">
+          <IconTile icon={Building2} accent="violet" className="h-9 w-9 rounded-lg" />
           تحصيل الإيجار
         </h2>
         <div className="flex items-center gap-2">
@@ -109,17 +125,17 @@ export function MallRentCollectionSection() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3 lg:grid-cols-5">
-              <Figure label="المطالَب" value={formatMoney(kpis.billed, 'LYD')} sub={`${kpis.chargeCount} مطالبة`} />
-              <Figure label="المحصّل" value={formatMoney(kpis.collected, 'LYD')} />
-              <Figure label="المتبقي" value={formatMoney(kpis.outstanding, 'LYD')} tone={kpis.outstanding > 0 ? 'danger' : undefined} />
-              <Figure label="معدل التحصيل" value={`${kpis.rate.toFixed(1)}%`} />
+            <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-5">
+              <Figure label="المطالَب" value={formatMoney(kpis.billed, 'LYD')} sub={`${kpis.chargeCount} مطالبة`} tone="info" />
+              <Figure label="المحصّل" value={formatMoney(kpis.collected, 'LYD')} tone="success" />
+              <Figure label="المتبقي" value={formatMoney(kpis.outstanding, 'LYD')} tone={kpis.outstanding > 0 ? 'danger' : 'neutral'} />
+              <Figure label="معدل التحصيل" value={`${kpis.rate.toFixed(1)}%`} tone="warning" meter={kpis.rate} />
               <div className="col-span-2 sm:col-span-1">
                 <Figure
                   label="مستحق من كل السنوات"
                   value={formatMoney(lifetime.outstandingRent, 'LYD')}
                   sub={lifetime.openChargesCount > 0 ? `${lifetime.openChargesCount} مطالبة مفتوحة` : 'لا مطالبات مفتوحة'}
-                  tone={lifetime.outstandingRent > 0 ? 'danger' : undefined}
+                  tone={lifetime.outstandingRent > 0 ? 'danger' : 'neutral'}
                 />
               </div>
             </div>
@@ -148,11 +164,11 @@ export function MallRentCollectionSection() {
                 <span>التحصيل الشهري</span>
                 <span className="flex items-center gap-3">
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-sm bg-success" aria-hidden />
+                    <span className="h-2.5 w-2.5 rounded-full bg-chart-green" aria-hidden />
                     مسدّد
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-sm bg-danger-line" aria-hidden />
+                    <span className="h-2.5 w-2.5 rounded-full bg-chart-red/35" aria-hidden />
                     متبقٍ
                   </span>
                 </span>
@@ -177,8 +193,8 @@ export function MallRentCollectionSection() {
                           tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)} ألف` : String(v))}
                         />
                         <Tooltip content={<RentTooltip />} itemSorter={keepSeriesOrder} cursor={{ fill: 'hsl(var(--muted))' }} />
-                        <Bar dataKey="مسدّد" stackId="rent" fill="hsl(var(--success))" maxBarSize={32} />
-                        <Bar dataKey="متبقي" stackId="rent" fill="hsl(var(--danger-line))" radius={[3, 3, 0, 0]} maxBarSize={32} />
+                        <Bar dataKey="مسدّد" stackId="rent" fill={ACCENT_VAR.green} maxBarSize={32} />
+                        <Bar dataKey="متبقي" stackId="rent" fill="hsl(var(--chart-red) / 0.35)" radius={[5, 5, 0, 0]} maxBarSize={32} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
