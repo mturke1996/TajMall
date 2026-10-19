@@ -601,7 +601,7 @@ export function NewTransactionDialog() {
       setEditingDraftId(row.id);
       toast.success('تم حفظ المسودة');
     } catch {
-      toast.error('تعذّر حفظ المسودة — تأكد من تسجيل الدخول وتطبيق ترحيل قاعدة البيانات');
+      toast.error('تعذّر حفظ المسودة. تأكد من الاتصال وتسجيل الدخول ثم أعد المحاولة');
     }
   }
 

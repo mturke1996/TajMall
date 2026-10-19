@@ -91,7 +91,7 @@ export function MallTabNav({
               aria-selected={isActive}
               onClick={() => onChange(tab.id)}
               className={cn(
-                'inline-flex shrink-0 snap-center items-center gap-1.5 rounded-lg px-3 py-2.5 text-[13px] font-medium touch-manipulation transition-colors',
+                'inline-flex shrink-0 snap-center items-center gap-1.5 rounded-lg px-3 py-2.5 text-[13px] font-medium touch-manipulation transition-colors max-sm:min-h-11',
                 isActive
                   ? 'bg-foreground text-background'
                   : 'text-ink-mute hover:bg-secondary hover:text-ink',

@@ -1452,6 +1452,7 @@ function JournalMonthContent() {
             ? categoryFilterId
             : 'ALL'
         }
+        defaultKind={accountTypeFilter ?? undefined}
         defaultPeriod={{
           year: period.year,
           month: period.month ?? undefined,

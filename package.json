@@ -70,6 +70,8 @@
     "verify:revenues-expenses-pdf": "npx tsx scripts/verify-revenues-expenses-pdf.mjs",
     "verify:period-journal-contra": "npx tsx scripts/verify-period-journal-contra.mjs",
     "verify:exempt-client-logic": "npx tsx scripts/verify-exempt-client-logic.mjs",
+    "verify:people-wording": "node scripts/verify-people-wording.mjs",
+    "verify:period-journal-options": "npx tsx scripts/verify-period-journal-options.mjs",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",

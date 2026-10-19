@@ -31,7 +31,7 @@ function EstimateNote({ row }: { row: LandlordDue }) {
   if (row.amountSource === 'monthly_rent') return null;
   return (
     <p className="flex items-center justify-between gap-3 text-[12px] text-ink-mute">
-      <span>{row.amountSource === 'estimate' ? 'الإيجار الشهري غير مسجَّل، والمبلغ تقدير' : 'الإيجار الشهري غير مسجَّل'}</span>
+      <span>{row.amountSource === 'estimate' ? 'الإيجار الشهري غير مسجّل، والمبلغ تقدير' : 'الإيجار الشهري غير مسجّل'}</span>
       <Link href={`/contacts/${row.contactId}`} className="inline-flex min-h-11 shrink-0 items-center text-info-ink underline underline-offset-4">
         حدّد الإيجار
       </Link>
@@ -91,6 +91,7 @@ function DeskTable({ dues, canPay, onPay }: PayProps & { dues: LandlordDues }) {
   return (
     <div className="hidden overflow-x-auto xl:block">
       <table className="w-full text-[13px]">
+        <caption className="sr-only">مستحقات المؤجرين شهراً بشهر</caption>
         <thead>
           <tr className="border-b border-border bg-canvas-sunken text-[12.5px] text-ink-mute">
             <th scope="col" className="px-4 py-2.5 text-start font-medium">المؤجر</th>
@@ -244,7 +245,7 @@ export function LandlordDuesPanel() {
         </>
       ) : dues.rows.length === 0 ? (
         <Card>
-          <EmptyBlock>لا يوجد مؤجر مسجَّل. اعتمد جهة مؤجراً من ملفها لتظهر مستحقاتها هنا.</EmptyBlock>
+          <EmptyBlock>لا يوجد مؤجر مسجّل. اعتمد جهة مؤجراً من ملفها لتظهر مستحقاتها هنا.</EmptyBlock>
         </Card>
       ) : (
         <>
@@ -252,7 +253,7 @@ export function LandlordDuesPanel() {
 
           {dues.totals.estimated > 0 && (
             <Callout tone="info">
-              {arabicCount(dues.totals.estimated, LANDLORDS)} بلا إيجار شهري مسجَّل: المبلغ تقدير من آخر شهر مسدّد. سجّل الإيجار في ملف المؤجر ليصير المبلغ ثابتاً.
+              {arabicCount(dues.totals.estimated, LANDLORDS)} بلا إيجار شهري مسجّل: المبلغ تقدير من آخر شهر مسدّد. سجّل الإيجار في ملف المؤجر ليصير المبلغ ثابتاً.
             </Callout>
           )}
 

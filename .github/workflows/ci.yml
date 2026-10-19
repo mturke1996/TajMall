@@ -72,6 +72,8 @@ jobs:
           npm run verify:revenues-expenses-pdf
           npm run verify:period-journal-contra
           npm run verify:exempt-client-logic
+          npm run verify:people-wording
+          npm run verify:period-journal-options
           npm run verify:billing-preview
           npm run verify:tenant-collection
           npm run verify:landlord-dues

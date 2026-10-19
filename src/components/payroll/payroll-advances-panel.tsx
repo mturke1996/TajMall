@@ -120,7 +120,7 @@ export function PayrollAdvancesPanel({
       },
       {
         id: 'actions',
-        header: '',
+        header: () => <span className="sr-only">إجراءات</span>,
         enableSorting: false,
         meta: { alwaysVisible: true, align: 'end' },
         cell: ({ row }) =>
@@ -171,6 +171,7 @@ export function PayrollAdvancesPanel({
       ) : (
         <DataTable
           tableId="payroll-advances"
+          caption="سلف الموظفين"
           data={visible}
           columns={columns}
           getRowId={(a) => a.id}
@@ -190,7 +191,7 @@ export function PayrollAdvancesPanel({
             <div className="flex flex-col gap-2 p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-col">
-                  <Link href={`/payroll/employees/${a.employee_id}`} className="-my-2 inline-block py-2 font-medium hover:underline">
+                  <Link href={`/payroll/employees/${a.employee_id}`} className="-my-2.5 inline-block py-2.5 font-medium hover:underline">
                     {a.employee_name}
                   </Link>
                   <span className="text-[11.5px] text-muted-foreground">{formatDate(a.issued_on)}</span>

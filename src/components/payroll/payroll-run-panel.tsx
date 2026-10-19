@@ -208,7 +208,7 @@ export function PayrollRunPanel({
       },
       {
         id: 'actions',
-        header: '',
+        header: () => <span className="sr-only">إجراءات</span>,
         enableSorting: false,
         meta: { alwaysVisible: true, align: 'end' },
         cell: ({ row }) =>
@@ -427,6 +427,7 @@ export function PayrollRunPanel({
           <SectionHeading title="تفاصيل الكشف" description="الفرق الصغير تحت الصافي مقارنة بالشهر السابق." />
           <DataTable
             tableId="payroll-run-lines"
+            caption={`كشف رواتب ${formatMonthKeyAr(month)} بحسب الموظف`}
             data={lines}
             columns={columns}
             getRowId={(l) => l.id}

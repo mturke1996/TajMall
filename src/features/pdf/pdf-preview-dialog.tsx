@@ -40,6 +40,8 @@ export function PdfPreviewDialog({
       <DialogContent
         className={cn(
           'flex flex-col gap-0 overflow-hidden p-0',
+          // the header below has its own close button; the dialog's built-in one sat exactly on top of it (two stacked targets)
+          '[&>button:last-child]:hidden',
           'max-w-[100vw] w-screen h-dvh max-h-dvh rounded-none border-0',
           'sm:max-w-4xl sm:w-[min(100vw-2rem,56rem)] sm:h-[min(92dvh,900px)] sm:max-h-[92dvh] sm:rounded-2xl sm:border',
         )}
@@ -61,7 +63,7 @@ export function PdfPreviewDialog({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 gap-1 touch-manipulation"
+                className="h-11 gap-1 touch-manipulation sm:h-9"
                 disabled={shareBusy}
                 onClick={onShare}
               >
@@ -73,7 +75,7 @@ export function PdfPreviewDialog({
               type="button"
               variant="outline"
               size="sm"
-              className="h-9 gap-1 touch-manipulation"
+              className="h-11 gap-1 touch-manipulation sm:h-9"
               disabled={downloadBusy}
               onClick={onDownload}
             >
@@ -84,7 +86,7 @@ export function PdfPreviewDialog({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-9 w-9 touch-manipulation"
+              className="h-11 w-11 touch-manipulation sm:h-9 sm:w-9"
               aria-label="إغلاق"
               onClick={() => onOpenChange(false)}
             >

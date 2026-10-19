@@ -12,6 +12,7 @@
  *  - setup talk (migration, Supabase, SQL, RLS, error codes) and leftovers (lorem, TODO, undefined, NaN);
  *  - a count typed next to its noun by hand instead of arabicCount(), or a numeral that disagrees with its
  *    noun («3 شهر», «12 أشهر»);
+ *  - the retired names «بطاقة الجهة» / «بطاقة الموظف» (the page of a contact is «ملف الجهة»);
  *  - a single string of more than 220 characters (copy that long is a paragraph, not a label).
  * and in imports and class names:
  *  - the AI-style icons (Sparkles, Wand, Bot, Brain, Stars …) from any icon package;
@@ -73,7 +74,7 @@ const FILES = [
 // the rules
 // ---------------------------------------------------------------------------------------------------------
 
-const AR = /[؀-ۿ]/;
+const AR = /[\u0600-\u06FF]/;
 // Arabic words end at the first non-Arabic character; a prefix (و ف ب ك ل ال لل) may stand in front
 const word = (alternatives) => new RegExp(`(?<![\\u0600-\\u06FF])(?:[وفبك]?ال|لل|[وفبكل])?(?:${alternatives})(?![\\u0600-\\u06FF])`);
 
@@ -86,8 +87,10 @@ const FILLER = /\bpowered by\b|\bseamless(ly)?\b|\bunlock\b|\bsupercharge/i;
 const SETUP_JARGON = /\bmigrations?\b|Supabase|\bRLS\b|\bRPC\b|PostgREST|PGRST\d|\bSQL(STATE)?\b|هجرة \d|تطبيق ترحيل|ترحيل قاعدة|ترحيل \d{3}|\b0\d{2}_[a-z]/i;
 const LEFTOVER = /lorem ipsum|\bTODO\b|\bFIXME\b|\bXXX\b|\bundefined\b|\bNaN\b|\[object |\bnull\b/i;
 // pictographs, dingbats (✓ ✔ ✗ ★ ☆ ✨ ⚡ ☑ ❤ …), the symbol blocks and the emoji variation selector
-const EMOJI = /[\u{1F000}-\u{1FFFF}☀-➿⬀-⯿️‍]|\p{Emoji_Presentation}/u;
+const EMOJI = /[\u{1F000}-\u{1FFFF}\u2600-\u27BF\u2B00-\u2BFF\uFE0F]|\p{Emoji_Presentation}/u;
 const EM_DASH = /—/;
+// one name for one thing: the contact's own page is «ملف الجهة» (the screens said «بطاقة الجهة» and «بطاقة الموظف» before)
+const RETIRED_TERMS = /بطاقة الجهة|بطاقة الموظف/;
 
 /** Icons that signal generated content, in any icon package. Zap (electricity) and Siren (emergency leave) are not on the list. */
 const AI_ICON =
@@ -204,6 +207,7 @@ export function scanSource(fileName, text) {
     if (/[!！]/.test(t)) add(p.line, 'exclamation mark', t);
     if (SETUP_JARGON.test(t)) add(p.line, 'setup talk shown to people', t);
     if (LEFTOVER.test(t)) add(p.line, 'leftover placeholder', t);
+    if (RETIRED_TERMS.test(t)) add(p.line, 'retired term (the page of a contact is «ملف الجهة»)', t);
     if (p.kind === 'str' && t.length > MAX_LENGTH) add(p.line, `string over ${MAX_LENGTH} characters`, t);
     if (FEW_THEN_SINGULAR.test(t)) add(p.line, 'numeral and noun disagree (3 to 10 takes the plural)', t);
     if (MANY_THEN_PLURAL.test(t)) add(p.line, 'numeral and noun disagree (11 and over takes the singular)', t);
@@ -248,6 +252,8 @@ function selfTest() {
   has(`const a = 'مدة 12 أشهر';`, 'numeral and noun disagree');
   has(`const a = '${'ا'.repeat(230)}';`, 'string over');
   has(`const a = <p>غير معرّف undefined</p>;`, 'leftover');
+  has(`const a = 'من بطاقة الجهة';`, 'retired term');
+  has(`const a = 'يُحفظ على بطاقة الموظف';`, 'retired term');
 
   // what must stay allowed
   clean(`// مساعد ذكي ✓ — تم! Sparkles animate-pulse
@@ -268,6 +274,7 @@ const a = 1;`);
   clean('const a = `${a} – ${b}`;');
   clean(`const a = 'مساعدة';`);
   clean(`const a = 'سند صرف: ما دُفع للمورد، وما تبقى للمؤجر.';`);
+  clean(`const a = 'ملف الجهة وبطاقة ائتمان';`);
 }
 
 // ---------------------------------------------------------------------------------------------------------

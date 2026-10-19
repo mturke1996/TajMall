@@ -38,6 +38,7 @@ import {
   journalPeriodLabel,
   journalWarnings,
   pruneJournalChoices,
+  rentMonthWidensPeriod,
   selectJournalRows,
   type JournalBasis,
   type JournalFilters,
@@ -82,6 +83,8 @@ export type JournalReportOptionsDialogProps = {
   transactions: TransactionWithRelations[];
   /** an account the page has chosen; the dialog starts with it */
   defaultCategoryId?: string;
+  /** revenues or expenses, when the page is showing one type of accounts without choosing an account; an account's own type wins */
+  defaultKind?: JournalKind;
   /** what the page is showing: a month, or a whole year when `month` is missing */
   defaultPeriod?: { year: number; month?: number };
 };
@@ -98,7 +101,7 @@ const LEVEL_CARDS: ChoiceCardOption<JournalLevel>[] = [
 
 const kindOfCategory = (c: Pick<CategoryRow, 'type'> | undefined): JournalKind | null => (c?.type === 'REVENUE' ? 'REVENUE' : c?.type === 'EXPENSE' ? 'EXPENSE' : null);
 
-export function JournalReportOptionsDialog({ open, onOpenChange, categories, cashboxes, transactions, defaultCategoryId = ALL_ACCOUNTS, defaultPeriod }: JournalReportOptionsDialogProps) {
+export function JournalReportOptionsDialog({ open, onOpenChange, categories, cashboxes, transactions, defaultCategoryId = ALL_ACCOUNTS, defaultKind, defaultPeriod }: JournalReportOptionsDialogProps) {
   const today = todayISODate();
   const { profile, user } = useCurrentProfile();
 
@@ -106,7 +109,7 @@ export function JournalReportOptionsDialog({ open, onOpenChange, categories, cas
     const category = categories.find((c) => c.id === defaultCategoryId);
     return defaultJournalOptions(todayISODate(), {
       categoryId: category ? category.id : ALL_ACCOUNTS,
-      kind: kindOfCategory(category) ?? undefined,
+      kind: kindOfCategory(category) ?? defaultKind,
       period: defaultPeriod,
     });
   });
@@ -208,7 +211,7 @@ export function JournalReportOptionsDialog({ open, onOpenChange, categories, cas
 
   // ── outputs ────────────────────────────────────────────────────────────────
   const buildDocument = useCallback(async () => {
-    const { JournalExecutiveDocument } = await import('./journal-executive-document');
+    const { PeriodJournalExecutivePDF } = await import('../PeriodJournalExecutivePDF');
     const scopeNote = buildJournalScopeNote({
       filters,
       layout: { sort },
@@ -217,7 +220,7 @@ export function JournalReportOptionsDialog({ open, onOpenChange, categories, cas
       cashboxName: (id) => names.cashbox.get(id),
     });
     return (
-      <JournalExecutiveDocument
+      <PeriodJournalExecutivePDF
         titleAr={reportTitle}
         subtitleAr={layout.subtitle.trim() || `${periodLabel} · ${categoryLabel} · ${basisLabel}`}
         documentTitle={`${BRAND.name} - قيد الفترة - ${periodLabel}`}
@@ -236,7 +239,10 @@ export function JournalReportOptionsDialog({ open, onOpenChange, categories, cas
         bankGroups={data.bankGroups}
         categoriesSummary={data.categoriesSummary}
         paymentMethodsSummary={data.paymentMethodsSummary}
-        extras={{ scopeNote, printedBy: printedBy || undefined, printedAt: formatPrintStamp(), signature }}
+        scopeNote={scopeNote || undefined}
+        printedBy={printedBy || undefined}
+        printedAt={formatPrintStamp()}
+        signature={signature}
       />
     );
   }, [filters, sort, level, names, reportTitle, layout.subtitle, periodLabel, categoryLabel, basisLabel, data, printedBy, signature]);
@@ -279,7 +285,7 @@ export function JournalReportOptionsDialog({ open, onOpenChange, categories, cas
       { label: 'مدين', amount: data.grandTotal, tone: 'info' },
       { label: 'دائن', amount: data.grandTotal, tone: 'info' },
     ],
-    range: basis === 'RENT_MONTH_TARGET' ? `${shownPeriod.words} (بحسب شهر الاستحقاق)` : shownPeriod.words,
+    range: basis === 'RENT_MONTH_TARGET' && shownPeriod.valid ? `${shownPeriod.words} (بحسب شهر الاستحقاق)` : shownPeriod.words,
     facts: [
       { label: 'البنود', value: summary.categories },
       { label: 'الخزائن والمصارف', value: data.bankGroups.length },
@@ -296,6 +302,7 @@ export function JournalReportOptionsDialog({ open, onOpenChange, categories, cas
       excluded: selection.excluded,
       priorTotal: data.priorPeriodTotal,
       priorCount: data.priorPeriodCount,
+      widened: rentMonthWidensPeriod(basis, selection.period),
       formatMoney: (amount) => formatMoney(amount, 'LYD'),
     }),
     filtersActive,

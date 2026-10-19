@@ -12,7 +12,7 @@ export type RowContext = {
   onVoucher: (row: DirectoryRow) => void;
   mayMutate: boolean;
   onEdit: (contact: ContactRow, opener: HTMLElement | null) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string, opener: HTMLElement | null) => void;
   /** files offered as landlords: their row says why */
   hintIds: ReadonlySet<string>;
 };

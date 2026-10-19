@@ -160,7 +160,7 @@ export function ReportSummaryBar({ data }: { data: ReportSummaryData }) {
   return (
     <div role="region" aria-label="ملخص التقرير" className="border-t border-border bg-canvas-sunken/60">
       {open ? (
-        <div id={panelId} className="max-h-[45dvh] overflow-y-auto overscroll-contain px-4 pb-1 pt-3">
+        <div id={panelId} role="region" tabIndex={0} aria-label="تفاصيل الملخص" className="max-h-[45dvh] overflow-y-auto overscroll-contain px-4 pb-1 pt-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
           <Details data={data} />
         </div>
       ) : null}

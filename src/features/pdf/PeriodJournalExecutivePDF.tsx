@@ -7,6 +7,7 @@ import { PDF, pdfBase } from './pdfBase';
 import { PDF_TABLE_ROW, PDF_AR_CELL, PDF_NUM_CELL } from './pdfTable';
 import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTable';
 import { TajMallPdfFooter, PdfReportHeaderFlow } from './pdfBrandKit';
+import { PdfPrintLine, PdfScopeNote, PdfSignatureBlock } from './options/PdfReportExtras';
 import { BRAND } from '@/lib/brand';
 import type { CashboxKind } from '@/lib/db/types';
 
@@ -272,6 +273,16 @@ export type PeriodJournalExecutivePdfProps = {
   bankGroups: PeriodJournalBankGroup[];
   categoriesSummary?: Array<{ name: string; code: string; count: number; total: number }>;
   paymentMethodsSummary?: Array<{ method: string; labelAr: string; count: number; total: number }>;
+  /**
+   * Added for the options dialog; every one is optional and a report that sets none of them renders as before.
+   * One muted line under the scope strip saying which filters were applied.
+   */
+  scopeNote?: string;
+  /** who made the report and when, printed under the totals */
+  printedBy?: string;
+  printedAt?: string;
+  /** the «أعدّه / اعتمده» lines after the totals */
+  signature?: boolean;
 };
 
 export function PeriodJournalExecutivePDF({
@@ -293,6 +304,10 @@ export function PeriodJournalExecutivePDF({
   bankGroups,
   categoriesSummary = [],
   paymentMethodsSummary = [],
+  scopeNote,
+  printedBy,
+  printedAt,
+  signature,
 }: PeriodJournalExecutivePdfProps) {
   const subtitle = subtitleAr || `${periodLabel} · ${categoryLabel} · ${basisLabel}`;
   const docTitle = documentTitle || `${BRAND.name} - ${titleAr} - ${periodLabel}`;
@@ -305,7 +320,7 @@ export function PeriodJournalExecutivePDF({
           <PdfReportHeaderFlow title={titleAr} subtitle={subtitle} titleEn="JOURNAL ENTRY" />
 
           {/* 1. Scope & Meta Strip */}
-          <View style={s.scopeStrip} wrap={false}>
+          <View style={scopeNote ? [s.scopeStrip, { marginBottom: 4 }] : s.scopeStrip} wrap={false}>
             <View style={s.scopeItem}>
               <Text style={s.scopeLabel}>{ar('الفترة المحاسبية')}</Text>
               <Text style={s.scopeValue}>{ar(periodLabel)}</Text>
@@ -329,6 +344,8 @@ export function PeriodJournalExecutivePDF({
               <PdfReportMoney amount={grandTotal} bold color={PDF.primary} />
             </View>
           </View>
+
+          {scopeNote ? <PdfScopeNote text={scopeNote} /> : null}
 
           {/* 2. KPI Summary Cards */}
           <View style={s.kpiStrip} wrap={false}>
@@ -691,6 +708,14 @@ export function PeriodJournalExecutivePDF({
 
             <PdfReportCaption />
           </View>
+
+          {/* print line and signature lines: one block, so the line is never left alone on a page without its signature lines */}
+          {printedBy || printedAt || signature ? (
+            <View wrap={false}>
+              <PdfPrintLine printedBy={printedBy} printedAt={printedAt} />
+              {signature ? <PdfSignatureBlock preparedBy={printedBy} /> : null}
+            </View>
+          ) : null}
         </View>
 
         <TajMallPdfFooter fixed />

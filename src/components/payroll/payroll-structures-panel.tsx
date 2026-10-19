@@ -115,7 +115,7 @@ export function PayrollStructuresPanel({
       },
       {
         id: 'actions',
-        header: '',
+        header: () => <span className="sr-only">إجراءات</span>,
         enableSorting: false,
         meta: { alwaysVisible: true, align: 'end' },
         cell: ({ row }) =>
@@ -161,6 +161,7 @@ export function PayrollStructuresPanel({
 
       <DataTable
         tableId="payroll-structures"
+        caption="هياكل رواتب الموظفين"
         data={rows}
         columns={columns}
         getRowId={(r) => r.employee.id}

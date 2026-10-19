@@ -180,7 +180,7 @@ export default function NewVoucherPage() {
         return;
       }
       toast.error('تعذّر الحفظ في قاعدة البيانات', {
-        description: err?.message ?? 'تحقق من الاتصال وتشغيل ترحيل قاعدة البيانات.',
+        description: err?.message ?? 'تحقق من الاتصال ثم أعد المحاولة.',
       });
     }
   }

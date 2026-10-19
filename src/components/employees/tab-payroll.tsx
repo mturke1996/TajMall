@@ -125,7 +125,7 @@ export function PayrollTab({
       },
       {
         id: 'payslip',
-        header: '',
+        header: () => <span className="sr-only">إجراءات</span>,
         enableSorting: false,
         meta: { alwaysVisible: true, align: 'end' },
         cell: ({ row }) => <Payslip line={row.original} adjustments={adjustments} />,
@@ -217,7 +217,7 @@ export function PayrollTab({
               {!data.structuresReadable
                 ? 'هيكل الراتب متاح للمحاسب ومدير النظام والمالك.'
                 : kpis.salary.source === 'card'
-                  ? `الراتب المسجَّل في ملف الجهة ${formatMoney(kpis.salary.total, 'LYD')} ولا هيكل له. حدّد الهيكل ليدخل الكشوف.`
+                  ? `الراتب المسجّل في ملف الجهة ${formatMoney(kpis.salary.total, 'LYD')} ولا هيكل له. حدّد الهيكل ليدخل الكشوف.`
                   : 'لا هيكل راتب بعد.'}
             </EmptyBlock>
           )}

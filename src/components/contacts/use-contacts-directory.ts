@@ -310,7 +310,9 @@ export function useContactsDirectory(options?: {
     return outcome;
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: string, opener?: HTMLElement | null) {
+    // the menu item that asked is gone when the question closes: focus goes back to the menu button
+    const back = () => requestAnimationFrame(() => opener?.isConnected && opener.focus());
     if (!canWrite) {
       toast.error('صلاحية القراءة فقط');
       return;
@@ -322,11 +324,15 @@ export function useContactsDirectory(options?: {
         'لا يُحذف إلا ملف بلا معاملات ولا قيود ولا عقود. غيره اجعله «غير نشط» من التعديل لتبقى حركاته في الدفاتر.',
       confirmLabel: 'احذف',
     });
-    if (!ok) return;
+    if (!ok) {
+      back();
+      return;
+    }
     try {
       await deleteContact.mutateAsync(id);
       toast.success('حُذف الملف');
     } catch (err) {
+      back();
       const code = (err as { code?: string } | null)?.code;
       toast.error(
         code === '23503'

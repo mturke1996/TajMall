@@ -95,7 +95,14 @@ export function ReportOptionsDialogShell({
             <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
               <div className="flex flex-col gap-4">{children}</div>
             </div>
-            <aside className="hidden w-80 shrink-0 overflow-y-auto overscroll-contain border-s border-border bg-canvas-sunken/50 p-5 lg:block">{summaryPanel}</aside>
+            {/* focusable so the keyboard can scroll it when the notes make it taller than the dialog (a scrollable region needs a tab stop) */}
+            <aside
+              tabIndex={0}
+              aria-label="ملخص التقرير"
+              className="hidden w-80 shrink-0 overflow-y-auto overscroll-contain border-s border-border bg-canvas-sunken/50 p-5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring lg:block"
+            >
+              {summaryPanel}
+            </aside>
           </div>
 
           <div className="shrink-0 lg:hidden">{summaryBar}</div>

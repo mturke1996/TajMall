@@ -301,6 +301,13 @@ check('a cashbox filter keeps only entries of the chosen cashboxes; an entry wit
   const rows = select({ period: allSel(), filters: { cashboxIds: [CASH.id] } }).rows;
   assert.ok(rows.every((r) => r.cashbox_id === CASH.id));
   assert.ok(!rows.some((r) => r.cashbox_id == null));
+  // the list offers «بدون خزينة» (R.NO_CASHBOX) for those entries: ticking it must keep exactly them, ticking another box never does
+  const none = select({ period: allSel(), filters: { cashboxIds: [R.NO_CASHBOX] } }).rows;
+  assert.ok(none.length > 0 && none.every((r) => r.cashbox_id == null));
+  const both = select({ period: allSel(), filters: { cashboxIds: [R.NO_CASHBOX, CASH.id] } }).rows;
+  assert.ok(both.some((r) => r.cashbox_id == null) && both.some((r) => r.cashbox_id === CASH.id) && both.every((r) => r.cashbox_id == null || r.cashbox_id === CASH.id));
+  const offered = R.facetItems(SAMPLE.filter((r) => r.kind === 'REVENUE' && r.status === 'POSTED'), 'cashbox', []).find((i) => i.id === R.NO_CASHBOX);
+  assert.ok(offered && offered.count === none.length, 'the choice the list offers selects what it counts');
 });
 
 check('amount range: string amounts, three decimals, inclusive limits, crossed limits and junk', () => {
@@ -461,6 +468,7 @@ check('the scope note names the filters, in plain words; nothing filtered gives 
   assert.equal(note({ minAmount: '10' }), 'التصفية: المبلغ 10 د.ل فأكثر');
   assert.equal(note({ maxAmount: '10' }), 'التصفية: المبلغ حتى 10 د.ل');
   assert.equal(note({ partyIds: ['gone'] }), 'التصفية: الجهة: جهة واحدة');
+  assert.equal(note({ cashboxIds: [R.NO_CASHBOX, BANK.id] }), 'التصفية: الخزينة: بدون خزينة، مصرف الواحة');
   assert.equal(note({ minAmount: '20', maxAmount: '10' }), '');
   assert.equal(note({}, 'DETAILED', 'DATE_ASC'), 'التصفية: الترتيب: الأقدم أولاً');
   assert.equal(note({}, 'SUMMARY_ONLY', 'DATE_ASC'), '');
@@ -621,6 +629,9 @@ check('a preset saved with an account, party or cashbox that no longer exists lo
   // an account that exists but is of the other type brings its type with it
   const e = J.pruneJournalChoices(opts({ kind: 'REVENUE', categoryId: CAT.elec.id }), known);
   assert.deepEqual([e.options.categoryId, e.options.kind, e.dropped], [CAT.elec.id, 'EXPENSE', 0]);
+  // «بدون خزينة» is a choice of the list, not an id of a cashbox: it is never dropped
+  const none = J.pruneJournalChoices(opts({ filters: { cashboxIds: [R.NO_CASHBOX] } }), known);
+  assert.deepEqual([none.options.filters.cashboxIds, none.dropped], [[R.NO_CASHBOX], 0]);
   // nothing to drop
   assert.equal(J.pruneJournalChoices(base(), known).dropped, 0);
 });
@@ -663,6 +674,26 @@ check('a large selection stays fast and exact', () => {
   assert.ok(Date.now() - started < 5000, 'took too long');
   assert.equal(data.filteredCount, sel.rows.length);
   assert.equal(round3(data.bankGroups.reduce((s, g) => s + g.totalDebit, 0)), data.grandTotal);
+});
+
+check('the rent-month basis takes whole months: the dialog says so when a range starts or ends inside a month', () => {
+  const widen = (basis, sel) => J.rentMonthWidensPeriod(basis, R.resolvePeriod(sel, TODAY));
+  assert.equal(widen('RENT_MONTH_TARGET', rangeSel('2026-07-10', '2026-08-31')), true);
+  assert.equal(widen('RENT_MONTH_TARGET', rangeSel('2026-07-01', '2026-08-15')), true);
+  assert.equal(widen('RENT_MONTH_TARGET', rangeSel('2026-07-02', '')), true);
+  assert.equal(widen('RENT_MONTH_TARGET', rangeSel('2026-07-01', '2026-08-31')), false);
+  assert.equal(widen('RENT_MONTH_TARGET', rangeSel('', '2026-08-31')), false);
+  assert.equal(widen('RENT_MONTH_TARGET', rangeSel('2028-02-01', '2028-02-29')), false, 'a leap day is the end of February');
+  assert.equal(widen('RENT_MONTH_TARGET', rangeSel('2027-02-01', '2027-02-28')), false);
+  assert.equal(widen('RENT_MONTH_TARGET', monthsSel(2026, [1, 3])), false);
+  assert.equal(widen('RENT_MONTH_TARGET', allSel()), false);
+  assert.equal(widen('RENT_MONTH_TARGET', rangeSel('2026-09-01', '2026-07-01')), false, 'a wrong range says nothing about months');
+  assert.equal(widen('CASH_COLLECTED_IN_MONTH', rangeSel('2026-07-10', '2026-08-20')), false);
+  assert.equal(widen('GENERAL_ACCRUAL', rangeSel('2026-07-10', '2026-08-20')), false);
+  const input = { count: 3, pages: 1, issues: [], inPeriod: 3, excluded: { voided: 0, drafts: 0 }, priorTotal: 0, priorCount: 0, formatMoney: String };
+  assert.ok(J.journalWarnings({ ...input, widened: true }).some((w) => w.text.includes('كل شهر يمسّه النطاق كاملاً')));
+  assert.equal(J.journalWarnings({ ...input, widened: false }).length, 0);
+  assert.equal(J.journalWarnings({ ...input, widened: true, issues: ['x'] }).some((w) => w.text.includes('يمسّه')), false);
 });
 
 console.log(`\n${passed} checks passed`);

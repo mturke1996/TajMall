@@ -112,7 +112,7 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
       icon: Building2,
       accent: 'violet',
       value: view.monthlyAmount,
-      context: rentKnown ? 'حسب بيانات العقد' : estimated ? 'تقدير من آخر شهر مسدّد' : 'غير مسجَّل',
+      context: rentKnown ? 'حسب بيانات العقد' : estimated ? 'تقدير من آخر شهر مسدّد' : 'غير مسجّل',
       contextTone: rentKnown ? 'mute' : 'warn',
       state,
       onRetry: retry,
@@ -198,7 +198,7 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
       </span>
     ) : canWrite ? (
       <button type="button" onClick={() => setRentOpen(true)} className="-my-3 inline-flex min-h-11 items-center text-info-ink underline underline-offset-4">
-        غير مسجَّل، سجّله
+        غير مسجّل، سجّله
       </button>
     ) : null;
 
@@ -232,7 +232,7 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
       {!loading && !failed && !rentKnown && (
         <Callout
           tone="info"
-          title={estimated ? 'الإيجار الشهري غير مسجَّل' : 'الإيجار الشهري غير مسجَّل، ولا دفعة تدلّ عليه'}
+          title={estimated ? 'الإيجار الشهري غير مسجّل' : 'الإيجار الشهري غير مسجّل، ولا دفعة تدلّ عليه'}
           action={
             canWrite ? (
               <Button type="button" variant="outline" onClick={() => setRentOpen(true)}>

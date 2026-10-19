@@ -137,7 +137,7 @@ export function PayrollAdjustmentsPanel({
       },
       {
         id: 'actions',
-        header: '',
+        header: () => <span className="sr-only">إجراءات</span>,
         enableSorting: false,
         meta: { alwaysVisible: true, align: 'end' },
         cell: ({ row }) => {
@@ -226,6 +226,7 @@ export function PayrollAdjustmentsPanel({
       ) : (
         <DataTable
           tableId="payroll-adjustments"
+          caption={`مكافآت وخصومات ${formatMonthKeyAr(month)}`}
           data={filtered}
           columns={columns}
           getRowId={(r) => r.id}
@@ -243,7 +244,7 @@ export function PayrollAdjustmentsPanel({
           renderMobileRow={(r) => (
             <div className="flex flex-col gap-1.5 p-3">
               <div className="flex items-start justify-between gap-3">
-                <Link href={`/payroll/employees/${r.employee_id}`} className="-my-2 inline-block py-2 font-medium hover:underline">
+                <Link href={`/payroll/employees/${r.employee_id}`} className="-my-2.5 inline-block py-2.5 font-medium hover:underline">
                   {names.get(r.employee_id) ?? '—'}
                 </Link>
                 <Amount value={r.amount} tone={ADJUSTMENT_IS_ADDITION[r.kind] ? 'positive' : 'negative'} />

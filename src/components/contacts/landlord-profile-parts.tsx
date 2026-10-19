@@ -62,7 +62,7 @@ function SheetDialog({
           <DialogDescription className="mt-1">{description}</DialogDescription>
         </div>
         <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">{children}</div>
-        <div className="flex flex-col-reverse gap-2 border-t border-border bg-card px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end">
+        <div className="flex gap-2 border-t border-border bg-card px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:justify-end [&>button]:flex-1 sm:[&>button]:flex-none">
           {footer}
         </div>
       </DialogContent>

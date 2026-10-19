@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Link2, Bot, RotateCcw, PenLine } from 'lucide-react';
+import { Link2, Cog, RotateCcw, PenLine } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getJournalSourceMeta } from '@/lib/journal-source';
 import type { JournalEntryRow } from '@/lib/db/journal-queries';
@@ -12,7 +12,7 @@ const ICONS = {
   tenant_charge: Link2,
   reversal: RotateCcw,
   manual: PenLine,
-  auto: Bot,
+  auto: Cog,
 } as const;
 
 export function JournalSourceBadge({

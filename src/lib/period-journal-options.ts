@@ -25,6 +25,7 @@ import {
   MAX_SAVED_PRESETS,
   METHOD_LABEL_AR,
   MONTHS_AR,
+  NO_CASHBOX,
   NO_PARTY,
   PAYMENT_METHODS,
   PRESET_NAME_MAX,
@@ -35,6 +36,7 @@ import {
   isCountedStatus,
   isValidISODate,
   matchesPeriod,
+  monthEnd,
   namesOrCount,
   parseAmountRange,
   resolvePeriod,
@@ -249,8 +251,9 @@ export function buildJournalRowTest(
     } else if (tx.kind !== options.kind) return false;
     if (!matchesJournalDate(tx, options.basis, period)) return false;
     if (parties && !parties.has(txPartyId(tx) ?? NO_PARTY)) return false;
-    // a cashbox filter keeps only entries of the chosen cashboxes; an entry without one is not among them
-    if (boxes && !boxes.has(txCashboxId(tx) ?? '')) return false;
+    // a cashbox filter keeps only entries of the chosen cashboxes; an entry without one is in the list as «بدون خزينة»
+    // (NO_CASHBOX) and is kept only when that choice is ticked, never by the other choices
+    if (boxes && !boxes.has(txCashboxId(tx) ?? NO_CASHBOX)) return false;
     if (methods && !methods.has(txMethod(tx))) return false;
     if (amount.error) return false;
     if (minM != null || maxM != null) {
@@ -261,6 +264,18 @@ export function buildJournalRowTest(
     return true;
   };
   return { test, period, amountError: amount.error };
+}
+
+/**
+ * With the rent-month basis an entry belongs to a month, not to a day: a range that starts or ends inside a month
+ * still takes that whole month. True when that happens, so the dialog can say so next to the range in words.
+ */
+export function rentMonthWidensPeriod(basis: JournalBasis, period: ResolvedPeriod): boolean {
+  if (basis !== 'RENT_MONTH_TARGET' || !period.valid || period.monthKeys) return false;
+  const { from, to } = period;
+  const startsMidMonth = from != null && from.slice(8, 10) !== '01';
+  const endsMidMonth = to != null && to !== monthEnd(Number(to.slice(0, 4)), Number(to.slice(5, 7)));
+  return startsMidMonth || endsMidMonth;
 }
 
 export type JournalSelection<T> = {
@@ -510,7 +525,7 @@ export function buildJournalScopeNote(input: {
     parts.push(`الجهة: ${names.length === f.partyIds.length ? namesOrCount(names, forms) : arabicCount(f.partyIds.length, forms)}`);
   }
   if (f.cashboxIds.length) {
-    const names = f.cashboxIds.map((id) => input.cashboxName(id)).filter((n): n is string => Boolean(n));
+    const names = f.cashboxIds.map((id) => (id === NO_CASHBOX ? 'بدون خزينة' : input.cashboxName(id))).filter((n): n is string => Boolean(n));
     const forms: [string, string, string, string] = ['خزينة واحدة', 'خزينتان', 'خزائن', 'خزينة'];
     parts.push(`الخزينة: ${names.length === f.cashboxIds.length ? namesOrCount(names, forms) : arabicCount(f.cashboxIds.length, forms)}`);
   }
@@ -563,6 +578,8 @@ export function journalWarnings(input: {
   excluded: { voided: number; drafts: number };
   priorTotal: number;
   priorCount: number;
+  /** rentMonthWidensPeriod: the range takes whole rent months */
+  widened?: boolean;
   formatMoney: (amount: number) => string;
 }): ReportWarning[] {
   const out: ReportWarning[] = [];
@@ -572,6 +589,9 @@ export function journalWarnings(input: {
       tone: 'warning',
       text: input.inPeriod > 0 ? `لا توجد معاملات مطابقة. في هذه الفترة ${entries(input.inPeriod)} قبل اختيار البند والتصفية.` : 'لا توجد معاملات مطابقة لهذه الفترة.',
     });
+  }
+  if (input.widened && input.issues.length === 0) {
+    out.push({ tone: 'info', text: 'بحسب شهر الاستحقاق يدخل كل شهر يمسّه النطاق كاملاً، لا الأيام المحددة فقط.' });
   }
   if (input.count > 0 && input.priorCount > 0) {
     out.push({ tone: 'info', text: `يشمل ${input.formatMoney(input.priorTotal)} مستحقات عن شهور سابقة (${entries(input.priorCount)}).` });
@@ -738,7 +758,7 @@ export function pruneJournalChoices(
   }
   const f = options.filters;
   return {
-    options: { ...options, categoryId, kind, filters: { ...f, partyIds: keep(f.partyIds, known.parties, NO_PARTY), cashboxIds: keep(f.cashboxIds, known.cashboxes) } },
+    options: { ...options, categoryId, kind, filters: { ...f, partyIds: keep(f.partyIds, known.parties, NO_PARTY), cashboxIds: keep(f.cashboxIds, known.cashboxes, NO_CASHBOX) } },
     dropped,
   };
 }

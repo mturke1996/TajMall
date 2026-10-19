@@ -105,7 +105,8 @@ export function RowMenu({
   mayMutate: boolean;
   /** the button that opened the menu is passed so focus can return to it when the form closes */
   onEdit: (c: ContactRow, opener: HTMLElement | null) => void;
-  onDelete: (id: string) => void;
+  /** the menu button is passed so focus can return to it when the question is answered */
+  onDelete: (id: string, opener: HTMLElement | null) => void;
   className?: string;
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -130,7 +131,7 @@ export function RowMenu({
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="min-h-11 text-danger-ink focus:bg-danger-soft focus:text-danger-ink sm:min-h-0 [&_svg]:text-danger-ink"
-              onSelect={() => onDelete(contact.id)}
+              onSelect={() => onDelete(contact.id, triggerRef.current)}
             >
               <Trash2 aria-hidden />
               حذف

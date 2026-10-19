@@ -87,7 +87,7 @@ function RowChips({ row, sources }: { row: DirectoryRow; sources: DirectorySourc
   }
   if (sources.advances.state === 'ready' && row.openAdvance > 0) chips.push({ key: 'advance', tone: 'warning', text: `سلفة قائمة ${formatMoney(row.openAdvance, 'LYD')}` });
   if (sources.pending.state === 'ready' && row.pendingItems > 0) {
-    chips.push({ key: 'pending', tone: 'warning', text: `${arabicCount(row.pendingItems, ['حركة', 'حركتان', 'حركات', 'حركة'])} بانتظار الاعتماد` });
+    chips.push({ key: 'pending', tone: 'warning', text: `${arabicCount(row.pendingItems, ['حركة واحدة', 'حركتان', 'حركات', 'حركة'])} بانتظار الاعتماد` });
   }
   if (row.alert) chips.push({ key: 'alert', tone: row.alert.tone, text: row.alert.label });
   if (chips.length === 0) return null;
@@ -165,14 +165,14 @@ function EmployeeCard({
       <div className="flex items-start gap-3 p-4 pb-3">
         <PartyAvatar name={row.name} role="EMPLOYEE" size="md" inactive={!active} />
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[15px] font-semibold leading-snug">
+          <h2 className="truncate text-[15px] font-semibold leading-snug">
             <Link
               href={`/payroll/employees/${row.id}`}
               className="rounded-sm after:absolute after:inset-0 after:content-[''] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               {row.name}
             </Link>
-          </h3>
+          </h2>
           <p className="mt-0.5 truncate text-[12.5px] text-ink-mute">{subtitle || 'بلا مسمى وظيفي'}</p>
         </div>
         {row.phone && <ContactPhoneActions name={row.name} phone={row.phone} kind="EMPLOYEE" compact className="relative z-10 shrink-0" />}
