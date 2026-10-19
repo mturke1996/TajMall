@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { ContactFormDialog, type ContactSubmitOptions } from '@/components/contacts/contact-form-dialog';
 import { useContactSave, type SaveOutcome } from '@/components/contacts/form/use-contact-save';
 import { startingKind } from '@/lib/contacts/form-rules';
-import { defaultContactFormState, isFormDirty, type ContactFormState } from '@/lib/contacts/form-utils';
+import { defaultContactFormState, hasTypedContent, type ContactFormState } from '@/lib/contacts/form-utils';
 import type { ContactBusinessRole } from '@/lib/contacts/contact-roles';
 import type { ContactRow } from '@/lib/db/types';
 
@@ -46,8 +46,7 @@ export function ContactCreateDialog({
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
-      const typed = isFormDirty(form.name === given ? { ...form, name: '' } : form);
-      if (typed) {
+      if (hasTypedContent(form, given)) {
         setForm({ ...form, name: form.name || name });
         setRestored(true);
       } else {
@@ -60,7 +59,7 @@ export function ContactCreateDialog({
 
   async function submit(e?: FormEvent, options?: ContactSubmitOptions): Promise<SaveOutcome> {
     e?.preventDefault();
-    const outcome = await saver.run(form, { editingId: null });
+    const outcome = await saver.run(form, { editingId: null, offerOpen: false });
     if (outcome.ok) {
       if (outcome.contact) onCreated?.(outcome.contact);
       if (!options?.addAnother) {

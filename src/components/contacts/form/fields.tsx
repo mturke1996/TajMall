@@ -110,6 +110,7 @@ export function TextField({
         autoComplete={autoComplete}
         maxLength={maxLength}
         disabled={disabled}
+        aria-required={required ? true : undefined}
         aria-invalid={error ? true : undefined}
         aria-describedby={error || hint ? `${id}-msg` : undefined}
         className={cn(CONTROL_HEIGHT, 'aria-invalid:border-danger aria-invalid:bg-danger-soft', ltr && 'text-right', inputClassName)}

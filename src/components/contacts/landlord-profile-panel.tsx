@@ -103,6 +103,8 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
   const estimated = view.amountSource === 'estimate';
   const rentKnown = view.amountSource === 'monthly_rent';
   const oldestOwed = due.arrears.months[0]?.monthKey ?? null;
+  // months are owed but none has a known amount (no monthly rent, no month to copy it from): a dash, never a zero
+  const owedUnknown = due.owedMonths > 0 && due.owed <= 0;
 
   const kpis: KpiCardProps[] = [
     {
@@ -133,7 +135,7 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
       label: 'المستحق الآن',
       icon: Hourglass,
       accent: 'red',
-      value: due.owed,
+      value: owedUnknown ? null : due.owed,
       tone: due.owedMonths === 0 ? 'good' : oldestOwed ? 'bad' : 'warn',
       context:
         due.owedMonths === 0
@@ -141,8 +143,8 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
           : [
               obligationMonthsText(due.owedMonths),
               oldestOwed && `الأقدم ${formatMonthLabelAr(oldestOwed)}`,
-              due.owedEstimated && 'تقديري',
-              !due.owedComplete && 'على الأقل',
+              owedUnknown ? 'المبلغ غير معروف' : due.owedEstimated && 'تقديري',
+              !owedUnknown && !due.owedComplete && 'على الأقل',
             ]
               .filter(Boolean)
               .join(' · '),
@@ -335,7 +337,8 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
       >
         <div className="grid gap-x-8 gap-y-3 md:grid-cols-2">
           <InfoList items={siteItems} />
-          <InfoList items={contractItems} />
+          {/* on a phone the two lists stack: a hairline keeps the second one from reading as more of the first */}
+          <InfoList items={contractItems} className="max-md:border-t max-md:border-border max-md:pt-3" />
         </div>
       </SectionCard>
 

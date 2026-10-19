@@ -10,7 +10,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Callout, CHIP, EmptyBlock, ErrorBlock, KpiStrip, PartyAvatar, type KpiCardProps } from '@/components/people';
 import { ContactPhoneActions } from '@/components/contacts/contact-phone-actions';
 import { NativeSelect } from '@/components/employees/form-parts';
-import { MobilePageActionBar, MOBILE_PAGE_ACTION_PADDING } from '@/components/layout/mobile-page-action-bar';
 import {
   departmentOptions,
   directoryStats,
@@ -323,7 +322,7 @@ export function EmployeesDirectory({ rows, loading, error, onRetry, sources, can
   ];
 
   return (
-    <div className={cn('flex flex-col gap-4', MOBILE_PAGE_ACTION_PADDING)}>
+    <div className="flex flex-col gap-4">
       <KpiStrip label="ملخص الموظفين" items={kpis} />
 
       {(sources.due.state === 'missing' || sources.leave.state === 'missing') && (
@@ -371,12 +370,6 @@ export function EmployeesDirectory({ rows, loading, error, onRetry, sources, can
               تقرير الإنفاق
             </Link>
           </Button>
-          {canAdd && (
-            <Button className="hidden min-h-10 gap-1.5 md:inline-flex" onClick={onAddEmployee}>
-              <Plus aria-hidden />
-              إضافة موظف
-            </Button>
-          )}
         </div>
       </div>
 
@@ -454,14 +447,6 @@ export function EmployeesDirectory({ rows, loading, error, onRetry, sources, can
         </ul>
       )}
 
-      {canAdd && (
-        <MobilePageActionBar>
-          <Button className="h-12 w-full gap-2 text-base font-semibold touch-manipulation" onClick={onAddEmployee}>
-            <Plus className="h-5 w-5" aria-hidden />
-            إضافة موظف
-          </Button>
-        </MobilePageActionBar>
-      )}
     </div>
   );
 }

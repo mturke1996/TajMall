@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { BrandGlyph } from '@/components/brand/logo';
-import { formatDate, formatMoney } from '@/lib/utils';
+import { formatDate, formatMoney, todayISODate } from '@/lib/utils';
 import { BRAND } from '@/lib/brand';
 import { normalizeRpcRentCalendar } from '@/lib/rent-calendar-from-charges';
 import {
@@ -172,8 +172,7 @@ export default async function TenantPortalPage({ params }: { params: Promise<{ t
 
   // What is owed today: charges already due, never a month that has not started (an invoice issued
   // early) or one the mall exempted. Same rule as the tenant's file inside the system.
-  const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const todayKey = todayISODate();
   const exemptMonths = new Set(
     (calendar?.months ?? []).filter((m) => m.status === 'exempt').map((m) => m.month),
   );

@@ -297,7 +297,8 @@ export default function EmployeeProfilePage() {
           : kpis.due.total > 0
             ? `${arabicCount(kpis.due.months, ['شهر', 'شهران', 'أشهر', 'شهراً'])} · أقدمها ${formatMonthKeyAr(kpis.due.oldestMonth ?? '')}`
             : 'لا مستحقات',
-      contextTone: kpis.due.total > 0 ? 'bad' : 'good',
+      // green says «nothing owed»: a figure that is not available says nothing
+      contextTone: parts.lines.missing || (!canManage && !canPay) ? 'mute' : kpis.due.total > 0 ? 'bad' : 'good',
       ...(canManage || canPay ? stateOf(parts.lines) : {}),
     },
     {

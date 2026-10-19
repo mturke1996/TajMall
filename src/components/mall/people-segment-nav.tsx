@@ -29,7 +29,8 @@ export function PeopleSegmentNav({
   onChange: (segment: PeopleSegment) => void;
   className?: string;
 }) {
-  const rowRef = useActiveInView<HTMLDivElement>(active);
+  // the counts arrive after the page and widen the chips: the selected one is brought into view again when they do
+  const rowRef = useActiveInView<HTMLDivElement>(`${active}|${SEGMENTS.map((seg) => counts?.[seg.id] ?? '').join(',')}`);
   return (
     <div
       ref={rowRef}

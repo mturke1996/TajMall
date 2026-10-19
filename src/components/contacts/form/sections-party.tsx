@@ -133,7 +133,7 @@ export function LandlordSection({ ctx }: { ctx: FormContext }) {
         hint={
           form.since
             ? `الأشهر قبل ${formatMonthKeyAr(form.since)} تُحسب «مسدّد قبل المنظومة».`
-            : 'إن لم تحدّدها، تبدأ المتابعة من أول دفعة مسجّلة.'
+            : 'إن لم تحدّدها، تبدأ من أول دفعة مسجّلة، وإن لم توجد فمن بداية تشغيل المنظومة.'
         }
       />
     </Section>

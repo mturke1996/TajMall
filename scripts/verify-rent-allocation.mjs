@@ -297,6 +297,9 @@ test('statement: a year carries the earlier balance as its opening; an unlinked 
 const { createReplica, actAs } = await import('./lib/pglite-replica.mjs');
 const { db } = await createReplica();
 await db.exec(readFileSync('docs/proposed-migrations/078_security_and_ledger_fixes.sql', 'utf8'));
+// VERIFY_EXTRA_SQL="docs/proposed-migrations/081_rent_safety.sql,docs/proposed-migrations/087_rent_charge_integrity.sql" checks the
+// engine against the database as a candidate migration would leave it
+for (const file of (process.env.VERIFY_EXTRA_SQL ?? '').split(',').filter(Boolean)) await db.exec(readFileSync(file, 'utf8'));
 const rows = async (sql, params) => (await db.query(sql, params)).rows;
 const val = async (sql, params) => Object.values((await rows(sql, params))[0] ?? {})[0];
 
@@ -399,7 +402,11 @@ for (let t = 0; t < 60; t++) {
     if (issue === 'does_not_reach' || issue === 'no_amount') {
       if (result.ok) failures.push(`${label}: engine refused (${issue}) but the database accepted it`);
     } else if (!result.ok) {
-      failures.push(`${label}: engine predicted ${issue}, database raised: ${result.error.slice(0, 120)}`);
+      // since migration 081 the database itself refuses a month that is already fully paid; the engine reports
+      // the same thing as `already_paid`, so a refusal with that message agrees with the prediction
+      if (!(issue === 'already_paid' && /مسددة بالكامل/.test(result.error))) {
+        failures.push(`${label}: engine predicted ${issue}, database raised: ${result.error.slice(0, 120)}`);
+      }
     } else {
       for (const line of plan.lines) {
         const got = Number(after.get(line.month)?.total_paid ?? 0);

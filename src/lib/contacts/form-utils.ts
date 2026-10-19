@@ -217,6 +217,14 @@ export function isFormDirty(form: ContactFormState, role?: ContactBusinessRole, 
   return strip(form) !== strip(fresh);
 }
 
+/**
+ * Whether the person typed or chose something in this form, not counting a name a screen put there for them (the
+ * words typed in a search box before «إضافة كجهة جديدة»): that name alone is not a draft worth bringing back.
+ */
+export function hasTypedContent(form: ContactFormState, givenName: string): boolean {
+  return isFormDirty(form.name === givenName ? { ...form, name: '' } : form);
+}
+
 // ---------------------------------------------------------------- the payload
 
 /** أعمدة قابلة للإدراج/التحديث — بدون code (يُولَّد في قاعدة البيانات) */

@@ -56,10 +56,10 @@ export function SectionCard({
         <div className="flex min-w-0 items-center gap-3">
           {icon && <IconTile icon={icon} accent={accent} className="h-9 w-9 rounded-lg" />}
           <div className="min-w-0">
-            <h2 id={headingId} className="truncate text-[15px] font-semibold text-foreground">
+            <h2 id={headingId} className="text-[15px] font-semibold leading-snug text-foreground">
               {title}
             </h2>
-            {description && <p className="truncate text-[12px] text-ink-mute">{description}</p>}
+            {description && <p className="text-[12px] leading-snug text-ink-mute">{description}</p>}
           </div>
         </div>
         {actions}

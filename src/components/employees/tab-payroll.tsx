@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ChartColumn, FileText, History, Pencil, Wallet } from 'lucide-react';
+import { ChartColumn, History, Pencil, Wallet } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -218,7 +218,7 @@ export function PayrollTab({
                 ? 'هيكل الراتب متاح للمحاسب ومدير النظام والمالك.'
                 : kpis.salary.source === 'card'
                   ? `الراتب المسجَّل في بطاقة الجهة ${formatMoney(kpis.salary.total, 'LYD')} ولا هيكل له. حدّد الهيكل ليدخل الكشوف.`
-                  : 'لم يُحدَّد هيكل راتب بعد. لا يدخل الموظف كشف الرواتب قبل ذلك.'}
+                  : 'لا هيكل راتب بعد.'}
             </EmptyBlock>
           )}
         </SectionCard>
@@ -243,16 +243,14 @@ export function PayrollTab({
             caption="كشوف رواتب الموظف"
             empty={
               <Card>
-                <EmptyBlock>
-                  <FileText className="mx-auto mb-2 h-5 w-5 text-ink-mute" aria-hidden />
-                  لم يدخل الموظف كشف رواتب بعد. يظهر كل شهر هنا بعد إعداد كشفه.
-                </EmptyBlock>
+                <EmptyBlock>لم يدخل الموظف كشف رواتب بعد. يظهر كل شهر هنا بعد إعداد كشفه.</EmptyBlock>
               </Card>
             }
             renderMobileRow={(l) => (
               <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3.5">
                 <div className="flex items-start justify-between gap-3">
-                  <Link href={`/payroll?month=${lineMonth(l)}`} className="text-[14.5px] font-semibold hover:underline">
+                  {/* padding and a matching negative margin make the tap area 44px high without growing the card */}
+                  <Link href={`/payroll?month=${lineMonth(l)}`} className="-my-3 inline-block py-3 text-[14.5px] font-semibold hover:underline">
                     {formatMonthKeyAr(lineMonth(l))}
                   </Link>
                   <Amount value={l.net} className="text-[15px] font-bold" />

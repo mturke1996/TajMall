@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/brand/logo';
 import { BRAND } from '@/lib/brand';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { safeInternalPath } from '@/lib/supabase/safe-redirect';
 import { toast } from 'sonner';
 
 /**
@@ -33,9 +34,8 @@ export default function LoginPage() {
 function LoginCard() {
   const router = useRouter();
   const params = useSearchParams();
-  // only a path inside this app: "/x" — never "//host", "/\\host" or "https://…" (an open redirect)
-  const rawNext = params.get('next') ?? '';
-  const nextHref = /^\/(?![\/\\])/.test(rawNext) ? rawNext : '/dashboard';
+  // only a path inside this app; the check resolves the value like a browser, so "/%09/host" cannot become "//host"
+  const nextHref = safeInternalPath(params.get('next'), '/dashboard');
 
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);

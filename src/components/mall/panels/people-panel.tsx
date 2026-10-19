@@ -72,20 +72,12 @@ export function MallPeoplePanel() {
     />
   );
 
-  if (segment === 'EMPLOYEE') {
-    return (
-      <div className="space-y-5">
-        <PeopleSegmentNav active={segment} counts={directory.segmentCounts} onChange={setSegment} />
-        <MallEmployeesPanel embedded onAddEmployee={() => directory.openAdd('EMPLOYEE')} />
-        {formDialog}
-      </div>
-    );
-  }
-
+  const employees = segment === 'EMPLOYEE';
   const addLabel = role === 'LANDLORD' ? 'إضافة مؤجر' : ADD_LABEL[segment];
 
   return (
     <div className="space-y-5">
+      {/* one place for the add button in every list: after the segments on a desktop, under them on a phone */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <PeopleSegmentNav active={segment} counts={directory.segmentCounts} onChange={setSegment} />
 
@@ -97,7 +89,7 @@ export function MallPeoplePanel() {
             </Button>
           )}
           <WriteGuard permission="document.create">
-            <Button className="h-11 gap-1.5 touch-manipulation sm:h-9" onClick={() => directory.openAdd()}>
+            <Button className="h-11 gap-1.5 touch-manipulation sm:h-9" onClick={() => directory.openAdd(employees ? 'EMPLOYEE' : undefined)}>
               <Plus aria-hidden />
               {addLabel}
             </Button>
@@ -105,7 +97,11 @@ export function MallPeoplePanel() {
         </div>
       </div>
 
-      <ContactsDirectory directory={directory} segment={segment} role={role} onRoleChange={setRole} />
+      {employees ? (
+        <MallEmployeesPanel embedded onAddEmployee={() => directory.openAdd('EMPLOYEE')} />
+      ) : (
+        <ContactsDirectory directory={directory} segment={segment} role={role} onRoleChange={setRole} />
+      )}
 
       {formDialog}
     </div>

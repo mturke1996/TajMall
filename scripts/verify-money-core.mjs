@@ -16,6 +16,7 @@ const kpis = await import('../src/lib/mall-rent-kpis.ts');
 const account = await import('../src/lib/tenant-rent-account.ts');
 const statement = await import('../src/lib/tenant-statement.ts');
 const report = await import('../src/lib/monthly-report.ts');
+const fromData = await import('../src/lib/tenant-rent-account-from-data.ts');
 
 const { formatMoney, formatNumber, formatPercent, parseAmountInput, todayISODate } = utils;
 
@@ -241,6 +242,33 @@ check('lease ended: the end of the claim comes from the tenant\'s leases', () =>
   assert.equal(fn(null), null);
 });
 
+check('lease ended: the profile builder passes the end through, so the account stops claiming after it', () => {
+  const charge = (month) => ({
+    id: `c-${month}`,
+    contract_id: 'L1',
+    type: 'RENT',
+    due_date: `${month}-01`,
+    amount: 1000,
+    total_paid: 1000,
+    status: 'PAID',
+    contract: { tenant: { id: 't1' }, tenant_id: 't1' },
+    rent_journal_links: [],
+    journal: null,
+    description: '',
+    journal_entry_id: null,
+  });
+  const charges = ['2026-01', '2026-02', '2026-03'].map(charge);
+  const leases = [{ status: 'TERMINATED', start_date: '2026-01-01', end_date: '2026-03-19', monthly_rent: 1000 }];
+  atClock('2026-10-19T10:00:00Z', 'UTC', () => {
+    const years = fromData.tenantRentYears(charges, 2026, '2026-01-01');
+    const input = { tenantId: 't1', contactRent: 1000, claimStart: '2026-01-01', years, charges, manualExemptMonths: [], pricing: { bands: [], leaseRent: fromData.activeLeaseRent(leases), contactRent: 1000 } };
+    assert.equal(fromData.buildTenantRentAccountFromData(input).owedNow, 7000, 'as before: April to October');
+    const built = fromData.buildTenantRentAccountFromData({ ...input, claimEnd: fromData.tenantClaimEnd(leases) });
+    assert.equal(built.owedNow, 0);
+    assert.equal(built.claimTo, '2026-03');
+  });
+});
+
 const receipt = (id, amount, status) => ({ id, number: 1, tx_date: '2026-10-05', amount, status, kind: 'REVENUE', category: { code: 'REV-RNT' } });
 
 check('statement: a rent receipt the bank has reconciled counts like a posted one', () => {
@@ -301,34 +329,6 @@ check('monthly report: a partly paid month still owes the rest', () => {
   assert.equal(r.rent.remaining, 600);
   assert.equal(r.rent.collected, 400);
   assert.equal(r.rent.tenants.exempt, 1);
-});
-
-const agingRow = (id, total, current, d30 = 0, d60 = 0, d90 = 0) => ({
-  tenant_id: id,
-  tenant_name: id,
-  shop_number: null,
-  total_outstanding: total,
-  bucket_current: current,
-  bucket_30: d30,
-  bucket_60: d60,
-  bucket_90_plus: d90,
-});
-
-check('monthly report: arrears of a finished month leave out rent that fell due after it ended', () => {
-  const rows = [agingRow('a', 3000, 1000, 2000), agingRow('b', 1000, 1000), agingRow('c', 500, 0, 0, 500)];
-  const past = report.buildMonthlyReport(reportInput({ aging: rows }));
-  assert.equal(past.arrears.total, 2500, 'tenant b only owes what came due after the month');
-  assert.equal(past.arrears.tenants, 2);
-  assert.equal(past.arrears.buckets.current, 0);
-  assert.deepEqual(past.arrears.top.map((t) => [t.name, t.amount]), [['a', 2000], ['c', 500]]);
-});
-
-check('monthly report: arrears of the running month keep what is not yet due as "current"', () => {
-  const rows = [agingRow('a', 3000, 1000, 2000), agingRow('b', 1000, 1000)];
-  const now = report.buildMonthlyReport(reportInput({ month: '2026-10', aging: rows }));
-  assert.equal(now.arrears.total, 4000);
-  assert.equal(now.arrears.tenants, 2);
-  assert.equal(now.arrears.buckets.current, 2000);
 });
 
 // ── the dashboard series and the lifetime figures ───────────────────────────

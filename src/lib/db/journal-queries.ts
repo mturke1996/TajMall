@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { invalidateMoneyQueries } from '@/lib/db/invalidate';
 import { friendlyError } from '@/lib/user-messages';
+import { buildIlikeOrFilter } from '@/lib/supabase/postgrest-filter';
 
 // ── Query Keys ───────────────────────────────────────────────────
 export const qk = {
@@ -163,10 +164,8 @@ export function useJournalEntries(filters?: {
         .limit(limit);
 
       if (status) q = q.eq('status', status);
-      if (search?.trim()) {
-        const s = search.trim().replace(/[%_,]/g, '');
-        q = q.or(`reference.ilike.%${s}%,description.ilike.%${s}%`);
-      }
+      const searchFilter = buildIlikeOrFilter(['reference', 'description'], search);
+      if (searchFilter) q = q.or(searchFilter);
 
       if (contactId || cashboxId) {
         let lineQ = supabase.from('journal_lines').select('journal_id');

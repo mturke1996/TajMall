@@ -30,6 +30,11 @@ export type SaveRequest = {
   editingId: string | null;
   /** the contact as it was loaded, so a phone number the person did not touch is saved untouched */
   previous?: ContactRow | null;
+  /**
+   * Whether the toast of a new contact offers «فتح الملف». False where the person is in the middle of something else
+   * (a transaction entry): a tap on it would leave that page and lose what was typed.
+   */
+  offerOpen?: boolean;
 };
 
 /**
@@ -79,7 +84,7 @@ export function useContactSave() {
       const noun = nounFor(form.businessRole, payload.kind);
       toast.success(`تمت إضافة ${noun} «${payload.name}»`, {
         duration: 8000,
-        action: id ? { label: 'فتح الملف', onClick: () => router.push(`/contacts/${id}`) } : undefined,
+        action: id && request.offerOpen !== false ? { label: 'فتح الملف', onClick: () => router.push(`/contacts/${id}`) } : undefined,
       });
       for (const w of warnings) toast.warning(w, { duration: 14000 });
       return { ok: true, contact: created ?? null };

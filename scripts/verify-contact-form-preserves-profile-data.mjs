@@ -102,6 +102,11 @@ const edited = contactFormUtils.buildContactPayload({ ...opened, notes: 'عقد 
 assert.equal(edited.notes, 'عقد سنوي، تغيّر الإيجار\n[role:landlord]\n[since:2026-06]', 'a changed note keeps both tags');
 assert.equal(edited.phone, '0913000222', 'a phone that was typed is written the standard way');
 
+// a rent typed with a thousands comma is the rent: dropping it would leave the landlord with nothing owed
+const rentTyped = contactFormUtils.buildContactPayload({ ...opened, monthly_rent: '25,000' }, opened);
+assert.equal(rentTyped.monthly_rent, '25000', 'a monthly rent typed as 25,000 is saved as 25000, not lost');
+assert.equal(rentTyped.notes, landlord.notes, 'and nothing else about the file changes with it');
+
 const cleared = contactFormUtils.buildContactPayload({ ...opened, notes: '' }, opened);
 assert.equal(cleared.notes, '[role:landlord]\n[since:2026-06]', 'emptying the note leaves the tags, not a role-less file');
 

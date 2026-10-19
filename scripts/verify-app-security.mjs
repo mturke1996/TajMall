@@ -208,11 +208,7 @@ check('cookies: Secure is chosen from the proxy header, then the URL protocol', 
 // ── Part 2: source rules ────────────────────────────────────────────────────────────────────────
 
 /** Files in this list are known gaps outside the file ownership of whoever wrote the check. */
-const PENDING = new Set([
-  'src/lib/db/journal-queries.ts', // .or() built from the search box by hand: use buildIlikeOrFilter
-  'src/app/(auth)/login/page.tsx', // ?next= checked with a pattern the tab trick passes: use safeInternalPath
-  'src/app/(app)/notifications/page.tsx', // a notification's href is rendered as a link: use safeInternalPath
-]);
+const PENDING = new Set([]);
 const stillPending = new Set();
 
 function walk(dir, out = []) {

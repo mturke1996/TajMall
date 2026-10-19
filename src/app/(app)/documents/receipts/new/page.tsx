@@ -28,7 +28,7 @@ import {
   nextDocNumber,
 } from '@/lib/document-pdf-export';
 import { toast } from 'sonner';
-import { preferredCashboxId, todayISODate, parseAmountInput } from '@/lib/utils';
+import { formatMoney, preferredCashboxId, todayISODate, parseAmountInput } from '@/lib/utils';
 
 const METHODS: ReceiptVoucherPdfModel['method'][] = ['نقدي', 'صك', 'حوالة'];
 
@@ -316,7 +316,7 @@ export default function NewReceiptPage() {
               </div>
             ))}
             <p className="text-sm font-mono font-semibold text-success-ink">
-              الإجمالي: {totalAmount.toLocaleString('ar-LY')} د.ل
+              الإجمالي: {formatMoney(totalAmount)}
             </p>
           </div>
 

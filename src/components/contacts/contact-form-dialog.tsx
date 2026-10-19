@@ -98,6 +98,9 @@ export function ContactFormDialog(props: ContactFormDialogProps) {
   const [panel, setPanel] = useState<HTMLDivElement | null>(null);
   useVisualViewportFit(panel, 'fill');
   const nameRef = useRef<HTMLInputElement>(null);
+  // what had the focus when the form opened gets it back when it closes (a dialog opened from code has no trigger
+  // for the library to return to, and the focus would fall to the top of the page)
+  const openerRef = useRef<HTMLElement | null>(null);
   const dirtyRef = useRef(false);
   const busyRef = useRef(false);
   const guard: Guard = { dirty: dirtyRef, busy: busyRef };
@@ -115,7 +118,17 @@ export function ContactFormDialog(props: ContactFormDialogProps) {
         dir="rtl"
         onOpenAutoFocus={(e) => {
           e.preventDefault();
+          const active = document.activeElement;
+          openerRef.current = active instanceof HTMLElement && active !== document.body ? active : null;
           nameRef.current?.focus({ preventScroll: true });
+        }}
+        onCloseAutoFocus={(e) => {
+          const opener = openerRef.current;
+          openerRef.current = null;
+          if (opener?.isConnected) {
+            e.preventDefault();
+            opener.focus({ preventScroll: true });
+          }
         }}
         onInteractOutside={(e) => {
           if (dirtyRef.current || busyRef.current) e.preventDefault();

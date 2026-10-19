@@ -66,7 +66,7 @@ function TenantArAgingContent() {
         reportKindEn: 'ar-aging',
         periodLabel: `حتى ${asOf}`,
         periodSlugEn: `as-of-${asOf}`,
-        statsLine: `${tenantCount} مستأجر · إجمالي ${totalOutstanding.toLocaleString('ar-LY')} د.ل.`,
+        statsLine: `${tenantCount} مستأجر · إجمالي ${formatMoney(totalOutstanding)}`,
       }),
     [asOf, tenantCount, totalOutstanding],
   );

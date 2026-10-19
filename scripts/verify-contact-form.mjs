@@ -601,6 +601,18 @@ check('a party added from a transaction entry opens on what the entry is about',
   assert.equal(rules.startingKind(r('EXPENSE', 'VENDOR', 'EXP-RNT')), 'CUSTOMER');
 });
 
+check('a name a screen put in the form is not a draft; anything the person typed is', () => {
+  const given = 'مؤسسة النخيل';
+  const fresh = { ...utils.defaultContactFormState('CUSTOMER'), name: given };
+  assert.equal(utils.hasTypedContent(fresh, given), false, 'only the name the search box passed on');
+  assert.equal(utils.hasTypedContent({ ...fresh, name: 'مؤسسة النخيل للتجارة' }, given), true, 'the person changed the name');
+  assert.equal(utils.hasTypedContent({ ...fresh, phone: '0912345678' }, given), true);
+  assert.equal(utils.hasTypedContent({ ...fresh, customerType: 'company' }, given), true);
+  assert.equal(utils.hasTypedContent({ ...utils.defaultContactFormState('CUSTOMER'), name: '' }, ''), false, 'an empty form');
+  assert.equal(utils.hasTypedContent({ ...utils.defaultContactFormState('CUSTOMER'), name: 'س' }, ''), true, 'a name typed by hand');
+  assert.equal(utils.hasTypedContent(rules.switchKind(fresh, 'VENDOR'), given), false, 'choosing a kind is not typing');
+});
+
 // ───────────────────────────────────────────── error text
 
 check('a save error is one plain sentence; the database\'s own Arabic sentence passes through', () => {

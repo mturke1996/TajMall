@@ -40,7 +40,7 @@ import { paymentMethodToUiMethod } from '@/lib/voucher-db';
 import { formatDocumentPdfExportNames } from '@/lib/document-pdf-export';
 import { toast } from 'sonner';
 import { usePermission } from '@/lib/supabase/use-permission';
-import { parseAmountInput } from '@/lib/utils';
+import { formatMoney, parseAmountInput } from '@/lib/utils';
 
 const METHODS: ReceiptVoucherPdfModel['method'][] = ['نقدي', 'صك', 'حوالة'];
 
@@ -418,7 +418,7 @@ export default function EditReceiptPage() {
               </div>
             ))}
             <p className="text-sm font-mono font-semibold text-success-ink">
-              الإجمالي: {totalAmount.toLocaleString('ar-LY')} د.ل
+              الإجمالي: {formatMoney(totalAmount)}
             </p>
           </div>
 
