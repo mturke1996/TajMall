@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict';
 
-const { buildSettlement, buildRefundPrefill, depositAccountState, planEnd, DEPOSIT_CODE } = await import('../src/lib/lease-settlement.ts');
+const { buildSettlement, buildRefundPrefill, depositAccountState, planEnd, DEPOSIT_CODE, TX_DIALOG_LISTS_DEPOSIT_ACCOUNT } = await import('../src/lib/lease-settlement.ts');
 const { buildTenantRentAccount } = await import('../src/lib/tenant-rent-account.ts');
 const { formatMoney } = await import('../src/lib/utils.ts');
 
@@ -492,8 +492,10 @@ check('no prefill is built for nothing to refund, no account or no tenant', () =
 
 check('the deposit account is ready only when it exists, is active and the dialog will list it', () => {
   assert.deepEqual(depositAccountState([{ id: 'x', code: 'REV-RNT', kind: 'REVENUE' }, { id: 'cat-dep', code: 'LIA-DEP', kind: 'EXPENSE', active: true }]), { state: 'ready', id: 'cat-dep' });
-  // a liability account is stored with the kind ADJUSTMENT, which the dialog's expense list leaves out
-  assert.deepEqual(depositAccountState([{ id: 'cat-dep', code: 'LIA-DEP', kind: 'ADJUSTMENT', active: true }]), { state: 'hidden_in_dialog', id: 'cat-dep' });
+  // a liability account is stored with the kind ADJUSTMENT; the entry dialog lists LIA-DEP under expenses by its code,
+  // so it is ready (the flag says the dialog does so)
+  assert.equal(TX_DIALOG_LISTS_DEPOSIT_ACCOUNT, true);
+  assert.deepEqual(depositAccountState([{ id: 'cat-dep', code: 'LIA-DEP', kind: 'ADJUSTMENT', active: true }]), { state: 'ready', id: 'cat-dep' });
   assert.deepEqual(depositAccountState([{ id: 'cat-dep', code: 'LIA-DEP', kind: 'EXPENSE', active: false }]), { state: 'missing' });
   assert.deepEqual(depositAccountState([{ id: 'x', code: 'REV-RNT', kind: 'REVENUE' }]), { state: 'missing' });
   assert.deepEqual(depositAccountState(undefined), { state: 'missing' });
