@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Banknote, CalendarOff, ChevronDown, Info, Link2, Loader2 } from 'lucide-react';
+import { Banknote, CalendarOff, ChevronDown, History, Info, Link2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SetRentMonthStatusDialog } from '@/components/tenants/set-rent-month-status-dialog';
@@ -18,7 +18,8 @@ import {
   type RentAccountMonthKind,
   type RentAccountYear,
 } from '@/lib/tenant-rent-account';
-import { currentMonthKey, currentYear } from '@/lib/rent-months';
+import { currentMonthKey, currentYear, formatMonthLabelAr } from '@/lib/rent-months';
+import { claimStartMonth } from '@/lib/rent-summary-claim-start';
 import { cn, formatMoney } from '@/lib/utils';
 
 const LEGEND_ORDER: RentAccountMonthKind[] = ['paid', 'partial', 'due', 'uncharged', 'upcoming', 'exempt', 'no_price'];
@@ -125,6 +126,13 @@ export function TenantRentCalendarPanel({
     return LEGEND_ORDER.filter((k) => present.has(k));
   }, [account.years]);
   const dialogYears = years.length > 0 ? years : [currentYear()];
+  // months before the claim start are not owed and not missing: they say so, in the words of the claim start
+  const claimMonth = claimStartMonth(resolvedClaimStart);
+  const exemptReasons = useMemo(
+    () => new Set(account.years.flatMap((y) => y.months.filter((m) => m.kind === 'exempt').map((m) => m.exemptReason))),
+    [account.years],
+  );
+  const exemptLabel = exemptReasons.has('before_start') ? (exemptReasons.has('manual') ? 'قبل بداية المطالبة أو مستبعد' : 'قبل بداية المطالبة') : RENT_ACCOUNT_KIND.exempt.label;
 
   if (loading) {
     return (
@@ -184,13 +192,20 @@ export function TenantRentCalendarPanel({
             {kindsShown.map((k) => (
               <span key={k} className="inline-flex items-center gap-1.5">
                 <span className={cn('h-3 w-3 rounded-[4px] border', RENT_ACCOUNT_KIND[k].swatch)} aria-hidden />
-                {RENT_ACCOUNT_KIND[k].label}
+                {k === 'exempt' ? exemptLabel : RENT_ACCOUNT_KIND[k].label}
               </span>
             ))}
             {onCollect && account.owingMonths.length > 0 && (
               <span className="basis-full text-[12px] sm:ms-auto sm:basis-auto">اضغط شهراً عليه متبقٍ لتحصيله.</span>
             )}
           </div>
+        )}
+
+        {claimMonth && exemptReasons.has('before_start') && (
+          <p className="flex items-start gap-2 border-b border-border bg-info-soft/50 px-4 py-3 text-[12.5px] text-info-ink sm:px-5">
+            <History className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <span>المطالبة تبدأ من {formatMonthLabelAr(claimMonth)}. الأشهر قبلها لا تُعدّ مستحقة ولا ناقصة.</span>
+          </p>
         )}
 
         {account.unchargedMonths.length > 0 && (

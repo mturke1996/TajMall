@@ -41,8 +41,12 @@ export const PDF_PAGINATION = {
   headerCompact: 22,
   footerBottom: 10,
   footerHeight: 46,
-  /** paddingBottom للصفحة فقط — يمنع تداخل الجسم مع التذييل المثبّت */
-  footerReserve: 56,
+  /**
+   * paddingBottom للصفحة فقط — يمنع تداخل الجسم مع التذييل المثبّت.
+   * خط التذييل العلوي يقع على ~65.5pt من أسفل ورقة A4؛ كان الحجز 56 فيتسلل آخر صف
+   * ~9.5pt تحت خط التذييل. 70 يترك فراغاً ~4.5pt فوق الخط.
+   */
+  footerReserve: 70,
 } as const;
 
 export const pdfBase = {
@@ -271,6 +275,8 @@ export const pdfBase = {
   },
 
   luxeEyebrow: {
+    // a sentence with two number-and-word pairs («5 قيد · 10 بند») keeps each count next to its word only when the text carries its direction
+    direction: 'rtl',
     fontSize: 7.5,
     color: PDF.muted,
     fontWeight: 'bold',
@@ -300,6 +306,8 @@ export const pdfBase = {
   },
 
   luxeMonthYear: {
+    // a sentence with two number-and-word pairs («5 قيد · 10 بند») keeps each count next to its word only when the text carries its direction
+    direction: 'rtl',
     fontSize: 11.5,
     fontWeight: 'bold',
     color: PDF.text,
@@ -308,6 +316,8 @@ export const pdfBase = {
   },
 
   luxeWeekday: {
+    // a sentence with two number-and-word pairs («5 قيد · 10 بند») keeps each count next to its word only when the text carries its direction
+    direction: 'rtl',
     fontSize: 8.5,
     color: PDF.logoGreen,
     fontWeight: 'bold',
@@ -316,6 +326,8 @@ export const pdfBase = {
   },
 
   luxeGregorian: {
+    // a sentence with two number-and-word pairs («5 قيد · 10 بند») keeps each count next to its word only when the text carries its direction
+    direction: 'rtl',
     fontSize: 8.5,
     color: PDF.muted,
     marginTop: 12,

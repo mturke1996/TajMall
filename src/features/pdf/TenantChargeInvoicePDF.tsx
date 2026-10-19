@@ -6,11 +6,16 @@ import { ar, arDateParts } from './arabicPDF';
 import { pdfBase, PDF } from './pdfBase';
 import { PdfMoneyText } from './pdfBrandKit';
 
+/** a text that starts with a digit or a Latin letter keeps its first run at the left end unless it runs right to left */
+const RTL = { direction: 'rtl' } as const;
+
 const s = StyleSheet.create({
   grid: {
     direction: 'rtl',
     marginTop: 8,
-    marginBottom: 12,
+    // no bottom margin: react-pdf counts it as room the frame still needs, so a long description that left the frame
+    // fitting the page by less than 12pt moved the whole frame to the next page. The gap is the amount box's margin-top.
+    marginBottom: 0,
     borderWidth: 1,
     borderColor: PDF.border,
     borderRadius: 4,
@@ -26,7 +31,7 @@ const s = StyleSheet.create({
   label: { width: '35%', fontSize: 9, color: PDF.muted, textAlign: 'right' },
   value: { flex: 1, fontSize: 10, color: PDF.text, textAlign: 'right', fontWeight: 'bold' },
   amountBox: {
-    marginTop: 16,
+    marginTop: 28,
     padding: 14,
     backgroundColor: PDF.logoGreenSoft,
     borderTopWidth: 2,
@@ -72,6 +77,7 @@ export function TenantChargeInvoicePDF({ charge }: TenantChargeInvoicePdfProps) 
   return (
     <ReportShell
       title="فاتورة / مطالبة مالية"
+      titleEn="INVOICE"
       subtitle="مستند استحقاق للمستأجر — تاج مول"
       summaryPrimaryDateIso={`${charge.due_date}T12:00:00.000Z`}
       summaryPrimaryDateLabel="تاريخ الاستحقاق"
@@ -84,11 +90,11 @@ export function TenantChargeInvoicePDF({ charge }: TenantChargeInvoicePdfProps) 
       <View style={s.grid}>
         <View style={s.row}>
           <Text style={s.label}>{ar('نوع الرسم')}</Text>
-          <Text style={s.value}>{ar(TYPE_AR[charge.type] || charge.type)}</Text>
+          <Text style={[s.value, RTL]}>{ar(TYPE_AR[charge.type] || charge.type)}</Text>
         </View>
         <View style={s.row}>
           <Text style={s.label}>{ar('البيان')}</Text>
-          <Text style={s.value}>{ar(charge.description)}</Text>
+          <Text style={[s.value, RTL]}>{ar(charge.description)}</Text>
         </View>
         {charge.phone ? (
           <View style={s.row}>
@@ -99,12 +105,12 @@ export function TenantChargeInvoicePDF({ charge }: TenantChargeInvoicePdfProps) 
         {charge.unit_floor ? (
           <View style={s.row}>
             <Text style={s.label}>{ar('الطابق')}</Text>
-            <Text style={s.value}>{ar(charge.unit_floor)}</Text>
+            <Text style={[s.value, RTL]}>{ar(charge.unit_floor)}</Text>
           </View>
         ) : null}
         <View style={s.row}>
           <Text style={s.label}>{ar('تاريخ الاستحقاق')}</Text>
-          <Text style={s.value}>
+          <Text style={[s.value, RTL]}>
             {dueParts ? `${dueParts.day} ${dueParts.monthYear}` : charge.due_date}
           </Text>
         </View>

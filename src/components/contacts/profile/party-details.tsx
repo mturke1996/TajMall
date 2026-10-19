@@ -7,7 +7,7 @@ import { InfoList, SectionCard, type InfoItem } from '@/components/people';
 import { ContactWhatsAppButton } from '@/components/contacts/contact-phone-actions';
 import { CONTACT_ROLES, extractContactBusinessRole } from '@/lib/contacts/contact-roles';
 import { readTags } from '@/lib/contacts/contact-tags';
-import { profileNotes } from '@/lib/people/party-profile';
+import { profileNotes, specialRole, splitFilled } from '@/lib/people/party-profile';
 import { digitsOnly } from '@/lib/arabic-search';
 import { formatMonthLabelAr } from '@/lib/rent-months';
 import { formatDate, formatMoney } from '@/lib/utils';
@@ -42,8 +42,7 @@ export function contactItems(contact: ContactRow): InfoItem[] {
 }
 
 export function identityItems(contact: ContactRow): InfoItem[] {
-  const role = extractContactBusinessRole(contact);
-  const meta = CONTACT_ROLES[role];
+  const special = specialRole(contact);
   const staff: InfoItem[] =
     contact.kind === 'EMPLOYEE'
       ? [
@@ -55,8 +54,8 @@ export function identityItems(contact: ContactRow): InfoItem[] {
       : [];
   return [
     { label: 'النوع', value: KIND_TEXT[contact.kind] ?? KIND_TEXT.OTHER },
-    // «جهة أخرى» says nothing the kind has not said
-    { label: 'الدور', value: role === 'OTHER' ? null : meta.label },
+    // a customer or an employee says it all in its kind; only a landlord or a kind of supplier adds a role row
+    ...(special ? [{ label: 'الدور', value: CONTACT_ROLES[special].badge }] : []),
     { label: 'الرمز', value: clean(contact.code), ltr: true },
     { label: 'الحالة', value: contact.is_active ? 'نشط' : 'غير نشط' },
     { label: 'الاسم بالإنجليزية', value: clean(contact.name_en), ltr: true },
@@ -85,6 +84,22 @@ export function supplyItems(contact: ContactRow): InfoItem[] {
   ];
 }
 
+/**
+ * The rows that have a value, then one muted line naming what is not recorded. `empty` replaces the list when
+ * nothing at all is recorded.
+ */
+export function FilledList({ items, empty }: { items: InfoItem[]; empty?: ReactNode }) {
+  const { filled, missing } = splitFilled(items);
+  return (
+    <>
+      {filled.length > 0 ? <InfoList items={filled} /> : (empty ?? null)}
+      {missing.length > 0 && filled.length > 0 && (
+        <p className="mt-3 border-t border-border pt-3 text-[12.5px] leading-relaxed text-ink-mute">غير مسجّل: {missing.join('، ')}</p>
+      )}
+    </>
+  );
+}
+
 /** The «بيانات الجهة» cards, and the same cards under a landlord's rent schedule. */
 export function PartyDetails({
   contact,
@@ -105,13 +120,14 @@ export function PartyDetails({
       تعديل
     </Button>
   );
-  const contactFilled = [contact.phone, contact.phone2, contact.email, contact.address].some((v) => clean(v));
 
   return (
     <div className="grid min-w-0 gap-4 lg:grid-cols-2 lg:gap-5">
       <SectionCard title="التواصل" icon={Contact} accent="blue" actions={edit}>
-        <InfoList items={contactItems(contact)} />
-        {!contactFilled && onEdit && <p className="mt-3 text-[12.5px] text-ink-mute">لم تُسجَّل بيانات تواصل. أضفها من «تعديل».</p>}
+        <FilledList
+          items={contactItems(contact)}
+          empty={<p className="text-[13px] text-ink-mute">لم تُسجَّل بيانات تواصل.{onEdit ? ' أضفها من «تعديل».' : ''}</p>}
+        />
         {contact.phone && (
           <div className="mt-4 flex">
             <ContactWhatsAppButton name={contact.name} phone={contact.phone} kind={contact.kind} className="min-h-11 flex-1 sm:min-h-9 sm:flex-none" />
@@ -120,12 +136,7 @@ export function PartyDetails({
       </SectionCard>
 
       <SectionCard title="التعريف" icon={IdCard} accent="teal">
-        <InfoList
-          items={[
-            ...identityItems(contact),
-            ...(since ? [{ label: 'بداية المتابعة', value: formatMonthLabelAr(since) }] : []),
-          ]}
-        />
+        <FilledList items={[...identityItems(contact), ...(since ? [{ label: 'بداية المتابعة', value: formatMonthLabelAr(since) }] : [])]} />
       </SectionCard>
 
       {notes && (

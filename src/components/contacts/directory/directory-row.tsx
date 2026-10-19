@@ -85,20 +85,30 @@ export const DirectoryTableRow = memo(function DirectoryTableRow({ row, ctx }: {
           <WhatsAppLink contact={c} className="sm:h-8 sm:w-8" />
         </div>
         {c.email && (
-          <p dir="ltr" className="mt-1 truncate text-start text-[12px] text-ink-mute">
-            {c.email}
+          // an address is left-to-right text; it lines up with the number above it, on the reading side
+          <p className="mt-1 truncate text-[12px] text-ink-mute">
+            <bdi dir="ltr">{c.email}</bdi>
           </p>
         )}
       </td>
-      <td className="px-4 py-3">
-        <LastMovement row={row} state={ctx.activityState} />
-      </td>
-      <td className="px-4 py-3">
-        <TwelveMonths row={row} state={ctx.activityState} monthLabels={ctx.monthLabels} />
-      </td>
+      {ctx.activityState === 'ready' && !row.hasActivity ? (
+        // one sentence across both money columns instead of the same words twice
+        <td colSpan={2} className="px-4 py-3 text-[13px] text-ink-mute">
+          لا حركات في آخر 12 شهراً
+        </td>
+      ) : (
+        <>
+          <td className="px-4 py-3">
+            <LastMovement row={row} state={ctx.activityState} />
+          </td>
+          <td className="px-4 py-3">
+            <TwelveMonths row={row} state={ctx.activityState} monthLabels={ctx.monthLabels} />
+          </td>
+        </>
+      )}
       <td className="px-3 py-3" onClick={stop}>
         <div className="flex items-center justify-end gap-1">
-          {canVoucher && <VoucherButton direction={row.direction} name={c.name} onClick={() => ctx.onVoucher(row)} />}
+          {canVoucher && <VoucherButton direction={row.direction} name={c.name} landlord={row.landlord} onClick={() => ctx.onVoucher(row)} />}
           <RowMenu contact={c} mayMutate={ctx.mayMutate} onEdit={ctx.onEdit} onDelete={ctx.onDelete} />
         </div>
       </td>
@@ -167,7 +177,7 @@ export const DirectoryCard = memo(function DirectoryCard({ row, ctx }: { row: Di
 
       {(canVoucher || hasPhone) && (
         <div className="relative z-10 mt-auto flex items-center gap-2 border-t border-border pt-3.5">
-          {canVoucher && <VoucherButton direction={row.direction} name={c.name} onClick={() => ctx.onVoucher(row)} className="flex-1 sm:h-10" />}
+          {canVoucher && <VoucherButton direction={row.direction} name={c.name} landlord={row.landlord} onClick={() => ctx.onVoucher(row)} className="flex-1 sm:h-10" />}
           {hasPhone && (
             <>
               <CallLink phone={c.phone} name={c.name} className="sm:h-10 sm:w-10" />

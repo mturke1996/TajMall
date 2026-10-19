@@ -25,6 +25,8 @@ export type FollowUpItem = {
   amount: number | null;
   /** only for 'landlords': some owed month has no known amount, so `amount` is a floor */
   atLeast?: boolean;
+  /** only for 'landlords': some of `amount` is a guess (the monthly rent is not recorded) */
+  estimated?: boolean;
   href: string;
   /** only for 'billing': the month named, the leases it should bill, and how many earlier months are incomplete too */
   billing?: { month: string; total: number; earlierMonths: number };
@@ -58,7 +60,7 @@ export type FollowUpInput = {
    * what the mall owes its landlords: `count` landlords owed, 0 when none (the screen builds it from the
    * landlord dues); undefined when the user may not see it, null when it could not be read
    */
-  landlords?: Pick<LandlordAttention, 'count' | 'amount' | 'amountComplete' | 'behind'> | null;
+  landlords?: (Pick<LandlordAttention, 'count' | 'amount' | 'amountComplete' | 'behind'> & Partial<Pick<LandlordAttention, 'estimated'>>) | null;
   /** billing completeness of the current month and the two before; undefined when the user cannot generate charges */
   billing?: BillingMonthStatus[] | null;
 };
@@ -169,6 +171,7 @@ export function buildFollowUp(input: FollowUpInput): FollowUp {
       count: l.count,
       amount: l.amount > EPS ? round3(l.amount) : null,
       ...(l.amountComplete ? {} : { atLeast: true }),
+      ...(l.estimated ? { estimated: true } : {}),
       href: HREF.landlords,
     });
   }
@@ -192,8 +195,9 @@ export function landlordFollowUpTitle(tone: FollowUpTone): string {
   return tone === 'bad' ? 'إيجار متأخر للمؤجرين' : 'إيجار هذا الشهر للمؤجرين لم يُسدَّد';
 }
 
-/** «3 مؤجرين · المستحق للمؤجرين 52,000 د.ل»; «على الأقل» when a month has no known amount. */
-export function landlordFollowUpDetail(item: Pick<FollowUpItem, 'count' | 'amount' | 'atLeast'>): string {
-  const money = item.amount != null ? ` · المستحق للمؤجرين ${formatMoney(item.amount, 'LYD')}${item.atLeast ? ' على الأقل' : ''}` : '';
+/** «3 مؤجرين · المستحق للمؤجرين 52,000 د.ل»; «على الأقل» when a month has no known amount, «تقريباً» when it is a guess. */
+export function landlordFollowUpDetail(item: Pick<FollowUpItem, 'count' | 'amount' | 'atLeast' | 'estimated'>): string {
+  const qualifier = item.atLeast ? ' على الأقل' : item.estimated ? ' تقريباً' : '';
+  const money = item.amount != null ? ` · المستحق للمؤجرين ${formatMoney(item.amount, 'LYD')}${qualifier}` : '';
   return `${arabicCount(item.count, LANDLORDS)}${money}`;
 }

@@ -61,6 +61,9 @@ export type LandlordNextPayment = {
   description: string;
 };
 
+/** One month of the current year as the strip under a landlord's name draws it. */
+export type LandlordStripMonth = Pick<ObligationMonth, 'monthKey' | 'monthNameAr' | 'status' | 'overdue' | 'current' | 'paid' | 'expected' | 'estimated'>;
+
 export type LandlordDue = {
   contactId: string;
   name: string;
@@ -91,6 +94,8 @@ export type LandlordDue = {
   next: LandlordNextPayment | null;
   tracking: TrackingStart;
   contractDatesInvalid: boolean;
+  /** the twelve months of the current year, oldest first */
+  yearMonths: LandlordStripMonth[];
 };
 
 export type LandlordDues = {
@@ -171,6 +176,27 @@ function earlierOwedMonths(input: EngineInput, current: ObligationView): Obligat
   return out;
 }
 
+/**
+ * The payment that settles one month: the amount it still lacks (left empty when that is only a guess, so a
+ * wrong figure is never typed in for the accountant) and the text that names the month, which the month engine
+ * reads back.
+ */
+export function landlordPaymentFor(
+  contactName: string,
+  month: Pick<ObligationMonth, 'monthKey' | 'monthNameAr' | 'year' | 'remaining' | 'remainingKnown' | 'estimated'>,
+  today: string,
+): LandlordNextPayment {
+  return {
+    monthKey: month.monthKey,
+    monthNameAr: month.monthNameAr,
+    year: month.year,
+    amount: month.remainingKnown && !month.estimated && month.remaining > EPS ? month.remaining : null,
+    estimated: month.estimated,
+    late: month.monthKey < today.slice(0, 7),
+    description: landlordPaymentDescription(contactName, month.monthKey),
+  };
+}
+
 const owedMonthOf = (m: ObligationMonth): LandlordOwedMonth => ({
   monthKey: m.monthKey,
   monthNameAr: m.monthNameAr,
@@ -235,19 +261,10 @@ export function buildLandlordDue(
     owedMonths: earlier.length + (currentOwed ? 1 : 0),
     owedComplete: amountComplete && (!currentOwed || current.remainingKnown),
     owedEstimated: earlier.some((m) => m.estimated) || (currentOwed && current.estimated),
-    next: target
-      ? {
-          monthKey: target.monthKey,
-          monthNameAr: target.monthNameAr,
-          year: target.year,
-          amount: target.remainingKnown && !target.estimated && target.remaining > EPS ? target.remaining : null,
-          estimated: target.estimated,
-          late: target.monthKey < today.slice(0, 7),
-          description: landlordPaymentDescription(contact.name, target.monthKey),
-        }
-      : null,
+    next: target ? landlordPaymentFor(contact.name, target, today) : null,
     tracking: view.tracking,
     contractDatesInvalid: view.contract.datesInvalid,
+    yearMonths: view.months.map(({ monthKey, monthNameAr, status, overdue, current, paid, expected, estimated }) => ({ monthKey, monthNameAr, status, overdue, current, paid, expected, estimated })),
   };
 }
 
@@ -318,6 +335,8 @@ export type LandlordAttention = {
   amount: number;
   /** false when an owed month has no known amount, so `amount` is a floor */
   amountComplete: boolean;
+  /** some of `amount` is a guess from the latest paid month, because the monthly rent is not recorded */
+  estimated: boolean;
   /** landlords with an earlier month unpaid */
   behind: number;
   tone: 'bad' | 'warn';
@@ -330,6 +349,7 @@ export function landlordDuesAttention(dues: LandlordDues): LandlordAttention | n
     count: dues.totals.owing,
     amount: dues.totals.owed,
     amountComplete: dues.totals.incomplete === 0,
+    estimated: dues.rows.some((r) => r.owedEstimated),
     behind: dues.totals.behind,
     tone: dues.totals.behind > 0 ? 'bad' : 'warn',
     href: LANDLORD_DUES_HREF,

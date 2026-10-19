@@ -62,20 +62,22 @@ export function PhoneNumber({ phone, className }: { phone: string | null | undef
   );
 }
 
-/** «سند صرف» for money paid to a file, «سند قبض» for money received from it. */
+/** «سند صرف» for money paid to a file, «سند قبض» for money received from it. A landlord is paid «سداد إيجار». */
 export function VoucherButton({
   direction,
   name,
   onClick,
   className,
+  landlord = false,
 }: {
   direction: Direction;
   name: string;
   onClick: () => void;
   className?: string;
+  landlord?: boolean;
 }) {
   const Icon = direction === 'out' ? ArrowUpFromLine : ArrowDownToLine;
-  const label = direction === 'out' ? 'سند صرف' : 'سند قبض';
+  const label = direction === 'out' ? (landlord ? 'سداد إيجار' : 'سند صرف') : 'سند قبض';
   return (
     <Button
       type="button"
@@ -111,7 +113,7 @@ export function RowMenu({
     // not modal: a modal menu that opens a dialog from an item leaves the page unclickable once the dialog closes
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
-        <Button ref={triggerRef} type="button" variant="ghost" size="icon" className={cn('h-11 w-11 text-ink-mute sm:h-9 sm:w-9', className)} aria-label={`خيارات ${contact.name}`}>
+        <Button ref={triggerRef} type="button" variant="ghost" size="icon" className={cn('h-11 w-11 shrink-0 text-ink-mute sm:h-9 sm:w-9', className)} aria-label={`خيارات ${contact.name}`}>
           <MoreVertical aria-hidden />
         </Button>
       </DropdownMenuTrigger>

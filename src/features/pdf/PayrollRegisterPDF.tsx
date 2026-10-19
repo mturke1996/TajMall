@@ -35,8 +35,9 @@ const s = StyleSheet.create({
   th: { color: PDF.white, fontSize: 7.5, fontWeight: 'bold', textAlign: 'center' },
   thAr: { color: PDF.white, fontSize: 7.5, fontWeight: 'bold', textAlign: 'right' },
   name: { width: '22%', paddingRight: 4 },
-  nameText: { fontSize: 8.5, color: PDF.text, textAlign: 'right' },
-  sub: { fontSize: 7, color: PDF.muted, textAlign: 'right', marginTop: 1 },
+  /** react-pdf does not pass a box's direction down to its text: the text carries it (a name or a title that starts with a digit keeps it on the right) */
+  nameText: { direction: 'rtl', fontSize: 8.5, color: PDF.text, textAlign: 'right' },
+  sub: { direction: 'rtl', fontSize: 7, color: PDF.muted, textAlign: 'right', marginTop: 1 },
   num: { width: '13%', alignItems: 'center' },
   foot: {
     ...PDF_TABLE_ROW,
@@ -95,7 +96,8 @@ export function PayrollRegisterPDF({
       periodSummary={{
         eyebrow: 'Payroll register',
         title: monthAr,
-        subtitle: `${lines.length} موظف`,
+        // not «N موظف»: react-pdf sets a line that starts with a digit with the digit last when read right to left («موظف 3» for three employees); the count is in the cell beside it
+        subtitle: 'كشف الموظفين',
         hint: status ? `حالة الكشف: ${STATUS_AR[status]}` : '',
         badge: status ? STATUS_AR[status] : undefined,
       }}

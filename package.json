@@ -4,6 +4,7 @@
   "private": true,
   "description": "Fluxen - Modern SaaS ERP for Revenue & Expense Management",
   "scripts": {
+    "postinstall": "node scripts/patch-react-pdf-textkit.mjs",
     "dev": "next dev -p 3000",
     "dev:fresh": "node scripts/free-port.mjs 3000 && next dev -p 3000",
     "free-port": "node scripts/free-port.mjs 3000",
@@ -32,6 +33,7 @@
     "verify:audit-safe": "node scripts/verify-audit-is-read-only.mjs",
     "verify:lists": "npx tsx scripts/verify-list-utilities.mjs",
     "verify:payroll-pdf": "npx tsx scripts/verify-payroll-pdf.mjs",
+    "verify:pdf-text": "npx tsx scripts/verify-pdf-text-integrity.mjs",
     "verify:design": "node scripts/verify-design-tokens.mjs",
     "verify:rent-allocation": "npx tsx scripts/verify-rent-allocation.mjs",
     "verify:period-review": "npx tsx scripts/verify-period-review.mjs",

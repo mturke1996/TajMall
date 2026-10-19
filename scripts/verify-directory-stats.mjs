@@ -365,6 +365,22 @@ check('search ignores the Arabic spelling variants and looks at phone, code, mai
   assert.equal(ids(filterDirectoryRows(rows, { query: 'لا يوجد هذا' })), '');
 });
 
+check('a phone number is found by its digits, however it was written or typed', () => {
+  const list = [
+    contact({ id: 'p1', kind: 'VENDOR', name: 'مورد أول', phone: '091-234 5678' }),
+    contact({ id: 'p2', kind: 'VENDOR', name: 'مورد ثان', phone: '+218 92 111 2222', phone2: '0945556666' }),
+    contact({ id: 'p3', kind: 'VENDOR', name: 'مورد ثالث', phone: null }),
+  ];
+  const rows = buildDirectoryRows(list, new Map());
+  assert.equal(ids(filterDirectoryRows(rows, { query: '0912345678' })), 'p1'); // typed without the separators
+  assert.equal(ids(filterDirectoryRows(rows, { query: '091-234' })), 'p1'); // typed the way it is stored
+  assert.equal(ids(filterDirectoryRows(rows, { query: '٠٩١٢٣٤٥٦٧٨' })), 'p1'); // Arabic-Indic digits
+  assert.equal(ids(filterDirectoryRows(rows, { query: '218921112222' })), 'p2'); // the "+" and the gaps left out
+  assert.equal(ids(filterDirectoryRows(rows, { query: '2189211123' })), ''); // a number that is not there
+  assert.equal(ids(filterDirectoryRows(rows, { query: '0945556666' })), 'p2'); // the second number
+  assert.equal(ids(filterDirectoryRows(rows, { query: '0912345679' })), ''); // one digit off finds nothing
+});
+
 check('inactive files are hidden until asked for; the role filter and the search combine', () => {
   const rows = people();
   assert.equal(ids(filterDirectoryRows(rows, {})), 'm,a,z,v');

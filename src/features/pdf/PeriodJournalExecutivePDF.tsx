@@ -3,7 +3,7 @@ import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ReportPageFrame } from './ReportPageFrame';
 import { ar } from './arabicPDF';
-import { PDF, pdfBase, PDF_PAGINATION } from './pdfBase';
+import { PDF, pdfBase } from './pdfBase';
 import { PDF_TABLE_ROW, PDF_AR_CELL, PDF_NUM_CELL } from './pdfTable';
 import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTable';
 import { TajMallPdfFooter, PdfReportHeaderFlow } from './pdfBrandKit';
@@ -299,8 +299,7 @@ export function PeriodJournalExecutivePDF({
 
   return (
     <Document title={docTitle} author={BRAND.fullName}>
-      {/* the fixed footer is ~66pt tall from the page foot: a 56pt bottom padding let the last rows run under its rule */}
-      <Page size="A4" style={[pdfBase.page, { paddingBottom: PDF_PAGINATION.footerReserve + 14 }]} wrap>
+      <Page size="A4" style={pdfBase.page} wrap>
         <View style={pdfBase.pageAccentBar} fixed />
         <View style={pdfBase.pageFlow}>
           <PdfReportHeaderFlow title={titleAr} subtitle={subtitle} titleEn="JOURNAL ENTRY" />

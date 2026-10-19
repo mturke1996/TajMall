@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Callout } from '@/components/people';
+import { useReturnFocus } from '@/components/contacts/profile/use-return-focus';
 import { LANDLORD_SUGGESTION_ACTION, suggestLandlord, type LandlordEvidenceTx } from '@/lib/contacts/contact-tags';
 import { formatContactSaveError } from '@/lib/contacts/form-utils';
 import { approveLandlordPatch } from '@/lib/people/party-profile';
@@ -39,6 +40,7 @@ export function LandlordSuggestion({
   const update = useUpdateContact();
   const [dismissed, setDismissed] = useState(() => wasDismissed(contact.id));
   const [confirming, setConfirming] = useState(false);
+  useReturnFocus(confirming);
   const s = useMemo(() => suggestLandlord(transactions, contact), [transactions, contact]);
 
   if (!canEdit || dismissed || !s.suggest) return null;

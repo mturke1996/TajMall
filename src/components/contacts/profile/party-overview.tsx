@@ -55,6 +55,8 @@ export function PartyOverview({
   const bars = useMemo(() => (f ? monthBars(f.side) : []), [f]);
   const peak = useMemo(() => peakMonth(bars), [bars]);
   const slices = useMemo(() => (f ? accountSlices(f.side) : []), [f]);
+  // one account is 100% of the money: a ring says nothing, so the chart takes the row and the account is named under it
+  const onlyAccount = slices.length === 1 ? slices[0] : null;
   const latest = useMemo(() => recentMovements(transactions, 5), [transactions]);
   const noteText = profileNotes(notes);
   const accent = direction === 'out' ? 'red' : 'green';
@@ -96,14 +98,22 @@ export function PartyOverview({
     </SectionCard>
   ) : null;
 
+  // without the charts the two side cards share the row instead of leaving a third of it empty
+  const sideCards =
+    extra || notesCard ? (
+      <div className="grid min-w-0 gap-4 lg:col-span-3 lg:grid-cols-2 lg:gap-5">
+        {extra}
+        {notesCard}
+      </div>
+    ) : null;
+
   if (failed) {
     return (
       <div className="grid min-w-0 gap-4 lg:grid-cols-3 lg:gap-5">
         <Card className="lg:col-span-3">
           <ErrorBlock message={errorText} onRetry={onRetry} />
         </Card>
-        {extra}
-        {notesCard}
+        {sideCards}
       </div>
     );
   }
@@ -120,8 +130,7 @@ export function PartyOverview({
             </Button>
           )}
         </Card>
-        {extra}
-        {notesCard}
+        {sideCards}
       </div>
     );
   }
@@ -133,7 +142,7 @@ export function PartyOverview({
         description={barsRange(bars)}
         icon={ChartColumn}
         accent={accent}
-        className="lg:col-span-2"
+        className={onlyAccount ? 'lg:col-span-3' : 'lg:col-span-2'}
         status={loading ? 'loading' : failed ? 'error' : 'ready'}
         errorText={errorText}
         onRetry={onRetry}
@@ -145,7 +154,7 @@ export function PartyOverview({
           title={words.chartTitle}
           summary={
             f && (
-              <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border pt-3 text-[12.5px]">
+              <dl className={cn('mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border pt-3 text-[12.5px]', onlyAccount && 'sm:grid-cols-3')}>
                 <div>
                   <dt className="text-ink-mute">{f.side.first ? `الإجمالي منذ ${formatDate(f.side.first.date)}` : 'الإجمالي'}</dt>
                   <dd className={cn('mt-0.5 text-[14px] font-semibold tabular-nums', direction === 'out' ? 'text-danger-ink' : 'text-success-ink')}>
@@ -154,39 +163,50 @@ export function PartyOverview({
                 </div>
                 <div>
                   <dt className="text-ink-mute">أعلى شهر</dt>
-                  <dd className="mt-0.5 text-[14px] font-semibold tabular-nums">
+                  <dd className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-[14px] font-semibold tabular-nums">
                     {peak ? (
                       <>
-                        {formatMonthLabelAr(peak.monthKey)} · {formatMoney(peak.amount, 'LYD')}
+                        <span className="whitespace-nowrap font-normal text-ink-soft">{formatMonthLabelAr(peak.monthKey)}</span>
+                        <span className="whitespace-nowrap">{formatMoney(peak.amount, 'LYD')}</span>
                       </>
                     ) : (
                       <span className="font-normal text-ink-mute">لا حركة في هذه الفترة</span>
                     )}
                   </dd>
                 </div>
+                {onlyAccount && (
+                  <div className="col-span-2 sm:col-span-1">
+                    <dt className="text-ink-mute">البند</dt>
+                    <dd className="mt-0.5 text-[14px] font-semibold">{onlyAccount.label}</dd>
+                  </div>
+                )}
               </dl>
             )
           }
         />
       </SectionCard>
 
-      <SectionCard
-        title={words.accountsTitle}
-        icon={PieChart}
-        accent="violet"
-        status={loading ? 'loading' : failed ? 'error' : 'ready'}
-        errorText={errorText}
-        onRetry={onRetry}
-        skeletonRows={4}
-      >
-        <DonutBreakdown slices={slices} total={f?.side.total} centerLabel={words.centre} lead={accent} emptyText="لا حركات على هذا الجانب." />
-      </SectionCard>
+      {!onlyAccount && (
+        <SectionCard
+          title={words.accountsTitle}
+          icon={PieChart}
+          accent="violet"
+          status={loading ? 'loading' : failed ? 'error' : 'ready'}
+          errorText={errorText}
+          onRetry={onRetry}
+          skeletonRows={4}
+        >
+          <DonutBreakdown slices={slices} total={f?.side.total} centerLabel={words.centre} lead={accent} emptyText="لا حركات على هذا الجانب." />
+        </SectionCard>
+      )}
 
-      <div className="min-w-0 lg:col-span-2">{movementsCard}</div>
-      <div className="flex min-w-0 flex-col gap-4 lg:gap-5">
-        {extra}
-        {notesCard}
-      </div>
+      <div className={cn('min-w-0', sideCards ? 'lg:col-span-2' : 'lg:col-span-3')}>{movementsCard}</div>
+      {(extra || notesCard) && (
+        <div className="flex min-w-0 flex-col gap-4 lg:gap-5">
+          {extra}
+          {notesCard}
+        </div>
+      )}
     </div>
   );
 }

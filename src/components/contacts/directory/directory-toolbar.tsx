@@ -32,6 +32,7 @@ export function DirectoryToolbar({
   onShowInactiveChange,
   inactiveCount,
   searchLabel,
+  placeholder = 'الاسم أو الهاتف أو الرمز',
 }: {
   searchQuery: string;
   onSearchChange: (q: string) => void;
@@ -41,25 +42,28 @@ export function DirectoryToolbar({
   onShowInactiveChange: (show: boolean) => void;
   inactiveCount: number;
   searchLabel: string;
+  placeholder?: string;
 }) {
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+    // the search keeps a row of its own until the page is wide enough to put the order beside it
+    <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
       <div className="relative min-w-0 flex-1">
         <Search className="pointer-events-none absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" aria-hidden />
         <Input
           type="search"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="الاسم أو الهاتف أو الرمز أو رقم المحل"
+          placeholder={placeholder}
           aria-label={searchLabel}
-          className="h-11 ps-9 pe-10 text-[14px] sm:h-10"
+          // the clear button below replaces the browser's own, which would show a second cross
+          className="h-11 ps-9 pe-11 text-[14px] sm:h-10 sm:pe-10 [&::-webkit-search-cancel-button]:hidden"
         />
         {searchQuery && (
           <button
             type="button"
             onClick={() => onSearchChange('')}
             aria-label="مسح البحث"
-            className="absolute inset-e-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-md text-ink-mute hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            className="absolute inset-e-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-md text-ink-mute hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:inset-e-0.5 sm:h-9 sm:w-9"
           >
             <X className="h-4 w-4" aria-hidden />
           </button>

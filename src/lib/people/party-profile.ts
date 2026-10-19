@@ -19,6 +19,7 @@ import {
   type PartyStats,
 } from '@/lib/people/party-stats';
 import { formatMonthLabelAr, monthNameAr } from '@/lib/rent-months';
+import { arabicCount } from '@/lib/utils';
 
 type ContactHints = Partial<Pick<ContactRow, 'kind' | 'notes' | 'job_title' | 'department' | 'monthly_rent'>>;
 
@@ -27,14 +28,13 @@ type ContactHints = Partial<Pick<ContactRow, 'kind' | 'notes' | 'job_title' | 'd
 /** The few words that change with the direction of the money. */
 export const DIRECTION_WORDS: Record<
   Direction,
-  { total: string; last: string; lastNone: string; voucher: string; countOf: string; chartTitle: string; accountsTitle: string; centre: string }
+  { total: string; last: string; lastNone: string; voucher: string; chartTitle: string; accountsTitle: string; centre: string }
 > = {
   out: {
     total: 'المدفوع',
     last: 'آخر دفعة',
     lastNone: 'لا دفعات بعد',
     voucher: 'سند صرف',
-    countOf: 'سند صرف',
     chartTitle: 'المدفوع شهراً بشهر',
     accountsTitle: 'المدفوع حسب البند',
     centre: 'المدفوع',
@@ -44,7 +44,6 @@ export const DIRECTION_WORDS: Record<
     last: 'آخر قبض',
     lastNone: 'لا مقبوضات بعد',
     voucher: 'سند قبض',
-    countOf: 'سند قبض',
     chartTitle: 'المقبوض شهراً بشهر',
     accountsTitle: 'المقبوض حسب البند',
     centre: 'المقبوض',
@@ -155,6 +154,15 @@ export function uncountedCount(transactions: readonly { status?: string | null }
   return transactions.filter((t) => !isCountedTransaction(t)).length;
 }
 
+/**
+ * The line under the figures when some rows are left out of them. The verb comes first and stays singular
+ * whatever the count (a dual or a plural noun after it needs no adjective to agree with); empty for none.
+ */
+export function uncountedText(count: number): string {
+  if (!Number.isFinite(count) || count <= 0) return '';
+  return `لا تدخل في الأرقام ${arabicCount(Math.floor(count), ['حركة واحدة', 'حركتان', 'حركات', 'حركة'])} (مسودة أو ملغاة).`;
+}
+
 // ---------------------------------------------------------------- what the header says
 
 export type ProfileLook = {
@@ -177,6 +185,17 @@ export function profileLook(contact: ContactHints): ProfileLook {
   const plain = role === 'CUSTOMER' || role === 'SUPPLIER_GOODS' || role === 'OTHER';
   if (role === 'LANDLORD' || (tagged && tagged !== 'OTHER') || !plain) return { role, kindLabel: null };
   return { role: null, kindLabel: KIND_LABEL[String(contact.kind)] ?? KIND_LABEL.OTHER };
+}
+
+const PLAIN_ROLES: ReadonlySet<ContactBusinessRole> = new Set(['EMPLOYEE', 'CUSTOMER', 'OTHER', 'TENANT']);
+
+/**
+ * The role worth a row of its own in the details: a landlord or a kind of supplier. A customer, an employee or
+ * a party with no role already says everything in its kind, so a second row would only repeat it.
+ */
+export function specialRole(contact: ContactHints): ContactBusinessRole | null {
+  const { role } = profileLook(contact);
+  return role && !PLAIN_ROLES.has(role) ? role : null;
 }
 
 /** «العودة» goes to the list the file is shown in. */
@@ -344,6 +363,22 @@ export function buildStatement(transactions: readonly StatementTx[]): Statement 
 }
 
 // ---------------------------------------------------------------- details
+
+const isBlank = (v: unknown) => v === null || v === undefined || v === false || (typeof v === 'string' && v.trim() === '');
+
+/**
+ * Splits label/value rows into the ones that carry a value and the labels of those that do not, so a card can
+ * show the facts it has and say once what is missing, instead of rows of dashes.
+ */
+export function splitFilled<T extends { label: string; value?: unknown }>(items: readonly T[]): { filled: T[]; missing: string[] } {
+  const filled: T[] = [];
+  const missing: string[] = [];
+  for (const item of items) {
+    if (isBlank(item.value)) missing.push(item.label);
+    else filled.push(item);
+  }
+  return { filled, missing };
+}
 
 /** The person-written notes, for the profile. */
 export const profileNotes = (notes: string | null | undefined) => visibleNotes(notes);

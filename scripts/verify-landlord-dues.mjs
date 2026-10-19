@@ -14,7 +14,10 @@ const dues = await import('../src/lib/landlord-dues.ts');
 const counted = await import('../src/lib/contacts/contact-transactions.ts');
 const { buildLandlordRentSchedule, landlordPaymentDescription, landlordPaymentMonthKey } = roles;
 const { buildLandlordDue, buildLandlordDues, selectDueLandlords, compareLandlordDues, landlordDuesAttention, landlordDueHeadline, landlordArrearsText, landlordPayLabel, landlordIdleText } = dues;
-const { buildLandlordProfile, previewTrackingStart } = await import('../src/lib/landlord-profile.ts');
+const { buildLandlordProfile, previewTrackingStart, monthlyRentFromInput, monthlyRentPatch, trackingStartPatch, trackingLineText, trackingPreviewText } = await import('../src/lib/landlord-profile.ts');
+const { landlordPaymentFor } = dues;
+const { formatMoney } = await import('../src/lib/utils.ts');
+const formatMoneyOf = (n) => formatMoney(n, 'LYD');
 const om = await import('../src/lib/people/obligation-months.ts');
 
 let passed = 0;
@@ -612,11 +615,22 @@ check('no landlords: an empty, zeroed result, not an error', () => {
 check('the dashboard summary: nothing owed gives none, this month only warns, an earlier month is bad', () => {
   const one = (over, tx) => buildLandlordDues({ contacts: [person({ id: 'L1', notes: '[role:landlord]', monthly_rent: '10000', ...over })], transactions: tx, today: TODAY });
   assert.equal(landlordDuesAttention(one({}, named(1, 10))), null);
-  assert.deepEqual(landlordDuesAttention(one({}, named(1, 9))), { count: 1, amount: 10000, amountComplete: true, behind: 0, tone: 'warn', href: '/mall?tab=people&role=LANDLORD' });
+  assert.deepEqual(landlordDuesAttention(one({}, named(1, 9))), { count: 1, amount: 10000, amountComplete: true, estimated: false, behind: 0, tone: 'warn', href: '/mall?tab=people&role=LANDLORD' });
   const behind = landlordDuesAttention(one({}, named(1, 6)));
   assert.deepEqual([behind.count, behind.amount, behind.behind, behind.tone], [1, 40000, 1, 'bad']);
   const unknown = landlordDuesAttention(buildLandlordDues({ ...mixed(), today: TODAY }));
   assert.deepEqual([unknown.count, unknown.amount, unknown.amountComplete, unknown.behind, unknown.tone], [3, 11000, false, 2, 'bad']);
+});
+
+check('the dashboard summary says when its sum is a guess: only a landlord with no recorded rent makes it one', () => {
+  const rented = buildLandlordDues({ contacts: [person({ id: 'L1', notes: '[role:landlord]', monthly_rent: '10000' })], transactions: named(1, 8), today: TODAY });
+  assert.equal(landlordDuesAttention(rented).estimated, false, 'a recorded rent makes the amounts exact');
+  const guessed = buildLandlordDues({ contacts: [person({ id: 'L1', notes: '[role:landlord]' })], transactions: named(1, 8, 10000), today: TODAY });
+  const g = landlordDuesAttention(guessed);
+  assert.deepEqual([g.estimated, g.amountComplete, g.amount], [true, true, 20000], 'September and October at the amount of August');
+  // nothing paid and no rent: nothing to guess from, so the sum is a floor and not an estimate
+  const nothing = landlordDuesAttention(buildLandlordDues({ contacts: [person({ id: 'L1', notes: '[role:landlord]' })], transactions: [], today: TODAY }));
+  assert.deepEqual([nothing.estimated, nothing.amountComplete, nothing.amount], [false, false, 0]);
 });
 
 check('wording agrees with the count: one, two, three, many; and says why a month carries no rent', () => {
@@ -703,12 +717,85 @@ check('profile: the tracking start in effect and the one the system would pick w
 check('profile: choosing a tracking start previews what it would make owed, and changes nothing', () => {
   const contact = landlord({ monthly_rent: null });
   const input = { contact, payments: JULY_AUG, today: TODAY, goLiveMonth: GO_LIVE };
-  assert.deepEqual(previewTrackingStart(input, null), { owedMonths: 2, amount: 104000, amountComplete: true, oldest: '2026-09' });
+  assert.deepEqual(previewTrackingStart(input, null), { owedMonths: 2, amount: 104000, amountComplete: true, estimated: true, oldest: '2026-09' });
   // from January: June back to January have no payment, so they would read as owed, at the estimated amount
-  assert.deepEqual(previewTrackingStart(input, '2026-01'), { owedMonths: 8, amount: 416000, amountComplete: true, oldest: '2026-01' });
-  assert.deepEqual(previewTrackingStart(input, '2026-10'), { owedMonths: 1, amount: 52000, amountComplete: true, oldest: '2026-10' });
+  assert.deepEqual(previewTrackingStart(input, '2026-01'), { owedMonths: 8, amount: 416000, amountComplete: true, estimated: true, oldest: '2026-01' });
+  assert.deepEqual(previewTrackingStart(input, '2026-10'), { owedMonths: 1, amount: 52000, amountComplete: true, estimated: true, oldest: '2026-10' });
   assert.equal(contact.notes, '[role:landlord]');
   assert.throws(() => previewTrackingStart(input, '2026-13'), RangeError);
+});
+
+// ---------- the edits the profile offers, and the payment a month starts ----------
+
+check('a typed monthly rent: Arabic digits and separators are read, empty, zero, negative and junk are refused with a reason', () => {
+  assert.deepEqual(monthlyRentFromInput('52000'), { ok: true, amount: 52000, value: '52000' });
+  assert.deepEqual(monthlyRentFromInput('٥٢٬٠٠٠'), { ok: true, amount: 52000, value: '52000' });
+  assert.deepEqual(monthlyRentFromInput('1,250.5'), { ok: true, amount: 1250.5, value: '1250.5' });
+  assert.deepEqual(monthlyRentFromInput(' 27000.125 '), { ok: true, amount: 27000.125, value: '27000.125' });
+  assert.deepEqual(monthlyRentFromInput(''), { ok: false, error: 'أدخل الإيجار الشهري.' });
+  assert.deepEqual(monthlyRentFromInput('   '), { ok: false, error: 'أدخل الإيجار الشهري.' });
+  assert.equal(monthlyRentFromInput('0').ok, false);
+  assert.equal(monthlyRentFromInput('-5').ok, false);
+  assert.equal(monthlyRentFromInput('abc').ok, false);
+  assert.equal(monthlyRentFromInput('1.23456').ok, false, 'more than three decimals');
+  assert.equal(monthlyRentFromInput('1e9').ok, false);
+  assert.equal(monthlyRentFromInput('999999999999').ok, false, 'beyond what the column holds');
+  assert.equal(monthlyRentFromInput(null).ok, false);
+  assert.deepEqual(monthlyRentPatch(52000), { monthly_rent: '52000' });
+});
+
+check('the tracking-start update keeps the text and the role tag, adds or removes only the since tag', () => {
+  const contact = { notes: 'عقار على شارع الجمهورية\n[role:landlord]' };
+  assert.deepEqual(trackingStartPatch(contact, '2026-03'), { notes: 'عقار على شارع الجمهورية\n[role:landlord]\n[since:2026-03]' });
+  assert.deepEqual(trackingStartPatch({ notes: '[role:landlord]\n[since:2026-03]' }, null), { notes: '[role:landlord]' });
+  assert.deepEqual(trackingStartPatch({ notes: '[role:landlord]\n[since:2026-03]' }, '2026-05'), { notes: '[role:landlord]\n[since:2026-05]' });
+  assert.deepEqual(trackingStartPatch({ notes: null }, null), { notes: null });
+  assert.deepEqual(trackingStartPatch({ notes: '[ROLE: Landlord ]\r\nملاحظة' }, '2026-02'), { notes: 'ملاحظة\n[role:landlord]\n[since:2026-02]' });
+  assert.throws(() => trackingStartPatch(contact, '2026-13'), RangeError);
+  assert.equal(contact.notes, 'عقار على شارع الجمهورية\n[role:landlord]', 'the contact is not changed');
+});
+
+check('the line above the grid says where the months stop being judged and where that came from', () => {
+  assert.deepEqual(trackingLineText({ month: '2026-07', source: 'first_payment' }), { text: 'الأشهر قبل يوليو 2026 تُعدّ مسدّدة قبل المنظومة.', source: 'من أول دفعة مسجّلة' });
+  assert.deepEqual(trackingLineText({ month: '2026-03', source: 'tag' }), { text: 'الأشهر قبل مارس 2026 تُعدّ مسدّدة قبل المنظومة.', source: 'محدّدة يدوياً' });
+  assert.deepEqual(trackingLineText({ month: '2026-06', source: 'go_live' }).source, 'من بداية تشغيل المنظومة');
+  assert.deepEqual(trackingLineText({ month: null, source: 'none' }), { text: 'بداية المتابعة غير محدّدة، فلا تُعرف حالة الأشهر.', source: 'غير محدّدة' });
+});
+
+check('the preview of a tracking start says what would read as owed, with the floor and the estimate told', () => {
+  const contact = landlord({ monthly_rent: null });
+  const input = { contact, payments: JULY_AUG, today: TODAY, goLiveMonth: GO_LIVE };
+  // no monthly rent is recorded, so these sums stand on the amount of the latest paid month and say so
+  assert.equal(trackingPreviewText(previewTrackingStart(input, null)), `بهذه البداية يظهر مستحقاً شهران منذ سبتمبر 2026، بمبلغ ${formatMoneyOf(104000)} تقريباً.`);
+  assert.equal(trackingPreviewText(previewTrackingStart(input, '2026-01')), `بهذه البداية يظهر مستحقاً 8 أشهر منذ يناير 2026، بمبلغ ${formatMoneyOf(416000)} تقريباً.`);
+  // a recorded rent makes the amount exact: no qualifier
+  const rented = landlord({ monthly_rent: '10000', notes: '[role:landlord]' });
+  const eight = [1, 2, 3, 4, 5, 6, 7, 8].map((m) => pay(10000, `2026-${String(m).padStart(2, '0')}-05`, rentFor(roles.landlordMonthName(m))));
+  assert.equal(trackingPreviewText(previewTrackingStart({ contact: rented, payments: eight, today: TODAY, goLiveMonth: GO_LIVE }, '2026-01')), `بهذه البداية يظهر مستحقاً شهران منذ سبتمبر 2026، بمبلغ ${formatMoneyOf(20000)}.`);
+  const paidUp = landlord({ monthly_rent: '10000', notes: '[role:landlord]' });
+  const all = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((m) => pay(10000, `2026-${String(m).padStart(2, '0')}-05`, rentFor(roles.landlordMonthName(m))));
+  assert.equal(trackingPreviewText(previewTrackingStart({ contact: paidUp, payments: all, today: TODAY, goLiveMonth: GO_LIVE }, '2026-01')), 'بهذه البداية لا يظهر شيء مستحق.');
+  assert.equal(trackingPreviewText({ owedMonths: 1, amount: 52000, amountComplete: false, oldest: null }), `بهذه البداية يظهر مستحقاً شهر واحد، بمبلغ ${formatMoneyOf(52000)} على الأقل.`);
+  assert.equal(trackingPreviewText({ owedMonths: 1, amount: 52000, amountComplete: false, estimated: true, oldest: null }), `بهذه البداية يظهر مستحقاً شهر واحد، بمبلغ ${formatMoneyOf(52000)} على الأقل.`, 'a floor wins over a guess: one qualifier, not two');
+});
+
+check('the payment a month starts: the rest of the month, empty when only a guess, the month named in the text', () => {
+  const m = (over = {}) => ({ monthKey: '2026-09', monthNameAr: 'سبتمبر', year: 2026, remaining: 52000, remainingKnown: true, estimated: false, ...over });
+  const p = landlordPaymentFor('الحاج مصطفى', m(), TODAY);
+  assert.deepEqual({ ...p, description: undefined }, { monthKey: '2026-09', monthNameAr: 'سبتمبر', year: 2026, amount: 52000, estimated: false, late: true, description: undefined });
+  assert.equal(landlordPaymentMonthKey({ description: p.description, tx_date: '1999-06-15' }), '2026-09', 'the engine reads the same month back');
+  assert.equal(landlordPaymentFor('x', m({ estimated: true }), TODAY).amount, null, 'an estimate is not typed in');
+  assert.equal(landlordPaymentFor('x', m({ remainingKnown: false, remaining: 0 }), TODAY).amount, null);
+  assert.equal(landlordPaymentFor('x', m({ remaining: 0 }), TODAY).amount, null);
+  assert.equal(landlordPaymentFor('x', m({ monthKey: '2026-10', monthNameAr: 'أكتوبر' }), TODAY).late, false, 'the current month is not late');
+});
+
+check('the dues carry the twelve months of the year for the strip, in the engine\'s statuses', () => {
+  const d = buildLandlordDue(landlord({ monthly_rent: null }), JULY_AUG, TODAY, { goLiveMonth: GO_LIVE });
+  assert.equal(d.yearMonths.length, 12);
+  assert.deepEqual(d.yearMonths.map((x) => x.status), [...rep6('before_system'), 'paid', 'paid', 'due', 'due', 'upcoming', 'upcoming']);
+  assert.deepEqual(d.yearMonths.filter((x) => x.current).map((x) => x.monthKey), ['2026-10']);
+  assert.deepEqual(d.yearMonths.filter((x) => x.overdue).map((x) => x.monthKey), ['2026-09']);
 });
 
 check('the money in the system never moves: the inputs are not changed by either model', () => {

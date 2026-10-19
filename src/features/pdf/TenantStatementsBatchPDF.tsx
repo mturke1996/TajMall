@@ -116,7 +116,7 @@ export function TenantStatementsBatchPDF({ report, periodLabel, issuedOn }: Tena
       <ReportPage
         title="كشوف حساب المستأجرين"
         titleEn="STATEMENT"
-        subtitle={`${tenantsLabel(lines.length)} · ${periodLabel}`}
+        subtitle={`عدد المستأجرين ${lines.length} · ${periodLabel}`}
         summaryPrimaryDateIso={issuedOn}
         summaryPrimaryDateLabel="تاريخ الكشوف"
         metaCells={[

@@ -25,9 +25,14 @@ export type VoucherPdfModel = {
   status?: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | string;
 };
 
+/**
+ * react-pdf (textkit) drops all but one of the same lam-alef ligature on one line, so a line that repeats «لا» loses words:
+ * «بانتظار الاعتماد — لا يُصرف بموجبه قبل الاعتماد» printed as «بانتظار اعتماد — يُصرف بموجبه قبل الاعتماد», the opposite of what it says.
+ * These three lines each carry at most one «لا».
+ */
 const NOT_APPROVED: Record<string, string> = {
   DRAFT: 'مسودة — غير معتمد ولا يُصرف بموجبه',
-  PENDING_APPROVAL: 'بانتظار الاعتماد — لا يُصرف بموجبه قبل الاعتماد',
+  PENDING_APPROVAL: 'بانتظار الاعتماد — يُمنع الصرف بموجبه قبل اعتماده',
   REJECTED: 'مرفوض — لا يُصرف بموجبه',
 };
 
@@ -49,7 +54,7 @@ const s = StyleSheet.create({
   },
   heroCell: { width: '31%', direction: 'rtl' },
   heroLabel: { fontSize: 8.5, color: PDF.muted, marginBottom: 4, textAlign: 'right' },
-  heroValue: { fontSize: 11, fontWeight: 'bold', color: PDF.text, textAlign: 'right' },
+  heroValue: { direction: 'rtl', fontSize: 11, fontWeight: 'bold', color: PDF.text, textAlign: 'right' },
   /** the account number is its own left-to-right run: inside one Arabic line its digit groups come out reversed */
   heroAccount: { fontSize: 9, color: PDF.muted, textAlign: 'right', direction: 'ltr', marginTop: 2 },
 
@@ -133,7 +138,8 @@ const s = StyleSheet.create({
     borderRadius: 2,
   },
   notesLabel: { fontSize: 8.5, color: PDF.muted, marginBottom: 4, textAlign: 'right' },
-  notesText: { fontSize: 10, color: PDF.text, lineHeight: 1.5, textAlign: 'right' },
+  /** react-pdf does not pass the box's direction down to its text: the text carries it (a trailing full stop and a leading digit stay on the right side) */
+  notesText: { direction: 'rtl', fontSize: 10, color: PDF.text, lineHeight: 1.5, textAlign: 'right' },
 
   signRow: {
     direction: 'ltr',
@@ -156,6 +162,12 @@ const s = StyleSheet.create({
   },
 
 });
+
+/**
+ * A name longer than this is left out of the summary card at the top: that cell is a quarter of the width, so a long name wrapped to
+ * five or six lines and made the card a third of the page. The card below it ("يصرف إلى") prints the full name.
+ */
+const SUMMARY_NAME_CHARS = 28;
 
 /** notes longer than this may flow onto the next page; shorter ones stay with the total and the signatures */
 const KEEP_NOTES_CHARS = 700;
@@ -183,8 +195,8 @@ export function VoucherPDF({
       summaryPrimaryDateIso={voucher.voucherDate}
       summaryPrimaryDateLabel="تاريخ الإذن"
       metaCells={[
-        { label: 'المستفيد', value: payeeDisplay },
-        ...(linkedParty && linkedParty !== payeeDisplay
+        ...(payeeDisplay.length <= SUMMARY_NAME_CHARS ? [{ label: 'المستفيد', value: payeeDisplay }] : []),
+        ...(linkedParty && linkedParty !== payeeDisplay && linkedParty.length <= SUMMARY_NAME_CHARS
           ? [{ label: 'الجهة المرتبطة', value: linkedParty }]
           : voucher.contactKindLabelAr
             ? [{ label: 'نوع الجهة', value: voucher.contactKindLabelAr }]
@@ -213,7 +225,7 @@ export function VoucherPDF({
           <Text style={s.heroLabel}>{ar('يصرف إلى')}</Text>
           <Text style={s.heroValue}>{ar(payeeDisplay)}</Text>
           {linkedParty && linkedParty !== payeeDisplay ? (
-            <Text style={[s.heroLabel, { marginTop: 6 }]}>
+            <Text style={[s.heroLabel, { marginTop: 6, direction: 'rtl' }]}>
               {ar(
                 voucher.contactKindLabelAr
                   ? `${voucher.contactKindLabelAr}: ${linkedParty}`
@@ -239,7 +251,13 @@ export function VoucherPDF({
         <Text style={[pdfBase.th, s.th_amount, { textAlign: 'center' }]}>{ar('المبلغ')}</Text>
       </View>
       {voucher.lines.map((l, i) => (
-        <View key={i} style={[s.tableRowRtl, i % 2 !== 0 && pdfBase.rowEven]} wrap={false}>
+        <View
+          key={i}
+          style={[s.tableRowRtl, i % 2 !== 0 && pdfBase.rowEven]}
+          wrap={false}
+          // the last row travels with the closing block (total, notes, signatures): the page that carries the total carries a row above it
+          {...(i === voucher.lines.length - 1 ? { minPresenceAhead: keepClosing ? 1000 : 60 } : {})}
+        >
           <Text style={[pdfBase.td, s.th_desc, s.descRtl]}>{ar(l.description)}</Text>
           <View style={[pdfBase.td, s.th_amount]}>
             <PdfMoneyText amount={l.amount} style={s.tdAmountNum} align="center" />

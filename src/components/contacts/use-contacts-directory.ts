@@ -34,13 +34,11 @@ import { mallTabHref } from '@/lib/mall/routes';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useDirectoryActivity } from '@/components/contacts/directory/use-directory-activity';
-import { arabicCount } from '@/lib/utils';
 
 /** Rows drawn at first and added by each «عرض المزيد»: a long list is not drawn all at once. */
 export const DIRECTORY_PAGE_SIZE = 50;
 
 const DISMISSED_KEY = 'people.landlord-hints.dismissed';
-const FILES: [string, string, string, string] = ['ملف واحد', 'ملفان', 'ملفات', 'ملفاً'];
 
 function readDismissed(): Set<string> {
   try {
@@ -173,10 +171,13 @@ export function useContactsDirectory(options?: {
     }
     const targets = hints.map((r) => r.contact);
     if (targets.length === 0) return;
+    const many = targets.length > 1;
+    const listed = targets.slice(0, 6).map((c) => ({ label: c.code ?? '—', value: c.name }));
     const ok = await confirm({
       title: 'اعتماد كمؤجرين',
-      description: `${arabicCount(targets.length, FILES)} سيُسجَّل فيها دور «مؤجر» وتظهر تحت «مؤجرون». يمكن تغيير الدور من تعديل الملف.`,
-      details: targets.slice(0, 6).map((c) => ({ label: c.code ?? '—', value: c.name })),
+      // no pronoun to agree with the count: one file, two files or twelve
+      description: `يُسجَّل دور «مؤجر» في ${many ? 'الملفات التالية' : 'هذا الملف'} ويظهر ضمن «مؤجرون». يمكن تغيير الدور من تعديل الملف.`,
+      details: targets.length > listed.length ? [...listed, { label: 'ملفات أخرى', value: String(targets.length - listed.length) }] : listed,
       confirmLabel: 'اعتمد',
       tone: 'default',
     });

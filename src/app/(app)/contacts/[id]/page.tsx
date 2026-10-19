@@ -11,6 +11,7 @@ import { UtilitySupplierPanel } from '@/components/contacts/utility-supplier-pan
 import { LandlordFrame } from '@/components/contacts/profile/landlord-frame';
 import { ProfileSkeleton } from '@/components/contacts/profile/profile-skeleton';
 import { TenantFrame } from '@/components/contacts/profile/tenant-frame';
+import { useReturnFocus } from '@/components/contacts/profile/use-return-focus';
 import { useContact, useContactTransactions, useTenantRentForContact, useUpdateContact } from '@/lib/db/queries';
 import { useJournalEntries } from '@/lib/db/journal-queries';
 import { extractContactBusinessRole } from '@/lib/contacts/contact-roles';
@@ -60,6 +61,7 @@ export default function ContactDetailPage() {
   const journalEntries = useMemo(() => jeQuery.data ?? [], [jeQuery.data]);
 
   const [isEditOpen, setIsEditOpen] = useState(false);
+  useReturnFocus(isEditOpen);
   const [formData, setFormData] = useState<ContactFormState>(defaultContactFormState());
   const role = useMemo(() => extractContactBusinessRole(contact), [contact]);
 
@@ -114,7 +116,7 @@ export default function ContactDetailPage() {
     ) : (
       <PageMessage
         title="تعذّر تحميل الملف"
-        description={friendlyError(contactQuery.error, 'تعذّر تحميل الملف. أعد المحاولة، وإن تكرر الخطأ أبلغ مسؤول النظام.')}
+        description={friendlyError(contactQuery.error, 'تحقق من الاتصال ثم أعد المحاولة. وإن تكرر الخطأ أبلغ مسؤول النظام.')}
         retry={() => void contactQuery.refetch()}
       />
     );

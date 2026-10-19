@@ -5,30 +5,11 @@ import { ReportShell } from './ReportShell';
 import { ar } from './arabicPDF';
 import { PDF } from './pdfBase';
 import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTable';
+import { TAIL_ROWS, FRAME_OPEN_BOTTOM, FRAME_OPEN_TOP } from './TenantStatementPDF';
 
-/**
- * Page-break rules (the table itself is unchanged):
- * - a row never splits across pages, and the column titles repeat on every page the table runs over;
- * - the table is cut in two: everything above the last TAIL_ROWS rows, and a tail that holds those rows, the
- *   total bar and the caption as one block. So the total bar is never alone on a page;
- * - the frame is open at the cut, so the two halves read as one table when they share a page;
- * - the gap under the table belongs to the block that follows it (margin-top), never to the table
- *   (margin-bottom): react-pdf counts a bottom margin as room the block still needs, so a table that fitted the
- *   page by less than 16pt used to be moved whole to the next page and left the rest of this one empty.
- */
-const TAIL_ROWS = 2;
-const FRAME_OPEN_BOTTOM = {
-  borderBottomWidth: 0,
-  borderBottomLeftRadius: 0,
-  borderBottomRightRadius: 0,
-  marginBottom: 0,
-};
-const FRAME_OPEN_TOP = {
-  borderTopWidth: 0,
-  borderTopLeftRadius: 0,
-  borderTopRightRadius: 0,
-  marginBottom: 0,
-};
+// Page-break rules, shared with the statements (the table itself is unchanged): the table is cut in two, and the last
+// TAIL_ROWS rows, the total bar and the caption stay together, so the total bar is never alone on a page.
+// A row never splits across pages and the column titles repeat on every page the table runs over.
 
 const W = {
   total: '13%',
@@ -114,7 +95,7 @@ export function TenantArAgingReportPDF({
       periodSummary={{
         eyebrow: 'AR Aging',
         title: periodLabel,
-        subtitle: `${summary.tenantCount} مستأجر`,
+        subtitle: `المستأجرون ${summary.tenantCount}`,
         hint: 'تحليل المتأخرات حسب العمر',
       }}
       metaCells={[

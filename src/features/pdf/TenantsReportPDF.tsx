@@ -503,7 +503,7 @@ export function TenantsReportPDF({
         totalMatchingMonths={totalMatchingMonths}
       />
 
-      <Text style={pdfBase.sectionTitle}>
+      <Text style={pdfBase.sectionTitle} minPresenceAhead={70}>
         {ar(
           showMonths
             ? `تفاصيل الشهور والقيم — ${period.periodLabelAr} · ${period.statusFilterLabel ?? ''}`
@@ -564,7 +564,7 @@ export function TenantsReportPDF({
                   </Text>
                   <Text style={col.footHint}>{ar(monthsNames)}</Text>
                 </View>
-                <Text style={[col.td, col.tenant]}>{ar(r.name)}</Text>
+                <Text style={[col.td, col.tenant, { direction: 'rtl' }]}>{ar(r.name)}</Text>
                 <Text style={[col.tdMuted, col.shop]}>{ar(shopLabel)}</Text>
               </View>,
               i,
@@ -613,7 +613,7 @@ export function TenantsReportPDF({
                 <View style={col.rent}>
                   <TableMoney amount={rent} />
                 </View>
-                <Text style={[col.td, col.tenant]}>{ar(r.name)}</Text>
+                <Text style={[col.td, col.tenant, { direction: 'rtl' }]}>{ar(r.name)}</Text>
                 <Text style={[col.tdMuted, col.shop]}>{ar(shopLabel)}</Text>
               </View>,
               i,

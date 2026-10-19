@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeftRight, Ellipsis, Pencil, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ProfileHeader } from '@/components/people';
 import { RoleBadge } from '@/components/people/role-badge';
 import { ContactWhatsAppButton } from '@/components/contacts/contact-phone-actions';
+import { useReturnFocus } from '@/components/contacts/profile/use-return-focus';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
 import { canCreateContactTransaction, formatContactSaveError } from '@/lib/contacts/form-utils';
 import { CONTACT_ROLES, type ContactBusinessRole } from '@/lib/contacts/contact-roles';
@@ -23,6 +24,7 @@ import {
   KIND_MOVE_WORDS,
   moveDescription,
   moveKindPatch,
+  type KindMove,
   moveTarget,
   profileLook,
   txKindOfDirection,
@@ -43,6 +45,7 @@ export function PartyHeader({
   landlord,
   transactions,
   statementReady,
+  loading = false,
   onEdit,
   extraActions,
 }: {
@@ -53,6 +56,8 @@ export function PartyHeader({
   transactions: TransactionWithRelations[];
   /** the transactions loaded; the statement waits for them */
   statementReady: boolean;
+  /** the transactions are still loading: the side the voucher is for may change once they are in */
+  loading?: boolean;
   onEdit?: () => void;
   /** a link that belongs to this kind of file only (an employee's payroll file) */
   extraActions?: ReactNode;
@@ -61,12 +66,19 @@ export function PartyHeader({
   const openTx = useTxDialog((s) => s.open);
   const update = useUpdateContact();
   const [moving, setMoving] = useState(false);
+  // the list the dialog was opened for: the file is read again after the move and must not change the words
+  // of the dialog while it fades out
+  const [movingTo, setMovingTo] = useState<KindMove | null>(null);
+  // the menu item that opened the dialog is gone by the time it closes: focus goes back to the menu button
+  const moreRef = useRef<HTMLButtonElement>(null);
+  useReturnFocus(moving, moreRef);
 
   const txKind = txKindOfDirection(direction);
   const words = DIRECTION_WORDS[direction];
   const mayCreate = canCreateContactTransaction(contact.is_active, can(txKind === 'EXPENSE' ? 'expense.create' : 'revenue.create'));
   const look = useMemo(() => profileLook(contact), [contact]);
   const target = canWrite ? moveTarget(contact.kind) : null;
+  const dialogTarget = movingTo ?? target;
   const statement = useMemo(() => buildStatement(transactions), [transactions]);
   const fileName = `كشف-حساب-${contact.name}-${todayISODate()}`;
 
@@ -87,10 +99,11 @@ export function PartyHeader({
   }
 
   async function move() {
-    if (!target) return;
+    const to = movingTo ?? target;
+    if (!to) return;
     try {
-      await update.mutateAsync({ id: contact.id, ...moveKindPatch(contact, target) });
-      toast.success(KIND_MOVE_WORDS[target].done);
+      await update.mutateAsync({ id: contact.id, ...moveKindPatch(contact, to) });
+      toast.success(KIND_MOVE_WORDS[to].done);
     } catch (err) {
       console.error('[contacts] move failed', err);
       toast.error(formatContactSaveError(err));
@@ -99,7 +112,7 @@ export function PartyHeader({
   }
 
   const primary = mayCreate ? (
-    <Button type="button" className="min-h-11 flex-[2_1_100%] gap-1.5 sm:min-h-9 sm:flex-none" onClick={newVoucher}>
+    <Button type="button" className="min-h-11 flex-[2_1_100%] gap-1.5 sm:min-h-9 sm:flex-none" disabled={loading} onClick={newVoucher}>
       <Plus aria-hidden />
       {words.voucher}
     </Button>
@@ -129,12 +142,18 @@ export function PartyHeader({
       {target && (
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="icon" className="h-11 w-11 shrink-0 sm:h-9 sm:w-9" aria-label="المزيد">
+            <Button ref={moreRef} type="button" variant="outline" size="icon" className="h-11 w-11 shrink-0 sm:h-9 sm:w-9" aria-label="المزيد">
               <Ellipsis aria-hidden />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuItem className="min-h-11 sm:min-h-0" onSelect={() => setMoving(true)}>
+            <DropdownMenuItem
+              className="min-h-11 sm:min-h-0"
+              onSelect={() => {
+                setMovingTo(target);
+                setMoving(true);
+              }}
+            >
               <ArrowLeftRight aria-hidden />
               {KIND_MOVE_WORDS[target].menu}
             </DropdownMenuItem>
@@ -170,7 +189,7 @@ export function PartyHeader({
         actions={actions}
         stickyAction={
           primary ? (
-            <Button type="button" className="min-h-11 gap-1.5" onClick={newVoucher}>
+            <Button type="button" className="min-h-11 gap-1.5" disabled={loading} onClick={newVoucher}>
               <Plus aria-hidden />
               {words.voucher}
             </Button>
@@ -183,13 +202,13 @@ export function PartyHeader({
         }
       />
 
-      {target && (
+      {dialogTarget && (
         <ConfirmDialog
           open={moving}
           onOpenChange={setMoving}
           tone="default"
-          title={KIND_MOVE_WORDS[target].title}
-          description={moveDescription(target, landlord)}
+          title={KIND_MOVE_WORDS[dialogTarget].title}
+          description={moveDescription(dialogTarget, landlord)}
           details={[{ label: 'الجهة', value: contact.name }]}
           confirmLabel="انقل الملف"
           onConfirm={move}

@@ -16,9 +16,9 @@ function EmployeesRedirectInner() {
   }, [router]);
 
   return (
-    <div className="flex h-48 items-center justify-center gap-2 text-ink-mute">
-      <Loader2 className="h-5 w-5 animate-spin" />
-      جارٍ التحويل…
+    <div role="status" className="flex h-48 items-center justify-center gap-2 text-ink-mute">
+      <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+      جارٍ التحويل إلى قائمة الموظفين
     </div>
   );
 }

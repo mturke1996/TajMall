@@ -207,7 +207,7 @@ export function TenantRentMonthReceiptPDF({ receipt }: TenantRentMonthReceiptPdf
       <View style={s.grid}>
         <View style={s.row}>
           <Text style={s.label}>{ar('البيان')}</Text>
-          <Text style={s.value}>{ar(receipt.description)}</Text>
+          <Text style={[s.value, { direction: 'rtl' }]}>{ar(receipt.description)}</Text>
         </View>
         {receipt.phone ? (
           <View style={s.row}>
@@ -217,7 +217,7 @@ export function TenantRentMonthReceiptPDF({ receipt }: TenantRentMonthReceiptPdf
         ) : null}
         <View style={s.row}>
           <Text style={s.label}>{ar('تاريخ الاستحقاق')}</Text>
-          <Text style={s.value}>
+          <Text style={[s.value, { direction: 'rtl' }]}>
             {dueParts ? `${dueParts.day} ${dueParts.monthYear}` : pdfFmtDate(receipt.due_date)}
           </Text>
         </View>

@@ -34,7 +34,10 @@ const s = StyleSheet.create({
   metaCell: { direction: 'rtl', flex: 1 },
   metaLabel: { fontSize: 8, color: PDF.muted, marginBottom: 3, textAlign: 'right' },
   metaValue: { fontSize: 10, fontWeight: 'bold', color: PDF.text, textAlign: 'right' },
+  /** a date or a word is read right to left: react-pdf does not pass the cell's direction down to its text, so the text carries it (otherwise "18 أكتوبر 2026" comes out as "أكتوبر 2026 18") */
+  metaValueRtl: { fontSize: 10, fontWeight: 'bold', color: PDF.text, textAlign: 'right', direction: 'rtl' },
   salutation: {
+    direction: 'rtl',
     fontSize: 11,
     fontWeight: 'bold',
     color: PDF.text,
@@ -55,7 +58,7 @@ const s = StyleSheet.create({
     marginBottom: 14,
   },
   subjectLabel: { fontSize: 8, color: PDF.muted, marginBottom: 4, textAlign: 'right' },
-  subjectText: { fontSize: 11, fontWeight: 'bold', color: PDF.text, textAlign: 'right', lineHeight: 1.45 },
+  subjectText: { direction: 'rtl', fontSize: 11, fontWeight: 'bold', color: PDF.text, textAlign: 'right', lineHeight: 1.45 },
   body: {
     direction: 'rtl',
     fontSize: 10.5,
@@ -89,6 +92,12 @@ const s = StyleSheet.create({
   signHint: { fontSize: 8, color: PDF.muted, textAlign: 'right', marginTop: 4 },
 });
 
+/**
+ * A recipient's name or title longer than this is left out of the summary card at the top (its cell is a fifth of the width, so a
+ * long one wrapped to six lines and made the card a third of the page); the salutation below it prints both in full.
+ */
+const SUMMARY_TEXT_CHARS = 34;
+
 /** a last paragraph longer than this is left to flow on its own; a shorter one stays with the closing and the signature */
 const KEEP_LAST_PARAGRAPH_CHARS = 600;
 
@@ -108,11 +117,10 @@ export function OfficialLetterPDF({ letter }: { letter: OfficialLetterPdfModel }
       summaryPrimaryDateIso={letter.letterDate}
       summaryPrimaryDateLabel="تاريخ المراسلة"
       metaCells={[
-        { label: 'إلى', value: letter.recipientName },
-        {
-          label: 'الصفة',
-          value: letter.recipientTitle?.trim() || '—',
-        },
+        ...((letter.recipientName ?? '').length <= SUMMARY_TEXT_CHARS ? [{ label: 'إلى', value: letter.recipientName }] : []),
+        ...((letter.recipientTitle?.trim() || '—').length <= SUMMARY_TEXT_CHARS
+          ? [{ label: 'الصفة', value: letter.recipientTitle?.trim() || '—' }]
+          : []),
         {
           label: 'المرجع',
           value: letter.referenceNumber?.trim() || '—',
@@ -122,7 +130,7 @@ export function OfficialLetterPDF({ letter }: { letter: OfficialLetterPdfModel }
       <View style={s.metaRow} wrap={false}>
         <View style={s.metaCell}>
           <Text style={s.metaLabel}>{ar('التاريخ')}</Text>
-          <Text style={s.metaValue}>{arDateMedium(letter.letterDate)}</Text>
+          <Text style={s.metaValueRtl}>{arDateMedium(letter.letterDate)}</Text>
         </View>
         <View style={s.metaCell}>
           <Text style={s.metaLabel}>{ar('الرقم')}</Text>
@@ -130,7 +138,7 @@ export function OfficialLetterPDF({ letter }: { letter: OfficialLetterPdfModel }
         </View>
         <View style={s.metaCell}>
           <Text style={s.metaLabel}>{ar('النوع')}</Text>
-          <Text style={s.metaValue}>{ar(letter.letterTypeAr)}</Text>
+          <Text style={s.metaValueRtl}>{ar(letter.letterTypeAr)}</Text>
         </View>
       </View>
 
@@ -138,7 +146,8 @@ export function OfficialLetterPDF({ letter }: { letter: OfficialLetterPdfModel }
         {ar(
           isOfficial
             ? `إلى السيد/ السيدة ${letter.recipientName}${letter.recipientTitle ? ` — ${letter.recipientTitle}` : ''}`
-            : `الأخ/ الأخت ${letter.recipientName}،`,
+            // not «الأخ/ الأخت»: react-pdf drops all but one of the same lam-alef ligature on a line, and that line printed «اخ/ الأخت»
+            : `السيد/ السيدة ${letter.recipientName}،`,
         )}
       </Text>
 

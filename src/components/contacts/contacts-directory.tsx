@@ -23,12 +23,12 @@ import { arabicCount, todayISODate } from '@/lib/utils';
 
 const FILES: [string, string, string, string] = ['جهة واحدة', 'جهتان', 'جهات', 'جهة'];
 
-const COPY: Record<PeopleSegment, { empty: string; add: string; table: string; search: string }> = {
-  all: { empty: 'لا توجد جهات بعد.', add: 'إضافة جهة', table: 'الدليل الشامل', search: 'بحث في الدليل' },
-  TENANT: { empty: 'لا يوجد مستأجرون بعد.', add: 'إضافة مستأجر', table: 'المستأجرون', search: 'بحث في المستأجرين' },
-  EMPLOYEE: { empty: 'لا يوجد موظفون بعد.', add: 'إضافة موظف', table: 'الموظفون', search: 'بحث في الموظفين' },
-  VENDOR: { empty: 'لا يوجد موردون بعد.', add: 'إضافة مورد', table: 'الموردون', search: 'بحث في الموردين' },
-  CUSTOMER: { empty: 'لا يوجد عملاء بعد.', add: 'إضافة عميل', table: 'العملاء والمؤجرون', search: 'بحث في العملاء والمؤجرين' },
+const COPY: Record<PeopleSegment, { empty: string; add: string; table: string; search: string; placeholder: string }> = {
+  all: { empty: 'لا توجد جهات بعد.', add: 'إضافة جهة', table: 'الدليل الشامل', search: 'بحث في الدليل', placeholder: 'الاسم أو الهاتف أو رقم المحل' },
+  TENANT: { empty: 'لا يوجد مستأجرون بعد.', add: 'إضافة مستأجر', table: 'المستأجرون', search: 'بحث في المستأجرين', placeholder: 'الاسم أو الهاتف أو رقم المحل' },
+  EMPLOYEE: { empty: 'لا يوجد موظفون بعد.', add: 'إضافة موظف', table: 'الموظفون', search: 'بحث في الموظفين', placeholder: 'الاسم أو الهاتف أو الرمز' },
+  VENDOR: { empty: 'لا يوجد موردون بعد.', add: 'إضافة مورد', table: 'الموردون', search: 'بحث في الموردين', placeholder: 'الاسم أو الهاتف أو الرمز' },
+  CUSTOMER: { empty: 'لا يوجد عملاء بعد.', add: 'إضافة عميل', table: 'العملاء والمؤجرون', search: 'بحث في العملاء والمؤجرين', placeholder: 'الاسم أو الهاتف أو الرمز' },
 };
 
 export const ADD_LABEL: Record<PeopleSegment, string> = {
@@ -121,6 +121,7 @@ export function ContactsDirectory({ directory: d, segment, role, onRoleChange }:
           onShowInactiveChange={d.setShowInactive}
           inactiveCount={d.inactiveCount}
           searchLabel={copy.search}
+          placeholder={copy.placeholder}
         />
         <RoleChips chips={chips} counts={d.roleCounts} value={role} onChange={onRoleChange} />
       </div>
@@ -157,7 +158,7 @@ export function ContactsDirectory({ directory: d, segment, role, onRoleChange }:
           لا توجد ملفات نشطة في هذه القائمة.
         </DirectoryEmpty>
       ) : d.rows.length === 0 ? (
-        <DirectoryNoMatch onClear={clearFilters} />
+        <DirectoryNoMatch onClear={clearFilters} searching={d.searchQuery.trim() !== ''} />
       ) : (
         <section aria-label={copy.table} className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-1 text-[12.5px] text-ink-mute">
@@ -178,7 +179,7 @@ export function ContactsDirectory({ directory: d, segment, role, onRoleChange }:
             ))}
           </DirectoryTable>
 
-          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:hidden" aria-label={copy.table}>
+          <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:hidden" aria-label={copy.table}>
             {d.visibleRows.map((row) => (
               <li key={row.contact.id}>
                 <DirectoryCard row={row} ctx={ctx} />

@@ -10,6 +10,26 @@ import type { Statement } from '@/lib/people/party-profile';
 
 const W = { balance: '17%', paid: '15%', received: '15%', desc: '39%', date: '14%' };
 
+/**
+ * Page-break rules (the table itself is unchanged): the table is cut in two, everything above the last TAIL_ROWS rows and
+ * a tail holding those rows, the totals row, the net bar and the notes as one block, so the bar and the notes are never alone
+ * on a page. The frame is open at the cut, so the two halves read as one table when they share a page. The gap under the
+ * table belongs to the block that follows it (margin-top): react-pdf counts a bottom margin as room the block still needs.
+ */
+const TAIL_ROWS = 2;
+const FRAME_OPEN_BOTTOM = {
+  borderBottomWidth: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  marginBottom: 0,
+};
+const FRAME_OPEN_TOP = {
+  borderTopWidth: 0,
+  borderTopLeftRadius: 0,
+  borderTopRightRadius: 0,
+  marginBottom: 0,
+};
+
 const dateLabel = (iso: string) => {
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
@@ -52,6 +72,62 @@ export function PartyStatementPDF(props: PartyStatementPdfProps) {
 export function PartyStatementPage({ name, code, phone, roleLabel, issuedOn, statement }: PartyStatementPdfProps) {
   const { rows, totalReceived, totalPaid, net } = statement;
   const netWord = net > 0.0005 ? 'صافي المقبوض' : net < -0.0005 ? 'صافي المدفوع' : 'الصافي';
+  const body = rows.map((r, i) => (
+    <View key={r.id} style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]} wrap={false}>
+      <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
+        <NetMoney value={r.net} />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.paid }]}>
+        <PdfReportMoney amount={r.paid} color={PDF.danger} />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.received }]}>
+        <PdfReportMoney amount={r.received} color={PDF.success} />
+      </View>
+      <View style={{ width: W.desc }}>
+        <Text style={pdfReportTable.tdAr}>{ar(r.description || r.account || 'بدون بيان')}</Text>
+        {r.description && r.account ? <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>{ar(r.account)}</Text> : null}
+        {r.number != null ? (
+          <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>
+            {ar('رقم المعاملة: ')}
+            <Text style={{ direction: 'ltr' }}>{String(r.number)}</Text>
+          </Text>
+        ) : null}
+      </View>
+      <View style={{ width: W.date, alignItems: 'center' }}>
+        <Text style={{ fontSize: 8, color: PDF.text, textAlign: 'center' }}>{dateLabel(r.date)}</Text>
+      </View>
+    </View>
+  ));
+  const tailFrom = Math.max(0, body.length - TAIL_ROWS);
+
+  const head = (
+    <View style={pdfReportTable.tableHead} wrap={false} fixed>
+      <Text style={[pdfReportTable.th, { width: W.balance }]}>{ar('الصافي التراكمي')}</Text>
+      <Text style={[pdfReportTable.th, { width: W.paid }]}>{ar('مدفوع')}</Text>
+      <Text style={[pdfReportTable.th, { width: W.received }]}>{ar('مقبوض')}</Text>
+      <Text style={[pdfReportTable.thAr, { width: W.desc }]}>{ar('البيان')}</Text>
+      <Text style={[pdfReportTable.th, { width: W.date }]}>{ar('التاريخ')}</Text>
+    </View>
+  );
+
+  const totalsRow = (
+    <View style={pdfReportTable.totalsRow} wrap={false}>
+      <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
+        <NetMoney value={net} bold />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.paid }]}>
+        <PdfReportMoney amount={totalPaid} bold showZero />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.received }]}>
+        <PdfReportMoney amount={totalReceived} bold showZero />
+      </View>
+      <View style={{ width: W.desc }}>
+        <Text style={pdfReportTable.totalsRowLabel}>{ar(`المجموع (${rows.length} حركة)`)}</Text>
+      </View>
+      <View style={{ width: W.date }} />
+    </View>
+  );
+
   return (
     <ReportPage
       title="كشف حساب"
@@ -83,80 +159,46 @@ export function PartyStatementPage({ name, code, phone, roleLabel, issuedOn, sta
         </View>
       </View>
 
-      <View style={pdfReportTable.tableWrap}>
-        <View style={pdfReportTable.tableHead} wrap={false} fixed>
-          <Text style={[pdfReportTable.th, { width: W.balance }]}>{ar('الصافي التراكمي')}</Text>
-          <Text style={[pdfReportTable.th, { width: W.paid }]}>{ar('مدفوع')}</Text>
-          <Text style={[pdfReportTable.th, { width: W.received }]}>{ar('مقبوض')}</Text>
-          <Text style={[pdfReportTable.thAr, { width: W.desc }]}>{ar('البيان')}</Text>
-          <Text style={[pdfReportTable.th, { width: W.date }]}>{ar('التاريخ')}</Text>
-        </View>
-
-        {rows.length === 0 ? (
-          <View style={{ padding: 18 }}>
-            <Text style={{ fontSize: 9, color: PDF.muted, textAlign: 'center' }}>{ar('لا توجد حركات محتسبة لهذه الجهة.')}</Text>
-          </View>
-        ) : null}
-
-        {rows.map((r, i) => (
-          <View key={r.id} style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]} wrap={false}>
-            <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
-              <NetMoney value={r.net} />
-            </View>
-            <View style={[pdfReportTable.tdNum, { width: W.paid }]}>
-              <PdfReportMoney amount={r.paid} color={PDF.danger} />
-            </View>
-            <View style={[pdfReportTable.tdNum, { width: W.received }]}>
-              <PdfReportMoney amount={r.received} color={PDF.success} />
-            </View>
-            <View style={{ width: W.desc }}>
-              <Text style={pdfReportTable.tdAr}>{ar(r.description || r.account || 'بدون بيان')}</Text>
-              {r.description && r.account ? <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>{ar(r.account)}</Text> : null}
-              {r.number != null ? (
-                <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>
-                  {ar('رقم المعاملة: ')}
-                  <Text style={{ direction: 'ltr' }}>{String(r.number)}</Text>
-                </Text>
-              ) : null}
-            </View>
-            <View style={{ width: W.date, alignItems: 'center' }}>
-              <Text style={{ fontSize: 8, color: PDF.text, textAlign: 'center' }}>{dateLabel(r.date)}</Text>
+      {rows.length === 0 ? (
+        <>
+          <View style={pdfReportTable.tableWrap}>
+            {head}
+            <View style={{ padding: 18 }}>
+              <Text style={{ fontSize: 9, color: PDF.muted, textAlign: 'center' }}>{ar('لا توجد حركات محتسبة لهذه الجهة.')}</Text>
             </View>
           </View>
-        ))}
+          <Text style={pdfReportTable.caption}>{ar('يشمل الكشف الحركات المرحّلة والمطابَقة فقط. المسودات والملغاة غير محتسبة.')}</Text>
+          <PdfReportCaption />
+        </>
+      ) : (
+        <>
+          {tailFrom > 0 ? (
+            <View style={[pdfReportTable.tableWrap, FRAME_OPEN_BOTTOM]}>
+              {head}
+              {body.slice(0, tailFrom)}
+            </View>
+          ) : null}
+          <View wrap={false}>
+            <View style={[pdfReportTable.tableWrap, tailFrom > 0 ? FRAME_OPEN_TOP : { marginBottom: 0 }]}>
+              {tailFrom > 0 ? null : head}
+              {body.slice(tailFrom)}
+              {totalsRow}
+            </View>
 
-        {rows.length > 0 ? (
-          <View style={pdfReportTable.totalsRow} wrap={false}>
-            <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
-              <NetMoney value={net} bold />
+            <View style={[pdfReportTable.totalBar, { marginTop: 20 }]}>
+              <View style={pdfReportTable.totalCluster}>
+                <View style={pdfReportTable.totalMini}>
+                  <PdfReportMoney amount={Math.abs(net)} bold light showZero />
+                </View>
+              </View>
+              <Text style={pdfReportTable.totalLabel}>{ar(netWord)}</Text>
             </View>
-            <View style={[pdfReportTable.tdNum, { width: W.paid }]}>
-              <PdfReportMoney amount={totalPaid} bold showZero />
-            </View>
-            <View style={[pdfReportTable.tdNum, { width: W.received }]}>
-              <PdfReportMoney amount={totalReceived} bold showZero />
-            </View>
-            <View style={{ width: W.desc }}>
-              <Text style={pdfReportTable.totalsRowLabel}>{ar(`المجموع (${rows.length} حركة)`)}</Text>
-            </View>
-            <View style={{ width: W.date }} />
+
+            <Text style={pdfReportTable.caption}>{ar('يشمل الكشف الحركات المرحّلة والمطابَقة فقط. المسودات والملغاة غير محتسبة.')}</Text>
+            <PdfReportCaption />
           </View>
-        ) : null}
-      </View>
-
-      {rows.length > 0 ? (
-        <View style={pdfReportTable.totalBar} wrap={false}>
-          <View style={pdfReportTable.totalCluster}>
-            <View style={pdfReportTable.totalMini}>
-              <PdfReportMoney amount={Math.abs(net)} bold light showZero />
-            </View>
-          </View>
-          <Text style={pdfReportTable.totalLabel}>{ar(netWord)}</Text>
-        </View>
-      ) : null}
-
-      <Text style={pdfReportTable.caption}>{ar('يشمل الكشف الحركات المرحّلة والمطابَقة فقط. المسودات والملغاة غير محتسبة.')}</Text>
-      <PdfReportCaption />
+        </>
+      )}
     </ReportPage>
   );
 }

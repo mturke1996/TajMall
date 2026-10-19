@@ -95,7 +95,7 @@ export function TenantStatementPage({ tenantName, shopNumber, phone, periodLabel
       </View>
       <View style={{ width: W.desc }}>
         <Text style={pdfReportTable.tdAr}>{ar(r.label)}</Text>
-        {r.detail ? <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>{ar(r.detail)}</Text> : null}
+        {r.detail ? <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right', direction: 'rtl' }}>{ar(r.detail)}</Text> : null}
         {r.reference ? (
           <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>
             {ar('مرجع: ')}
@@ -170,7 +170,7 @@ export function TenantStatementPage({ tenantName, shopNumber, phone, periodLabel
       <View style={pdfReportTable.hero} wrap={false}>
         <View style={pdfReportTable.heroCell}>
           <Text style={pdfReportTable.heroLabel}>{ar('المستأجر')}</Text>
-          <Text style={pdfReportTable.heroValue}>{ar(tenantName)}</Text>
+          <Text style={[pdfReportTable.heroValue, { direction: 'rtl' }]}>{ar(tenantName)}</Text>
         </View>
         <View style={pdfReportTable.heroCell}>
           <Text style={pdfReportTable.heroLabel}>{ar('المحل')}</Text>
@@ -182,7 +182,7 @@ export function TenantStatementPage({ tenantName, shopNumber, phone, periodLabel
         </View>
         <View style={pdfReportTable.heroCell}>
           <Text style={pdfReportTable.heroLabel}>{ar('الفترة')}</Text>
-          <Text style={pdfReportTable.heroValue}>{ar(periodLabel)}</Text>
+          <Text style={[pdfReportTable.heroValue, { direction: 'rtl' }]}>{ar(periodLabel)}</Text>
         </View>
       </View>
 

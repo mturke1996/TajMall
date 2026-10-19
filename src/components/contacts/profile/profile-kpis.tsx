@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { ArrowDownToLine, ArrowUpFromLine, CalendarCheck, ChartColumn, Receipt } from 'lucide-react';
 import { KpiStrip, type KpiCardProps } from '@/components/people';
 import { arabicCount, formatDate } from '@/lib/utils';
-import { buildProfileFigures, DIRECTION_WORDS } from '@/lib/people/party-profile';
+import { buildProfileFigures, DIRECTION_WORDS, uncountedText } from '@/lib/people/party-profile';
 import type { Direction, PartyStats } from '@/lib/people/party-stats';
 
 const VOUCHERS = {
@@ -35,13 +35,13 @@ export function ProfileKpis({
     const w = DIRECTION_WORDS[direction];
     const state: KpiCardProps['state'] = loading ? 'loading' : error || !stats ? 'error' : 'ready';
     const f = stats ? buildProfileFigures(stats, direction) : null;
-    const other = DIRECTION_WORDS[direction === 'out' ? 'in' : 'out'];
+    const otherDirection: Direction = direction === 'out' ? 'in' : 'out';
 
     const countContext = !f
       ? undefined
       : f.totalCount === 0
         ? 'لا حركة بعد'
-        : [f.count > 0 && arabicCount(f.count, VOUCHERS[direction]), f.other.count > 0 && `${f.other.count} ${other.countOf}`].filter(Boolean).join(' · ');
+        : [f.count > 0 && arabicCount(f.count, VOUCHERS[direction]), f.other.count > 0 && arabicCount(f.other.count, VOUCHERS[otherDirection])].filter(Boolean).join(' · ');
 
     // a failed load says so in every card; one retry is enough
     return [
@@ -87,10 +87,7 @@ export function ProfileKpis({
 
 /** Under the figures, when some rows are left out of them. */
 export function UncountedNote({ count }: { count: number }) {
-  if (count <= 0) return null;
-  return (
-    <p className="-mt-1 px-1 text-[12px] text-ink-mute">
-      {arabicCount(count, ['حركة واحدة', 'حركتان', 'حركات', 'حركة'])} مسودة أو ملغاة لا تدخل في الأرقام.
-    </p>
-  );
+  const text = uncountedText(count);
+  if (!text) return null;
+  return <p className="-mt-1 px-1 text-[12px] text-ink-mute">{text}</p>;
 }

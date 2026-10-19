@@ -41,7 +41,8 @@ const s = StyleSheet.create({
     direction: 'rtl',
   },
   summaryLabel: { fontSize: 8, color: PDF.muted, marginBottom: 4, textAlign: 'right' },
-  summaryValue: { fontSize: 11, color: PDF.text, fontWeight: 'bold', textAlign: 'right' },
+  /** react-pdf does not pass the card's direction down to its text: the text carries it ("2 مطالبة" keeps its digit on the right) */
+  summaryValue: { direction: 'rtl', fontSize: 11, color: PDF.text, fontWeight: 'bold', textAlign: 'right' },
   infoGrid: {
     direction: 'ltr',
     flexDirection: 'row-reverse',
@@ -56,7 +57,12 @@ const s = StyleSheet.create({
   },
   infoCell: { width: '48%', direction: 'rtl' },
   infoLabel: { fontSize: 8, color: PDF.muted, marginBottom: 2, textAlign: 'right' },
+  /** a phone number or a code is read left to right: it keeps this plain style */
   infoValue: { fontSize: 10, color: PDF.text, textAlign: 'right' },
+  /** a word or a sentence (the notes, a trailing full stop) is read right to left */
+  infoValueRtl: { direction: 'rtl', fontSize: 10, color: PDF.text, textAlign: 'right' },
+  /** the money component lays its figure out right to left: flex-start is the right edge, where the label above it sits */
+  moneyRight: { justifyContent: 'flex-start' },
   table: {
     borderWidth: 1,
     borderColor: PDF.border,
@@ -216,6 +222,7 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
             <PdfMoneyText
               amount={Number(rent.current_month_paid) || 0}
               style={s.summaryValue}
+              containerStyle={s.moneyRight}
             />
           </View>
           {openCount > 0 ? (
@@ -228,8 +235,7 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
                 amount={openTotal}
                 style={{ fontSize: 11, fontWeight: 'bold', color: '#b91c1c' }}
                 currStyle={{ color: '#b91c1c', fontSize: 9 }}
-                containerStyle={{ marginTop: 4 }}
-                align="right"
+                containerStyle={[s.moneyRight, { marginTop: 4 }]}
               />
             </View>
           ) : null}
@@ -240,11 +246,11 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
         <View style={s.summaryRow} wrap={false}>
           <View style={s.summaryCard}>
             <Text style={s.summaryLabel}>{ar('إيرادات مرتبطة')}</Text>
-            <PdfMoneyText amount={revenueTotal} style={s.summaryValue} />
+            <PdfMoneyText amount={revenueTotal} style={s.summaryValue} containerStyle={s.moneyRight} />
           </View>
           <View style={s.summaryCard}>
             <Text style={s.summaryLabel}>{ar('مصروفات مرتبطة')}</Text>
-            <PdfMoneyText amount={expenseTotal} style={s.summaryValue} />
+            <PdfMoneyText amount={expenseTotal} style={s.summaryValue} containerStyle={s.moneyRight} />
           </View>
           <View style={s.summaryCard}>
             <Text style={s.summaryLabel}>{ar('عدد الحركات')}</Text>
@@ -259,7 +265,7 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
       <View style={s.infoGrid} wrap={(contact.notes ?? '').length > 600}>
         <View style={s.infoCell}>
           <Text style={s.infoLabel}>{ar('النوع')}</Text>
-          <Text style={s.infoValue}>{ar(kindLabel)}</Text>
+          <Text style={s.infoValueRtl}>{ar(kindLabel)}</Text>
         </View>
         {contact.phone ? (
           <View style={s.infoCell}>
@@ -276,19 +282,19 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
         {isTenant && contact.monthly_rent ? (
           <View style={s.infoCell}>
             <Text style={s.infoLabel}>{ar('الإيجار الشهري')}</Text>
-            <PdfMoneyText amount={Number(contact.monthly_rent)} style={s.infoValue} />
+            <PdfMoneyText amount={Number(contact.monthly_rent)} style={s.infoValue} containerStyle={s.moneyRight} />
           </View>
         ) : null}
         {contact.kind === 'EMPLOYEE' && contact.salary ? (
           <View style={s.infoCell}>
             <Text style={s.infoLabel}>{ar('الراتب الشهري')}</Text>
-            <PdfMoneyText amount={Number(contact.salary)} style={s.infoValue} />
+            <PdfMoneyText amount={Number(contact.salary)} style={s.infoValue} containerStyle={s.moneyRight} />
           </View>
         ) : null}
         {contact.notes ? (
           <View style={[s.infoCell, { width: '100%' }]}>
             <Text style={s.infoLabel}>{ar('ملاحظات')}</Text>
-            <Text style={s.infoValue}>{ar(contact.notes)}</Text>
+            <Text style={s.infoValueRtl}>{ar(contact.notes)}</Text>
           </View>
         ) : null}
       </View>
@@ -359,9 +365,11 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
         </View>
       )}
 
-      <Text style={pdfBase.caption}>
-        {ar('وثيقة مُولَّدة آلياً من منظومة تاج مول')}
-      </Text>
+      {/*
+        There was a caption line here («وثيقة مولّدة آلياً من منظومة تاج مول»); the page footer already says the same. It was the last thing
+        after the bordered table, which cannot hold it with the total: when the total ended at the bottom of a page the caption went alone
+        onto a second, otherwise empty page.
+      */}
     </ReportShell>
   );
 }

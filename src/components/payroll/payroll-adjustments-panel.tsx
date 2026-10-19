@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Check, Plus, Scale, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -77,7 +78,11 @@ export function PayrollAdjustmentsPanel({
         accessorFn: (r) => names.get(r.employee_id) ?? '—',
         header: 'الموظف',
         meta: { label: 'الموظف', alwaysVisible: true },
-        cell: ({ getValue }) => <span className="font-medium">{getValue()}</span>,
+        cell: ({ row, getValue }) => (
+          <Link href={`/payroll/employees/${row.original.employee_id}`} className="font-medium hover:underline">
+            {getValue()}
+          </Link>
+        ),
       },
       {
         id: 'kind',
@@ -170,7 +175,7 @@ export function PayrollAdjustmentsPanel({
     <div className="flex flex-col gap-5">
       <SectionHeading
         title={`المكافآت والخصومات — ${formatMonthKeyAr(month)}`}
-        description="كل حركة تُسجَّل مسودة، ويعتمدها المالك أو المدير، ثم تدخل كشف الشهر. الحركة المعتمدة لا تُعدَّل؛ تُلغى وتُسجَّل من جديد."
+        description="تُسجَّل كل حركة بانتظار اعتماد المالك أو المدير، ثم تدخل كشف الشهر. الحركة المعتمدة لا تُعدَّل: تُلغى وتُسجَّل من جديد."
         actions={
           canManage && !monthLocked ? (
             <Button onClick={() => setDialogOpen(true)} disabled={employees.length === 0}>
@@ -230,7 +235,7 @@ export function PayrollAdjustmentsPanel({
             <EmptyState
               icon={Scale}
               title="لا توجد مكافآت أو خصومات لهذا الشهر"
-              description="سجّل المكافأة أو العمل الإضافي أو الغياب أو الجزاء قبل إعداد الكشف."
+              description="سجّلها قبل إعداد كشف الشهر."
               action={canManage && !monthLocked && employees.length > 0 ? { label: 'مكافأة أو خصم', onClick: () => setDialogOpen(true) } : undefined}
             />
           }
@@ -238,7 +243,9 @@ export function PayrollAdjustmentsPanel({
           renderMobileRow={(r) => (
             <div className="flex flex-col gap-1.5 p-3">
               <div className="flex items-start justify-between gap-3">
-                <span className="font-medium">{names.get(r.employee_id) ?? '—'}</span>
+                <Link href={`/payroll/employees/${r.employee_id}`} className="font-medium hover:underline">
+                  {names.get(r.employee_id) ?? '—'}
+                </Link>
                 <Amount value={r.amount} tone={ADJUSTMENT_IS_ADDITION[r.kind] ? 'positive' : 'negative'} />
               </div>
               <div className="flex flex-wrap items-center gap-2">

@@ -47,6 +47,7 @@ jobs:
           npm run verify:tenant-pdf
           npm run verify:pdf-adaptive
           npm run verify:payroll-pdf
+          npm run verify:pdf-text
           npm run verify:audit-safe
           npm run verify:period-review
           npm run verify:occupancy

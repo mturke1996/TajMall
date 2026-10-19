@@ -9,7 +9,16 @@ import { withSince } from '@/lib/contacts/contact-tags';
 import { isCountedTransaction } from '@/lib/contacts/contact-transactions';
 import type { ContactRow } from '@/lib/db/types';
 import { buildLandlordDue, landlordYearView, type LandlordDue } from '@/lib/landlord-dues';
-import type { ObligationPayment, ObligationShareHow, ObligationView, TrackingStart } from '@/lib/people/obligation-months';
+import {
+  obligationMonthsText,
+  TRACKING_SOURCE_TEXT,
+  type ObligationPayment,
+  type ObligationShareHow,
+  type ObligationView,
+  type TrackingStart,
+} from '@/lib/people/obligation-months';
+import { formatMonthLabelAr } from '@/lib/rent-months';
+import { formatMoney, parseAmountInput } from '@/lib/utils';
 
 const EPS = 0.0005;
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
@@ -155,13 +164,17 @@ export function buildLandlordProfile(input: LandlordProfileInput): LandlordProfi
 }
 
 /** What choosing this tracking start would mean for the landlord: how much would read as owed. */
-export function previewTrackingStart(input: LandlordProfileInput, month: string | null): { owedMonths: number; amount: number; amountComplete: boolean; oldest: string | null } {
+export function previewTrackingStart(
+  input: LandlordProfileInput,
+  month: string | null,
+): { owedMonths: number; amount: number; amountComplete: boolean; /** some of `amount` is a guess from the latest paid month */ estimated: boolean; oldest: string | null } {
   const contact = { ...input.contact, notes: withSince(input.contact.notes, month) };
   const due = buildLandlordDue(contact, input.payments, input.today, { goLiveMonth: input.goLiveMonth });
   return {
     owedMonths: due.owedMonths,
     amount: due.owed,
     amountComplete: due.owedComplete,
+    estimated: due.owedEstimated,
     oldest: due.arrears.months[0]?.monthKey ?? (due.owedMonths > 0 ? input.today.slice(0, 7) : null),
   };
 }
@@ -173,3 +186,46 @@ export const PAYMENT_HOW_TEXT: Record<ObligationShareHow, string> = {
   oldest_unpaid: 'سداد متأخر',
   spill: 'مقدّماً',
 };
+
+// ---------------------------------------------------------------- the two edits the profile offers
+
+/** The largest monthly rent a numeric(14,3) column takes without overflowing. */
+const MAX_RENT = 99_999_999_999;
+
+export type RentInput = { ok: true; amount: number; value: string } | { ok: false; error: string };
+
+/**
+ * A typed monthly rent, as the form takes it (Arabic digits, separators), but a rent must be a positive amount:
+ * an empty or zero rent would say "no rent" again.
+ */
+export function monthlyRentFromInput(raw: string): RentInput {
+  if (String(raw ?? '').trim() === '') return { ok: false, error: 'أدخل الإيجار الشهري.' };
+  const amount = parseAmountInput(raw);
+  if (!Number.isFinite(amount)) return { ok: false, error: 'اكتب المبلغ أرقاماً، بحد أقصى ثلاث خانات عشرية.' };
+  if (amount <= 0) return { ok: false, error: 'الإيجار الشهري يجب أن يكون أكبر من صفر.' };
+  if (amount > MAX_RENT) return { ok: false, error: 'المبلغ أكبر من المسموح.' };
+  return { ok: true, amount, value: String(amount) };
+}
+
+/** The update that records the real monthly rent; nothing else of the file changes. */
+export const monthlyRentPatch = (amount: number): { monthly_rent: string } => ({ monthly_rent: String(amount) });
+
+/** The update that sets (or, with null, removes) the tracking start. The text and the role tag are kept. */
+export function trackingStartPatch(contact: Pick<ContactRow, 'notes'>, month: string | null): { notes: string | null } {
+  return { notes: withSince(contact.notes, month) || null };
+}
+
+/** The line above the month grid: where the months stop being judged, and why that month. */
+export function trackingLineText(tracking: TrackingStart): { text: string; source: string } {
+  if (!tracking.month) return { text: 'بداية المتابعة غير محدّدة، فلا تُعرف حالة الأشهر.', source: TRACKING_SOURCE_TEXT.none };
+  return { text: `الأشهر قبل ${formatMonthLabelAr(tracking.month)} تُعدّ مسدّدة قبل المنظومة.`, source: TRACKING_SOURCE_TEXT[tracking.source] };
+}
+
+/** What a candidate tracking start would show as owed, in a sentence. */
+export function trackingPreviewText(p: ReturnType<typeof previewTrackingStart>): string {
+  if (p.owedMonths === 0) return 'بهذه البداية لا يظهر شيء مستحق.';
+  const since = p.oldest ? ` منذ ${formatMonthLabelAr(p.oldest)}` : '';
+  // a floor (a month with no known amount) and a guess (the latest paid month stands in) are both said, never shown as exact
+  const qualifier = !p.amountComplete ? ' على الأقل' : p.estimated ? ' تقريباً' : '';
+  return `بهذه البداية يظهر مستحقاً ${obligationMonthsText(p.owedMonths)}${since}، بمبلغ ${formatMoney(p.amount, 'LYD')}${qualifier}.`;
+}

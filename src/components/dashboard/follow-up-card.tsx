@@ -2,9 +2,11 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
+import { Banknote, Building2, CalendarClock, CalendarX2, ChevronLeft, ClipboardCheck, DoorOpen, Receipt, TriangleAlert } from 'lucide-react';
+import type { ElementType } from 'react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { IconTile, type Accent } from '@/components/dashboard/dashboard-ui';
 import { billingFollowUpDetail, billingFollowUpTitle, buildBillingPreview } from '@/lib/billing-preview';
 import { buildContractExpiry } from '@/lib/contract-expiry';
 import { useBillingSources } from '@/lib/db/billing-queries';
@@ -15,7 +17,7 @@ import { buildFollowUp, landlordFollowUpDetail, landlordFollowUpTitle, type Foll
 import { landlordDuesAttention } from '@/lib/landlord-dues';
 import { buildMallOccupancy } from '@/lib/mall-occupancy';
 import { usePermission } from '@/lib/supabase/use-permission';
-import { arabicCount, cn, formatMoney, todayISODate } from '@/lib/utils';
+import { arabicCount, formatMoney, todayISODate } from '@/lib/utils';
 
 const TENANTS: [string, string, string, string] = ['مستأجر واحد', 'مستأجران', 'مستأجرين', 'مستأجراً'];
 const LEASES: [string, string, string, string] = ['عقد واحد', 'عقدان', 'عقود', 'عقداً'];
@@ -33,11 +35,18 @@ const META: Record<FollowUpKey, { title: string; unit: [string, string, string, 
   vacant: { title: 'محلات شاغرة منذ 3 أشهر أو أكثر', unit: ['محل واحد', 'محلان', 'محلات', 'محلاً'], source: 'المحلات' },
 };
 
-const DOT: Record<FollowUpTone, string> = {
-  bad: 'bg-danger-ink',
-  warn: 'bg-warning-ink',
-  neutral: 'bg-ink-mute',
+/** The tile of a row: the kind of thing in its icon, how pressing it is in its colour (the title says it in words). */
+const ICON: Record<FollowUpKey, ElementType> = {
+  expired: CalendarX2,
+  ending30: CalendarClock,
+  arrears60: TriangleAlert,
+  vouchers: ClipboardCheck,
+  billing: Receipt,
+  rent: Banknote,
+  landlords: Building2,
+  vacant: DoorOpen,
 };
+const TONE_ACCENT: Record<FollowUpTone, Accent> = { bad: 'red', warn: 'amber', neutral: 'blue' };
 
 /** What needs action today, drawn from the same queries as the screens each row opens. */
 export function FollowUpCard() {
@@ -127,7 +136,7 @@ export function FollowUpCard() {
                 return (
                   <li key={item.key}>
                     <Link href={item.href} className="group flex items-center gap-3 px-4 py-3 hover:bg-canvas-sunken focus-visible:bg-canvas-sunken focus-visible:outline-hidden">
-                      <span className={cn('h-2 w-2 shrink-0 rounded-full', DOT[item.tone])} aria-hidden />
+                      <IconTile icon={ICON[item.key]} accent={TONE_ACCENT[item.tone]} className="h-9 w-9 rounded-lg" />
                       <span className="min-w-0 flex-1">
                         <span className="block text-[13.5px] font-medium text-foreground">{title}</span>
                         <span className="block text-[12.5px] text-ink-mute">{detail}</span>

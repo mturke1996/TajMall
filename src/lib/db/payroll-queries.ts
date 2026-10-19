@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { qk } from "@/lib/db/queries";
 import { invalidateMoneyQueries } from "@/lib/db/invalidate";
+import { fetchAllPages } from "@/lib/db/fetch-all";
+import { NEEDS_DB_UPDATE, friendlyError } from "@/lib/user-messages";
 
 /**
  * Payroll read models and actions (migration 080).
@@ -148,6 +150,8 @@ export const pqk = {
   employeeAdvances: (employeeId: string) => ["payroll", "advances", "employee", employeeId] as const,
   advances: ["payroll", "advances"] as const,
   runDifferences: (runId: string | null) => ["payroll", "run_differences", runId ?? "none"] as const,
+  outstandingLines: ["payroll", "outstanding_lines"] as const,
+  pendingAdjustments: ["payroll", "adjustments", "pending"] as const,
 };
 
 type PgError = { code?: string; message?: string };
@@ -161,12 +165,13 @@ export function isPayrollSchemaMissing(error: unknown): boolean {
   return code === "PGRST205" || code === "PGRST202" || code === "42P01" || code === "42883";
 }
 
-/** Database messages are already Arabic; fall back to a generic sentence for anything else. */
+/**
+ * One plain Arabic sentence for a failed read or write. The database's own rules already speak Arabic and are kept
+ * as they are; a missing table says the database needs an update (never a migration number).
+ */
 export function payrollErrorMessage(error: unknown): string {
-  if (isPayrollSchemaMissing(error)) return "وحدة الرواتب غير مفعّلة في قاعدة البيانات بعد (الترحيل 080).";
-  const e = error as PgError | null;
-  if (e?.code === "42501") return e.message ?? "ليست لديك صلاحية لهذه العملية.";
-  return e?.message || "تعذّر تنفيذ العملية. حاول مرة أخرى.";
+  if (isPayrollSchemaMissing(error)) return NEEDS_DB_UPDATE;
+  return friendlyError(error, "تعذّر تنفيذ العملية. حاول مرة أخرى.");
 }
 
 /** Retrying a missing table only delays the notice. */
@@ -256,9 +261,10 @@ export function usePayrollAdjustments(month: string | null) {
   });
 }
 
-export function usePayrollAdvances() {
+export function usePayrollAdvances(enabled = true) {
   return useQuery<PayrollAdvance[]>({
     queryKey: pqk.advances,
+    enabled,
     retry: noRetryWhenMissing,
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
@@ -304,6 +310,53 @@ export function useEmployeeAdjustments(employeeId: string | null) {
 export function useEmployeeAdvances(employeeId: string | null) {
   return useEmployeeRows<PayrollAdvance>(
     "payroll_advances_status", employeeId, pqk.employeeAdvances(employeeId ?? "none"), "issued_on");
+}
+
+/**
+ * Posted payroll lines of every employee with something still to pay, oldest month first: what the employees
+ * directory shows as «المستحق الآن» and what its «سداد راتب» action pays. Managers and cashiers only (the view
+ * returns nothing to other roles), so pass `enabled: false` for them rather than showing an empty answer.
+ */
+export function useOutstandingPayrollLines(enabled = true) {
+  return useQuery<PayrollRunLine[]>({
+    queryKey: pqk.outstandingLines,
+    enabled,
+    retry: noRetryWhenMissing,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      return fetchAllPages<PayrollRunLine>((from, to) =>
+        supabase
+          .from("payroll_run_lines_status")
+          .select("*")
+          .eq("run_status", "POSTED")
+          .gt("outstanding", 0)
+          .order("period_month", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
+    },
+  });
+}
+
+/** Bonuses and deductions still waiting for approval, for all employees (the directory's «بانتظار الاعتماد» chip). */
+export function usePendingPayrollAdjustments(enabled = true) {
+  return useQuery<PayrollAdjustment[]>({
+    queryKey: pqk.pendingAdjustments,
+    enabled,
+    retry: noRetryWhenMissing,
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      return fetchAllPages<PayrollAdjustment>((from, to) =>
+        supabase
+          .from("payroll_adjustments")
+          .select("*")
+          .eq("status", "DRAFT")
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
+    },
+  });
 }
 
 /**

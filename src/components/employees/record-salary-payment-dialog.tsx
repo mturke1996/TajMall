@@ -1,244 +1,158 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  useCashboxes,
-  useCreateTransaction,
-  type EmployeeSummary,
-} from '@/lib/db/queries';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Amount, FormField } from '@/components/payroll/payroll-ui';
+import { FIELD_HEIGHT, SummaryBox } from '@/components/employees/form-parts';
+import { SheetDialog } from '@/components/employees/sheet-dialog';
+import { useCashboxes, useCreateTransaction, type EmployeeSummary } from '@/lib/db/queries';
 import type { CashboxRow } from '@/lib/db/types';
-import { formatMoney, preferredCashboxId, todayISODate } from '@/lib/utils';
-import { toast } from 'sonner';
+import { friendlyError } from '@/lib/user-messages';
+import { parseAmountInput, preferredCashboxId, todayISODate } from '@/lib/utils';
 
-export type SalaryPaymentEmployee = Pick<
-  EmployeeSummary,
-  'id' | 'name' | 'job_title' | 'department' | 'salary' | 'last_12_months_salary_paid'
->;
+export type SalaryPaymentEmployee = Pick<EmployeeSummary, 'id' | 'name' | 'job_title' | 'department' | 'salary' | 'last_12_months_salary_paid'>;
 
 type RecordSalaryPaymentDialogProps = {
   employee: SalaryPaymentEmployee | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  returnFocusTo?: RefObject<HTMLElement | null>;
 };
 
 /** A stable empty list: a fresh `[]` default on every render would re-run the reset effect on every keystroke. */
 const NO_CASHBOXES: CashboxRow[] = [];
 
-export function RecordSalaryPaymentDialog({
-  employee,
-  open,
-  onOpenChange,
-  onSuccess,
-}: RecordSalaryPaymentDialogProps) {
+/**
+ * A salary recorded as a plain expense. It is the fallback for a database that has no payroll yet; once payroll is
+ * there, salaries are paid from the posted month of the employee's payroll instead (PayLineDialog).
+ */
+export function RecordSalaryPaymentDialog({ employee, open, onOpenChange, onSuccess, returnFocusTo }: RecordSalaryPaymentDialogProps) {
   const { data: cashboxes = NO_CASHBOXES } = useCashboxes();
   const createTransaction = useCreateTransaction();
   // The category lookup runs before the mutation starts, so isPending alone leaves a window for a second tap.
-  const [submitting, setSubmitting] = useState(false);
+  const sending = useRef(false);
+  const [busy, setBusy] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentDate, setPaymentDate] = useState(() => todayISODate());
-  const [cashboxId, setCashboxId] = useState('');
+  const [cashboxChoice, setCashboxChoice] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   const salary = Number(employee?.salary) || 0;
   const paid12 = Number(employee?.last_12_months_salary_paid) || 0;
 
+  // The form starts over when the dialog opens for an employee, not whenever the caller renders again or the
+  // cashbox list refreshes: a typed amount must survive both.
+  const employeeId = employee?.id ?? null;
   useEffect(() => {
-    if (open && employee) {
+    if (open && employeeId) {
       setPaymentAmount(salary > 0 ? String(salary) : '');
       setPaymentDate(todayISODate());
-      setCashboxId(preferredCashboxId(cashboxes));
+      setCashboxChoice('');
+      setError(null);
     }
-  }, [open, employee, salary, cashboxes]);
+  }, [open, employeeId, salary]);
+  // the cashbox is the one picked, else the preferred one of whatever list has arrived
+  const cashboxId = cashboxChoice || preferredCashboxId(cashboxes);
+
+  const amount = parseAmountInput(paymentAmount);
+  const invalid = !employee || !Number.isFinite(amount) || amount <= 0 || !paymentDate || !cashboxId;
 
   async function handleSubmit() {
-    if (!employee || !paymentAmount) return;
-    const amount = Number(paymentAmount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error('أدخل مبلغاً صحيحاً');
-      return;
-    }
-    if (!cashboxId && cashboxes.length > 0) {
-      toast.error('اختر الخزينة');
-      return;
-    }
-    const defaultCashbox = cashboxId || preferredCashboxId(cashboxes);
-    if (!defaultCashbox) {
-      toast.error('لا توجد خزينة متاحة');
-      return;
-    }
-
-    if (submitting) return;
-    setSubmitting(true);
+    if (!employee || sending.current) return;
+    sending.current = true;
+    setBusy(true);
+    setError(null);
     try {
       const supabase = (await import('@/lib/supabase/client')).createSupabaseBrowserClient();
-      // قبول EXP-SAL (الأساسي) أو EXP-SLR (توافق قديم)
-      const { data: salaryCats, error: catErr } = await supabase
-        .from('categories')
-        .select('id, code')
-        .in('code', ['EXP-SAL', 'EXP-SLR']);
-
+      // EXP-SAL is the account; EXP-SLR is the older code some databases still use
+      const { data: salaryCats, error: catErr } = await supabase.from('categories').select('id, code').in('code', ['EXP-SAL', 'EXP-SLR']);
       if (catErr) throw catErr;
-      const expenseCat =
-        salaryCats?.find((c) => c.code === 'EXP-SAL') ??
-        salaryCats?.find((c) => c.code === 'EXP-SLR') ??
-        null;
+      const expenseCat = salaryCats?.find((c) => c.code === 'EXP-SAL') ?? salaryCats?.find((c) => c.code === 'EXP-SLR') ?? null;
       if (!expenseCat) {
-        toast.error('فئة المصروفات "المرتبات" غير موجودة (EXP-SAL / EXP-SLR)');
+        setError('حساب مصروف الرواتب غير موجود في دليل الحسابات. أبلغ مسؤول النظام.');
         return;
       }
-
       await createTransaction.mutateAsync({
         kind: 'EXPENSE',
         amount,
         method: 'CASH',
         category_id: expenseCat.id,
-        cashbox_id: defaultCashbox,
+        cashbox_id: cashboxId,
         tx_date: paymentDate,
         description: `راتب ${employee.name}`,
         contact_id: employee.id,
         contact_type: 'BENEFICIARY',
       });
-
-      toast.success('تم تسجيل الراتب بنجاح');
+      toast.success('سُجّل الراتب', { description: employee.name });
       onOpenChange(false);
-      setPaymentAmount('');
       onSuccess?.();
     } catch (err) {
       console.error('[salary-payment]', err);
-      toast.error(
-        err instanceof Error ? err.message : 'فشل تسجيل الراتب — تحقق من الخزينة والفئة',
-      );
+      setError(friendlyError(err, 'لم يُسجَّل الراتب. تحقق من الخزينة والمبلغ ثم أعد المحاولة.'));
     } finally {
-      setSubmitting(false);
+      sending.current = false;
+      setBusy(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-md w-[calc(100%-1.5rem)] max-h-[90dvh] overflow-y-auto rounded-2xl"
-        dir="rtl"
+    <SheetDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      busy={busy || createTransaction.isPending}
+      dirty={paymentAmount.trim() !== ''}
+      title="تسجيل راتب"
+      description={employee ? `${employee.name}${employee.job_title ? ` — ${employee.job_title}` : ''}` : undefined}
+      onSubmit={() => void handleSubmit()}
+      submitLabel="سجّل الراتب"
+      submitDisabled={invalid}
+      error={error}
+      returnFocusTo={returnFocusTo}
+    >
+      {employee && (
+        <SummaryBox
+          rows={[
+            { label: 'الراتب المحدد', value: salary > 0 ? <Amount value={salary} /> : '—' },
+            { label: 'المدفوع آخر 12 شهراً', value: <Amount value={paid12} muted /> },
+          ]}
+        />
+      )}
+      <FormField
+        label="المبلغ"
+        htmlFor="sal-amount"
+        hint={
+          salary > 0 && Math.abs(amount - salary) > 0.0005 ? (
+            <Button type="button" variant="link" className="h-auto min-h-0 p-0 text-[11.5px]" onClick={() => setPaymentAmount(String(salary))}>
+              أعد المبلغ إلى الراتب المحدد
+            </Button>
+          ) : undefined
+        }
       >
-        <DialogHeader>
-          <DialogTitle>تسجيل راتب</DialogTitle>
-        </DialogHeader>
-        {employee && (
-          <div className="space-y-4 py-2">
-            <div className="rounded-lg bg-plum-soft p-3">
-              <p className="font-medium">{employee.name}</p>
-              <p className="text-sm text-ink-mute">
-                {employee.job_title || '—'}
-                {employee.department ? ` · ${employee.department}` : ''}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-lg bg-canvas-sunken p-2">
-                <p className="text-ink-mute">الراتب المحدد</p>
-                <p className="font-semibold">
-                  {salary > 0 ? formatMoney(salary, 'LYD') : '—'}
-                </p>
-              </div>
-              <div className="rounded-lg bg-canvas-sunken p-2">
-                <p className="text-ink-mute">مدفوع 12 شهر</p>
-                <p className="font-semibold">{formatMoney(paid12, 'LYD')}</p>
-              </div>
-            </div>
-
-            {salary > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full h-10 touch-manipulation"
-                onClick={() => setPaymentAmount(String(salary))}
-              >
-                تعبئة الراتب ({formatMoney(salary, 'LYD')})
-              </Button>
-            )}
-
-            <div>
-              <Label>المبلغ</Label>
-              <Input
-                type="number"
-                inputMode="decimal"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                className="text-lg h-11"
-                autoFocus
-              />
-            </div>
-
-            <div>
-              <Label>تاريخ الدفع</Label>
-              <Input
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                className="h-11"
-              />
-            </div>
-
-            {cashboxes.length > 0 && (
-              <div>
-                <Label>الخزينة</Label>
-                <Select value={cashboxId} onValueChange={setCashboxId}>
-                  <SelectTrigger className="h-11">
-                    <SelectValue placeholder="اختر الخزينة" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cashboxes.map((cb) => (
-                      <SelectItem key={cb.id} value={cb.id}>
-                        {cb.name_ar}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-1">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1 h-11 touch-manipulation"
-                onClick={() => onOpenChange(false)}
-              >
-                إلغاء
-              </Button>
-              <Button
-                type="button"
-                className="flex-1 h-11 touch-manipulation"
-                onClick={handleSubmit}
-                disabled={!paymentAmount || submitting || createTransaction.isPending}
-              >
-                {submitting || createTransaction.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  'تسجيل الراتب'
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+        <Input id="sal-amount" inputMode="decimal" dir="ltr" className={`${FIELD_HEIGHT} text-end tabular-nums`} value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} autoFocus />
+      </FormField>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField label="تاريخ الدفع" htmlFor="sal-date">
+          <Input id="sal-date" type="date" dir="ltr" className={FIELD_HEIGHT} value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+        </FormField>
+        <FormField label="الخزينة" htmlFor="sal-cashbox">
+          <Select value={cashboxId} onValueChange={setCashboxChoice}>
+            <SelectTrigger id="sal-cashbox" className={FIELD_HEIGHT}>
+              <SelectValue placeholder="اختر الخزينة" />
+            </SelectTrigger>
+            <SelectContent>
+              {cashboxes.map((cb) => (
+                <SelectItem key={cb.id} value={cb.id}>
+                  {cb.name_ar}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+      </div>
+    </SheetDialog>
   );
 }

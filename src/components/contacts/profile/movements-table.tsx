@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { CopyPlus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,6 +10,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DataTable } from '@/components/data/data-table';
 import { MovementAmount, MovementCard, MOVEMENT_STATUS } from '@/components/contacts/profile/movement-row';
 import { CHIP } from '@/components/people';
+import { useReturnFocus } from '@/components/contacts/profile/use-return-focus';
 import { useRepeatTransaction } from '@/components/transactions/use-repeat-transaction';
 import { isCountedTransaction } from '@/lib/contacts/contact-transactions';
 import { useDeleteTransaction } from '@/lib/db/queries';
@@ -29,11 +30,22 @@ const signed = (t: TransactionWithRelations) => (t.kind === 'EXPENSE' ? -1 : 1) 
  */
 export function MovementsTable({ rows, isFiltered }: { rows: TransactionWithRelations[]; isFiltered: boolean }) {
   const { can } = usePermission();
-  const { canRepeat, repeat } = useRepeatTransaction();
+  const { repeat } = useRepeatTransaction();
   const del = useDeleteTransaction();
   const [pendingDelete, setPendingDelete] = useState<TransactionWithRelations | null>(null);
+  useReturnFocus(pendingDelete !== null);
 
-  const canDelete = (t: TransactionWithRelations) => (t.kind === 'REVENUE' ? can('revenue.delete') : can('expense.delete'));
+  // plain booleans: `can` is a new function on every render, and columns built from it would be new on every
+  // render too, which makes the table rebuild its cells (focus on a row button is lost, rows flash)
+  const mayDeleteIn = can('revenue.delete');
+  const mayDeleteOut = can('expense.delete');
+  const mayRepeatIn = can('revenue.create');
+  const mayRepeatOut = can('expense.create');
+  const canDelete = useCallback((t: TransactionWithRelations) => (t.kind === 'REVENUE' ? mayDeleteIn : mayDeleteOut), [mayDeleteIn, mayDeleteOut]);
+  const canRepeat = useCallback(
+    (t: TransactionWithRelations) => (t.kind === 'REVENUE' ? mayRepeatIn : t.kind === 'EXPENSE' ? mayRepeatOut : false),
+    [mayRepeatIn, mayRepeatOut],
+  );
 
   async function confirmDelete() {
     if (!pendingDelete) return;
@@ -161,9 +173,7 @@ export function MovementsTable({ rows, isFiltered }: { rows: TransactionWithRela
         },
       },
     ],
-    // canRepeat and canDelete depend on permissions that load once per session
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [can],
+    [canDelete, canRepeat, repeat],
   );
 
   return (

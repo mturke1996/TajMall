@@ -292,8 +292,26 @@ export function buildDirectoryRows(contacts: readonly ContactRow[], activity: Re
 export function directorySearchFields(row: Pick<DirectoryRow, 'contact' | 'role'>): unknown[] {
   const c = row.contact;
   const role = CONTACT_ROLES[row.role];
-  return [c.name, c.name_en, c.phone, c.phone2, c.shop_number, c.job_title, c.department, c.code, c.email, c.address, role.badge, role.label];
+  return [
+    c.name,
+    c.name_en,
+    c.phone,
+    c.phone2,
+    // a number is also found by its digits alone, whatever spaces or dashes it was typed with: «0912345678» finds «091-234 5678»
+    digitsOf(c.phone),
+    digitsOf(c.phone2),
+    c.shop_number,
+    c.job_title,
+    c.department,
+    c.code,
+    c.email,
+    c.address,
+    role.badge,
+    role.label,
+  ];
 }
+
+const digitsOf = (v: unknown) => normalizeArabic(v).replace(/\D/g, '');
 
 export type DirectoryFilter = {
   role?: RoleFilter;

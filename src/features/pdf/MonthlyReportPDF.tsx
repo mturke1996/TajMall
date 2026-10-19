@@ -15,16 +15,24 @@ const dateLabel = (iso: string) => {
 };
 const days = (n: number) => arabicCount(n, ['يوم واحد', 'يومين', 'أيام', 'يوماً']);
 const tenants = (n: number) => arabicCount(n, ['مستأجر واحد', 'مستأجران', 'مستأجرين', 'مستأجراً']);
+/** a caption is a sentence read right to left: react-pdf does not pass a direction down, so the text carries it (its closing full stop stays on the left) */
+const caption = { ...pdfReportTable.caption, direction: 'rtl' as const };
 const toneColor = (tone: string) => (tone === 'good' ? PDF.success : tone === 'bad' ? PDF.danger : PDF.muted);
 
-/** Tables longer than this may continue on the next page; shorter ones always move whole, with their title. */
-const KEEP_TOGETHER_ROWS = 12;
+/**
+ * Tables longer than this may continue on the next page; shorter ones always move whole, with their title. A whole table that
+ * did not fit left the rest of the page blank: at 12 rows that was up to half a page, at 6 it is a third at most.
+ */
+const KEEP_TOGETHER_ROWS = 6;
 
 /** Room a breakable block needs below its start: title, note, column heads and two rows. */
 const BLOCK_START_ROOM = 150;
 
-/** A titled block. Whole on one page unless `keep` is false (a long table); rows never split either way. */
-function Block({ title, note, keep = true, children }: { title: string; note?: string; keep?: boolean; children: React.ReactNode }) {
+/**
+ * A titled block. Whole on one page unless `keep` is false (a long table); rows never split either way.
+ * `after` is what closes the report (the notes under the last table): it sits inside the last block, so it never stands alone on a page.
+ */
+function Block({ title, note, keep = true, after, children }: { title: string; note?: string; keep?: boolean; after?: React.ReactNode; children: React.ReactNode }) {
   return (
     <>
       {/*
@@ -35,8 +43,9 @@ function Block({ title, note, keep = true, children }: { title: string; note?: s
       {keep ? null : <View minPresenceAhead={BLOCK_START_ROOM} />}
       <View wrap={!keep}>
         <Text style={pdfReportTable.sectionTitle}>{ar(title)}</Text>
-        {note ? <Text style={[pdfReportTable.caption, { marginTop: -4, marginBottom: 6 }]}>{ar(note)}</Text> : null}
+        {note ? <Text style={[caption, { marginTop: -4, marginBottom: 6 }]}>{ar(note)}</Text> : null}
         {children}
+        {after}
       </View>
     </>
   );
@@ -54,7 +63,13 @@ function Table({ columns, rows, foot }: { columns: { label: string; width: strin
         ))}
       </View>
       {rows.map((cells, i) => (
-        <View key={i} style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]} wrap={false}>
+        <View
+          key={i}
+          style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]}
+          wrap={false}
+          // in a table that breaks, the totals row never starts a page by itself: the last row travels with it
+          {...(foot && i === rows.length - 1 ? { minPresenceAhead: 40 } : {})}
+        >
           {cells.map((cell, j) => (
             <View key={j} style={{ width: columns[j].width }}>
               {cell}
@@ -81,14 +96,14 @@ const money = (amount: number, extra = {}) => (
   </View>
 );
 const text = (s: string, extra = {}) => <Text style={[pdfReportTable.tdAr, extra]}>{ar(s)}</Text>;
-const small = (s: string, color = PDF.muted) => <Text style={{ fontSize: 7.5, color, textAlign: 'right' }}>{ar(s)}</Text>;
+const small = (s: string, color = PDF.muted) => <Text style={{ direction: 'rtl', fontSize: 7.5, color, textAlign: 'right' }}>{ar(s)}</Text>;
 const num = (s: string | number) => <Text style={[pdfReportTable.td, { textAlign: 'center' }]}>{String(s)}</Text>;
 const boldText = (s: string) => text(s, { fontWeight: 'bold' });
 
-function CategoryBlock({ title, rows, total, polarity, prevName }: { title: string; rows: CategoryRow[]; total: number; polarity: 'up-is-good' | 'down-is-good'; prevName: string }) {
+function CategoryBlock({ title, rows, total, polarity, prevName, after }: { title: string; rows: CategoryRow[]; total: number; polarity: 'up-is-good' | 'down-is-good'; prevName: string; after?: React.ReactNode }) {
   if (rows.length === 0) return null;
   return (
-    <Block title={title}>
+    <Block title={title} after={after} keep={rows.length <= KEEP_TOGETHER_ROWS}>
       <Table
         columns={[
           { label: 'النسبة', width: '11%' },
@@ -124,6 +139,40 @@ export function MonthlyReportPDF({ report }: { report: MonthlyReport }) {
     report.isCurrentMonth && !mall && 'المحلات والعقود',
   ].filter(Boolean) as string[];
 
+  // what closes the report goes inside the last block that is printed (see Block): the notes never land alone on a page of their own
+  const lastKey = mall
+    ? 'mall'
+    : cashboxes
+      ? 'cash'
+      : report.revenueRows.length > 0
+        ? 'rev'
+        : report.expenseRows.length > 0
+          ? 'exp'
+          : arrears && arrears.tenants > 0
+            ? 'top'
+            : arrears
+              ? 'arrears-none'
+              : rent
+                ? 'rent'
+                : 'compare';
+  const closing = (
+    <>
+      <Text style={caption}>
+        {ar(
+          `الأرقام نقدية: معاملات الشهر المرحّلة. تأمينات المستأجرين لا تدخل في الإيرادات والمصروفات${
+            cash.depositsReceived > 0 || cash.depositsPaid > 0 ? `؛ قُبض منها هذا الشهر ${cash.depositsReceived.toLocaleString('en-US')} ورُدَّ ${cash.depositsPaid.toLocaleString('en-US')}` : ''
+          }.`,
+        )}
+      </Text>
+      {left.length > 0 ? <Text style={[caption, { color: PDF.danger }]}>{ar(`لم تُدرج في هذا التقرير لتعذّر تحميلها: ${left.join('، ')}.`)}</Text> : null}
+      {cash.draftCount > 0 ? (
+        <Text style={caption}>{ar(`معاملات الشهر المسودة (لم تُرحَّل بعد وليست في الأرقام): ${cash.draftCount}`)}</Text>
+      ) : null}
+      <PdfReportCaption />
+    </>
+  );
+  const after = (key: string) => (key === lastKey ? closing : undefined);
+
   return (
     <ReportShell
       title="التقرير الشهري"
@@ -137,7 +186,7 @@ export function MonthlyReportPDF({ report }: { report: MonthlyReport }) {
         { label: 'صافي النقد', moneyAmount: cash.net },
       ]}
     >
-      <Block title={`مقارنة مع ${report.prevMonthLabel}`}>
+      <Block title={`مقارنة مع ${report.prevMonthLabel}`} after={after('compare')}>
         <Table
           columns={[
             { label: 'التغيّر', width: '34%', text: true },
@@ -163,6 +212,7 @@ export function MonthlyReportPDF({ report }: { report: MonthlyReport }) {
 
       {rent ? (
         <Block
+          after={after('rent')}
           title="الإيجار"
           note={`عدد المستأجرين عليهم إيجار هذا الشهر: ${rent.tenants.paidFull + rent.tenants.partial + rent.tenants.unpaid} · أكملوا ${rent.tenants.paidFull} · دفعوا جزءاً ${rent.tenants.partial} · لم يدفعوا ${rent.tenants.unpaid}${rent.tenants.exempt ? ` · معفى ${rent.tenants.exempt}` : ''}${rent.tenants.noRent ? ` · بلا إيجار محدد ${rent.tenants.noRent}` : ''}`}
         >
@@ -179,8 +229,8 @@ export function MonthlyReportPDF({ report }: { report: MonthlyReport }) {
       ) : null}
 
       {arrears && arrears.tenants === 0 ? (
-        <Block title="المتأخرات">
-          <Text style={pdfReportTable.caption}>{ar(`لا متأخرات على المستأجرين حتى ${dateLabel(report.asOf)}.`)}</Text>
+        <Block title="المتأخرات" after={after('arrears-none')}>
+          <Text style={caption}>{ar(`لا متأخرات على المستأجرين حتى ${dateLabel(report.asOf)}.`)}</Text>
         </Block>
       ) : null}
       {arrears && arrears.tenants > 0 ? (
@@ -198,6 +248,8 @@ export function MonthlyReportPDF({ report }: { report: MonthlyReport }) {
             />
           </Block>
           <Block
+            after={after('top')}
+            keep={arrears.top.length <= KEEP_TOGETHER_ROWS}
             title="أكبر المتأخرين"
             note={arrears.tenants > arrears.top.length ? `الأعلى مبلغاً · ${arrears.top.length} من ${arrears.tenants} · الباقي في تقرير أعمار الذمم` : undefined}
           >
@@ -213,11 +265,11 @@ export function MonthlyReportPDF({ report }: { report: MonthlyReport }) {
         </>
       ) : null}
 
-      <CategoryBlock title="المصروفات حسب البند" rows={report.expenseRows} total={cash.expense} polarity="down-is-good" prevName={prevName} />
-      <CategoryBlock title="الإيرادات حسب البند" rows={report.revenueRows} total={cash.revenue} polarity="up-is-good" prevName={prevName} />
+      <CategoryBlock title="المصروفات حسب البند" rows={report.expenseRows} total={cash.expense} polarity="down-is-good" prevName={prevName} after={after('exp')} />
+      <CategoryBlock title="الإيرادات حسب البند" rows={report.revenueRows} total={cash.revenue} polarity="up-is-good" prevName={prevName} after={after('rev')} />
 
       {cashboxes ? (
-        <Block title="الخزائن" keep={cashboxes.rows.length <= KEEP_TOGETHER_ROWS} note={report.isCurrentMonth ? `الرصيد حتى ${dateLabel(report.asOf)}` : `الرصيد في ${dateLabel(report.end)}`}>
+        <Block title="الخزائن" after={after('cash')} keep={cashboxes.rows.length <= KEEP_TOGETHER_ROWS} note={report.isCurrentMonth ? `الرصيد حتى ${dateLabel(report.asOf)}` : `الرصيد في ${dateLabel(report.end)}`}>
           <Table
             columns={[
               { label: 'آخر الشهر', width: '18%' },
@@ -242,11 +294,12 @@ export function MonthlyReportPDF({ report }: { report: MonthlyReport }) {
 
       {mall ? (
         <Block
+          after={after('mall')}
           title="المحلات والعقود"
           note={`الوضع اليوم · إشغال ${pctText(mall.rate)} · مؤجر ${mall.rented} · شاغر ${mall.vacant}${mall.reserved ? ` · محجوز ${mall.reserved}` : ''}${mall.maintenance ? ` · صيانة ${mall.maintenance}` : ''}`}
         >
           {mall.expiry.total === 0 ? (
-            <Text style={pdfReportTable.caption}>{ar('لا عقود تنتهي خلال 90 يوماً.')}</Text>
+            <Text style={caption}>{ar('لا عقود تنتهي خلال 90 يوماً.')}</Text>
           ) : (
             <Table
               columns={[
@@ -266,18 +319,6 @@ export function MonthlyReportPDF({ report }: { report: MonthlyReport }) {
         </Block>
       ) : null}
 
-      <Text style={pdfReportTable.caption}>
-        {ar(
-          `الأرقام نقدية: معاملات الشهر المرحّلة. تأمينات المستأجرين لا تدخل في الإيرادات والمصروفات${
-            cash.depositsReceived > 0 || cash.depositsPaid > 0 ? `؛ قُبض منها هذا الشهر ${cash.depositsReceived.toLocaleString('en-US')} ورُدَّ ${cash.depositsPaid.toLocaleString('en-US')}` : ''
-          }.`,
-        )}
-      </Text>
-      {left.length > 0 ? <Text style={[pdfReportTable.caption, { color: PDF.danger }]}>{ar(`لم تُدرج في هذا التقرير لتعذّر تحميلها: ${left.join('، ')}.`)}</Text> : null}
-      {cash.draftCount > 0 ? (
-        <Text style={pdfReportTable.caption}>{ar(`معاملات الشهر المسودة (لم تُرحَّل بعد وليست في الأرقام): ${cash.draftCount}`)}</Text>
-      ) : null}
-      <PdfReportCaption />
     </ReportShell>
   );
 }

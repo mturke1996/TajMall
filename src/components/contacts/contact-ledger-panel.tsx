@@ -18,6 +18,7 @@ import { buildJournalEntriesForPdf } from '@/lib/journal-pdf';
 import { useTxDialog } from '@/stores/transaction-dialog';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { matchesSearch } from '@/lib/arabic-search';
+import { canCreateContactTransaction } from '@/lib/contacts/form-utils';
 import { buildPartyStats, type Direction } from '@/lib/people/party-stats';
 import { DIRECTION_WORDS, profileDirection, txKindOfDirection, uncountedCount } from '@/lib/people/party-profile';
 import { friendlyError } from '@/lib/user-messages';
@@ -69,7 +70,7 @@ export function ContactTransactionsList({
   );
 
   const kind = txKindOfDirection(direction);
-  const mayCreate = contact.is_active && can(kind === 'EXPENSE' ? 'expense.create' : 'revenue.create');
+  const mayCreate = canCreateContactTransaction(contact.is_active, can(kind === 'EXPENSE' ? 'expense.create' : 'revenue.create'));
   const add = () => openTx({ kind, contactId: contact.id, contactKind: contact.kind });
   const filtered = query.trim() !== '' || (hasBoth && side !== 'all');
 

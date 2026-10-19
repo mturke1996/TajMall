@@ -26,7 +26,7 @@ export function DirectorySkeleton({ rows = 6 }: { rows?: number }) {
           </div>
         ))}
       </div>
-      <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:hidden" aria-hidden>
+      <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:hidden" aria-hidden>
         {Array.from({ length: Math.min(rows, 4) }, (_, i) => (
           <li key={i}>
             <Card className="flex flex-col gap-3.5 p-4">
@@ -73,17 +73,17 @@ export function DirectoryError({ onRetry }: { onRetry: () => void }) {
 }
 
 /** The search or filter matched nothing: the one action clears it. */
-export function DirectoryNoMatch({ onClear }: { onClear: () => void }) {
+export function DirectoryNoMatch({ onClear, searching }: { onClear: () => void; /** a search was typed, not only a role chosen */ searching: boolean }) {
   return (
     <Card className="px-4 py-6">
       <EmptyBlock
         action={
           <Button type="button" variant="outline" className="min-h-11 sm:min-h-9" onClick={onClear}>
-            مسح البحث والتصفية
+            {searching ? 'مسح البحث والتصفية' : 'عرض الكل'}
           </Button>
         }
       >
-        لا يوجد ما يطابق البحث.
+        {searching ? 'لا يوجد ما يطابق البحث.' : 'لا توجد ملفات بهذا الدور.'}
       </EmptyBlock>
     </Card>
   );

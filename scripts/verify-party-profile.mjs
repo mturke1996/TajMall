@@ -163,6 +163,32 @@ check('the latest five by date, then creation; every status; the input is not ch
   assert.equal(pp.uncountedCount([]), 0);
 });
 
+check('the note under the figures: the verb leads and stays singular, the count reads right, nothing for none', () => {
+  assert.equal(pp.uncountedText(0), '');
+  assert.equal(pp.uncountedText(-3), '');
+  assert.equal(pp.uncountedText(Number.NaN), '');
+  assert.equal(pp.uncountedText(1), 'لا تدخل في الأرقام حركة واحدة (مسودة أو ملغاة).');
+  assert.equal(pp.uncountedText(2), 'لا تدخل في الأرقام حركتان (مسودة أو ملغاة).');
+  assert.equal(pp.uncountedText(3), 'لا تدخل في الأرقام 3 حركات (مسودة أو ملغاة).');
+  assert.equal(pp.uncountedText(10), 'لا تدخل في الأرقام 10 حركات (مسودة أو ملغاة).');
+  assert.equal(pp.uncountedText(11), 'لا تدخل في الأرقام 11 حركة (مسودة أو ملغاة).');
+  assert.equal(pp.uncountedText(2.9), 'لا تدخل في الأرقام حركتان (مسودة أو ملغاة).', 'a fraction never prints as a count');
+  // no noun is followed by an adjective that would have to agree with it
+  for (const n of [1, 2, 3, 11]) assert.ok(!/حركات? مسودة|حركتان مسودة/.test(pp.uncountedText(n)));
+});
+
+check('details: a role row only for a landlord or a kind of supplier', () => {
+  assert.equal(pp.specialRole(vendor()), null, 'an untagged vendor is just a vendor');
+  assert.equal(pp.specialRole(customer()), null);
+  assert.equal(pp.specialRole(customer({ notes: '[role:customer]' })), null, 'a tagged plain customer repeats its kind');
+  assert.equal(pp.specialRole({ kind: 'EMPLOYEE', notes: null }), null);
+  assert.equal(pp.specialRole({ kind: 'OTHER', notes: null }), null);
+  assert.equal(pp.specialRole(vendor({ notes: '[role:landlord]' })), 'LANDLORD');
+  assert.equal(pp.specialRole(customer({ notes: '[role:landlord]' })), 'LANDLORD', 'the kind never decides a landlord');
+  assert.equal(pp.specialRole(vendor({ notes: '[role:supplier_electricity]' })), 'SUPPLIER_ELECTRICITY');
+  assert.equal(pp.specialRole(vendor({ department: 'نظافة' })), 'SERVICE_PROVIDER', 'a role read from the department counts too');
+});
+
 // ---- the chips under the name ----
 
 check('chips: a role chip for a tagged or special role, the kind in plain words otherwise', () => {
@@ -315,6 +341,30 @@ check('statement: empty input and floating-point noise', () => {
   assert.equal(noisy.totalPaid, 0.3);
   assert.equal(noisy.net, -0.3);
   assert.equal(pp.buildStatement([tx('EXPENSE', 5, '2026-10-01', null, { number: undefined })]).rows[0].number, null);
+});
+
+check('details: rows with a value are kept in order, the others are named once', () => {
+  const rows = [
+    { label: 'الهاتف', value: '0910000000' },
+    { label: 'هاتف آخر', value: null },
+    { label: 'البريد الإلكتروني', value: '' },
+    { label: 'العنوان', value: '   ' },
+    { label: 'الرمز', value: 0 },
+    { label: 'الحالة', value: 'نشط' },
+    { label: 'غير موجود' },
+    { label: 'خطأ', value: false },
+  ];
+  const { filled, missing } = pp.splitFilled(rows);
+  assert.deepEqual(filled.map((r) => r.label), ['الهاتف', 'الرمز', 'الحالة'], 'zero is a value; blank text, null, false and a missing value are not');
+  assert.deepEqual(missing, ['هاتف آخر', 'البريد الإلكتروني', 'العنوان', 'غير موجود', 'خطأ']);
+  assert.equal(filled[0], rows[0], 'the rows themselves come back, not copies');
+  assert.equal(rows.length, 8, 'the input is not changed');
+});
+
+check('details: nothing recorded and nothing to record', () => {
+  assert.deepEqual(pp.splitFilled([]), { filled: [], missing: [] });
+  assert.deepEqual(pp.splitFilled([{ label: 'أ', value: null }]), { filled: [], missing: ['أ'] });
+  assert.deepEqual(pp.splitFilled([{ label: 'أ', value: 'x' }]).missing, []);
 });
 
 console.log(`\n${passed} checks passed`);

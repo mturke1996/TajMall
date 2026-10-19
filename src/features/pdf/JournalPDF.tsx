@@ -71,11 +71,12 @@ const s = StyleSheet.create({
     width: 88,
     alignItems: 'flex-end',
   },
-  sectionGap: {
-    marginBottom: 14,
-  },
+  /**
+   * The gap between two entries is the next entry's margin-top, never a bottom margin on a card: react-pdf counts a block's
+   * bottom margin as room the block still needs, so an entry that ended within 14pt of the page foot was moved whole to the
+   * next page and left the rest of this one empty (a third of the page at times).
+   */
   entry: {
-    marginBottom: 14,
     borderWidth: 1,
     borderColor: PDF.border,
     borderRadius: 4,
@@ -276,6 +277,8 @@ export function JournalPDF({
   const showBookTotal = entries.length > 1;
   const closingHeight = showBookTotal ? CLOSING_BLOCK_HEIGHT : CLOSING_CAPTION_HEIGHT;
 
+  const indexShown = showIndex && entries.length > 1;
+
   const renderIndexRow = (entry: JournalEntryPdfModel) => (
     <View key={`idx-${entry.id}`} style={s.indexRow} wrap={false}>
       <View style={s.indexAmount}>
@@ -341,8 +344,8 @@ export function JournalPDF({
         </View>
       ) : (
         <>
-          {showIndex && entries.length > 1 ? (
-            <View style={s.sectionGap}>
+          {indexShown ? (
+            <View>
               {/* the title travels with the first rows: never a lone heading at the foot of a page */}
               <View wrap={false}>
                 <Text style={s.indexTitle}>{ar('فهرس القيود')}</Text>
@@ -358,6 +361,7 @@ export function JournalPDF({
             const n = entry.lines.length;
             const whole = n <= WHOLE_ENTRY_MAX_LINES;
             const isLast = entryIdx === entries.length - 1;
+            const entryGap = entryIdx > 0 || indexShown ? { marginTop: 14 } : {};
 
             const head = (
               <>
@@ -472,7 +476,7 @@ export function JournalPDF({
               return (
                 <View
                   key={entry.id}
-                  style={s.entry}
+                  style={[s.entry, entryGap]}
                   wrap={false}
                   // the last entry keeps the book total (and caption) with it
                   {...(isLast ? { minPresenceAhead: closingHeight } : {})}
@@ -487,7 +491,7 @@ export function JournalPDF({
             // a long entry may break between lines, never right after its header or right before its total
             if (!isLast) {
               return (
-                <View key={entry.id} style={s.entry}>
+                <View key={entry.id} style={[s.entry, entryGap]}>
                   <View wrap={false}>
                     {head}
                     {rows[0]}
@@ -505,7 +509,7 @@ export function JournalPDF({
             // travel to the next page with the book total, even when the entry itself would fit on this page
             return (
               <React.Fragment key={entry.id}>
-                <View style={[s.entry, ENTRY_OPEN_BOTTOM]}>
+                <View style={[s.entry, ENTRY_OPEN_BOTTOM, entryGap]}>
                   <View wrap={false}>
                     {head}
                     {rows[0]}
@@ -524,7 +528,7 @@ export function JournalPDF({
             );
           })}
 
-          <View wrap={false}>
+          <View wrap={false} style={{ marginTop: 14 }}>
             {showBookTotal ? (
               <View style={s.grandBox}>
                 <View

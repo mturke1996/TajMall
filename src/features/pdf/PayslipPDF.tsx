@@ -34,10 +34,13 @@ const s = StyleSheet.create({
   },
   last: { borderBottomWidth: 0 },
   amount: { width: '35%' },
-  label: { fontSize: 9, color: PDF.text, textAlign: 'right' },
-  hint: { fontSize: 7.5, color: PDF.muted, textAlign: 'right', marginTop: 1 },
+  /** the label and its reason take the rest of the row: a long reason wraps inside this column instead of running across the amount */
+  labelCol: { width: '62%' },
+  /** react-pdf does not pass a box's direction down to its text: the text carries it (the ":" and "·" of a reason keep their place) */
+  label: { direction: 'rtl', fontSize: 9, color: PDF.text, textAlign: 'right' },
+  hint: { direction: 'rtl', fontSize: 7.5, color: PDF.muted, textAlign: 'right', marginTop: 1 },
   subtotal: { backgroundColor: PDF.rowAlt },
-  subtotalLabel: { fontSize: 9, fontWeight: 'bold', color: PDF.text, textAlign: 'right' },
+  subtotalLabel: { direction: 'rtl', fontSize: 9, fontWeight: 'bold', color: PDF.text, textAlign: 'right' },
   net: {
     ...PDF_TABLE_ROW,
     justifyContent: 'space-between',
@@ -60,7 +63,7 @@ function Line({ label, hint, amount, last, strong }: { label: string; hint?: str
       <View style={s.amount}>
         <PdfMoneyText amount={amount} align="left" style={{ fontSize: 9, fontWeight: strong ? 'bold' : 'normal' }} />
       </View>
-      <View>
+      <View style={s.labelCol}>
         <Text style={strong ? s.subtotalLabel : s.label}>{ar(label)}</Text>
         {hint ? <Text style={s.hint}>{ar(hint)}</Text> : null}
       </View>
@@ -113,7 +116,7 @@ export function PayslipPDF({
         hint: [line.job_title, line.department].filter(Boolean).join(' · '),
       }}
       metaCells={[
-        { label: 'الموظف', value: line.employee_name },
+        // the employee's name is already in the title line and in the period cell: a third, large copy wrapped to four lines for a long name and made this card a quarter of the page
         { label: 'صافي الراتب', moneyAmount: n(line.net), adaptiveMoney: true },
         { label: 'صُرف', moneyAmount: n(line.paid), adaptiveMoney: true },
       ]}

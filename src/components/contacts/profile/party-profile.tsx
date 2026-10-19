@@ -4,10 +4,10 @@ import { useMemo } from 'react';
 import Link from 'next/link';
 import { BookOpen, FileText, IdCard, LayoutGrid, Receipt, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Callout, InfoList, SectionCard } from '@/components/people';
+import { Callout, SectionCard } from '@/components/people';
 import { ContactJournalsList, ContactTransactionsList } from '@/components/contacts/contact-ledger-panel';
 import { LandlordSuggestion } from '@/components/contacts/profile/landlord-suggestion';
-import { hasSupplyFacts, PartyDetails, supplyItems } from '@/components/contacts/profile/party-details';
+import { FilledList, hasSupplyFacts, PartyDetails, supplyItems } from '@/components/contacts/profile/party-details';
 import { PartyHeader } from '@/components/contacts/profile/party-header';
 import { PartyOverview } from '@/components/contacts/profile/party-overview';
 import { ProfileKpis, UncountedNote } from '@/components/contacts/profile/profile-kpis';
@@ -49,7 +49,7 @@ type TabId = (typeof TAB_IDS)[number];
 function SupplyCard({ contact }: { contact: ContactRow }) {
   return (
     <SectionCard title="التوريد" icon={Truck} accent="amber">
-      <InfoList items={supplyItems(contact).filter((i) => i.label !== 'التصنيف' || i.value)} />
+      <FilledList items={supplyItems(contact)} />
     </SectionCard>
   );
 }
@@ -106,6 +106,7 @@ export function PartyProfile({
         landlord={isLandlord(contact)}
         transactions={transactions}
         statementReady={!txLoading && !failed}
+        loading={txLoading}
         onEdit={onEdit}
         extraActions={
           contact.kind === 'EMPLOYEE' ? (
