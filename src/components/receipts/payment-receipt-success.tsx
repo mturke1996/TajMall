@@ -45,13 +45,20 @@ function usePaymentReceipt(pending: PendingReceipt) {
         result: buildRentReceipt({ tx: read.data, tenant: pending.tenant, lines: pending.lines, otherOwing: pending.otherOwing }),
       };
     }
-    return read.isError ? { status: 'failed' } : { status: 'loading' };
-  }, [pending, read.data, read.isError]);
+    // a retry shows the loading state again, so the button that was tapped visibly does something
+    return read.isError && !read.isFetching ? { status: 'failed' } : { status: 'loading' };
+  }, [pending, read.data, read.isError, read.isFetching]);
+
+  // the payer's number: known for a tenant, read from the contact for other revenue
+  const phoneKnown = pending.kind === 'rent' || !pending.tx.contact?.id || contact.isSuccess || contact.isError;
 
   return {
     state,
     retry: () => void read.refetch(),
     phone: pending.kind === 'rent' ? pending.tenant.phone : (contact.data?.phone ?? null),
+    /** false while the contact is still being read: «no phone» must not flash before the number arrives */
+    phoneKnown,
+    phoneFailed: pending.kind === 'revenue' && contact.isError,
     payerName: pending.kind === 'rent' ? pending.tenant.name : (pending.tx.contact?.name ?? null),
     amount: pending.kind === 'rent' ? pending.amount : Number(pending.tx.amount),
   };
@@ -131,7 +138,7 @@ export function PaymentReceiptSuccess({
   heading?: string;
   onDone: () => void;
 }) {
-  const { state, retry, phone, payerName, amount } = usePaymentReceipt(pending);
+  const { state, retry, phone, phoneKnown, phoneFailed, payerName, amount } = usePaymentReceipt(pending);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   // the form that had focus is gone: focus lands on the confirmation, which a screen reader then reads
@@ -157,7 +164,7 @@ export function PaymentReceiptSuccess({
           <p className="text-[13px] text-ink-mute" aria-live="polite">
             {who || null}
             {who && receipt ? ' · ' : null}
-            {receipt?.number ? <span className="tabular-nums">إيصال {receipt.number}</span> : null}
+            {receipt?.number ? <span className="tabular-nums">رقم الإيصال {receipt.number}</span> : null}
           </p>
         </div>
 
@@ -210,7 +217,11 @@ export function PaymentReceiptSuccess({
             )}
           </div>
         ) : null}
-        {receipt && !phone ? <p className="text-[12px] text-ink-mute">لا يوجد رقم هاتف مسجَّل؛ سيطلب واتساب اختيار المستلم.</p> : null}
+        {receipt && !phone && phoneKnown ? (
+          <p className="text-[12px] text-ink-mute">
+            {phoneFailed ? 'تعذّر قراءة رقم الهاتف' : 'لا يوجد رقم هاتف مسجَّل'}؛ سيطلب واتساب اختيار المستلم.
+          </p>
+        ) : null}
         <Button type="button" className="h-11 w-full sm:h-9" onClick={onDone}>
           تم
         </Button>

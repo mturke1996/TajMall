@@ -50,6 +50,7 @@ import { usePermission } from '@/lib/supabase/use-permission';
 import { formatContactSaveError } from '@/lib/contacts/form-utils';
 import { NEEDS_DB_UPDATE, friendlyError } from '@/lib/user-messages';
 import { DuplicateNote, FIELD_CLASS, NATIVE_SELECT_CLASS, PartySuggestions, PaymentDetailsFields, SuggestionChip } from './entry-parts';
+import { DEPOSIT_CODE } from '@/lib/lease-settlement';
 
 /** يُرجع رسالة خطأ مفيدة من خطأ Supabase/Postgres بدل رسالة عامة. */
 function extractSaveError(err: unknown): string {
@@ -146,7 +147,11 @@ export function NewTransactionDialog() {
   const recordRentPayment = useRecordRentPayment();
   const createContact = useCreateContact();
 
-  const categories = useMemo(() => categoriesAll.filter((c) => c.kind === kind && c.code !== 'EXP-TEST'), [categoriesAll, kind]);
+  // the deposit account is a liability (kind ADJUSTMENT); an expense in it is the refund of a tenant's deposit
+  const categories = useMemo(
+    () => categoriesAll.filter((c) => (c.kind === kind || (kind === 'EXPENSE' && c.code === DEPOSIT_CODE)) && c.code !== 'EXP-TEST'),
+    [categoriesAll, kind],
+  );
   const isRevenue = kind === 'REVENUE';
 
   // A copied transaction names an account, a cashbox and a party that may have been archived since. Once the

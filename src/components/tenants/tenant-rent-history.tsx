@@ -11,6 +11,7 @@ import {
   formatPaymentMethodAr,
 } from '@/features/pdf/pdf-payment';
 import { formatMonthLabelAr } from '@/lib/rent-months';
+import { canIssueReceipt, receiptNumber } from '@/lib/payment-receipt';
 import { cn, formatDate, formatMoney } from '@/lib/utils';
 import type { ContactRow } from '@/lib/db/types';
 
@@ -30,11 +31,11 @@ export function TenantRentHistory({
   const { data: transactions = [], isLoading } = useContactTransactions(tenantId);
   const { data: charges = [] } = useTenantChargesForTenant(tenantId);
 
-  // posted rent receipts only: a voided payment is not money received
+  // counted rent receipts only (posted or reconciled): a voided payment is not money received
   const rentPayments = transactions
     .filter(
       (t) =>
-        t.status === 'POSTED' &&
+        canIssueReceipt(t.status) &&
         t.kind === 'REVENUE' &&
         (isRentCategoryCode(t.category?.code) || !t.category?.code),
     )
@@ -146,6 +147,7 @@ export function TenantRentHistory({
                         paymentMethod={formatPaymentMethodAr(tx.method)}
                         paymentSource={formatPaymentBankOrSource(tx)}
                         reference={tx.reference ?? undefined}
+                        receiptNumber={receiptNumber(tx.number)}
                         months={lines}
                       />
                     );

@@ -85,6 +85,22 @@ export function RecordRentPaymentDialog({
   const [method, setMethod] = useState<PaymentMethod>('CASH');
   // set once the payment is saved: the dialog then shows the receipt instead of the form
   const [done, setDone] = useState<PendingReceipt | null>(null);
+  // A receipt belongs to the opening that saved it. Clearing it while the dialog opens (not in an effect)
+  // means the next opening never paints the last payer's receipt for a frame before the form.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setDone(null);
+  }
+  // which opening a save belongs to: a payment that finishes after the dialog was dismissed has no screen
+  // left to show its receipt on, so it is confirmed by a toast instead of silently
+  const session = useRef(0);
+  const openNow = useRef(open);
+  // a second tap before the button has re-rendered as disabled must not record the payment twice
+  const saving = useRef(false);
+  useEffect(() => {
+    openNow.current = open;
+  }, [open]);
 
   const parsedAmount = parseAmountInput(amountText);
   const amount = Number.isFinite(parsedAmount) ? parsedAmount : 0;
@@ -127,6 +143,7 @@ export function RecordRentPaymentDialog({
     setCashboxId('');
     setMethod('CASH');
     setDone(null);
+    session.current += 1;
   }, [open, tenantId, initialKey]);
 
   useEffect(() => {
@@ -151,6 +168,9 @@ export function RecordRentPaymentDialog({
       toast.error(describeRentIssue(plan.issues[0], formatMonthLabelAr));
       return;
     }
+    if (saving.current) return;
+    saving.current = true;
+    const started = session.current;
     try {
       const saved = await recordPayment.mutateAsync({
         tenant_id: tenant.id,
@@ -161,7 +181,8 @@ export function RecordRentPaymentDialog({
         rent_months: [...rentMonths].sort(),
         payment_method: method,
       });
-      if (saved.transaction_id) {
+      const stillHere = openNow.current && session.current === started;
+      if (saved.transaction_id && stillHere) {
         // Months owed outside this payment, as the account stood before it; left out when the account was
         // still loading, because a half-read account would name months that are not owed.
         const otherOwing =
@@ -177,18 +198,21 @@ export function RecordRentPaymentDialog({
           otherOwing,
         });
       } else {
-        // no id to read the receipt back with: confirm as before
+        // no id to read the receipt back with, or the dialog was dismissed while saving: confirm as before
         toast.success('سُجّلت الدفعة', {
           description: plan.lines
+            .filter((l) => l.status !== 'skipped')
             .map((l) => `${formatMonthLabelAr(l.month)}: ${l.status === 'paid' ? 'مُسدَّد' : `جزئي ${formatMoney(l.paidAfter, 'LYD')} من ${formatMoney(l.amount, 'LYD')}`}`)
             .join(' · '),
         });
-        onOpenChange(false);
+        if (stillHere) onOpenChange(false);
       }
       onSuccess?.();
     } catch (err) {
       console.error('[rent-payment]', err);
       toast.error(friendlyError(err, 'تعذّر تسجيل الدفعة'));
+    } finally {
+      saving.current = false;
     }
   }
 

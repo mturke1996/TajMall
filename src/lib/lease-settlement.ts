@@ -25,11 +25,11 @@ import { arabicCount, formatDate, formatMoney } from '@/lib/utils';
 export const DEPOSIT_CODE = 'LIA-DEP';
 
 /**
- * The new-transaction dialog lists an account under expenses by the account's own kind, and a liability
- * account carries the kind ADJUSTMENT, so the deposit account is not offered there. Set this to true once
- * that dialog lists LIA-DEP under expenses whatever its stored kind is.
+ * A liability account carries the kind ADJUSTMENT, so the new-transaction dialog would not offer the deposit
+ * account under expenses by its own kind. The dialog lists LIA-DEP under expenses explicitly, which is what
+ * lets a deposit be refunded from the settlement statement.
  */
-export const TX_DIALOG_LISTS_DEPOSIT_ACCOUNT = false;
+export const TX_DIALOG_LISTS_DEPOSIT_ACCOUNT = true;
 
 const EPS = 0.0005;
 const num = (v: unknown) => {

@@ -169,6 +169,15 @@ await check('rent: an account that was not read leaves the line out instead of s
   for (const otherOwing of [undefined, null, []]) assert.equal(ok(rent({ otherOwing })).otherOwed, null);
 });
 
+await check('rent: owed months that are covered here, empty or not numbers say nothing', () => {
+  // every owed month is one this receipt covers: there is no "other" line, not a line with a zero
+  assert.equal(ok(rent({ otherOwing: [{ month: '2026-10', amount: 1000 }, { month: '2026-11', amount: 500 }] })).otherOwed, null);
+  // a figure that is not a number is never counted as owed
+  const mixed = ok(rent({ otherOwing: [{ month: '2026-08', amount: Number.NaN }, { month: '2026-09', amount: Infinity }, { month: '2026-07', amount: 40 }] }));
+  assert.equal(mixed.otherOwed.detail, 'يوليو 2026');
+  assert.equal(mixed.otherOwed.amount, 40);
+});
+
 await check('refused: a draft or voided transaction never gets a receipt; a reconciled one does', () => {
   for (const status of ['DRAFT', 'VOIDED']) {
     const r = rent({ tx: tx({ status }) });
@@ -364,6 +373,10 @@ await check('PDF: the rent, other revenue and history receipts all render', asyn
   }
   const one = await pdfOf(ok(rent()), PaymentReceiptPDF);
   assert.ok(one.size > 4000);
+  // a whole year of months (the tighter rows) and a payer whose name starts with a digit both render
+  const months = Array.from({ length: 12 }, (_, i) => line(`2026-${String(i + 1).padStart(2, '0')}`, 1000, 0, 1000, 'paid'));
+  const year = await pdfOf(ok(rent({ tx: tx({ amount: '12000', contact: { name: '7 نجوم للتجارة', shop_number: '3أ' } }), tenant: { name: '7 نجوم للتجارة', shopNumber: '3أ' }, lines: months })), PaymentReceiptPDF);
+  assert.ok(year.size > 4000);
 });
 
 console.log(`\n${passed} checks passed`);

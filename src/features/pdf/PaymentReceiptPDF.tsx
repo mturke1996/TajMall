@@ -61,6 +61,8 @@ const s = StyleSheet.create({
 
   // a receipt lists few rows, so they are tighter than a report's, and four months still fit one page
   monthRow: { paddingVertical: 5, minHeight: 22 },
+  // a whole year of months is tighter still, so the table and the signatures stay on one page
+  monthRowDense: { paddingVertical: 3, minHeight: 18 },
 
   balance: {
     borderWidth: 1,
@@ -88,6 +90,9 @@ const s = StyleSheet.create({
   signText: { fontSize: 9, color: PDF.muted, textAlign: 'center', direction: 'rtl' },
   caption: { fontSize: 8, color: PDF.muted, textAlign: 'center', direction: 'rtl', marginTop: 10, lineHeight: 1.5 },
 });
+
+/** more month rows than this are drawn tighter */
+const DENSE_FROM = 6;
 
 type ColumnKey = 'month' | 'status' | 'value' | 'before' | 'paid' | 'remaining';
 
@@ -144,7 +149,7 @@ function MonthsTable({ receipt }: { receipt: PaymentReceipt }) {
         ))}
       </View>
       {receipt.lines.map((line, i) => (
-        <View key={i} style={[pdfReportTable.tableRow, s.monthRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]} wrap={false}>
+        <View key={i} style={[pdfReportTable.tableRow, receipt.lines.length > DENSE_FROM ? s.monthRowDense : s.monthRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]} wrap={false}>
           {physical.map((c) => (
             <React.Fragment key={c.key}>{cell(c, line)}</React.Fragment>
           ))}
@@ -217,6 +222,7 @@ export function PaymentReceiptPDF({ receipt }: { receipt: PaymentReceipt }) {
 
   return (
     <ReportShell
+      titleEn="RECEIPT"
       title={receipt.title}
       subtitle={receipt.statusNote}
       documentTitle={[receipt.title, receipt.number].filter(Boolean).join(' ')}
@@ -257,7 +263,7 @@ export function PaymentReceiptPDF({ receipt }: { receipt: PaymentReceipt }) {
       {receipt.lines.length > 0 ? (
         <>
           <Text style={[pdfReportTable.sectionTitle, { marginTop: 0, marginBottom: 6 }]} minPresenceAhead={80}>
-            {ar('الأشهر المسدَّدة')}
+            {ar('توزيع الدفعة على الأشهر')}
           </Text>
           <MonthsTable receipt={receipt} />
         </>

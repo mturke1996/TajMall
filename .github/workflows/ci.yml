@@ -53,6 +53,13 @@ jobs:
           npm run verify:monthly-report
           npm run verify:follow-up
           npm run verify:daily-cashbox
+          npm run verify:billing-preview
+          npm run verify:tenant-collection
+          npm run verify:landlord-dues
+          npm run verify:lease-settlement
+          npm run verify:entry-guards
+          npm run verify:payment-receipt
+          npm run verify:contact-roles
 
       - name: Database replica tests (proposed migrations, no live database)
         run: |

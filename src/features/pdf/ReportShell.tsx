@@ -49,9 +49,12 @@ export function ReportPage({
   showHeader = true,
   showSummary = true,
   headerProps,
+  titleEn = 'REPORT',
 }: {
   title: string;
   subtitle?: string;
+  /** the small English word in the header corner («REPORT» unless the document is something else, e.g. «RECEIPT») */
+  titleEn?: string;
   metaCells?: ReportShellMetaCell[];
   periodSummary?: ReportShellPeriodSummary;
   summaryPrimaryDateIso?: string;
@@ -91,7 +94,7 @@ export function ReportPage({
       <View style={pdfBase.pageAccentBar} fixed />
       <View style={pdfBase.pageFlow}>
         {showHeader ? (
-          <PdfReportHeaderFlow title={title} subtitle={subtitle} titleEn="REPORT" />
+          <PdfReportHeaderFlow title={title} subtitle={subtitle} titleEn={titleEn} />
         ) : null}
         {headerProps ? (
           <TajMallPdfHeader
