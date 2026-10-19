@@ -87,7 +87,7 @@ export function TopBar({
       </Button>
 
       {/* Mobile brand */}
-      <Link href="/dashboard" className="flex items-center gap-2 md:hidden">
+      <Link href="/dashboard" aria-label="لوحة التحكم" className="flex items-center gap-2 md:hidden">
         <BrandGlyph size={28} />
       </Link>
 

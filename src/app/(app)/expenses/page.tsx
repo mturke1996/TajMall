@@ -111,7 +111,7 @@ export default function ExpensesPage() {
               variant="outline"
               size="sm"
               onClick={() => setPdfModalOpen(true)}
-              className="min-h-11 touch-manipulation gap-1.5 font-semibold text-foreground border-border hover:bg-canvas-sunken sm:min-h-9"
+              className="min-h-11 touch-manipulation gap-1.5 sm:min-h-9"
               disabled={rows.length === 0}
             >
               <SlidersHorizontal className="h-4 w-4" />

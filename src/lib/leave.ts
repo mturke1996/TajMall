@@ -72,7 +72,7 @@ const EMPLOYMENT_LABEL: Record<EmploymentType, string> = {
   TEMPORARY: "مؤقت",
 };
 
-const WEEKDAY_LABEL = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"] as const;
+const WEEKDAY_LABEL = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"] as const;
 
 export function isLeaveType(value: unknown): value is LeaveType {
   return typeof value === "string" && (LEAVE_TYPES as readonly string[]).includes(value);

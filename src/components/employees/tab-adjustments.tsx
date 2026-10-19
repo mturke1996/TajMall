@@ -85,7 +85,7 @@ export function AdjustmentsTab({ data, onAdd }: { data: EmployeeProfileData; onA
         {canManage && onAdd && (
           <Button type="button" className="min-h-11 gap-1.5 sm:min-h-9" onClick={onAdd}>
             <Plus aria-hidden />
-            إضافة مكافأة / خصم
+            مكافأة أو خصم
           </Button>
         )}
       </div>
@@ -100,18 +100,8 @@ export function AdjustmentsTab({ data, onAdd }: { data: EmployeeProfileData; onA
         </Card>
       ) : adjustments.length === 0 ? (
         <Card>
-          <EmptyBlock
-            action={
-              canManage && onAdd ? (
-                <Button type="button" className="min-h-11 gap-1.5 sm:min-h-9" onClick={onAdd}>
-                  <Plus aria-hidden />
-                  إضافة مكافأة / خصم
-                </Button>
-              ) : undefined
-            }
-          >
-            لا توجد مكافآت أو خصومات لهذا الموظف.
-          </EmptyBlock>
+          {/* the button above already adds one: no second copy of it here */}
+          <EmptyBlock>لا توجد مكافآت أو خصومات لهذا الموظف.</EmptyBlock>
         </Card>
       ) : (
         <>

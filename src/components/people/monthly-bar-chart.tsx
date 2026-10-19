@@ -78,9 +78,10 @@ export function MonthlyBarChart({
           ))}
         </div>
       )}
+      {/* hidden from screen readers (the table below carries the figures), so its surface must not take the focus either */}
       <div aria-hidden dir="ltr">
         <ResponsiveContainer width="100%" height={height}>
-          <BarChart data={data as ChartRow[]} margin={{ top: 4, right: 4, left: 4, bottom: 0 }} barGap={4}>
+          <BarChart accessibilityLayer={false} data={data as ChartRow[]} margin={{ top: 4, right: 4, left: 4, bottom: 0 }} barGap={4}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
             <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} minTickGap={6} />
             <YAxis width={52} tick={axisTick} axisLine={false} tickLine={false} tickFormatter={thousands} />

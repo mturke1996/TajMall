@@ -31,7 +31,7 @@ function InstallmentBar({ advance }: { advance: PayrollAdvance }) {
   }
   const paidInstalments = each > 0 ? Math.min(count, Math.floor(repaid / each + 0.0005)) : 0;
   return (
-    <div className="flex gap-1" role="img" aria-label={`سُدّد ${paidInstalments} من ${count} أقساط`}>
+    <div className="flex gap-1" role="img" aria-label={`الأقساط المسدّدة ${paidInstalments} من ${count}`}>
       {Array.from({ length: count }, (_, i) => {
         const fill = each > 0 ? Math.min(1, Math.max(0, (repaid - i * each) / each)) : 0;
         return (
@@ -140,7 +140,7 @@ export function AdvancesTab({ data, onAdd }: { data: EmployeeProfileData; onAdd?
         </Card>
       ) : advances.length === 0 ? (
         <Card>
-          <EmptyBlock action={addButton}>لا سلف على هذا الموظف.</EmptyBlock>
+          <EmptyBlock>لا سلف على هذا الموظف.</EmptyBlock>
         </Card>
       ) : (
         <>
@@ -187,7 +187,7 @@ export function AdvancesTab({ data, onAdd }: { data: EmployeeProfileData; onAdd?
                 className="inline-flex min-h-11 items-center gap-1.5 self-start rounded-md text-[13px] font-medium text-ink-soft hover:text-foreground sm:min-h-8"
               >
                 <ChevronDown className={cn('h-4 w-4 transition-transform', showClosed && 'rotate-180')} aria-hidden />
-                {showClosed ? 'إخفاء' : 'عرض'} السلف المسددة والملغاة ({closed.length})
+                {showClosed ? 'إخفاء' : 'عرض'} السلف المسدّدة والملغاة ({closed.length})
               </button>
               {showClosed && (
                 <ul className="grid gap-3 lg:grid-cols-2">

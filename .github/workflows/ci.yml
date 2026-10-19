@@ -54,6 +54,24 @@ jobs:
           npm run verify:monthly-report
           npm run verify:follow-up
           npm run verify:daily-cashbox
+          npm run verify:app-security
+          npm run verify:money-core
+          npm run verify:contact-tags
+          npm run verify:obligation-months
+          npm run verify:party-stats
+          npm run verify:party-profile
+          npm run verify:directory-stats
+          npm run verify:employee-profile
+          npm run verify:contact-form
+          npm run verify:contact-role-conversion
+          npm run verify:party-contacts
+          npm run verify:rent-summary-claim
+          npm run verify:leave
+          npm run verify:report-options
+          npm run verify:executive-pdf
+          npm run verify:revenues-expenses-pdf
+          npm run verify:period-journal-contra
+          npm run verify:exempt-client-logic
           npm run verify:billing-preview
           npm run verify:tenant-collection
           npm run verify:landlord-dues
@@ -66,6 +84,10 @@ jobs:
         run: |
           npm run test:payroll:local
           npm run test:rollback
+          npm run test:leave
+          npm run test:hardening
+          npm run test:rent-integrity
+          node scripts/test-least-privilege.mjs --no-children
           npm run verify:rent-allocation
 
       - name: Build (next build)

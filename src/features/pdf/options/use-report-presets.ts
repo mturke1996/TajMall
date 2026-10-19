@@ -1,31 +1,66 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   builtInPresets,
   deletePreset,
-  loadPresets,
+  parsePresetStore,
   savePresets,
+  serializePresetStore,
   upsertPreset,
   type ReportPreset,
   type TransactionReportOptions,
 } from '@/lib/report-options';
 
 /**
- * The saved presets of one kind of report, kept in this browser's localStorage under `storageKey`.
- * Storage that is missing or refuses (a private window, blocked site data) never throws: the presets then
- * live for this visit only and `persisted` is false so the bar can say so. Saved presets are read after
- * the first render, so the server and the first client render agree.
+ * Saved presets live in this browser's localStorage (read through useSyncExternalStore, so a change made in
+ * another tab shows up and the server render and the first client render agree). When the browser refuses to
+ * store (a private window, blocked or full storage) they are kept in memory instead, so the bar still works for
+ * this visit, and `persisted` is false so it can say so.
  */
+const listeners = new Set<() => void>();
+const inMemory = new Map<string, string>();
+
+function subscribe(onChange: () => void) {
+  listeners.add(onChange);
+  window.addEventListener('storage', onChange);
+  return () => {
+    listeners.delete(onChange);
+    window.removeEventListener('storage', onChange);
+  };
+}
+
+function readText(key: string): string | null {
+  const kept = inMemory.get(key);
+  if (kept !== undefined) return kept;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+/** The saved presets of one kind of report, stored under `storageKey`. */
 export function useReportPresets(storageKey: string, today: string) {
-  const [saved, setSaved] = useState<ReportPreset[]>([]);
+  const text = useSyncExternalStore(
+    subscribe,
+    () => readText(storageKey),
+    () => null,
+  );
+  const saved = useMemo(() => parsePresetStore(text, today), [text, today]);
   const [persisted, setPersisted] = useState(true);
-
-  useEffect(() => {
-    setSaved(loadPresets(storageKey, today));
-  }, [storageKey, today]);
-
   const builtIn = useMemo(() => builtInPresets(today), [today]);
+
+  const write = useCallback(
+    (next: ReportPreset[]) => {
+      const stored = savePresets(storageKey, next);
+      if (stored) inMemory.delete(storageKey);
+      else inMemory.set(storageKey, serializePresetStore(next));
+      setPersisted(stored);
+      listeners.forEach((notify) => notify());
+    },
+    [storageKey],
+  );
 
   /** Returns an error message (an empty name), or null when saved. */
   const save = useCallback(
@@ -33,34 +68,23 @@ export function useReportPresets(storageKey: string, today: string) {
       const id = `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
       const result = upsertPreset(saved, name, options, id);
       if (result.error) return result.error;
-      setSaved(result.presets);
-      setPersisted(savePresets(storageKey, result.presets));
+      write(result.presets);
       return null;
     },
-    [saved, storageKey],
+    [saved, write],
   );
 
   /** Removes a preset and returns it, so the caller can offer to bring it back. */
   const remove = useCallback(
     (id: string): ReportPreset | null => {
       const gone = saved.find((p) => p.id === id) ?? null;
-      if (!gone) return null;
-      const next = deletePreset(saved, id);
-      setSaved(next);
-      setPersisted(savePresets(storageKey, next));
+      if (gone) write(deletePreset(saved, id));
       return gone;
     },
-    [saved, storageKey],
+    [saved, write],
   );
 
-  const restore = useCallback(
-    (preset: ReportPreset) => {
-      const next = [...saved.filter((p) => p.id !== preset.id), preset];
-      setSaved(next);
-      setPersisted(savePresets(storageKey, next));
-    },
-    [saved, storageKey],
-  );
+  const restore = useCallback((preset: ReportPreset) => write([...saved.filter((p) => p.id !== preset.id), preset]), [saved, write]);
 
   return { builtIn, saved, persisted, save, remove, restore };
 }

@@ -86,7 +86,7 @@ export function DonutBreakdown({
       <div className="relative mx-auto h-[180px] w-[180px]">
         <div aria-hidden dir="ltr" className="h-full w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+            <PieChart accessibilityLayer={false}>
               <Pie
                 rootTabIndex={-1}
                 data={drawn}

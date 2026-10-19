@@ -96,7 +96,6 @@ export function SearchableMultiSelect({
         <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-[13px] text-ink-mute">{emptyText}</p>
       ) : (
         <ul
-          role="group"
           aria-label={label}
           className="max-h-72 divide-y divide-border overflow-y-auto overscroll-contain rounded-lg border border-border bg-card"
         >
@@ -105,7 +104,8 @@ export function SearchableMultiSelect({
             const idle = item.count === 0;
             return (
               <li key={item.id}>
-                <label className={cn('flex min-h-12 cursor-pointer items-center gap-3 px-3 py-2 hover:bg-canvas-sunken sm:min-h-11', on && 'bg-info-soft/60')}>
+                {/* `relative`: the hidden checkbox is absolutely positioned, and without this its containing block is the whole dialog, so focusing it (Tab, or a click on a row of a scrolled list) scrolls the dialog itself and pushes its header out of view */}
+                <label className={cn('relative flex min-h-12 cursor-pointer items-center gap-3 px-3 py-2 hover:bg-canvas-sunken sm:min-h-11', on && 'bg-info-soft/60')}>
                   <input type="checkbox" checked={on} onChange={() => toggle(item.id)} className="peer sr-only" />
                   <span
                     aria-hidden

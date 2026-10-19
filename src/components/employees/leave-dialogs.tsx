@@ -243,7 +243,7 @@ export function LeaveRequestDialog({
                   { label: 'المتاح قبل الطلب', value: daysLabel(Math.max(0, annualBalance.available)) },
                   {
                     label: 'المتبقي بعد الطلب',
-                    value: <span className={ev.balanceAfter < 0 ? 'text-danger-ink' : undefined}>{ev.balanceAfter < 0 ? `عجز ${daysLabel(-ev.balanceAfter)}` : daysLabel(ev.balanceAfter)}</span>,
+                    value: <span className={ev.balanceAfter < 0 ? 'text-danger-ink' : undefined}>{ev.balanceAfter < 0 ? `تجاوز بمقدار ${daysLabel(-ev.balanceAfter)}` : daysLabel(ev.balanceAfter)}</span>,
                     strong: true,
                   },
                 ]

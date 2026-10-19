@@ -31,6 +31,12 @@ export function Money({ value, className }: { value: number; className?: string 
 
 export const FIELD_CLASS = 'h-11 text-base sm:h-9 sm:text-sm';
 
+/** A text, number, date or select field: 44px tall on a phone, 36px from 640px, 16px type so a phone does not zoom. */
+export const INPUT_CLASS = cn(
+  FIELD_CLASS,
+  'w-full rounded-md border border-border bg-card px-3 text-foreground placeholder:text-ink-mute/70 focus-visible:border-ring/60 focus-visible:shadow-focus focus-visible:outline-hidden aria-invalid:border-danger',
+);
+
 /** A label above a control, with an optional message under it (an error is read out when it appears). */
 export function Field({
   label,
@@ -73,6 +79,7 @@ export function OptionSection({
   title,
   description,
   action,
+  flush,
   children,
   className,
 }: {
@@ -81,6 +88,8 @@ export function OptionSection({
   title: string;
   description?: string;
   action?: ReactNode;
+  /** no padding around the content, for rows that bring their own (OptionDisclosure) */
+  flush?: boolean;
   children: ReactNode;
   className?: string;
 }) {
@@ -97,7 +106,7 @@ export function OptionSection({
         </div>
         {action}
       </header>
-      <div className="px-3.5 pb-3.5 pt-3 sm:px-4 sm:pb-4">{children}</div>
+      <div className={flush ? 'mt-3 border-t border-border' : 'px-3.5 pb-3.5 pt-3 sm:px-4 sm:pb-4'}>{children}</div>
     </section>
   );
 }
@@ -247,6 +256,63 @@ export function SegmentedControl<T extends string>({
             className={cn(
               'min-h-11 rounded-md px-2 text-[13px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring sm:min-h-8',
               on ? 'bg-card text-foreground shadow-whisper' : 'text-ink-mute hover:text-foreground',
+            )}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * One of several exclusive choices as chips that wrap (use when a segmented control would be too tight, as
+ * with six groupings on a phone). A radio group: arrow keys move the choice, only the chosen chip is in the
+ * tab order.
+ */
+export function ChoiceChips<T extends string>({
+  value,
+  onChange,
+  options,
+  label,
+  tone = 'info',
+  className,
+}: {
+  value: T;
+  onChange: (next: T) => void;
+  options: readonly { id: T; label: string }[];
+  label: string;
+  tone?: Tone;
+  className?: string;
+}) {
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+    if (!keys.includes(e.key)) return;
+    e.preventDefault();
+    const rtl = getComputedStyle(e.currentTarget).direction === 'rtl';
+    const forward = e.key === 'ArrowDown' || e.key === (rtl ? 'ArrowLeft' : 'ArrowRight');
+    const i = options.findIndex((o) => o.id === value);
+    const next = options[(i + (forward ? 1 : -1) + options.length) % options.length];
+    onChange(next.id);
+    e.currentTarget.querySelector<HTMLButtonElement>(`[data-id="${next.id}"]`)?.focus();
+  };
+  return (
+    <div role="radiogroup" aria-label={label} onKeyDown={onKeyDown} className={cn('flex flex-wrap gap-2', className)}>
+      {options.map((o) => {
+        const on = o.id === value;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            data-id={o.id}
+            tabIndex={on ? 0 : -1}
+            onClick={() => onChange(o.id)}
+            className={cn(
+              'inline-flex min-h-11 items-center justify-center rounded-full border px-3.5 text-[13px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:min-h-8 sm:px-3',
+              on ? TONE_SELECTED[tone] : 'border-border bg-card text-ink-soft hover:bg-canvas-sunken',
             )}
           >
             {o.label}

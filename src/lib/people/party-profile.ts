@@ -227,8 +227,8 @@ export const KIND_MOVE_WORDS: Record<KindMove, { menu: string; title: string; do
 export function moveDescription(target: KindMove, landlord: boolean): string {
   const from: KindMove = target === 'CUSTOMER' ? 'VENDOR' : 'CUSTOMER';
   return landlord
-    ? `يُسجَّل الملف ${KIND_MOVE_WORDS[target].as}. يبقى مؤجراً للمول، والحركات والقيود لا تتغير.`
-    : `يُعرض الملف ضمن ${KIND_MOVE_WORDS[target].list} بدل ${KIND_MOVE_WORDS[from].list}. الحركات والقيود لا تتغير.`;
+    ? `يُسجَّل الملف ${KIND_MOVE_WORDS[target].as}. يبقى مؤجراً للمول، والحركات والقيود لا تتغيّر.`
+    : `يُعرض الملف ضمن ${KIND_MOVE_WORDS[target].list} بدل ${KIND_MOVE_WORDS[from].list}. الحركات والقيود لا تتغيّر.`;
 }
 
 const orNull = (s: string) => (s.trim() === '' ? null : s);

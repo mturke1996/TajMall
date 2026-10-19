@@ -81,7 +81,7 @@ const nextConfig = {
           {
             key: 'Permissions-Policy',
             value:
-              'camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), accelerometer=(), gyroscope=(), magnetometer=()',
+              'camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), accelerometer=(), gyroscope=(), magnetometer=()',
           },
           { key: 'X-Permitted-Cross-Domain-Policies', value: 'none' },
           // a window opened from another site (or one this app opens) cannot reach back into the app

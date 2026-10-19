@@ -21,6 +21,9 @@ import { NEEDS_DB_UPDATE } from '@/lib/user-messages';
 import type { ContactRow } from '@/lib/db/types';
 import { todayISODate } from '@/lib/utils';
 
+/** A phone-width screen: where the toast button must be a full 44px target. */
+const onPhone = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches;
+
 export type SaveOutcome =
   | { ok: true; contact: ContactRow | null }
   | { ok: false; error: string; /** a second tap while the first save was still running: nothing to say */ ignored?: boolean };
@@ -85,6 +88,8 @@ export function useContactSave() {
       toast.success(`تمت إضافة ${noun} «${payload.name}»`, {
         duration: 8000,
         action: id && request.offerOpen !== false ? { label: 'فتح الملف', onClick: () => router.push(`/contacts/${id}`) } : undefined,
+        // the button of a toast is 24px high by default: a thumb needs 44px on a phone
+        actionButtonStyle: onPhone() ? { minHeight: 44, paddingInline: 16, fontSize: 14 } : undefined,
       });
       for (const w of warnings) toast.warning(w, { duration: 14000 });
       return { ok: true, contact: created ?? null };

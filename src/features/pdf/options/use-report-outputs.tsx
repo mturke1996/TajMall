@@ -1,16 +1,19 @@
 'use client';
 
 /**
- * Everything that happens after «اطبع التقرير» in an options dialog: building the PDF from the current
- * options, then one of four things — preview, download, share, print — with a busy state, a clear error
- * and the in-app viewer (PdfPreviewDialog) that phones need.
+ * Everything that happens after the output buttons of an options dialog are pressed: building the PDF from
+ * the current options, then one of four things — preview, download, share, print — with a busy state, a clear
+ * error and the in-app viewer (PdfPreviewDialog) that phones need.
  *
  * It keeps what the existing dialogs did: the viewer opens in a new tab on a computer and inside the app on
  * a phone, a download goes through `savePdfBlob` (the share sheet where the device prefers it), sharing
  * is offered only when the device can share a file, and the file shown in the viewer is the one downloaded
- * or shared from it, so they never differ.
+ * or shared from it, so they never differ. Print opens the same viewer, where the browser's own print
+ * button prints exactly what is shown (a hidden frame can print a blank page, so none is used).
+ *
+ * Render `previewDialog` once, next to the options dialog.
  */
-import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
 import { toast } from 'sonner';
 import { friendlyError } from '@/lib/user-messages';
 import { renderPdfBlob, savePdfBlob, shouldUseInAppPdfViewer } from '../pdf-blob-utils';
@@ -25,6 +28,8 @@ const BUSY_TEXT: Record<ReportOutput, string> = {
   print: 'جارٍ تجهيز التقرير للطباعة…',
 };
 
+const noSubscription = () => () => {};
+
 /** True when this device can hand a PDF file to another app (the share sheet: WhatsApp, mail …). */
 function deviceCanShareFiles(): boolean {
   if (typeof navigator === 'undefined' || typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') return false;
@@ -33,36 +38,6 @@ function deviceCanShareFiles(): boolean {
   } catch {
     return false;
   }
-}
-
-/** Opens the print dialog for a PDF without showing it: a hidden frame prints it. Returns false when the browser would not. */
-function printInFrame(url: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const frame = document.createElement('iframe');
-    frame.setAttribute('aria-hidden', 'true');
-    frame.style.cssText = 'position:fixed;width:0;height:0;border:0;inset-inline-end:0;bottom:0;visibility:hidden';
-    let settled = false;
-    const finish = (ok: boolean) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timer);
-      resolve(ok);
-      // the print dialog may still be open: keep the frame for a while
-      window.setTimeout(() => frame.remove(), 60_000);
-    };
-    const timer = window.setTimeout(() => finish(false), 6000);
-    frame.onload = () => {
-      try {
-        frame.contentWindow?.focus();
-        frame.contentWindow?.print();
-        finish(true);
-      } catch {
-        finish(false);
-      }
-    };
-    frame.src = url;
-    document.body.appendChild(frame);
-  });
 }
 
 export function useReportOutputs({
@@ -86,14 +61,13 @@ export function useReportOutputs({
   const [error, setError] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [canShare, setCanShare] = useState(false);
   const previewUrlRef = useRef<string | null>(null);
   const blobRef = useRef<Blob | null>(null);
+  // the button that started the output: the viewer has no trigger of its own, so focus is put back here when it closes
+  const pressedRef = useRef<HTMLElement | null>(null);
 
-  // the device's abilities are read after mount, so the first render matches the server's
-  useEffect(() => {
-    setCanShare(deviceCanShareFiles());
-  }, []);
+  // what the device can do is read on the client only, so the server's render and the first client render agree
+  const canShare = useSyncExternalStore(noSubscription, deviceCanShareFiles, () => false);
 
   const revokePreviewUrl = useCallback(() => {
     if (previewUrlRef.current) {
@@ -113,6 +87,10 @@ export function useReportOutputs({
       if (!next) {
         revokePreviewUrl();
         blobRef.current = null;
+        const pressed = pressedRef.current;
+        window.requestAnimationFrame(() => {
+          if (pressed?.isConnected) pressed.focus();
+        });
       }
     },
     [revokePreviewUrl],
@@ -129,6 +107,7 @@ export function useReportOutputs({
   const run = useCallback(
     async (kind: ReportOutput, task: () => Promise<void>) => {
       if (busy || disabled) return;
+      pressedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setBusy(kind);
       setError(null);
       try {
@@ -146,12 +125,12 @@ export function useReportOutputs({
   );
 
   const showInViewer = useCallback(
-    async (blob: Blob, successText: string) => {
+    async (blob: Blob, tabText: string, viewerText = 'تم تجهيز التقرير للمعاينة') => {
       if (!shouldUseInAppPdfViewer()) {
         const popupUrl = URL.createObjectURL(blob);
         const tab = window.open(popupUrl, '_blank', 'noopener,noreferrer');
         if (tab) {
-          toast.success(successText);
+          toast.success(tabText);
           window.setTimeout(() => URL.revokeObjectURL(popupUrl), 120_000);
           return;
         }
@@ -162,7 +141,7 @@ export function useReportOutputs({
       previewUrlRef.current = url;
       setPreviewUrl(url);
       setPreviewOpen(true);
-      toast.success('تم تجهيز التقرير للمعاينة');
+      toast.success(viewerText);
     },
     [revokePreviewUrl],
   );
@@ -181,20 +160,8 @@ export function useReportOutputs({
   const share = useCallback(() => run('share', async () => void (await savePdfBlob(await ensureBlob(), fileName, { title, text: shareText }))), [run, ensureBlob, fileName, title, shareText]);
 
   const print = useCallback(
-    () =>
-      run('print', async () => {
-        const blob = await ensureBlob();
-        // a phone cannot print from a hidden frame: it gets the viewer, whose share sheet reaches the printer
-        if (shouldUseInAppPdfViewer()) {
-          await showInViewer(blob, 'تم فتح التقرير للطباعة');
-          return;
-        }
-        const url = URL.createObjectURL(blob);
-        const printed = await printInFrame(url);
-        window.setTimeout(() => URL.revokeObjectURL(url), 120_000);
-        if (!printed) await showInViewer(blob, 'تم فتح التقرير في نافذة جديدة، اطبعه من هناك');
-      }),
-    [run, ensureBlob, showInViewer],
+    () => run('print', async () => showInViewer(await ensureBlob(), 'تم فتح التقرير، اطبعه من شريط العارض', 'تم فتح التقرير، اطبعه من العارض')),
+    [run, showInViewer, ensureBlob],
   );
 
   const previewDialog = (

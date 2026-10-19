@@ -80,7 +80,7 @@ export default function ContactDetailPage() {
   }
 
   if (!id) {
-    return <PageMessage title="رابط غير صالح" description="لا يمكن عرض هذا السجل بسبب رابط ناقص أو غير صحيح." />;
+    return <PageMessage title="رابط غير صالح" description="الرابط ناقص أو غير صحيح، فلا يمكن فتح الملف." />;
   }
 
   if (contactQuery.isLoading) {
@@ -95,7 +95,7 @@ export default function ContactDetailPage() {
     // a row that does not exist is PGRST116 (single() found nothing); anything else is a failed load
     const missing = !contactQuery.isError || (contactQuery.error as { code?: string } | null)?.code === 'PGRST116';
     return missing ? (
-      <PageMessage title="لم يُعثر على السجل" description="قد يكون هذا السجل قد حُذف أو ليس لديك صلاحية الوصول إليه." />
+      <PageMessage title="لم يُعثر على الملف" description="قد يكون الملف قد حُذف أو ليست لديك صلاحية الوصول إليه." />
     ) : (
       <PageMessage
         title="تعذّر تحميل الملف"

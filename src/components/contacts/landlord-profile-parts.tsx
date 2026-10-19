@@ -28,7 +28,7 @@ import { arabicCount, cn, formatDate, formatMoney, todayISODate } from '@/lib/ut
 
 // full-height sheet on a phone (thumb-reachable footer), a centred dialog from sm up
 const SHEET =
-  'flex flex-col gap-0 overflow-hidden p-0 max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0 sm:max-h-[min(90dvh,40rem)] sm:max-w-[28rem]';
+  'flex flex-col gap-0 overflow-hidden p-0 max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0 sm:max-h-[min(90dvh,40rem)] sm:max-w-[28rem] max-sm:[&>button]:top-1.5 max-sm:[&>button]:p-3.5';
 
 function SheetDialog({
   open,
@@ -57,7 +57,7 @@ function SheetDialog({
           if (opener?.isConnected) opener.focus();
         }}
       >
-        <div className="border-b border-border px-5 py-4 pe-12">
+        <div className="border-b border-border px-5 py-4 max-sm:pe-16 sm:pe-12">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription className="mt-1">{description}</DialogDescription>
         </div>

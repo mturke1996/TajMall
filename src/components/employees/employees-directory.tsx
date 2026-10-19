@@ -106,8 +106,10 @@ function Fact({ label, children, hint }: { label: string; children: React.ReactN
   return (
     <div className="min-w-0 bg-card px-4 py-3">
       <dt className="text-[12px] text-ink-mute">{label}</dt>
-      <dd className="mt-0.5 truncate text-[15px] font-semibold tabular-nums">{children}</dd>
-      {hint && <p className="mt-0.5 truncate text-[12px] text-ink-mute">{hint}</p>}
+      <dd className="mt-0.5 min-w-0">
+        <span className="block truncate text-[15px] font-semibold tabular-nums">{children}</span>
+        {hint && <span className="mt-0.5 block truncate text-[12px] text-ink-mute">{hint}</span>}
+      </dd>
     </div>
   );
 }
@@ -367,7 +369,7 @@ export function EmployeesDirectory({ rows, loading, error, onRetry, sources, can
           <Button variant="outline" className="hidden min-h-10 gap-1.5 lg:inline-flex" asChild>
             <Link href="/reports/employee-spend">
               <TrendingUp aria-hidden />
-              تقرير الإنفاق
+              تقرير إنفاق الموظفين
             </Link>
           </Button>
         </div>

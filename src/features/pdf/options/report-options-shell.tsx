@@ -128,24 +128,29 @@ export function ReportOutputBar({
   onClose: () => void;
 }) {
   const { busy, busyText, error } = outputs;
-  const off = disabled || busy !== null;
+  // while an output is being built the buttons are only marked unavailable (the pressed one keeps the focus, which
+  // goes back to it when the viewer closes); a real `disabled` is for when there is nothing to print
+  const working = busy !== null;
+  const wait = working ? 'cursor-wait opacity-60' : '';
   const icon = (kind: 'preview' | 'download' | 'share' | 'print', node: ReactNode) => (busy === kind ? <Loader2 className="animate-spin" aria-hidden /> : node);
+  const message = error ? (
+    <p role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 leading-relaxed text-danger-ink">
+      {error}
+    </p>
+  ) : busyText ? (
+    <p className="flex items-center gap-2 text-ink-soft">
+      <Loader2 className="size-4 animate-spin" aria-hidden />
+      {busyText}
+    </p>
+  ) : disabled && disabledReason ? (
+    <p className="text-ink-mute">{disabledReason}</p>
+  ) : null;
 
   return (
-    <div className="flex flex-col gap-2.5">
-      <div aria-live="polite" className="min-h-5 text-[13px]">
-        {error ? (
-          <p role="alert" className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 leading-relaxed text-danger-ink">
-            {error}
-          </p>
-        ) : busyText ? (
-          <p className="flex items-center gap-2 text-ink-soft">
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-            {busyText}
-          </p>
-        ) : disabled && disabledReason ? (
-          <p className="text-ink-mute">{disabledReason}</p>
-        ) : null}
+    <div className="flex flex-col">
+      {/* the live region stays in the page so a message that appears is read out; it takes no room while empty */}
+      <div aria-live="polite" className={cn('text-[13px]', message && 'mb-2.5')}>
+        {message}
       </div>
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
@@ -153,22 +158,22 @@ export function ReportOutputBar({
           إغلاق
         </Button>
         <div className={cn('grid gap-2 sm:ms-auto sm:flex sm:items-center', outputs.canShare ? 'grid-cols-3' : 'grid-cols-2')}>
-          <Button type="button" variant="outline" onClick={outputs.print} disabled={off} className="h-11 sm:h-9">
+          <Button type="button" variant="outline" onClick={outputs.print} disabled={disabled} aria-disabled={working || undefined} className={cn('h-11 sm:h-9', wait)}>
             {icon('print', <Printer />)}
             طباعة
           </Button>
           {outputs.canShare ? (
-            <Button type="button" variant="outline" onClick={outputs.share} disabled={off} className="h-11 sm:h-9">
+            <Button type="button" variant="outline" onClick={outputs.share} disabled={disabled} aria-disabled={working || undefined} className={cn('h-11 sm:h-9', wait)}>
               {icon('share', <Share2 />)}
               مشاركة
             </Button>
           ) : null}
-          <Button type="button" variant="outline" onClick={outputs.download} disabled={off} className="h-11 sm:h-9">
+          <Button type="button" variant="outline" onClick={outputs.download} disabled={disabled} aria-disabled={working || undefined} className={cn('h-11 sm:h-9', wait)}>
             {icon('download', <FileDown />)}
             تحميل PDF
           </Button>
         </div>
-        <Button type="button" onClick={outputs.preview} disabled={off} className="h-11 w-full sm:h-9 sm:w-auto">
+        <Button type="button" onClick={outputs.preview} disabled={disabled} aria-disabled={working || undefined} className={cn('h-11 w-full sm:h-9 sm:w-auto', wait)}>
           {icon('preview', <FileText />)}
           معاينة وعرض PDF
         </Button>

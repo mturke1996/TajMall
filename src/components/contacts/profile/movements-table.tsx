@@ -200,7 +200,7 @@ export function MovementsTable({ rows, isFiltered }: { rows: TransactionWithRela
         open={pendingDelete !== null}
         onOpenChange={(open) => !open && setPendingDelete(null)}
         title="حذف المعاملة"
-        description="سيُعكس قيدها المحاسبي ويعود رصيد الخزينة كما كان. إن كانت دفعة إيجار تعود أشهرها غير مسددة."
+        description="سيُعكس قيدها المحاسبي ويعود رصيد الخزينة كما كان. إن كانت دفعة إيجار تعود أشهرها غير مسدّدة."
         details={
           pendingDelete
             ? [

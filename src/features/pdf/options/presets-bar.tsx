@@ -4,13 +4,13 @@
  * The bar of presets above a report's options: three ready-made ones, the person's own saved ones (apply
  * with a press, delete with ×), and «حفظ كإعداد», which names and stores the options as they are now.
  */
-import { useId, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Bookmark, Check, X } from 'lucide-react';
 import { IconTile } from '@/components/dashboard/dashboard-ui';
 import { Button } from '@/components/ui/button';
 import { PRESET_NAME_MAX, describeOptions, type ReportPreset } from '@/lib/report-options';
 import { cn } from '@/lib/utils';
-import { ChipButton, FIELD_CLASS } from './option-ui';
+import { ChipButton, INPUT_CLASS } from './option-ui';
 
 export function PresetsBar({
   builtIn,
@@ -19,6 +19,7 @@ export function PresetsBar({
   persisted,
   onApply,
   onDelete,
+  onRestore,
   onSave,
 }: {
   builtIn: ReportPreset[];
@@ -29,14 +30,25 @@ export function PresetsBar({
   persisted: boolean;
   onApply: (preset: ReportPreset) => void;
   onDelete: (preset: ReportPreset) => void;
+  /** brings back the preset that was just deleted (the bar offers «تراجع» for a few seconds) */
+  onRestore: (preset: ReportPreset) => void;
   /** returns an error message to show, or null when saved */
   onSave: (name: string) => string | null;
 }) {
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // the preset just deleted, kept for a few seconds so a slip can be undone (a toast's button cannot be pressed under a dialog)
+  const [removed, setRemoved] = useState<ReportPreset | null>(null);
   const openerRef = useRef<HTMLButtonElement>(null);
+  const groupRef = useRef<HTMLDivElement>(null);
   const inputId = useId();
+
+  useEffect(() => {
+    if (!removed) return;
+    const timer = window.setTimeout(() => setRemoved(null), 10_000);
+    return () => window.clearTimeout(timer);
+  }, [removed]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -70,7 +82,7 @@ export function PresetsBar({
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="الإعدادات">
+      <div ref={groupRef} tabIndex={-1} className="mt-3 flex flex-wrap gap-2 outline-hidden" role="group" aria-label="الإعدادات">
         {builtIn.map((p) => (
           <ChipButton key={p.id} selected={activeId === p.id} onClick={() => onApply(p)} title={describeOptions(p.options)}>
             {p.name}
@@ -99,7 +111,12 @@ export function PresetsBar({
               <button
                 type="button"
                 aria-label={`حذف الإعداد ${p.name}`}
-                onClick={() => onDelete(p)}
+                onClick={() => {
+                  onDelete(p);
+                  setRemoved(p);
+                  // the pressed button is gone: keep the focus inside the bar instead of losing it
+                  requestAnimationFrame(() => groupRef.current?.focus());
+                }}
                 className="grid size-11 place-items-center text-ink-mute hover:bg-canvas-sunken hover:text-danger-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:size-8"
               >
                 <X className="size-3.5" aria-hidden />
@@ -108,6 +125,22 @@ export function PresetsBar({
           );
         })}
       </div>
+
+      {removed ? (
+        <p role="status" className="mt-3 flex flex-wrap items-center gap-x-3 text-[13px] text-ink-soft">
+          <span>حُذف الإعداد «{removed.name}»</span>
+          <button
+            type="button"
+            onClick={() => {
+              onRestore(removed);
+              setRemoved(null);
+            }}
+            className="min-h-11 rounded-md px-2 font-medium text-info-ink hover:bg-info-soft focus-visible:outline-2 focus-visible:outline-ring sm:min-h-8"
+          >
+            تراجع
+          </button>
+        </p>
+      ) : null}
 
       {naming ? (
         <form onSubmit={submit} className="mt-3 flex flex-col gap-2" noValidate>
@@ -129,7 +162,7 @@ export function PresetsBar({
                 aria-invalid={Boolean(error) || undefined}
                 aria-describedby={error ? `${inputId}-error` : undefined}
                 placeholder="مثال: كشف المحاسب الشهري"
-                className={cn(FIELD_CLASS, 'w-full rounded-md border border-border bg-card px-3 text-foreground placeholder:text-ink-mute/70 focus-visible:border-ring/60 focus-visible:shadow-focus focus-visible:outline-hidden', error && 'border-danger')}
+                className={INPUT_CLASS}
               />
               {error ? (
                 <p id={`${inputId}-error`} role="alert" className="mt-1.5 text-[12.5px] text-danger-ink">

@@ -11,6 +11,10 @@ export function isNavActive(pathname: string, href: string, search?: string | nu
     return pathname === '/reports' || (pathname.startsWith('/reports/') && !pathname.startsWith('/reports/journal-month'));
   }
   if (href === '/documents') return pathname === '/documents';
+  // an employee's pay file belongs to the employees list, not to the payroll run
+  const onEmployeeFile = pathname.startsWith('/payroll/employees/');
+  if (href === '/payroll') return (pathname === '/payroll' || pathname.startsWith('/payroll/')) && !onEmployeeFile;
+  if (onEmployeeFile && href.startsWith('/mall?tab=people&segment=EMPLOYEE')) return true;
 
   const [path, queryString] = href.split('?');
 

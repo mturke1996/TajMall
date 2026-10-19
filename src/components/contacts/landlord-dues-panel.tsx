@@ -252,7 +252,7 @@ export function LandlordDuesPanel() {
 
           {dues.totals.estimated > 0 && (
             <Callout tone="info">
-              {arabicCount(dues.totals.estimated, LANDLORDS)} بلا إيجار شهري مسجَّل: المبلغ تقدير من آخر شهر مسدّد، أو غير معروف إن لم تُسجَّل دفعة. سجّل الإيجار الشهري في ملف المؤجر ليصير المبلغ ثابتاً.
+              {arabicCount(dues.totals.estimated, LANDLORDS)} بلا إيجار شهري مسجَّل: المبلغ تقدير من آخر شهر مسدّد. سجّل الإيجار في ملف المؤجر ليصير المبلغ ثابتاً.
             </Callout>
           )}
 
@@ -266,8 +266,8 @@ export function LandlordDuesPanel() {
           </Card>
 
           <div className="flex flex-col gap-1 px-1 text-[12px] leading-relaxed text-ink-mute">
-            <p>الأرقام من المعاملات المرحّلة والمُسوّاة. الشهر يُقرأ من بيان السداد، وإن لم يُذكر فهو شهر تاريخ الصرف. الأشهر قبل بداية المتابعة تُعدّ مسدّدة قبل المنظومة.</p>
-            {badDates.length > 0 && <p className="text-warning-ink">تاريخا العقد غير منطقيين عند: {names(badDates)}. راجع بيانات العقد.</p>}
+            <p>الأرقام من المعاملات المرحّلة والمطابَقة. الشهر يُقرأ من بيان السداد، وإن لم يُذكر فهو شهر الصرف. الأشهر قبل بداية المتابعة مسدّدة قبل المنظومة.</p>
+            {badDates.length > 0 && <p className="text-warning-ink">نهاية العقد قبل بدايته عند: {names(badDates)}. راجع بيانات العقد.</p>}
             {ready?.refreshFailed && (
               <p className="text-warning-ink">
                 تعذّر تحديث الأرقام، وقد لا تشمل آخر سداد.{' '}

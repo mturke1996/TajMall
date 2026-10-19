@@ -9,7 +9,7 @@ import { ExpensesReportPDF as ExpNew } from '../src/features/pdf/ExpensesReportP
 import { RevenuesReportPDF as RevOld } from '../src/features/pdf/_tmpOrigRevenuesReportPDF.tsx';
 import { ExpensesReportPDF as ExpOld } from '../src/features/pdf/_tmpOrigExpensesReportPDF.tsx';
 
-const OUT = '/tmp/claude-0/-home-user-TajMall/61011cd7-adbd-5437-8b96-840938cdc77a/scratchpad/qa-pdfoptions/pdf';
+const OUT = '/tmp/claude-0/-home-user-TajMall/61011cd7-adbd-5437-8b96-840938cdc77a/scratchpad/qa-pdfoptions/review-pdf';
 const SNAP = `${OUT}/snapshot.json`;
 const SEL = 'category:categories(id,code,name_ar,kind,color),cashbox:cashboxes(id,code,name_ar,kind,bank_name),contact:contacts(id,name,kind,shop_number)';
 if (!fs.existsSync(SNAP)) {
@@ -32,7 +32,7 @@ const pages = (buf, tag) => {
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(`${dir}/f.pdf`, buf);
-  execFileSync('pdftoppm', ['-r', '70', '-png', `${dir}/f.pdf`, `${dir}/p`]);
+  execFileSync('pdftoppm', ['-r', '150', '-png', `${dir}/f.pdf`, `${dir}/p`]);
   const imgs = fs.readdirSync(dir).filter((f) => f.endsWith('.png')).sort().map((f) => crypto.createHash('md5').update(fs.readFileSync(`${dir}/${f}`)).digest('hex'));
   const text = execFileSync('pdftotext', ['-layout', `${dir}/f.pdf`, '-']).toString();
   fs.rmSync(dir, { recursive: true, force: true });

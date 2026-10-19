@@ -126,10 +126,12 @@ export function SheetDialog({
           // a card from 640px, the whole screen below it
           'flex flex-col gap-0 overflow-hidden p-0',
           'max-sm:left-0 max-sm:top-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0',
+          // the close button is a 44px target on a phone (the contact form does the same)
+          'max-sm:[&>button]:top-1.5 max-sm:[&>button]:p-3.5',
           WIDTH[size],
         )}
       >
-        <div className="shrink-0 border-b border-border py-3.5 ps-4 pe-12 sm:ps-5">
+        <div className="shrink-0 border-b border-border py-3.5 ps-4 pe-16 sm:ps-5 sm:pe-12">
           <DialogTitle className="text-[16px]">{title}</DialogTitle>
           {description ? (
             <DialogDescription className="mt-1">{description}</DialogDescription>

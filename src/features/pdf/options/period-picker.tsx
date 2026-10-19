@@ -9,12 +9,13 @@ import { CalendarRange } from 'lucide-react';
 import {
   MONTHS_AR,
   QUICK_PERIODS,
+  monthsCovering,
   type PeriodSelection,
   type QuickPeriodId,
   type ResolvedPeriod,
 } from '@/lib/report-options';
 import { cn } from '@/lib/utils';
-import { ChipButton, Field, FIELD_CLASS, OptionSection } from './option-ui';
+import { ChipButton, Field, INPUT_CLASS, OptionSection } from './option-ui';
 
 const QUARTERS: { label: string; months: number[] }[] = [
   { label: 'الربع الأول', months: [1, 2, 3] },
@@ -30,6 +31,7 @@ export function PeriodPicker({
   onChange,
   resolved,
   years,
+  fallbackRange,
 }: {
   value: PeriodSelection;
   onChange: (next: PeriodSelection) => void;
@@ -37,9 +39,28 @@ export function PeriodPicker({
   resolved: ResolvedPeriod;
   /** years offered by the month picker, newest first */
   years: number[];
+  /** first and last day of the entries, used to fill the two dates when «نطاق مخصص» is opened from «كل المدة» */
+  fallbackRange?: { from: string | null; to: string | null };
 }) {
   const set = (patch: Partial<PeriodSelection>) => onChange({ ...value, ...patch });
+  // opening the custom range starts from the dates already chosen, so it never opens empty and wrong
+  const openRange = () => {
+    if (value.mode === 'RANGE') return;
+    const from = value.from || resolved.from || fallbackRange?.from || '';
+    const to = value.to || resolved.to || fallbackRange?.to || '';
+    set({ mode: 'RANGE', from, to });
+  };
   const quick = (id: QuickPeriodId) => set({ mode: 'QUICK', quick: id });
+
+  // opening the month picker starts from the period already chosen (or, from «كل المدة», from the last month with entries)
+  const openMonths = () => {
+    if (value.mode === 'MONTHS') return;
+    const last = fallbackRange?.to;
+    const seed =
+      value.mode === 'ALL' ? (last ? monthsCovering(last, last) : null) : monthsCovering(resolved.from, resolved.to);
+    if (seed && years.includes(seed.year)) set({ mode: 'MONTHS', year: seed.year, months: seed.months });
+    else set({ mode: 'MONTHS' });
+  };
 
   const toggleMonth = (m: number) =>
     set({ months: value.months.includes(m) ? value.months.filter((x) => x !== m) : [...value.months, m].sort((a, b) => a - b) });
@@ -56,10 +77,10 @@ export function PeriodPicker({
           <ChipButton selected={value.mode === 'ALL'} onClick={() => set({ mode: 'ALL' })}>
             كل المدة
           </ChipButton>
-          <ChipButton selected={value.mode === 'MONTHS'} onClick={() => set({ mode: 'MONTHS' })}>
+          <ChipButton selected={value.mode === 'MONTHS'} onClick={openMonths}>
             أشهر محددة
           </ChipButton>
-          <ChipButton selected={value.mode === 'RANGE'} onClick={() => set({ mode: 'RANGE' })}>
+          <ChipButton selected={value.mode === 'RANGE'} onClick={openRange}>
             نطاق مخصص
           </ChipButton>
         </div>
@@ -72,7 +93,7 @@ export function PeriodPicker({
                   id="period-year"
                   value={value.year}
                   onChange={(e) => set({ year: Number(e.target.value) })}
-                  className={cn(FIELD_CLASS, 'rounded-md border border-border bg-card px-3 text-foreground focus-visible:border-ring/60 focus-visible:shadow-focus focus-visible:outline-hidden')}
+                  className={INPUT_CLASS}
                 >
                   {years.map((y) => (
                     <option key={y} value={y}>
@@ -123,7 +144,7 @@ export function PeriodPicker({
                 max={value.to || undefined}
                 onChange={(e) => set({ from: e.target.value })}
                 aria-invalid={Boolean(resolved.error) || undefined}
-                className={cn(FIELD_CLASS, 'w-full rounded-md border border-border bg-card px-3 text-start text-foreground focus-visible:border-ring/60 focus-visible:shadow-focus focus-visible:outline-hidden', resolved.error && 'border-danger')}
+                className={`${INPUT_CLASS} text-start`}
               />
             </Field>
             <Field label="إلى تاريخ" htmlFor="period-to">
@@ -135,7 +156,7 @@ export function PeriodPicker({
                 min={value.from || undefined}
                 onChange={(e) => set({ to: e.target.value })}
                 aria-invalid={Boolean(resolved.error) || undefined}
-                className={cn(FIELD_CLASS, 'w-full rounded-md border border-border bg-card px-3 text-start text-foreground focus-visible:border-ring/60 focus-visible:shadow-focus focus-visible:outline-hidden', resolved.error && 'border-danger')}
+                className={`${INPUT_CLASS} text-start`}
               />
             </Field>
           </div>

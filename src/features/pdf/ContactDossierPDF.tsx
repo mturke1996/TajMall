@@ -17,6 +17,7 @@ import {
 import { isRentCategoryCode } from '@/lib/charge-invoice';
 import { contactKindLabelAr } from '@/lib/party-contacts';
 import { extractContactBusinessRole, CONTACT_ROLES } from '@/lib/contacts/contact-roles';
+import { isCountedTransaction } from '@/lib/contacts/contact-transactions';
 import type { ContactRow } from '@/lib/db/types';
 import type { TransactionWithRelations } from '@/lib/db/types';
 import type { TenantRentSummary } from '@/lib/db/queries';
@@ -136,7 +137,7 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
   const kindLabel = roleMeta.label;
 
   const posted = transactions
-    .filter((t) => t.status === 'POSTED')
+    .filter(isCountedTransaction)
     .sort((a, b) => (b.tx_date > a.tx_date ? 1 : -1));
 
   const rentPayments = isTenant

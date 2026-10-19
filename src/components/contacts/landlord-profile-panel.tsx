@@ -247,7 +247,7 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
         </Callout>
       )}
 
-      {!loading && due.contractDatesInvalid && <Callout tone="warning">تاريخا العقد غير منطقيين. راجع بيانات العقد.</Callout>}
+      {!loading && due.contractDatesInvalid && <Callout tone="warning">نهاية العقد قبل بدايته. راجع بيانات العقد.</Callout>}
 
       <SectionCard
         title={`أشهر ${profile.year}`}

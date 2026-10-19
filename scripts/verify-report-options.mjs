@@ -178,6 +178,18 @@ check('matchesPeriod: bounds are inclusive, timestamps and missing dates are han
   assert.equal(R.matchesPeriod('2025-03-10', gap), false);
 });
 
+check('monthsCovering: the months of a range, in its last year, for starting the month picker', () => {
+  assert.deepEqual(R.monthsCovering('2026-10-01', '2026-10-31'), { year: 2026, months: [10] });
+  assert.deepEqual(R.monthsCovering('2026-01-01', '2026-12-31'), { year: 2026, months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] });
+  assert.deepEqual(R.monthsCovering('2026-09-20', '2026-10-19'), { year: 2026, months: [9, 10] });
+  assert.deepEqual(R.monthsCovering('2025-11-15', '2026-02-10'), { year: 2026, months: [1, 2] }); // across the new year: the last year only
+  assert.deepEqual(R.monthsCovering('2028-02-29', '2028-02-29'), { year: 2028, months: [2] });
+  assert.equal(R.monthsCovering(null, '2026-10-01'), null);
+  assert.equal(R.monthsCovering('2026-10-01', ''), null);
+  assert.equal(R.monthsCovering('2026-10-31', '2026-10-01'), null); // from after to
+  assert.equal(R.monthsCovering('2027-02-29', '2027-03-01'), null); // not a calendar day
+});
+
 check('availableYears: this year, last year and every year in the data, newest first', () => {
   assert.deepEqual(R.availableYears(['2024-05-01', null, 'x', '2026-01-02T00:00:00Z'], TODAY), [2026, 2025, 2024]);
   assert.deepEqual(R.availableYears([], TODAY), [2026, 2025]);
@@ -685,6 +697,82 @@ check('pruneUnknownChoices drops what no longer exists and says how many', () =>
   assert.deepEqual(r.options.filters.cashboxIds, []);
   assert.deepEqual(r.options.layout, o.layout);
   assert.equal(R.pruneUnknownChoices(opts(), known).dropped, 0);
+});
+
+check('facet catalogs: accounts as given, parties and cashboxes from the rows, «بدون جهة» only when an entry has no party', () => {
+  const rows = [
+    tx({ contact: { id: 'p2', name: 'مطعم البحر', shop_number: '12' }, contact_id: 'p2' }),
+    tx({ contact: { id: 'p1', name: 'محل الأمل' } }),
+    tx({ contact: { id: 'p1', name: 'محل الأمل' } }),
+    tx({ cashbox: { id: 'b2', name_ar: 'مصرف الواحة' }, cashbox_id: 'b2' }),
+  ];
+  const cats = [{ id: 'c1', name_ar: 'إيجارات', code: 'REV-RNT' }, { id: 'c2', name_ar: null, name: 'Parking', code: null }, { id: 'c3', name_ar: null, name: null, code: 'X-1' }];
+  const c = R.buildFacetCatalogs(rows, cats);
+  assert.deepEqual(c.category.map((x) => [x.id, x.label, x.hint]), [['c1', 'إيجارات', 'REV-RNT'], ['c2', 'Parking', undefined], ['c3', 'X-1', 'X-1']]);
+  assert.equal(c.party.length, 2); // each party once
+  assert.equal(c.party.find((x) => x.id === 'p2').hint, 'محل 12');
+  assert.equal(c.party.some((x) => x.id === R.NO_PARTY), false);
+  assert.deepEqual(c.cashbox.map((x) => x.id).sort(), ['b1', 'b2']);
+  const lone = R.buildFacetCatalogs([tx({ contact: null }), tx({ contact: null, contact_id: null })], []);
+  assert.deepEqual(lone.party, [{ id: R.NO_PARTY, label: 'بدون جهة' }]);
+  assert.deepEqual(R.buildFacetCatalogs([], []), { category: [], party: [], cashbox: [] });
+  // and the catalog plus the rows give the list a filter shows
+  const items = R.facetItems(rows.slice(0, 1), 'party', c.party);
+  assert.equal(items.find((x) => x.id === 'p2').count, 1);
+  assert.equal(items.find((x) => x.id === 'p1').count, 0);
+});
+
+check('clearFilters: every filter off, and a fresh object each time', () => {
+  const a = R.clearFilters();
+  assert.deepEqual(a, R.DEFAULT_FILTERS);
+  assert.equal(R.activeFilterCount(a), 0);
+  a.categoryIds.push('x');
+  assert.deepEqual(R.clearFilters().categoryIds, []);
+  assert.deepEqual(R.DEFAULT_FILTERS.categoryIds, []);
+  const o = R.defaultReportOptions(TODAY);
+  o.filters.methods.push('CASH');
+  assert.deepEqual(R.defaultReportOptions(TODAY).filters.methods, []);
+  assert.deepEqual(R.DEFAULT_FILTERS.methods, []);
+});
+
+check('group captions: payment-method grouping keeps the report\'s own caption, the others name their group', () => {
+  assert.equal(R.groupCaption('REVENUE', 'METHOD'), undefined);
+  assert.equal(R.groupCaption('EXPENSE', 'METHOD'), undefined);
+  assert.equal(R.groupCaption('REVENUE', 'CATEGORY'), 'جدول إيرادات بند');
+  assert.equal(R.groupCaption('EXPENSE', 'PARTY'), 'جدول مصروفات جهة');
+  assert.equal(R.groupCaption('EXPENSE', 'CASHBOX'), 'جدول مصروفات خزينة');
+  assert.equal(R.groupCaption('REVENUE', 'MONTH'), 'جدول إيرادات شهر');
+  assert.equal(R.groupCaption('REVENUE', 'NONE'), 'جدول إيرادات');
+  for (const g of R.GROUPING_OPTIONS) for (const k of ['REVENUE', 'EXPENSE']) assert.ok(R.groupCaption(k, g.id) === undefined || R.groupCaption(k, g.id).length > 0);
+});
+
+check('toPdfGroups: keeps the keys unique, the subtotals exact and the rows in order', () => {
+  const rows = [tx({ amount: '0.1', method: 'CASH' }), tx({ amount: '0.2', method: 'CASH' }), tx({ amount: '1.0005', method: 'CHEQUE' }), tx({ amount: 'abc', method: 'CARD' })];
+  const out = R.toPdfGroups(R.groupTransactions(rows, 'METHOD'));
+  assert.equal(new Set(out.map((g) => g.method)).size, out.length);
+  assert.deepEqual(out.map((g) => g.count), out.map((g) => g.items.length));
+  const cash = out.find((g) => g.method === 'CASH');
+  assert.equal(cash.totalAmount, 0.3);
+  assert.equal(cash.labelAr, 'نقدي');
+  assert.deepEqual(ids(cash.items), ids(rows.slice(0, 2)));
+  assert.equal(out.reduce((s, g) => s + g.count, 0), rows.length);
+  assert.deepEqual(R.toPdfGroups([]), []);
+});
+
+check('report kind text: revenues and expenses have their own words and storage keys', () => {
+  assert.notEqual(R.REPORT_KIND_TEXT.REVENUE.storageKey, R.REPORT_KIND_TEXT.EXPENSE.storageKey);
+  assert.equal(R.REPORT_KIND_TEXT.REVENUE.defaultTitle, 'كشف الإيرادات التفصيلي');
+  assert.equal(R.REPORT_KIND_TEXT.EXPENSE.defaultTitle, 'كشف المصروفات التفصيلي');
+  assert.equal(R.REPORT_KIND_TEXT.REVENUE.allCategories, 'كافة بنود الإيرادات');
+});
+
+check('print stamp: Tripoli\'s clock (UTC+2, no daylight saving), zero-padded, midnight is 00', () => {
+  assert.equal(R.formatPrintStamp(new Date('2026-10-19T14:08:00Z')), '19/10/2026 16:08');
+  assert.equal(R.formatPrintStamp(new Date('2026-10-19T22:00:00Z')), '20/10/2026 00:00'); // already tomorrow in Tripoli
+  assert.equal(R.formatPrintStamp(new Date('2026-12-31T21:59:00Z')), '31/12/2026 23:59');
+  assert.equal(R.formatPrintStamp(new Date('2026-01-05T07:05:00Z')), '05/01/2026 09:05');
+  assert.equal(R.formatPrintStamp(new Date('2028-02-28T22:30:00Z')), '29/02/2028 00:30'); // leap day
+  assert.match(R.formatPrintStamp(), /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/);
 });
 
 console.log(`\n✓ verify-report-options: ${passed} checks passed`);

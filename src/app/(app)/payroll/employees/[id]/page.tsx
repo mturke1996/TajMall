@@ -319,7 +319,7 @@ export default function EmployeeProfilePage() {
       icon: CalendarDays,
       accent: annualOver ? 'red' : 'green',
       format: 'text',
-      value: annual && annual.remaining != null ? (annualOver ? `عجز ${daysLabel(-annual.remaining)}` : daysLabel(annual.remaining)) : null,
+      value: annual && annual.remaining != null ? (annualOver ? `تجاوز بمقدار ${daysLabel(-annual.remaining)}` : daysLabel(annual.remaining)) : null,
       context:
         parts.balance.missing || !canManage
           ? offNote

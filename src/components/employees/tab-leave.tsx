@@ -399,7 +399,7 @@ export function LeaveTab({
           </Card>
         ) : ordered.length === 0 ? (
           <Card>
-            <EmptyBlock action={requestButton}>{leaves.length === 0 ? 'لا طلبات إجازة لهذا الموظف.' : `لا إجازات في ${year}.`}</EmptyBlock>
+            <EmptyBlock>{leaves.length === 0 ? 'لا طلبات إجازة لهذا الموظف.' : `لا إجازات في ${year}.`}</EmptyBlock>
           </Card>
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-whisper">

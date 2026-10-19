@@ -160,9 +160,9 @@ export function PayrollAdvancesPanel({
       )}
 
       {rows.length > open.length && (
-        <label className="flex items-center gap-2 self-start text-[12.5px] text-ink-soft">
+        <label className="flex min-h-11 items-center gap-2 self-start text-[12.5px] text-ink-soft sm:min-h-9">
           <input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} className="h-4 w-4 accent-foreground" />
-          إظهار السلف المسددة والملغاة ({rows.length - open.length})
+          إظهار السلف المسدّدة والملغاة ({rows.length - open.length})
         </label>
       )}
 
@@ -185,7 +185,7 @@ export function PayrollAdvancesPanel({
               action={canManage && employees.length > 0 ? { label: 'صرف سلفة', onClick: () => setDialogOpen(true) } : undefined}
             />
           }
-          noResults={<EmptyState icon={HandCoins} title="لا توجد سلف قائمة" description="كل السلف مسددة أو ملغاة." />}
+          noResults={<EmptyState icon={HandCoins} title="لا توجد سلف قائمة" description="كل السلف مسدّدة أو ملغاة." />}
           renderMobileRow={(a) => (
             <div className="flex flex-col gap-2 p-3">
               <div className="flex items-start justify-between gap-3">

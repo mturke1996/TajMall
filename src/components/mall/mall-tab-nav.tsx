@@ -59,7 +59,7 @@ export const MALL_TAB_META: {
     id: 'people',
     label: 'الجهات والدليل',
     shortLabel: 'الجهات',
-    description: 'الدليل الشامل: مستأجرين، موظفين، موردين، وعملاء',
+    description: 'الموردون والعملاء والموظفون',
     icon: Users,
   },
 ];

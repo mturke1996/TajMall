@@ -16,7 +16,7 @@
  *  - An empty selection of accounts / parties / cashboxes / methods means "no restriction", never "nothing".
  */
 import { addDaysISO } from './mall-dates';
-import { arabicCount, parseAmountInput } from './utils';
+import { LIBYA_TIME_ZONE, arabicCount, libyaDateParts, parseAmountInput } from './utils';
 
 // ── vocabulary ───────────────────────────────────────────────────────────────
 
@@ -137,15 +137,12 @@ export function defaultPeriod(today: string): PeriodSelection {
   return { mode: 'ALL', quick: 'THIS_MONTH', year: y, months: [m], from: '', to: '' };
 }
 
-export const DEFAULT_FILTERS: ReportFilters = {
-  categoryIds: [],
-  partyIds: [],
-  cashboxIds: [],
-  methods: [],
-  includeDrafts: false,
-  minAmount: '',
-  maxAmount: '',
-};
+/** Every filter off, in one step. A fresh object with fresh lists each time, so nothing is shared by accident. */
+export function clearFilters(): ReportFilters {
+  return { categoryIds: [], partyIds: [], cashboxIds: [], methods: [], includeDrafts: false, minAmount: '', maxAmount: '' };
+}
+
+export const DEFAULT_FILTERS: ReportFilters = clearFilters();
 
 export const DEFAULT_LAYOUT: ReportLayout = {
   grouping: 'METHOD',
@@ -157,7 +154,7 @@ export const DEFAULT_LAYOUT: ReportLayout = {
 };
 
 export function defaultReportOptions(today: string): TransactionReportOptions {
-  return { period: defaultPeriod(today), filters: { ...DEFAULT_FILTERS }, layout: { ...DEFAULT_LAYOUT } };
+  return { period: defaultPeriod(today), filters: clearFilters(), layout: { ...DEFAULT_LAYOUT } };
 }
 
 // ── calendar helpers ─────────────────────────────────────────────────────────
@@ -343,6 +340,19 @@ export function matchesPeriod(date: string | null | undefined, period: ResolvedP
   return true;
 }
 
+/**
+ * The year and months that cover a range, to start the month picker from what was already chosen: the year
+ * of `to`, and the months from `from` (the first month when `from` is in an earlier year) to `to`. An open end
+ * or a bad date gives null, and the caller keeps its own default.
+ */
+export function monthsCovering(from: string | null | undefined, to: string | null | undefined): { year: number; months: number[] } | null {
+  if (!from || !to || !isValidISODate(from) || !isValidISODate(to) || from > to) return null;
+  const year = Number(to.slice(0, 4));
+  const first = from.slice(0, 4) === to.slice(0, 4) ? Number(from.slice(5, 7)) : 1;
+  const last = Number(to.slice(5, 7));
+  return { year, months: Array.from({ length: last - first + 1 }, (_, i) => first + i) };
+}
+
 /** Years to offer in the month picker: this year, last year and every year the entries cover, newest first. */
 export function availableYears(dates: Iterable<string | null | undefined>, today: string): number[] {
   const { y } = ymd(today);
@@ -369,7 +379,7 @@ export type ReportTxLike = {
   contact_id?: string | null;
   category?: { id?: string | null; name_ar?: string | null; code?: string | null } | null;
   cashbox?: { id?: string | null; name_ar?: string | null } | null;
-  contact?: { id?: string | null; name?: string | null } | null;
+  contact?: { id?: string | null; name?: string | null; shop_number?: string | null } | null;
 };
 
 /** Whole thousandths of a dinar. A non-number (null, "abc", NaN) is 0. */
@@ -698,6 +708,33 @@ export function facetItems(rows: readonly ReportTxLike[], facet: 'category' | 'p
   return [...out.values()].sort((a, b) => (b.count > 0 ? 1 : 0) - (a.count > 0 ? 1 : 0) || b.total - a.total || a.label.localeCompare(b.label, 'ar'));
 }
 
+/**
+ * The names of every choice a list filter can offer: the accounts the person can use (`categories`), and the
+ * parties and cashboxes that appear in `rows`. Built from all the rows, not only the matching ones, so a choice
+ * that the other options currently empty still shows up (as «بلا حركة») and can be unticked.
+ */
+export function buildFacetCatalogs(
+  rows: readonly ReportTxLike[],
+  categories: readonly { id: string; name_ar?: string | null; name?: string | null; code?: string | null }[],
+): { category: FacetCatalogEntry[]; party: FacetCatalogEntry[]; cashbox: FacetCatalogEntry[] } {
+  const category: FacetCatalogEntry[] = categories.map((c) => ({ id: c.id, label: c.name_ar || c.name || c.code || 'بند', hint: c.code || undefined }));
+  const parties = new Map<string, FacetCatalogEntry>();
+  const cashboxes = new Map<string, FacetCatalogEntry>();
+  let withoutParty = false;
+  for (const tx of rows) {
+    const p = tx.contact;
+    const pid = txPartyId(tx);
+    if (!pid) withoutParty = true;
+    else if (!parties.has(pid)) parties.set(pid, { id: pid, label: p?.name || 'جهة', hint: p?.shop_number ? `محل ${p.shop_number}` : undefined });
+    const cid = txCashboxId(tx);
+    if (cid && !cashboxes.has(cid)) cashboxes.set(cid, { id: cid, label: tx.cashbox?.name_ar || 'خزينة' });
+  }
+  const byName = (a: FacetCatalogEntry, b: FacetCatalogEntry) => a.label.localeCompare(b.label, 'ar');
+  const party = [...parties.values()].sort(byName);
+  if (withoutParty) party.push({ id: NO_PARTY, label: 'بدون جهة' });
+  return { category, party, cashbox: [...cashboxes.values()].sort(byName) };
+}
+
 // ── wording of the choices ───────────────────────────────────────────────────
 
 /** One name, up to three names joined, or a count: «محل الأمل»، «أ، ب، ج»، «5 جهات». */
@@ -837,6 +874,79 @@ export function reportWarnings(input: {
   if (input.excluded.voided > 0) out.push({ tone: 'info', text: `استُبعدت ${arabicCount(input.excluded.voided, ['معاملة ملغاة', 'معاملتان ملغاتان', 'معاملات ملغاة', 'معاملة ملغاة'])}.` });
   if (input.excluded.drafts > 0) out.push({ tone: 'info', text: `استُبعدت ${arabicCount(input.excluded.drafts, ['مسودة', 'مسودتان', 'مسودات', 'مسودة'])}؛ فعّل «تضمين المسودات» لإدراجها.` });
   return out;
+}
+
+// ── the document ─────────────────────────────────────────────────────────────
+
+/** The words that differ between the revenues report and the expenses report. */
+export const REPORT_KIND_TEXT: Record<
+  ReportKind,
+  { kindAr: string; plural: string; defaultTitle: string; allCategories: string; totalLabel: string; storageKey: string }
+> = {
+  REVENUE: {
+    kindAr: 'إيرادات',
+    plural: 'إيرادات',
+    defaultTitle: 'كشف الإيرادات التفصيلي',
+    allCategories: 'كافة بنود الإيرادات',
+    totalLabel: 'إجمالي الإيرادات',
+    storageKey: 'taj-mall:pdf-options:revenues',
+  },
+  EXPENSE: {
+    kindAr: 'مصروفات',
+    plural: 'مصروفات',
+    defaultTitle: 'كشف المصروفات التفصيلي',
+    allCategories: 'كافة البنود',
+    totalLabel: 'إجمالي المصروفات',
+    storageKey: 'taj-mall:pdf-options:expenses',
+  },
+};
+
+/**
+ * The small line above each group's name in the report. `undefined` for grouping by payment method: the
+ * report's own caption («جدول إيرادات طريقة الدفع») is already right and must not change.
+ */
+export function groupCaption(kind: ReportKind, grouping: ReportGrouping): string | undefined {
+  const plural = REPORT_KIND_TEXT[kind].plural;
+  switch (grouping) {
+    case 'METHOD':
+      return undefined;
+    case 'NONE':
+      return `جدول ${plural}`;
+    case 'CATEGORY':
+      return `جدول ${plural} بند`;
+    case 'PARTY':
+      return `جدول ${plural} جهة`;
+    case 'CASHBOX':
+      return `جدول ${plural} خزينة`;
+    case 'MONTH':
+      return `جدول ${plural} شهر`;
+  }
+}
+
+export type PdfGroup<T> = { method: string; labelAr: string; totalAmount: number; count: number; items: T[] };
+
+/** The groups in the shape the revenues and expenses reports take (`paymentMethodGroups`), subtotals unchanged. */
+export function toPdfGroups<T>(groups: readonly ReportGroup<T>[]): PdfGroup<T>[] {
+  return groups.map((g) => ({ method: g.key, labelAr: g.label, totalAmount: g.total, count: g.count, items: g.items }));
+}
+
+/** «19/10/2026 18:08», the print date and time in Tripoli's clock, whatever the machine's time zone is. */
+export function formatPrintStamp(at: Date = new Date()): string {
+  const { year, month, day } = libyaDateParts(at);
+  let hh = pad(at.getHours());
+  let mm = pad(at.getMinutes());
+  try {
+    const parts = new Intl.DateTimeFormat('en-US-u-nu-latn', { timeZone: LIBYA_TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(at);
+    const h = parts.find((p) => p.type === 'hour')?.value;
+    const m = parts.find((p) => p.type === 'minute')?.value;
+    if (h && m) {
+      hh = h;
+      mm = m;
+    }
+  } catch {
+    // a runtime without the time-zone database keeps the machine's own clock
+  }
+  return `${pad(day)}/${pad(month)}/${year} ${hh}:${mm}`;
 }
 
 // ── file name ────────────────────────────────────────────────────────────────

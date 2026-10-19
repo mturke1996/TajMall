@@ -38,7 +38,7 @@ export const KIND_HINT: Record<FormKind, string> = {
   CUSTOMER: 'جهة تقبض منها، ومؤجرو المول',
   EMPLOYEE: 'راتب وإجازات وسلف',
   TENANT: 'محل في المول وإيجار شهري',
-  OTHER: 'جهة غير مصنفة',
+  OTHER: 'جهة غير مصنّفة',
 };
 
 export const formKindOf = (form: Pick<ContactFormState, 'kind'>): FormKind =>

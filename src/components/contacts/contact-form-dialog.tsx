@@ -365,7 +365,7 @@ function ContactFormBody({
                   ) : undefined
                 }
               >
-                تمت إضافة «{added.name}». اكتب بيانات التالي.
+                تمت إضافة «{added.name}». أدخل بيانات الملف التالي.
               </Callout>
             )}
 
@@ -378,7 +378,7 @@ function ContactFormBody({
                   {editing && (
                     <p className="text-[12.5px] leading-snug text-ink-mute">
                       {kind === 'OTHER'
-                        ? 'ملف غير مصنّف. اختر نوعه ليظهر ما يناسبه، أو احفظه كما هو.'
+                        ? 'ملف غير مصنّف. اختر نوعه أو احفظه كما هو.'
                         : 'يمكن نقل الملف بين الموردين والعملاء. الحركات والقيود لا تتغيّر.'}
                     </p>
                   )}

@@ -59,6 +59,8 @@ export const DirectoryTableRow = memo(function DirectoryTableRow({ row, ctx }: {
               <Link
                 href={`/contacts/${c.id}`}
                 onClick={stop}
+                // a long name is cut with an ellipsis in the table: the full one is a hover away
+                title={c.name}
                 className={cn('truncate rounded-sm text-[14px] font-semibold text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring', !c.is_active && 'text-ink-mute')}
               >
                 {c.name}
