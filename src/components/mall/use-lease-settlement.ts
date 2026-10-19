@@ -14,6 +14,14 @@ export type LeaseSettlementState =
   | { status: 'ready' | 'failed'; settlement: Settlement };
 
 /**
+ * The most journal entries the database returns for one request (get_journal_entries_filtered caps its limit
+ * at 500; the profile asks for 100). A tenant of several years can pass 100, and a list cut short would hide
+ * the oldest receipts from the "rent linked to no month" check without saying so. A list that fills the cap
+ * is treated as not checked.
+ */
+const JOURNAL_LIMIT = 500;
+
+/**
  * Loads what a tenant's closing statement is built from and builds it. The queries are the profile's own
  * (shared through React Query), but cached figures are not trusted here: the data is refreshed when the
  * statement opens and nothing is shown until that refresh has come back. A load that fails is a failure,
@@ -29,7 +37,7 @@ export function useLeaseSettlement(args: { tenantId: string; contractId: string;
   const leasesQ = useTenantLeaseContracts(tenantId);
   const txQ = useContactTransactions(tenantId);
   const chargesQ = useTenantChargesForTenant(tenantId);
-  const journalQ = useJournalEntries({ contactId: tenantId, status: 'ALL' });
+  const journalQ = useJournalEntries({ contactId: tenantId, status: 'ALL' }, JOURNAL_LIMIT);
   const catsQ = useCategories();
 
   const contact = contactQ.data;
@@ -69,6 +77,7 @@ export function useLeaseSettlement(args: { tenantId: string; contractId: string;
   const unlinked = useMemo(() => {
     if (journalQ.isError) return null;
     if (!journalQ.isSuccess || !txQ.data) return undefined;
+    if ((journalQ.data?.length ?? 0) >= JOURNAL_LIMIT) return null;
     return unlinkedRentReceipts({ receipts: txQ.data, journalEntries: journalQ.data ?? [], charges: rentAccount.charges });
   }, [journalQ.isError, journalQ.isSuccess, journalQ.data, txQ.data, rentAccount.charges]);
 

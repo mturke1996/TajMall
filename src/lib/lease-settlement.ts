@@ -158,6 +158,8 @@ export type RefundPlan =
       full: number;
       /** kept against the arrears when `amount` is taken (0 when there are no arrears to keep it for) */
       offset: number;
+      /** another active lease of the tenant shares the account: `full` is this lease's deposit, not all that is held */
+      limited?: true;
     }
   | { available: false; reason: 'incomplete' | 'no_deposit' | 'refunded' | 'covered_by_arrears'; message: string };
 
@@ -295,7 +297,14 @@ function refundPlanOf(args: { complete: boolean; deposit: DepositFigures | null;
   if (afterArrears <= EPS) {
     return { available: false, reason: 'covered_by_arrears', message: 'التأمين كله مقابل المتأخرات، فلا يُرَد منه شيء.' };
   }
-  return { available: true, amount: afterArrears, full: cap, offset: roundLyd(Math.max(cap - afterArrears, 0)) };
+  const limited = cap < deposit.held - EPS;
+  return {
+    available: true,
+    amount: afterArrears,
+    full: cap,
+    offset: roundLyd(Math.max(cap - afterArrears, 0)),
+    ...(limited ? { limited: true as const } : {}),
+  };
 }
 
 export function buildSettlement(input: SettlementInput): Settlement {

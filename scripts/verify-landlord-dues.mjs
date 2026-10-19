@@ -205,8 +205,49 @@ check('the counts match the months: paid, part-paid and unpaid add up to the due
 check('a payment dated in December for January is read by a schedule that includes it', () => {
   const s = sched(landlord(), [pay(10000, '2025-12-28', rentFor('يناير'))]);
   assert.equal(month(s, 1).paidAmount, 10000);
-  assert.equal(landlordDuesWindowStart(TODAY), '2025-12-01');
-  assert.equal(landlordDuesWindowStart('2027-01-01'), '2026-12-01');
+  assert.equal(landlordDuesWindowStart(TODAY), '2025-07-01');
+  assert.equal(landlordDuesWindowStart('2027-01-01'), '2026-07-01');
+});
+
+check('a month named without a year is the one nearest the payment date', () => {
+  const key = (description, tx_date) => landlordPaymentMonthKey({ description, tx_date });
+  // last month's rent paid in the first days of the new year belongs to the old year
+  assert.equal(key('إيجار ديسمبر', '2026-01-05'), '2025-12');
+  assert.equal(key('سداد إيجار شهر 12', '2026-01-05'), '2025-12');
+  // a rent paid well ahead belongs to the coming year
+  assert.equal(key('إيجار يناير', '2026-11-20'), '2027-01');
+  assert.equal(key('إيجار فبراير', '2026-09-02'), '2027-02');
+  assert.equal(key('إيجار فبراير', '2026-08-02'), '2026-02', 'exactly half a year either way stays in the year of the payment');
+  // the ordinary cases do not move: the month before, the same month, a few months ahead
+  assert.equal(key('إيجار فبراير', '2026-03-05'), '2026-02');
+  assert.equal(key('إيجار مارس', '2026-03-05'), '2026-03');
+  assert.equal(key('إيجار يونيو', '2026-03-05'), '2026-06');
+  assert.equal(key('إيجار سبتمبر', '2026-03-05'), '2026-09', 'six months ahead is still an advance');
+  assert.equal(key('إيجار أكتوبر', '2026-03-05'), '2025-10', 'seven months ahead reads as a late payment of last year');
+  // a year in the text always decides
+  assert.equal(key('إيجار ديسمبر 2026', '2026-01-05'), '2026-12');
+  assert.equal(key('إيجار يناير 2026', '2026-11-20'), '2026-01');
+  assert.equal(key('دفعة 2026-12', '2026-01-05'), '2026-12');
+  // no month named: the month of the date, as written
+  assert.equal(key('إيجار', '2026-01-31'), '2026-01');
+  assert.equal(key(null, '2026-12-31T23:30:00'), '2026-12');
+});
+
+check('a December rent paid in January does not settle the next December', () => {
+  const s = sched(landlord(), [pay(10000, '2026-01-05', 'إيجار ديسمبر')], 2026, '2026-12-15');
+  assert.equal(month(s, 12).paidAmount, 0, 'last December\'s rent is not this December\'s');
+  assert.equal(month(s, 12).status, 'unpaid');
+  const last = sched(landlord(), [pay(10000, '2026-01-05', 'إيجار ديسمبر')], 2025, '2026-12-15');
+  assert.equal(month(last, 12).paidAmount, 10000);
+});
+
+check('a January rent paid in November does not settle this year\'s January', () => {
+  const s = sched(landlord(), [pay(10000, '2026-11-20', 'إيجار يناير')]);
+  assert.equal(month(s, 1).paidAmount, 0);
+  assert.equal(month(s, 1).status, 'unpaid');
+  const next = sched(landlord(), [pay(10000, '2026-11-20', 'إيجار يناير')], 2027);
+  assert.equal(month(next, 1).paidAmount, 10000);
+  assert.equal(month(next, 1).status, 'not_due');
 });
 
 // ---------- the payment text ----------

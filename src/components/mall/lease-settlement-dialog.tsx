@@ -273,7 +273,8 @@ function SettlementBody({
               <Button type="button" variant="outline" className="h-11 sm:h-9" disabled={terminate.isPending} onClick={() => setConfirming(false)}>
                 تراجع
               </Button>
-              <Button type="button" variant="destructive" className="h-11 sm:h-9" disabled={terminate.isPending} onClick={endLease}>
+              {/* the numbers this step restates must still be good: a failed refresh ends the step until they are back */}
+              <Button type="button" variant="destructive" className="h-11 sm:h-9" disabled={terminate.isPending || !ready} onClick={endLease}>
                 {terminate.isPending ? <Loader2 className="animate-spin" aria-hidden /> : <DoorClosed className="stroke-[1.6]" aria-hidden />}
                 أنهِ العقد
               </Button>

@@ -3,7 +3,26 @@
  * transfer must carry, when a missing description is worth one more tap, and how an existing transaction
  * becomes the starting point of a new one. The dialog is a thin layer over these.
  */
+import { dayNumber } from '@/lib/duplicate-check';
 import { isRentRevenueCode } from '@/lib/party-contacts';
+
+// ── the entry date ──────────────────────────────────────────────────────────────────────────────
+
+/** The books start here: the date field's own lower limit. */
+export const EARLIEST_ENTRY_DATE = '2020-01-01';
+
+/**
+ * Why an entry date cannot be posted, or null when it can: a real calendar day, not later than today (all
+ * dates are local calendar days), not before the books start. The date field has min and max too, but the
+ * form validates in code (a typed year such as 2062 or 0202 slips past a browser's limits when it is
+ * not enforced), so a typo never lands a payment in the wrong period.
+ */
+export function entryDateError(date: string, today: string): string | null {
+  if (dayNumber(date) === null) return 'حدّد تاريخ العملية';
+  if (date > today) return 'تاريخ العملية لم يحن بعد. اختر اليوم أو تاريخاً سابقاً.';
+  if (date < EARLIEST_ENTRY_DATE) return 'تاريخ العملية قبل 2020. تأكد من السنة.';
+  return null;
+}
 
 // ── cheque and transfer details ─────────────────────────────────────────────────────────────────
 

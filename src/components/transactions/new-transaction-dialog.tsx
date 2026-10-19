@@ -26,7 +26,7 @@ import {
 import { checkDuplicatesNow, duplicateQueryFor, useDuplicateCandidates, useEntryUsageRows } from '@/lib/db/entry-queries';
 import { findPossibleDuplicates, duplicateSignature, duplicatesConfirmed } from '@/lib/duplicate-check';
 import { buildUsage, suggestDescription } from '@/lib/entry-suggestions';
-import { needsDescriptionNudge, paymentNoteAr, validatePaymentDetails, withPaymentNote, type EntryMethod } from '@/lib/entry-guards';
+import { EARLIEST_ENTRY_DATE, entryDateError, needsDescriptionNudge, paymentNoteAr, validatePaymentDetails, withPaymentNote, type EntryMethod } from '@/lib/entry-guards';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
 import { useVisualViewportFit } from '@/lib/hooks/use-visual-viewport-fit';
 import type { ContactRow, NewTransactionInput, TransactionFormDraftRow, PaymentMethod } from '@/lib/db/types';
@@ -138,7 +138,7 @@ export function NewTransactionDialog() {
   const deleteDraft = useDeleteTransactionFormDraft();
 
   const { data: categoriesAll = [], isLoading: catsLoading, isError: catsError, refetch: refetchCats } = useCategories();
-  const { data: cashboxData, isLoading: boxLoading } = useCashboxes();
+  const { data: cashboxData, isLoading: boxLoading, isError: boxError, refetch: refetchBoxes } = useCashboxes();
   const cashboxes = useMemo(() => cashboxData ?? [], [cashboxData]);
   const { data: contactsData, isLoading: contactsLoading, isError: contactsError, refetch: refetchContacts } = useContacts();
   const contactsAll = useMemo(() => contactsData ?? [], [contactsData]);
@@ -151,15 +151,20 @@ export function NewTransactionDialog() {
 
   // A copied transaction names an account, a cashbox and a party that may have been archived since. Once the
   // lists have loaded, a choice that is no longer there is dropped and the dialog says so, instead of
-  // posting to something the person cannot see.
-  const prefillMissing = useMemo(
-    () => ({
-      category: !!prefillCheck?.category && !catsLoading && !categories.some((c) => c.id === prefillCheck.category),
-      cashbox: !!prefillCheck?.cashbox && !boxLoading && !cashboxes.some((c) => c.id === prefillCheck.cashbox),
-      contact: !!prefillCheck?.contact && !contactsLoading && !contactsAll.some((c) => c.id === prefillCheck.contact),
-    }),
-    [prefillCheck, catsLoading, boxLoading, contactsLoading, categories, cashboxes, contactsAll],
-  );
+  // posting to something the person cannot see. A list that failed to load says nothing about what it holds,
+  // so nothing is dropped (or called archived) on its account; the list's own error state speaks instead.
+  // The account is looked up among all kinds: switching to the other kind clears it without calling it gone.
+  const prefillMissing = useMemo(() => {
+    const known = (loading: boolean, failed: boolean, rows: number) => !loading && !(failed && rows === 0);
+    return {
+      category:
+        !!prefillCheck?.category &&
+        known(catsLoading, catsError, categoriesAll.length) &&
+        !categoriesAll.some((c) => c.id === prefillCheck.category && c.code !== 'EXP-TEST'),
+      cashbox: !!prefillCheck?.cashbox && known(boxLoading, boxError, cashboxes.length) && !cashboxes.some((c) => c.id === prefillCheck.cashbox),
+      contact: !!prefillCheck?.contact && known(contactsLoading, contactsError, contactsAll.length) && !contactsAll.some((c) => c.id === prefillCheck.contact),
+    };
+  }, [prefillCheck, catsLoading, catsError, boxLoading, boxError, contactsLoading, contactsError, categoriesAll, cashboxes, contactsAll]);
   const categoryId = prefillMissing.category && rawCategoryId === prefillCheck?.category ? '' : rawCategoryId;
   const contactId = prefillMissing.contact && rawContactId === prefillCheck?.contact ? '' : rawContactId;
   const prefillNotes = [
@@ -287,7 +292,9 @@ export function NewTransactionDialog() {
     months: rentMonths,
     amount: amountNumber,
   });
-  const rentReady = showRentAllocation && !rentPlan.loading && tenantChargesQuery.isFetched;
+  // months that could not be read are not "no months": the split would be built on nothing
+  const chargesFailed = showRentAllocation && tenantChargesQuery.isError && !tenantChargesQuery.data;
+  const rentReady = showRentAllocation && !chargesFailed && !rentPlan.loading && tenantChargesQuery.isFetched;
   const setRentAmount = useCallback((n: number) => setAmount(n > 0 ? String(n) : ''), []);
 
   // The months chosen write the description, but never over a line the person typed themselves.
@@ -389,8 +396,10 @@ export function NewTransactionDialog() {
       fail('أدخل مبلغاً صحيحاً أكبر من صفر، بثلاث خانات عشرية على الأكثر.', 'tx-amount');
       return;
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      fail('حدّد تاريخ العملية', 'tx-date');
+    // the form is validated here, not by the browser, so the date field's min and max are enforced in code
+    const dateProblem = entryDateError(date, todayISODate());
+    if (dateProblem) {
+      fail(dateProblem, 'tx-date');
       return;
     }
     if (!categoryId) {
@@ -411,7 +420,7 @@ export function NewTransactionDialog() {
 
     if (showRentAllocation) {
       if (!rentReady) {
-        setError('انتظر تحميل أشهر المستأجر');
+        setError(chargesFailed ? 'تعذّر تحميل أشهر المستأجر. أعد المحاولة ثم رحّل.' : 'انتظر تحميل أشهر المستأجر');
         return;
       }
       if (!rentPlan.plan.ok) {
@@ -831,7 +840,7 @@ export function NewTransactionDialog() {
                 <div className="flex gap-2">
                   <Combobox
                     id="tx-contact"
-                    className="flex-1"
+                    className="min-w-0 flex-1"
                     value={contactId}
                     onValueChange={setContactId}
                     options={partyOptions}
@@ -909,7 +918,14 @@ export function NewTransactionDialog() {
             </div>
 
             {showRentAllocation && contactId && (
-              rentReady ? (
+              chargesFailed ? (
+                <div role="alert" className="flex flex-wrap items-center gap-x-2 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-[12.5px] text-danger-ink">
+                  تعذّر تحميل أشهر المستأجر.
+                  <Button type="button" variant="link" size="sm" className="h-auto min-h-11 text-[12.5px] text-danger-ink sm:min-h-0" onClick={() => void tenantChargesQuery.refetch()}>
+                    أعد المحاولة
+                  </Button>
+                </div>
+              ) : rentReady ? (
                 <RentRevenueMonthsBlock
                   tenantId={contactId}
                   monthlyRent={tenantMonthlyRent}
@@ -960,7 +976,15 @@ export function NewTransactionDialog() {
                   ))}
                 </select>
               </div>
-              {!boxLoading && cashboxes.length === 0 && (
+              {!boxLoading && cashboxes.length === 0 && boxError ? (
+                <p role="alert" className="col-span-2 flex flex-wrap items-center gap-x-2 text-[12.5px] text-danger-ink">
+                  تعذّر تحميل الخزائن.
+                  <Button type="button" variant="link" size="sm" className="h-auto min-h-11 text-[12.5px] sm:min-h-0" onClick={() => void refetchBoxes()}>
+                    أعد المحاولة
+                  </Button>
+                </p>
+              ) : null}
+              {!boxLoading && cashboxes.length === 0 && !boxError && (
                 <p className="col-span-2 text-[12.5px] text-danger-ink">لا توجد خزينة نشطة — أضف خزينة من صفحة الخزائن أولاً.</p>
               )}
             </div>
@@ -985,7 +1009,7 @@ export function NewTransactionDialog() {
                 required
                 value={date}
                 max={todayISODate()}
-                min="2020-01-01"
+                min={EARLIEST_ENTRY_DATE}
                 onChange={(e) => setDate(e.target.value)}
                 className={FIELD_CLASS}
               />

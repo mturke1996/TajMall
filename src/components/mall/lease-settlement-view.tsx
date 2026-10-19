@@ -56,8 +56,8 @@ export function SettlementAnchor({ settlement, onRetry, retrying }: { settlement
       <p id="settle-net-label" className="text-[12.5px] text-ink-mute">
         صافي التصفية
       </p>
-      <p className="mt-1 text-[19px] font-semibold leading-snug text-foreground">{v.sentence}</p>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-ink-mute">{v.detail}</p>
+      <p className="mt-1 text-[19px] font-semibold leading-snug tabular-nums text-foreground">{v.sentence}</p>
+      <p className="mt-1 text-[12.5px] leading-relaxed tabular-nums text-ink-mute">{v.detail}</p>
     </section>
   );
 }
@@ -65,7 +65,7 @@ export function SettlementAnchor({ settlement, onRetry, retrying }: { settlement
 function GroupRow({ children }: { children: React.ReactNode }) {
   return (
     <tr>
-      <th scope="colgroup" colSpan={2} className="bg-canvas-sunken/50 px-4 py-1.5 text-start text-[12px] font-medium text-ink-mute">
+      <th scope="rowgroup" colSpan={2} className="bg-canvas-sunken/50 px-4 py-1.5 text-start text-[12px] font-medium text-ink-mute">
         {children}
       </th>
     </tr>
@@ -185,7 +185,7 @@ export function SettlementStatement({ settlement }: { settlement: Settlement }) 
                         aria-expanded={expanded}
                         onClick={() => setExpanded((v) => !v)}
                       >
-                        {expanded ? 'إخفاء الأشهر' : `عرض كل البنود (${rows.length})`}
+                        {expanded ? 'إخفاء البنود' : `عرض كل البنود (${rows.length})`}
                       </Button>
                     </td>
                   </tr>
@@ -288,24 +288,27 @@ export function RefundSection({
       ) : (
         <>
           {plan.offset > 0 ? (
-            <fieldset className="m-0 grid gap-2 border-0 p-0">
+            <fieldset className="m-0 grid min-w-0 gap-2 border-0 p-0" disabled={blocked != null}>
               <legend className="sr-only">كيف يُرَد التأمين</legend>
               <RefundOption
                 checked={mode === 'net'}
                 onSelect={() => onMode('net')}
+                disabled={blocked != null}
                 title={`بعد خصم المتأخرات: يُرَد ${money(plan.amount)}`}
                 hint={`يبقى ${money(plan.offset)} من التأمين في الدفاتر مقابل المتأخرات.`}
               />
               <RefundOption
                 checked={mode === 'full'}
                 onSelect={() => onMode('full')}
-                title={`التأمين كاملاً: يُرَد ${money(plan.full)}`}
+                disabled={blocked != null}
+                title={`${plan.limited ? 'تأمين هذا العقد كاملاً' : 'التأمين كاملاً'}: يُرَد ${money(plan.full)}`}
                 hint="تبقى المتأخرات مطلوبة من المستأجر."
               />
             </fieldset>
           ) : (
             <p className="text-[13.5px] leading-relaxed text-foreground">
-              يُرَد التأمين كله: <span className="font-semibold tabular-nums">{money(plan.amount)}</span>
+              {plan.limited ? 'يُرَد تأمين هذا العقد: ' : 'يُرَد التأمين كله: '}
+              <span className="font-semibold tabular-nums">{money(plan.amount)}</span>
             </p>
           )}
           {blocked ? (
@@ -323,15 +326,36 @@ export function RefundSection({
   );
 }
 
-function RefundOption({ checked, onSelect, title, hint }: { checked: boolean; onSelect: () => void; title: string; hint: string }) {
+function RefundOption({
+  checked,
+  onSelect,
+  disabled,
+  title,
+  hint,
+}: {
+  checked: boolean;
+  onSelect: () => void;
+  /** the refund cannot be prepared from here: the choice is shown but cannot be changed */
+  disabled?: boolean;
+  title: string;
+  hint: string;
+}) {
   return (
     <label
       className={cn(
-        'flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border bg-card px-3 py-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/40',
-        checked ? 'border-foreground' : 'border-border hover:bg-canvas-sunken',
+        'flex min-h-11 items-start gap-3 rounded-lg border bg-card px-3 py-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/40',
+        disabled ? 'cursor-default opacity-60' : 'cursor-pointer',
+        checked ? 'border-foreground' : disabled ? 'border-border' : 'border-border hover:bg-canvas-sunken',
       )}
     >
-      <input type="radio" name="settle-refund-mode" className="mt-1 size-4 shrink-0 accent-foreground" checked={checked} onChange={onSelect} />
+      <input
+        type="radio"
+        name="settle-refund-mode"
+        className="mt-1 size-4 shrink-0 accent-foreground"
+        checked={checked}
+        disabled={disabled}
+        onChange={onSelect}
+      />
       <span className="min-w-0">
         <span className="block text-[13.5px] font-medium text-foreground">{title}</span>
         <span className="block text-[12.5px] leading-relaxed text-ink-mute">{hint}</span>

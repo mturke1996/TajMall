@@ -259,6 +259,46 @@ check('wording: the headline agrees with the count, the reason names what matche
   assert.equal(dup.duplicateReasonAr(find([tx('d', 1, '2026-10-18', { category_id: 'k2' })])), 'نفس المبلغ والجهة، بفارق 3 أيام على الأكثر');
 });
 
+check('wording: the reason never claims for every row what only some rows share', () => {
+  // one row matches by party only, another by account only: both are named as "or", not "and"
+  const mixed = find([tx('p', 1, '2026-10-18', { category_id: 'k2' }), tx('q', 2, '2026-10-18', { contact_id: null })]);
+  assert.equal(mixed.length, 2);
+  assert.equal(dup.duplicateReasonAr(mixed), 'نفس المبلغ مع نفس الجهة أو البند، بفارق 3 أيام على الأكثر');
+  // every row shares the party (the accounts differ among them): the account is not claimed
+  const sameParty = find([tx('r', 1, '2026-10-18', { category_id: 'k2' }), tx('s', 2, '2026-10-17', { category_id: 'k3' })]);
+  assert.equal(dup.duplicateReasonAr(sameParty), 'نفس المبلغ والجهة، بفارق 3 أيام على الأكثر');
+  // every row is on the same account and some also share the party: only the account holds for all
+  const sameAccount = find([tx('t', 1, '2026-10-18'), tx('u', 2, '2026-10-17', { contact_id: null })]);
+  assert.equal(dup.duplicateReasonAr(sameAccount), 'نفس المبلغ والبند، بفارق 3 أيام على الأكثر');
+});
+
+// ── the entry date ──────────────────────────────────────────────────────────────────────────────
+
+check('entry date: today and earlier days are fine, the first day of the books included', () => {
+  assert.equal(guards.entryDateError('2026-10-19', '2026-10-19'), null);
+  assert.equal(guards.entryDateError('2026-10-18', '2026-10-19'), null);
+  assert.equal(guards.entryDateError('2020-01-01', '2026-10-19'), null);
+  assert.equal(guards.EARLIEST_ENTRY_DATE, '2020-01-01');
+});
+
+check('entry date: a day that has not come yet is refused, even by one day (a typed year must not post to the future)', () => {
+  assert.match(guards.entryDateError('2026-10-20', '2026-10-19'), /لم يحن بعد/);
+  assert.match(guards.entryDateError('2062-10-19', '2026-10-19'), /لم يحن بعد/);
+  // the comparison is by calendar day, so the end of a month is not mistaken for the next one
+  assert.equal(guards.entryDateError('2026-10-31', '2026-10-31'), null);
+  assert.match(guards.entryDateError('2026-11-01', '2026-10-31'), /لم يحن بعد/);
+});
+
+check('entry date: before the books start, or not a real day, is refused with its own sentence', () => {
+  assert.match(guards.entryDateError('2019-12-31', '2026-10-19'), /قبل 2020/);
+  assert.match(guards.entryDateError('0202-10-19', '2026-10-19'), /قبل 2020/);
+  for (const bad of ['', 'soon', '2026-13-01', '2026-02-30', '19/10/2026', '275760-09-13']) {
+    assert.equal(guards.entryDateError(bad, '2026-10-19'), 'حدّد تاريخ العملية', JSON.stringify(bad));
+  }
+  assert.equal(guards.entryDateError('2028-02-29', '2028-03-01'), null, 'a leap day is a real day');
+  assert.equal(guards.entryDateError('2027-02-29', '2028-03-01'), 'حدّد تاريخ العملية', 'but not in a common year');
+});
+
 // ── cheque and transfer details ─────────────────────────────────────────────────────────────────
 
 const pay = (over) => guards.validatePaymentDetails({ method: 'CHEQUE', ...over });

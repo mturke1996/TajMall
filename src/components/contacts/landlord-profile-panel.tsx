@@ -75,8 +75,17 @@ function monthState(m: LandlordRentMonth<TransactionWithRelations>): { variant: 
 
 function Loading() {
   return (
-    <div className="flex flex-col gap-3" aria-busy="true" aria-label="جارٍ تحميل حركات المؤجر">
-      <Skeleton className="h-[86px] w-full rounded-lg" />
+    <div className="flex flex-col gap-3" role="status" aria-busy="true">
+      <span className="sr-only">جارٍ تحميل حركات المؤجر…</span>
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4" aria-hidden>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="flex flex-col gap-2 bg-card p-4">
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+        ))}
+      </div>
       <div className="surface divide-y divide-border overflow-hidden">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="flex items-center justify-between gap-3 px-4 py-3.5">
@@ -140,6 +149,11 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
     [contact, transactions, selectedYear, today],
   );
   const due = useMemo(() => buildLandlordDue(contact, transactions, today), [contact, transactions, today]);
+  // paid beyond a due month's rent, or for a month not owed (yet): it is in "المدفوع" but settles no other month
+  const setAside = useMemo(
+    () => Math.round((schedule.overpaidAmount + schedule.months.reduce((sum, m) => sum + (m.due ? 0 : m.paidAmount), 0)) * 1000) / 1000,
+    [schedule],
+  );
 
   const payMonth = (m: LandlordRentMonth<TransactionWithRelations>) => {
     if (!mayRecordPayment || m.remainingAmount <= 0) return;
@@ -232,25 +246,24 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
           </div>
         </div>
 
-        <div className="border-t border-border px-4 py-3.5 sm:px-5">
-          {failed ? (
-            <p role="alert" className="text-[13px] text-danger-ink">
-              تعذّر تحميل حركات المؤجر، فلا يمكن عرض حالة هذا الشهر.
-            </p>
-          ) : txLoading ? (
-            <div className="flex flex-col gap-2" aria-busy="true">
-              <Skeleton className="h-5 w-40" />
-              <Skeleton className="h-4 w-64 max-w-full" />
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <StatusLine due={due} hint={hint} />
-              {next && mayRecordPayment && (
-                <LandlordPayButton name={contact.name} next={next} onPay={() => pay(contact.id, next, contact.kind)} className="w-full sm:w-auto" />
-              )}
-            </div>
-          )}
-        </div>
+        {/* a failed read is said once, by the card below, which also offers the retry */}
+        {!failed && (
+          <div className="border-t border-border px-4 py-3.5 sm:px-5">
+            {txLoading ? (
+              <div className="flex flex-col gap-2" aria-busy="true">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-4 w-64 max-w-full" />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <StatusLine due={due} hint={hint} />
+                {next && mayRecordPayment && (
+                  <LandlordPayButton name={contact.name} next={next} onPay={() => pay(contact.id, next, contact.kind)} className="w-full sm:w-auto" />
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {failed ? (
@@ -302,9 +315,9 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
               {formatMoney(schedule.totalOutstanding, 'LYD')}
             </Figure>
           </div>
-          {schedule.overpaidAmount > 0 && (
+          {setAside > 0 && (
             <p className="-mt-3 px-1 text-[12px] text-ink-mute">
-              دُفع أكثر من المستحق في بعض الأشهر بمقدار {formatMoney(schedule.overpaidAmount, 'LYD')}؛ لا يُخصم من شهر آخر.
+              من المدفوع {formatMoney(setAside, 'LYD')} زيادة على المستحق أو عن أشهر غير مستحقة؛ ولا يُخصم من شهر آخر.
             </p>
           )}
 
@@ -336,8 +349,8 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
               </div>
             </div>
 
-            {/* phone: one card per month */}
-            <ul className="surface divide-y divide-border overflow-hidden md:hidden" aria-label={`أشهر ${selectedYear}`}>
+            {/* phone and tablet: one card per month (the sidebar leaves a tablet little width) */}
+            <ul className="surface divide-y divide-border overflow-hidden xl:hidden" aria-label={`أشهر ${selectedYear}`}>
               {schedule.months.map((m) => {
                 const state = monthState(m);
                 return (
@@ -378,7 +391,7 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
                         size="sm"
                         variant="outline"
                         className="mt-2.5 h-11 w-full"
-                        aria-label={`سداد إيجار شهر ${m.monthNameAr} ${m.year}، المبلغ ${formatMoney(m.remainingAmount, 'LYD')}`}
+                        aria-label={`سداد شهر ${m.monthNameAr} ${m.year}، المبلغ ${formatMoney(m.remainingAmount, 'LYD')}`}
                         onClick={() => payMonth(m)}
                       >
                         سداد شهر {m.monthNameAr}
@@ -408,8 +421,8 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
               </li>
             </ul>
 
-            {/* tablet and up: the month table */}
-            <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
+            {/* wide screens: the month table */}
+            <div className="hidden overflow-x-auto rounded-xl border border-border bg-card xl:block">
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="border-b border-border bg-canvas-sunken text-[12.5px] text-ink-mute">
@@ -446,7 +459,7 @@ export function LandlordProfilePanel({ contact, transactions, journalEntries, tx
                               type="button"
                               size="sm"
                               variant="outline"
-                              aria-label={`سداد إيجار شهر ${m.monthNameAr} ${m.year}، المبلغ ${formatMoney(m.remainingAmount, 'LYD')}`}
+                              aria-label={`سداد شهر ${m.monthNameAr} ${m.year}، المبلغ ${formatMoney(m.remainingAmount, 'LYD')}`}
                               onClick={() => payMonth(m)}
                             >
                               سداد شهر {m.monthNameAr}

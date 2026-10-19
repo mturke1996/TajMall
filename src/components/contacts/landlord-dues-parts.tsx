@@ -77,7 +77,8 @@ export function LandlordPayButton({
       size="sm"
       variant="outline"
       className={cn('h-11 gap-1.5 md:h-8', className)}
-      aria-label={`سداد إيجار شهر ${next.monthNameAr} ${next.year} للمؤجر ${name}، المبلغ ${formatMoney(next.amount, 'LYD')}`}
+      // starts with the visible text, so a voice command that says what is on the button finds it
+      aria-label={`${landlordPayLabel(next)} ${formatMoney(next.amount, 'LYD')} للمؤجر ${name}`}
       onClick={onPay}
     >
       <HandCoins aria-hidden />

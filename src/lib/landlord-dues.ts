@@ -101,12 +101,12 @@ export const LANDLORD_DUES_MONTHS = (n: number) => arabicCount(n, MONTH_FORMS);
 export const LANDLORD_DUES_HREF = '/mall?tab=people&role=LANDLORD';
 
 /**
- * First day the payments are read from. A rent for January is often paid in December, so the read starts
- * at the beginning of the month before the year.
+ * First day the payments are read from. A rent is often paid ahead (January's in December, or a half year
+ * ahead), so the read starts six months before the year; an older payment is not for this year's months.
  */
 export function landlordDuesWindowStart(today: string): string {
   const year = Number(today.slice(0, 4));
-  return `${year - 1}-12-01`;
+  return `${year - 1}-07-01`;
 }
 
 /** Landlords with a monthly rent, and how many were left out for having none. Inactive files owe nothing new. */

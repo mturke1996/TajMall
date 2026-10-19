@@ -61,7 +61,7 @@ export function ExtendContractDialog({
     if (!item) return null;
     const gap = daysBetween(item.endDate, date);
     if (gap == null) return 'أدخل تاريخاً صحيحاً.';
-    if (gap <= 0) return 'التاريخ الجديد يجب أن يكون بعد تاريخ الانتهاء الحالي. لتقصير العقد استخدم «إنهاء العقد».';
+    if (gap <= 0) return 'التاريخ الجديد يجب أن يكون بعد تاريخ الانتهاء الحالي. لتقصير العقد استخدم «تصفية» ثم «إنهاء العقد».';
     if (date > addMonthsISO(item.endDate, MAX_EXTENSION_YEARS * 12)) return `أطول تمديد في خطوة واحدة ${MAX_EXTENSION_YEARS} سنوات.`;
     return null;
   }, [item, date]);

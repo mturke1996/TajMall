@@ -28,9 +28,9 @@ const s = StyleSheet.create({
     borderRightWidth: 3,
     borderRightColor: PDF.logoGreen,
     borderRadius: 3,
-    paddingVertical: 14,
+    paddingVertical: 11,
     paddingHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   heroPayer: { flex: 1.35, minWidth: 0, ...RTL },
   heroAmount: { flex: 1, minWidth: 0, ...RTL },
@@ -42,35 +42,39 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: PDF.border,
     borderRadius: 3,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   fact: {
     direction: 'ltr',
     flexDirection: 'row-reverse',
     alignItems: 'flex-start',
-    gap: 10,
-    paddingVertical: 7,
+    gap: 16,
+    paddingVertical: 5,
     paddingHorizontal: 12,
     borderBottomWidth: 0.5,
     borderBottomColor: PDF.border,
   },
   factLast: { borderBottomWidth: 0 },
-  factLabel: { width: '12%', fontSize: 8, color: PDF.muted, ...RTL },
+  factCell: { flex: 1, minWidth: 0, direction: 'ltr', flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 8 },
+  factLabel: { width: 50, fontSize: 8, color: PDF.muted, ...RTL },
   factValue: { flex: 1, fontSize: 9.5, fontWeight: 'bold', color: PDF.text, lineHeight: 1.4, ...RTL },
+
+  // a receipt lists few rows, so they are tighter than a report's, and four months still fit one page
+  monthRow: { paddingVertical: 5, minHeight: 22 },
 
   balance: {
     borderWidth: 1,
     borderColor: PDF.border,
     borderRadius: 3,
     backgroundColor: PDF.mutedBg,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   balanceRow: {
     direction: 'ltr',
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 9,
+    paddingVertical: 7,
     paddingHorizontal: 12,
   },
   balanceDivider: { borderTopWidth: 0.5, borderTopColor: PDF.border },
@@ -79,10 +83,10 @@ const s = StyleSheet.create({
   settled: { fontSize: 9.5, color: PDF.text, lineHeight: 1.4, ...RTL },
   balanceAmount: { width: '30%' },
 
-  sign: { marginTop: 36, flexDirection: 'row-reverse', justifyContent: 'space-between' },
+  sign: { marginTop: 26, flexDirection: 'row-reverse', justifyContent: 'space-between' },
   signBox: { width: '38%', borderTopWidth: 0.8, borderTopColor: PDF.text, paddingTop: 5 },
   signText: { fontSize: 9, color: PDF.muted, textAlign: 'center', direction: 'rtl' },
-  caption: { fontSize: 8, color: PDF.muted, textAlign: 'center', direction: 'rtl', marginTop: 16, lineHeight: 1.5 },
+  caption: { fontSize: 8, color: PDF.muted, textAlign: 'center', direction: 'rtl', marginTop: 10, lineHeight: 1.5 },
 });
 
 type ColumnKey = 'month' | 'status' | 'value' | 'before' | 'paid' | 'remaining';
@@ -140,7 +144,7 @@ function MonthsTable({ receipt }: { receipt: PaymentReceipt }) {
         ))}
       </View>
       {receipt.lines.map((line, i) => (
-        <View key={i} style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]} wrap={false}>
+        <View key={i} style={[pdfReportTable.tableRow, s.monthRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]} wrap={false}>
           {physical.map((c) => (
             <React.Fragment key={c.key}>{cell(c, line)}</React.Fragment>
           ))}
@@ -199,13 +203,17 @@ function Balance({ receipt }: { receipt: PaymentReceipt }) {
 
 export function PaymentReceiptPDF({ receipt }: { receipt: PaymentReceipt }) {
   const isRent = receipt.kind === 'rent';
-  const facts = [
+  // wide facts get a row each; the short ones share rows two by two
+  const wide = [
     !isRent && receipt.category ? { label: 'البند', value: receipt.category } : null,
     receipt.purpose ? { label: 'البيان', value: receipt.purpose } : null,
+  ].filter(Boolean);
+  const short = [
     receipt.source ? { label: receipt.sourceLabel, value: receipt.source } : null,
     receipt.methodDetail ? { label: 'بيانات الصك', value: receipt.methodDetail } : null,
     receipt.reference ? { label: 'المرجع', value: receipt.reference } : null,
   ].filter(Boolean);
+  const factRows = [...wide.map((f) => [f]), ...Array.from({ length: Math.ceil(short.length / 2) }, (_, i) => short.slice(i * 2, i * 2 + 2))];
 
   return (
     <ReportShell
@@ -231,12 +239,16 @@ export function PaymentReceiptPDF({ receipt }: { receipt: PaymentReceipt }) {
         </View>
       </View>
 
-      {facts.length > 0 ? (
+      {factRows.length > 0 ? (
         <View style={s.facts} wrap={false}>
-          {facts.map((f, i) => (
-            <View key={f.label} style={[s.fact, i === facts.length - 1 ? s.factLast : {}]}>
-              <Text style={s.factLabel}>{ar(f.label)}</Text>
-              <Text style={s.factValue}>{ar(f.value)}</Text>
+          {factRows.map((row, i) => (
+            <View key={i} style={[s.fact, i === factRows.length - 1 ? s.factLast : {}]}>
+              {row.map((f) => (
+                <View key={f.label} style={s.factCell}>
+                  <Text style={s.factLabel}>{ar(f.label)}</Text>
+                  <Text style={s.factValue}>{ar(f.value)}</Text>
+                </View>
+              ))}
             </View>
           ))}
         </View>
@@ -244,7 +256,7 @@ export function PaymentReceiptPDF({ receipt }: { receipt: PaymentReceipt }) {
 
       {receipt.lines.length > 0 ? (
         <>
-          <Text style={pdfReportTable.sectionTitle} minPresenceAhead={80}>
+          <Text style={[pdfReportTable.sectionTitle, { marginTop: 0, marginBottom: 6 }]} minPresenceAhead={80}>
             {ar('الأشهر المسدَّدة')}
           </Text>
           <MonthsTable receipt={receipt} />
@@ -254,7 +266,6 @@ export function PaymentReceiptPDF({ receipt }: { receipt: PaymentReceipt }) {
       <Balance receipt={receipt} />
 
       {/* the signatures and the closing line move together, and never into the footer */}
-      <View minPresenceAhead={120} />
       <View wrap={false}>
         <View style={s.sign}>
           <View style={s.signBox}>

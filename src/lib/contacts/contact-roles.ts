@@ -355,12 +355,25 @@ export function landlordMonthName(monthNum: number): string {
 
 /**
  * The month a payment is for: the one its description names ("سداد إيجار شهر مارس 2026"), otherwise the month
- * it was paid in. The fallback reads the date text, so it does not move with the device time zone.
+ * it was paid in. Both read the date text, so the answer does not move with the device time zone.
+ *
+ * A month named without a year is the occurrence nearest the payment date: December's rent paid on the 5th of
+ * January is last year's December, and January's rent paid in November is next year's January. Taking the year
+ * of the payment date would count either one against the wrong year and could hide a real gap there.
  */
 export function landlordPaymentMonthKey(tx: { description?: string | null; tx_date: string }): string {
   const paidIn = String(tx.tx_date ?? '').slice(0, 7);
   const target = extractTargetRentMonth(tx.description, tx.tx_date);
-  return target.target_rent_month && target.target_rent_month_key ? target.target_rent_month_key : paidIn;
+  if (!target.target_rent_month || !target.target_rent_month_key) return paidIn;
+  // the same year test as extractTargetRentMonth: a year in the text decides, otherwise the nearest one does
+  if (!/\b202\d\b/.test(tx.description ?? '') &&/^\d{4}-(0[1-9]|1[0-2])$/.test(paidIn)) {
+    const month = Number(target.target_rent_month_key.slice(5, 7));
+    const ahead = month - Number(paidIn.slice(5, 7));
+    const paidYear = Number(paidIn.slice(0, 4));
+    const year = ahead > 6 ? paidYear - 1 : ahead < -6 ? paidYear + 1 : paidYear;
+    return `${year}-${String(month).padStart(2, '0')}`;
+  }
+  return target.target_rent_month_key;
 }
 
 /**

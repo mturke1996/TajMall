@@ -36,7 +36,8 @@ function PhoneRow({ row, canPay, onPay }: PayProps & { row: LandlordDue }) {
   const idle = row.status === 'none' ? null : landlordIdleText(row.idleReason);
   return (
     <li className="px-4 py-3.5">
-      <Link href={`/contacts/${row.contactId}`} className="block truncate text-[14px] font-semibold text-foreground hover:underline">
+      {/* the padding widens the tap area to 44px; the equal negative margin keeps the layout as it was */}
+      <Link href={`/contacts/${row.contactId}`} className="-my-3 block truncate py-3 text-[14px] font-semibold text-foreground hover:underline">
         {row.name}
       </Link>
       <p className="mt-0.5 truncate text-[12.5px] text-ink-mute">
@@ -142,8 +143,17 @@ function DeskTable({ dues, canPay, onPay }: PayProps & { dues: LandlordDues }) {
 
 function Loading() {
   return (
-    <div className="flex flex-col gap-3" aria-busy="true" aria-label="جارٍ تحميل مستحقات المؤجرين">
-      <Skeleton className="h-[98px] w-full rounded-lg" />
+    <div className="flex flex-col gap-3" role="status" aria-busy="true">
+      <span className="sr-only">جارٍ تحميل مستحقات المؤجرين…</span>
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4" aria-hidden>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="flex flex-col gap-2 bg-card p-4">
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+        ))}
+      </div>
       <div className="surface divide-y divide-border overflow-hidden">
         {[0, 1, 2].map((i) => (
           <div key={i} className="flex flex-col gap-2 px-4 py-3.5">
@@ -223,7 +233,7 @@ export function LandlordDuesPanel() {
 
           <div className="flex flex-col gap-1 px-1 text-[12px] leading-relaxed text-ink-mute">
             <p>الأرقام من المعاملات المرحّلة والمُسوّاة، والشهر يُقرأ من بيان السداد (وإن لم يُذكر فهو شهر تاريخ الصرف). المتأخرات تخص أشهر {dues.year} فقط، وما قبلها يظهر في كشف المؤجر.</p>
-            {dues.noRent > 0 && <p>لا تظهر هنا مستحقات المؤجرين الذين بلا إيجار شهري مسجَّل ({dues.noRent}).</p>}
+            {dues.noRent > 0 && <p>لا تظهر هنا مستحقات المؤجرين الذين بلا إيجار شهري مسجَّل ({arabicCount(dues.noRent, LANDLORDS)}).</p>}
             {behindWithoutStart.length > 0 && <p>تُحسب المتأخرات من يناير لأن تاريخ بداية العقد غير مسجَّل عند: {names(behindWithoutStart)}.</p>}
             {badDates.length > 0 && <p className="text-warning-ink">تاريخا العقد غير منطقيين عند: {names(badDates)}. راجع بيانات العقد.</p>}
             {ready?.refreshFailed && (

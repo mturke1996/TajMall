@@ -206,7 +206,8 @@ export function Combobox({
             <p role="status" className="sr-only">
               {arabicCount(shown, RESULTS)}
             </p>
-            {clearLabel && !q && selected && (
+            {/* by `value`, not by a match in `options`: a choice the list no longer shows (another party kind is filtered) can still be cleared */}
+            {clearLabel && !q && value && (
               <CommandItem value="__clear__" onSelect={() => pick('')} className="text-ink-soft">
                 <X className="size-4 shrink-0 stroke-[1.6] text-ink-mute" aria-hidden />
                 <span className="flex-1">{clearLabel}</span>
@@ -240,7 +241,11 @@ export function Combobox({
                 )}
               </>
             )}
-            {view.hidden > 0 && <p className="px-3 py-2 text-center text-[12px] text-ink-mute">اكتب للبحث بين {view.hidden + MAX_ROWS} خياراً.</p>}
+            {view.hidden > 0 && (
+              <p className="px-3 py-2 text-center text-[12px] text-ink-mute">
+                {q ? `تظهر أول ${MAX_ROWS} نتيجة. أضف حرفاً أو كلمة لتضييق البحث.` : `اكتب للبحث بين ${view.hidden + view.frequent.length + MAX_ROWS} خياراً.`}
+              </p>
+            )}
             {shown === 0 && (
               <p className="px-3 py-6 text-center text-[13px] text-ink-mute">{q ? `لا توجد نتائج لـ «${q}». جرّب جزءاً من الاسم أو الرقم.` : emptyText}</p>
             )}

@@ -387,6 +387,18 @@ check('another active lease of the tenant is called out, and the refund stops at
   assert.ok(note(s, 'other_leases').text.includes('محل 7'));
   assert.equal(s.refund.full, 3000);
   assert.equal(s.refund.amount, 3000);
+  // the net follows the whole account (5,000 held) while the refund is this lease's deposit: the plan says so
+  assert.equal(s.net, 5000);
+  assert.equal(s.refund.limited, true);
+  // a lease alone on the account hands back all that is held, and says nothing about a limit
+  assert.equal(settle({ transactions: [deposit(3000)] }).refund.limited, undefined);
+  // arrears larger than the share of the other lease keep part of this lease's deposit back
+  const tight = settle({
+    transactions: [deposit(3000), deposit(2000, { date: '2026-03-01' })],
+    leases: [lease('L1', 3000), lease('L2', 2000, { unit: '7' })],
+    rent: rent([month('2026-10', 'due', 4000)]),
+  });
+  assert.deepEqual(tight.refund, { available: true, amount: 1000, full: 3000, offset: 2000, limited: true });
   // an ended lease of the same tenant is not "another active lease"
   assert.ok(!keys(settle({ leases: [lease('L1', 3000), lease('L0', 0, { status: 'TERMINATED' })] })).includes('other_leases'));
 });

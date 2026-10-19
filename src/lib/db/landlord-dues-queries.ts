@@ -26,7 +26,7 @@ const CHUNK = 150;
 
 /**
  * What the mall owes its landlords this month. Reads the vendor files and, in one targeted request by the
- * landlords' ids, their counted expenses since the start of December last year (not every transaction).
+ * landlords' ids, their counted expenses since July last year (rent paid ahead), not every transaction.
  * It sits under the `transactions` cache root, so recording a payment refreshes it.
  *
  * A failed read is `error`, never an empty list: "nothing owed" must not be what a broken request looks like.
@@ -40,7 +40,8 @@ export function useLandlordDues(): LandlordDuesState {
 
   const payments = useQuery<LandlordRentTx[]>({
     queryKey: ['transactions', 'landlord-dues', from, ids.join(',')],
-    enabled: contacts.isSuccess && ids.length > 0,
+    // by the ids alone: a failed refresh of the files must not keep the payments from loading (an endless skeleton)
+    enabled: ids.length > 0,
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       const rows: LandlordRentTx[] = [];

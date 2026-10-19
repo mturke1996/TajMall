@@ -153,10 +153,21 @@ export function duplicateHeadlineAr(matches: readonly DuplicateMatch[]): string 
   return `يوجد ${arabicCount(matches.length, SIMILAR)}`;
 }
 
-/** What made them similar, in words: «نفس المبلغ والجهة»، «نفس المبلغ والبند»، or both. */
+/**
+ * What made them similar, in words: «نفس المبلغ والجهة»، «نفس المبلغ والبند»، or both. It only names what every
+ * row shares; when one row matches by party and another by account it says «الجهة أو البند» rather than
+ * claiming both for both.
+ */
 export function duplicateReasonAr(matches: readonly DuplicateMatch[]): string {
-  const parts = ['المبلغ'];
-  if (matches.some((m) => m.sameContact)) parts.push('الجهة');
-  if (matches.some((m) => m.sameCategory)) parts.push('البند');
-  return `نفس ${parts.join(' و')}، بفارق ${arabicCount(DUPLICATE_WINDOW_DAYS, ['يوم', 'يومين', 'أيام', 'يوماً'])} على الأكثر`;
+  const everyContact = matches.length > 0 && matches.every((m) => m.sameContact);
+  const everyCategory = matches.length > 0 && matches.every((m) => m.sameCategory);
+  const what =
+    everyContact && everyCategory
+      ? 'المبلغ والجهة والبند'
+      : everyContact
+        ? 'المبلغ والجهة'
+        : everyCategory
+          ? 'المبلغ والبند'
+          : 'المبلغ مع نفس الجهة أو البند';
+  return `نفس ${what}، بفارق ${arabicCount(DUPLICATE_WINDOW_DAYS, ['يوم', 'يومين', 'أيام', 'يوماً'])} على الأكثر`;
 }
