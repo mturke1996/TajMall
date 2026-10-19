@@ -528,7 +528,7 @@ check('the dialog starts from the page: a month, a whole year, or this month', (
 
 check('the three built-in presets: names, what they set, and that they stay current', () => {
   const p = J.builtInJournalPresets(TODAY);
-  assert.deepEqual(p.map((x) => x.name), ['قيد الشهر الحالي المفصّل', 'تجميع الإيرادات والمصروفات للربع', 'التحصيل الفعلي للشهر']);
+  assert.deepEqual(p.map((x) => x.name), ['قيد الشهر الحالي المفصّل', 'ملخص الربع الحالي', 'التحصيل الفعلي للشهر']);
   assert.ok(p.every((x) => x.builtIn && x.id.startsWith('builtin:')));
   assert.equal(p[0].options.level, 'DETAILED');
   assert.equal(p[0].options.layout.signature, true);

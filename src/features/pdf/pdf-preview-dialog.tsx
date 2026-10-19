@@ -63,7 +63,7 @@ export function PdfPreviewDialog({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-11 gap-1 touch-manipulation sm:h-9"
+                className="h-11 min-w-11 gap-1 touch-manipulation sm:h-9 sm:min-w-0"
                 disabled={shareBusy}
                 onClick={onShare}
               >
@@ -75,7 +75,7 @@ export function PdfPreviewDialog({
               type="button"
               variant="outline"
               size="sm"
-              className="h-11 gap-1 touch-manipulation sm:h-9"
+              className="h-11 min-w-11 gap-1 touch-manipulation sm:h-9 sm:min-w-0"
               disabled={downloadBusy}
               onClick={onDownload}
             >

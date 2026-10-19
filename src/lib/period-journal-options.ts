@@ -705,7 +705,7 @@ export function builtInJournalPresets(today: string): JournalPreset[] {
   });
   return [
     make('month-detail', 'قيد الشهر الحالي المفصّل', { basis: 'GENERAL_ACCRUAL', level: 'DETAILED', quick: 'THIS_MONTH', sort: 'DATE_ASC', signature: true }),
-    make('quarter-summary', 'تجميع الإيرادات والمصروفات للربع', { basis: 'GENERAL_ACCRUAL', level: 'SUMMARY_ONLY', quick: 'THIS_QUARTER' }),
+    make('quarter-summary', 'ملخص الربع الحالي', { basis: 'GENERAL_ACCRUAL', level: 'SUMMARY_ONLY', quick: 'THIS_QUARTER' }),
     make('month-collections', 'التحصيل الفعلي للشهر', { basis: 'CASH_COLLECTED_IN_MONTH', level: 'DETAILED', kind: 'REVENUE', quick: 'THIS_MONTH', sort: 'DATE_ASC' }),
   ];
 }
