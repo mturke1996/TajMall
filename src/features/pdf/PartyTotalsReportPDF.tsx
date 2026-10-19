@@ -57,6 +57,15 @@ const col = StyleSheet.create({
   },
 });
 
+/**
+ * Page-break rules (the table itself is unchanged; rows already never split):
+ * - the section title and the column header never sit alone at the foot of a page;
+ * - the last row travels with the totals row and the caption, so the totals row is never
+ *   alone at the top of a new page.
+ */
+const KEEP_TITLE_WITH_TABLE = 90;
+const KEEP_LAST_ROW_WITH_TOTALS = 100;
+
 export type PartyTotalsReportPdfProps = {
   titleAr: string;
   subtitleAr?: string;
@@ -97,7 +106,9 @@ export function PartyTotalsReportPDF({
         { label: amountLabelAr, moneyAmount: total, adaptiveMoney: true },
       ]}
     >
-      <Text style={pdfBase.sectionTitle}>{ar(`تفاصيل ${partyLabelAr}`)}</Text>
+      <Text style={pdfBase.sectionTitle} minPresenceAhead={KEEP_TITLE_WITH_TABLE}>
+        {ar(`تفاصيل ${partyLabelAr}`)}
+      </Text>
 
       {rows.length === 0 ? (
         <View style={{ padding: 20, alignItems: 'center' }}>
@@ -120,6 +131,7 @@ export function PartyTotalsReportPDF({
               key={row.contactId}
               style={[col.row, i % 2 === 1 ? col.rowAlt : {}]}
               wrap={false}
+              minPresenceAhead={i === rows.length - 1 ? KEEP_LAST_ROW_WITH_TOTALS : 0}
             >
               <Text style={[col.td, col.name]}>{ar(row.contactName)}</Text>
               <Text style={[col.tdMuted, col.phone]}>{row.phone || '—'}</Text>

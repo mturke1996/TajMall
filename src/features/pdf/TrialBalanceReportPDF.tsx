@@ -16,6 +16,22 @@ const W = {
   code: '12%',
 };
 
+/** room needed after the last rows: the table's bottom margin, the grand total bar and the caption */
+const CLOSING_AFTER_ROWS = 90;
+/** the last rows sit in a second card, seamless with the first, so they can travel to the next page together with the grand total bar */
+const TAIL_ROWS = 2;
+const CARD_OPEN_BOTTOM = {
+  borderBottomWidth: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  marginBottom: 0,
+};
+const CARD_OPEN_TOP = {
+  borderTopWidth: 0,
+  borderTopLeftRadius: 0,
+  borderTopRightRadius: 0,
+};
+
 export type TrialBalanceReportPdfProps = {
   year: number;
   rows: Array<{
@@ -42,6 +58,29 @@ export function TrialBalanceReportPDF({
   });
   const isBalanced = Math.abs(totalDebits - totalCredits) < 0.0005;
   const periodLabel = `السنة المالية ${year}`;
+
+  const renderRow = (r: TrialBalanceReportPdfProps['rows'][number], i: number) => (
+      <View
+        key={r.code}
+        style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]}
+        wrap={false}
+      >
+        <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
+          <PdfReportMoney amount={Number(r.balance)} bold />
+        </View>
+        <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
+          <PdfReportMoney amount={Number(r.total_credit)} color={PDF.danger} />
+        </View>
+        <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
+          <PdfReportMoney amount={Number(r.total_debit)} color={PDF.success} />
+        </View>
+        <Text style={[pdfReportTable.tdMuted, { width: W.type, fontSize: 7.5 }]}>
+          {ar(accountTypeLabelAr(r.type))}
+        </Text>
+        <Text style={[pdfReportTable.tdAr, { width: W.name }]}>{ar(r.name_ar)}</Text>
+        <Text style={[pdfReportTable.tdMuted, { width: W.code }]}>{r.code}</Text>
+      </View>
+  );
 
   return (
     <ReportShell
@@ -77,7 +116,8 @@ export function TrialBalanceReportPDF({
         </View>
       </View>
 
-      <View style={pdfReportTable.tableWrap}>
+      {/* one card, split in two seamless halves: the last rows can then travel with the grand total bar */}
+      <View style={[pdfReportTable.tableWrap, rows.length > TAIL_ROWS ? CARD_OPEN_BOTTOM : null]}>
         <View style={pdfReportTable.tableHead} wrap={false}>
           <Text style={[pdfReportTable.th, { width: W.balance }]}>{ar('الرصيد')}</Text>
           <Text style={[pdfReportTable.th, { width: W.credit }]}>{ar('دائن')}</Text>
@@ -87,47 +127,38 @@ export function TrialBalanceReportPDF({
           <Text style={[pdfReportTable.thAr, { width: W.code }]}>{ar('الرمز')}</Text>
         </View>
 
-        {rows.map((r, i) => (
-          <View
-            key={r.code}
-            style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]}
-          >
-            <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
-              <PdfReportMoney amount={Number(r.balance)} bold />
-            </View>
-            <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
-              <PdfReportMoney amount={Number(r.total_credit)} color={PDF.danger} />
-            </View>
-            <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
-              <PdfReportMoney amount={Number(r.total_debit)} color={PDF.success} />
-            </View>
-            <Text style={[pdfReportTable.tdMuted, { width: W.type, fontSize: 7.5 }]}>
-              {ar(accountTypeLabelAr(r.type))}
-            </Text>
-            <Text style={[pdfReportTable.tdAr, { width: W.name }]}>{ar(r.name_ar)}</Text>
-            <Text style={[pdfReportTable.tdMuted, { width: W.code }]}>{r.code}</Text>
-          </View>
-        ))}
+        {rows.slice(0, Math.max(rows.length - TAIL_ROWS, 0)).map(renderRow)}
+        {rows.length <= TAIL_ROWS ? rows.map(renderRow) : null}
       </View>
-
-      <View
-        style={[pdfReportTable.totalBar, !isBalanced ? pdfReportTable.totalBarWarn : {}]}
-        wrap={false}
-      >
-        <View style={pdfReportTable.totalCluster}>
-          <View style={pdfReportTable.totalMini}>
-            <Text style={pdfReportTable.totalMiniLabel}>{ar('دائن')}</Text>
-            <PdfReportMoney amount={totalCredits} bold />
-          </View>
-          <View style={pdfReportTable.totalMini}>
-            <Text style={pdfReportTable.totalMiniLabel}>{ar('مدين')}</Text>
-            <PdfReportMoney amount={totalDebits} bold />
-          </View>
+      {rows.length > TAIL_ROWS ? (
+        <View
+          style={[pdfReportTable.tableWrap, CARD_OPEN_TOP]}
+          wrap={false}
+          minPresenceAhead={CLOSING_AFTER_ROWS}
+        >
+          {rows.slice(rows.length - TAIL_ROWS).map((r, k) => renderRow(r, rows.length - TAIL_ROWS + k))}
         </View>
-        <Text style={pdfReportTable.totalLabel}>{ar('إجمالي ميزان المراجعة')}</Text>
-      </View>
+      ) : null}
 
-      <PdfReportCaption />
+      <View wrap={false}>
+        <View
+          style={[pdfReportTable.totalBar, !isBalanced ? pdfReportTable.totalBarWarn : {}]}
+        >
+          <View style={pdfReportTable.totalCluster}>
+            <View style={pdfReportTable.totalMini}>
+              <Text style={pdfReportTable.totalMiniLabel}>{ar('دائن')}</Text>
+              <PdfReportMoney amount={totalCredits} bold />
+            </View>
+            <View style={pdfReportTable.totalMini}>
+              <Text style={pdfReportTable.totalMiniLabel}>{ar('مدين')}</Text>
+              <PdfReportMoney amount={totalDebits} bold />
+            </View>
+          </View>
+          <Text style={pdfReportTable.totalLabel}>{ar('إجمالي ميزان المراجعة')}</Text>
+        </View>
+
+        <PdfReportCaption />
+      </View>
     </ReportShell>
   );
 }

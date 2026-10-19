@@ -24,6 +24,8 @@
 --   * A leave in a closed payroll month is fine (it is not money). Unpaid leave does not touch payroll: the screen
 --     suggests a deduction and the accountant adds it through the normal payroll adjustment.
 --   * "Today" is the calendar day in Libya (Africa/Tripoli), not the server's UTC day.
+--   * Public holidays are not excluded: only Friday and Saturday are off, so a holiday inside a leave counts as a
+--     working day. (A holidays table is the natural next step if the owner wants it.)
 --
 -- Reading this file next to 080: the helper naming (leave_*) and the guard levels (approve, manage, write) follow
 -- payroll_require. Rollback: 083_employee_leave.ROLLBACK.sql (refuses while the tables hold data).
@@ -141,6 +143,27 @@ CREATE OR REPLACE FUNCTION public.leave_type_label(p_type text)
 AS $function$
   SELECT CASE p_type WHEN 'ANNUAL' THEN 'سنوية' WHEN 'SICK' THEN 'مرضية' WHEN 'UNPAID' THEN 'بدون راتب'
                      WHEN 'EMERGENCY' THEN 'طارئة' WHEN 'MATERNITY' THEN 'أمومة' ELSE 'أخرى' END
+$function$;
+
+-- Counts and dates as the audit lines and messages say them. The wording of leave_days_label is the one
+-- workingDaysLabel gives on the screen (src/lib/leave.ts): "يوم عمل", "يومي عمل", "5 أيام عمل", "23 يوم عمل".
+CREATE OR REPLACE FUNCTION public.leave_days_label(p_days numeric)
+ RETURNS text LANGUAGE sql IMMUTABLE
+AS $function$
+  SELECT CASE
+    WHEN p_days = 1 THEN 'يوم عمل'
+    WHEN p_days = 2 THEN 'يومي عمل'
+    WHEN p_days BETWEEN 3 AND 10 THEN trim_scale(p_days)::text || ' أيام عمل'
+    ELSE trim_scale(p_days)::text || ' يوم عمل'
+  END
+$function$;
+
+-- "من 01/02/2026 إلى 05/02/2026", and "بتاريخ 01/02/2026" for a single day.
+CREATE OR REPLACE FUNCTION public.leave_range_label(p_start date, p_end date)
+ RETURNS text LANGUAGE sql STABLE
+AS $function$
+  SELECT CASE WHEN p_start = p_end THEN 'بتاريخ ' || to_char(p_start, 'DD/MM/YYYY')
+              ELSE 'من ' || to_char(p_start, 'DD/MM/YYYY') || ' إلى ' || to_char(p_end, 'DD/MM/YYYY') END
 $function$;
 
 -- Working days from p_start to p_end inclusive. Postgres day of week: Sunday 0 … Friday 5, Saturday 6.
@@ -309,7 +332,7 @@ BEGIN
     RAISE EXCEPTION 'نوع التوظيف غير معروف: %', v_type USING ERRCODE = '22023';
   END IF;
   IF v_iban IS NOT NULL AND v_iban !~ '^[A-Z]{2}[0-9]{2}[A-Z0-9]{10,30}$' THEN
-    RAISE EXCEPTION 'رقم الآيبان غير صحيح — يبدأ برمزين لحرفين ثم رقمين (مثل LY83…)' USING ERRCODE = '22023';
+    RAISE EXCEPTION 'رقم الآيبان غير صحيح — يبدأ بحرفين ثم رقمين (مثل LY83…)' USING ERRCODE = '22023';
   END IF;
   IF p_birth_date IS NOT NULL AND p_birth_date >= public.leave_today() THEN
     RAISE EXCEPTION 'تاريخ الميلاد يجب أن يكون في الماضي' USING ERRCODE = '22023';
@@ -373,7 +396,10 @@ BEGIN
     ('national_id', 'الرقم الوطني'), ('birth_date', 'تاريخ الميلاد'), ('employment_type', 'نوع التوظيف'),
     ('contract_end', 'نهاية العقد'), ('probation_end', 'نهاية فترة التجربة'), ('bank_name', 'المصرف'),
     ('bank_account', 'الحساب المصرفي'), ('iban', 'الآيبان'), ('emergency_name', 'جهة الطوارئ'),
-    ('emergency_phone', 'هاتف الطوارئ'), ('annual_leave_days', 'الإجازة السنوية'), ('leave_carry_over', 'الرصيد المرحّل'),
+    ('emergency_phone', 'هاتف الطوارئ'),
+    -- the allowance and the carry-over are not private, and they decide how much leave a person may take: show the move
+    ('annual_leave_days', CASE WHEN v_had THEN format('الإجازة السنوية (من %s إلى %s)', trim_scale(v_old.annual_leave_days), trim_scale(v_new.annual_leave_days)) ELSE 'الإجازة السنوية' END),
+    ('leave_carry_over', CASE WHEN v_had THEN format('الرصيد المرحّل (من %s إلى %s)', trim_scale(v_old.leave_carry_over), trim_scale(v_new.leave_carry_over)) ELSE 'الرصيد المرحّل' END),
     ('leave_carry_over_year', 'سنة الرصيد المرحّل'), ('termination_date', 'نهاية الخدمة'),
     ('termination_reason', 'سبب نهاية الخدمة'), ('notes', 'الملاحظات')
   ) AS l(k, label) ON l.k = c.k;
@@ -459,9 +485,9 @@ BEGIN
   RETURNING id INTO v_id;
 
   PERFORM public.leave_audit('INSERT', p_employee_id, v_emp.name,
-    format('%s إجازة %s من %s إلى %s (%s أيام عمل)%s',
+    format('%s إجازة %s %s (%s)%s',
            CASE WHEN v_approved THEN 'تسجيل واعتماد' ELSE 'طلب' END, public.leave_type_label(p_leave_type),
-           to_char(p_start, 'DD/MM/YYYY'), to_char(p_end, 'DD/MM/YYYY'), trim_scale(v_days),
+           public.leave_range_label(p_start, p_end), public.leave_days_label(v_days),
            CASE WHEN v_short IS NOT NULL THEN ' — تجاوز الرصيد: ' || v_override ELSE '' END),
     p_start, CASE WHEN v_approved THEN 'success' ELSE 'info' END,
     jsonb_build_object('event', CASE WHEN v_approved THEN 'leave_approved' ELSE 'leave_requested' END,
@@ -497,6 +523,8 @@ BEGIN
   v_name := (public.leave_get_employee(r.employee_id)).name;
 
   IF p_approve AND r.leave_type = 'ANNUAL' THEN
+    -- the same per-employee lock a request takes, so two approvals cannot both pass a balance that only fits one
+    PERFORM pg_advisory_xact_lock(hashtextextended('employee_leave:' || r.employee_id::text, 0));
     v_short := public.leave_annual_shortage(r.employee_id, r.start_date, r.end_date, r.id, false);
     IF v_short IS NOT NULL AND r.override_note IS NULL THEN
       IF NOT COALESCE(p_override, false) OR v_note IS NULL OR length(v_note) < 3 THEN
@@ -513,8 +541,8 @@ BEGIN
   WHERE id = p_request_id;
 
   PERFORM public.leave_audit('UPDATE', r.employee_id, v_name,
-    format('%s إجازة %s من %s إلى %s%s', CASE WHEN p_approve THEN 'اعتماد' ELSE 'رفض' END, public.leave_type_label(r.leave_type),
-           to_char(r.start_date, 'DD/MM/YYYY'), to_char(r.end_date, 'DD/MM/YYYY'),
+    format('%s إجازة %s %s%s', CASE WHEN p_approve THEN 'اعتماد' ELSE 'رفض' END, public.leave_type_label(r.leave_type),
+           public.leave_range_label(r.start_date, r.end_date),
            CASE WHEN v_note IS NOT NULL THEN ' — ' || v_note ELSE '' END),
     r.start_date, CASE WHEN p_approve THEN 'success' ELSE 'warning' END,
     jsonb_build_object('event', CASE WHEN p_approve THEN 'leave_approved' ELSE 'leave_rejected' END,
@@ -551,8 +579,8 @@ BEGIN
   WHERE id = p_request_id;
 
   PERFORM public.leave_audit('UPDATE', r.employee_id, v_name,
-    format('إلغاء إجازة %s من %s إلى %s — %s', public.leave_type_label(r.leave_type),
-           to_char(r.start_date, 'DD/MM/YYYY'), to_char(r.end_date, 'DD/MM/YYYY'), v_reason),
+    format('إلغاء إجازة %s %s — %s', public.leave_type_label(r.leave_type),
+           public.leave_range_label(r.start_date, r.end_date), v_reason),
     r.start_date, 'warning',
     jsonb_build_object('event', 'leave_cancelled', 'request_id', p_request_id, 'was', r.status));
 END;
@@ -658,7 +686,8 @@ GRANT ALL ON public.employee_details, public.employee_leave_requests TO service_
 
 REVOKE EXECUTE ON FUNCTION
   public.leave_today(), public.leave_can(text), public.leave_require(text), public.leave_get_employee(uuid),
-  public.leave_type_label(text), public.leave_working_days(date, date), public.leave_next_working_day(date),
+  public.leave_type_label(text), public.leave_days_label(numeric), public.leave_range_label(date, date),
+  public.leave_working_days(date, date), public.leave_next_working_day(date),
   public.leave_days_in_year(date, date, integer), public.leave_carry_over_for(uuid, integer),
   public.leave_annual_entitlement(uuid, integer), public.leave_used(uuid, integer, text, text, uuid),
   public.leave_assert_no_overlap(uuid, date, date, uuid), public.employee_leave_guard(),

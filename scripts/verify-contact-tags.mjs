@@ -70,7 +70,7 @@ check('toSinceMonth reads what a month field or a date gives', () => {
   assert.equal(toSinceMonth('2026-07-31'), '2026-07');
   assert.equal(toSinceMonth(' 2026-7 '), '2026-07');
   assert.equal(toSinceMonth('٢٠٢٦-٠٧'), '2026-07');
-  for (const bad of ['', null, undefined, 'july', '2026-13', '2026', '07-2026']) assert.equal(toSinceMonth(bad), null);
+  for (const bad of ['', null, undefined, 'july', '2026-13', '2026-00', '2026-07-40', '2026-07-00', '2026', '07-2026']) assert.equal(toSinceMonth(bad), null);
 });
 
 // ---- hiding ----

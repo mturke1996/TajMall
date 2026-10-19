@@ -72,6 +72,15 @@ const col = StyleSheet.create({
   },
 });
 
+/**
+ * Page-break rules (the table itself is unchanged; rows already never split):
+ * - the section title and the column header never sit alone at the foot of a page;
+ * - the last row travels with the totals row and the caption, so the totals row is never
+ *   alone at the top of a new page.
+ */
+const KEEP_TITLE_WITH_TABLE = 90;
+const KEEP_LAST_ROW_WITH_TOTALS = 100;
+
 export type CategoryMonthReportPdfProps = {
   category: Pick<CategoryRow, 'name_ar' | 'code' | 'type' | 'kind'> | null | undefined;
   monthKey: string;
@@ -105,7 +114,9 @@ export function CategoryMonthReportPDF({
         { label: totalLabel, moneyAmount: total },
       ]}
     >
-      <Text style={pdfBase.sectionTitle}>{ar('تفاصيل المعاملات')}</Text>
+      <Text style={pdfBase.sectionTitle} minPresenceAhead={KEEP_TITLE_WITH_TABLE}>
+        {ar('تفاصيل المعاملات')}
+      </Text>
 
       <View style={col.head} wrap={false}>
         <Text style={[col.thAr, col.desc]}>{ar('البيان')}</Text>
@@ -123,7 +134,12 @@ export function CategoryMonthReportPDF({
         </Text>
       ) : (
         rows.map((r, i) => (
-          <View key={r.id} style={[col.row, i % 2 === 1 ? col.rowAlt : {}]} wrap={false}>
+          <View
+            key={r.id}
+            style={[col.row, i % 2 === 1 ? col.rowAlt : {}]}
+            wrap={false}
+            minPresenceAhead={i === rows.length - 1 ? KEEP_LAST_ROW_WITH_TOTALS : 0}
+          >
             <Text style={[col.td, col.desc]}>{ar(r.description ?? '—')}</Text>
             <View style={col.amt}>
               <PdfMoneyText amount={Number(r.amount)} />

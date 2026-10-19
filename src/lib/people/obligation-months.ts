@@ -185,7 +185,7 @@ export const OBLIGATION_LABEL = {
 
 /** Where the tracking start came from, in words. */
 export const TRACKING_SOURCE_TEXT: Record<TrackingStart['source'], string> = {
-  tag: 'حدّدتها أنت',
+  tag: 'محدّدة يدوياً',
   first_payment: 'من أول دفعة مسجّلة',
   go_live: 'من بداية تشغيل المنظومة',
   none: 'غير محدّدة',
@@ -297,7 +297,9 @@ export function namedMonthKeys(tx: { description?: string | null; tx_date: strin
     const hit = hits[i];
     keys.add(keyOf(hit));
     const next = hits[i + 1];
-    if (next && next.month !== hit.month && RANGE_WORDS.test(lower.slice(hit.end, next.at).trim())) {
+    // the words between two months, without a year or its «لعام»: «من يوليو 2026 إلى سبتمبر 2026» is a range too
+    const between = lower.slice(hit.end, next?.at ?? hit.end).replace(/\b202\d\b/g, ' ').replace(/(?:^|\s)(?:لعام|لسنة|عام|سنة)(?=\s|$)/g, ' ').trim();
+    if (next && next.month !== hit.month && RANGE_WORDS.test(between)) {
       const a = monthIndex(keyOf(hit));
       const b = monthIndex(keyOf(next));
       if (b > a && b - a <= 24) for (let k = a + 1; k < b; k++) keys.add(keyOfIndex(k));

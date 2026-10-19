@@ -340,6 +340,11 @@ const styles = StyleSheet.create({
   },
 });
 
+/** room the section heading needs below it: the column head and two rows, so the heading is never alone at the foot of a page */
+const TABLE_HEAD_ROOM = 70;
+/** room the grand total box and the caption need after the last row */
+const CLOSING_AFTER_ROWS = 84;
+
 export type PeriodCashCollectionsReportPdfProps = {
   summary: PeriodCashCollectionsSummary;
   documentTitle?: string;
@@ -526,91 +531,92 @@ export function PeriodCashCollectionsReportPDF({
       </View>
 
       {/* 4. Detailed Transactions Table */}
-      <View minPresenceAhead={55}>
-        <View style={styles.sectionHeaderWrap} wrap={false}>
-          <View style={styles.sectionBadge}>
-            <Text style={styles.sectionBadgeText}>{ar(`${pdfFmtNum(totalCount)} قيد تحصيل مسجل`)}</Text>
-          </View>
-          <Text style={styles.sectionTitle}>{ar('جدول حركة التحصيل الفعلي المودع في الحسابات')}</Text>
+      <View style={styles.sectionHeaderWrap} wrap={false} minPresenceAhead={TABLE_HEAD_ROOM}>
+        <View style={styles.sectionBadge}>
+          <Text style={styles.sectionBadgeText}>{ar(`${pdfFmtNum(totalCount)} قيد تحصيل مسجل`)}</Text>
+        </View>
+        <Text style={styles.sectionTitle}>{ar('جدول حركة التحصيل الفعلي المودع في الحسابات')}</Text>
+      </View>
+
+      <View style={styles.tableCard}>
+        <View style={styles.tableHead} wrap={false}>
+          <Text style={[styles.thAr, styles.colDesc]}>{ar('البيان / الوصف')}</Text>
+          <Text style={[styles.th, styles.colAmt]}>{ar('المبلغ المحصل')}</Text>
+          <Text style={[styles.thAr, styles.colBox]}>{ar('طريقة الدفع والخزينة')}</Text>
+          <Text style={[styles.thAr, styles.colTenant]}>{ar('المستأجر / المحل')}</Text>
+          <Text style={[styles.th, styles.colTargetMonth]}>{ar('فترة الاستحقاق المستهدفة')}</Text>
+          <Text style={[styles.th, styles.colDate]}>{ar('تاريخ التسجيل')}</Text>
+          <Text style={[styles.th, styles.colNum]}>{ar('الرقم')}</Text>
         </View>
 
-        <View style={styles.tableCard}>
-          <View style={styles.tableHead} wrap={false}>
-            <Text style={[styles.thAr, styles.colDesc]}>{ar('البيان / الوصف')}</Text>
-            <Text style={[styles.th, styles.colAmt]}>{ar('المبلغ المحصل')}</Text>
-            <Text style={[styles.thAr, styles.colBox]}>{ar('طريقة الدفع والخزينة')}</Text>
-            <Text style={[styles.thAr, styles.colTenant]}>{ar('المستأجر / المحل')}</Text>
-            <Text style={[styles.th, styles.colTargetMonth]}>{ar('فترة الاستحقاق المستهدفة')}</Text>
-            <Text style={[styles.th, styles.colDate]}>{ar('تاريخ التسجيل')}</Text>
-            <Text style={[styles.th, styles.colNum]}>{ar('الرقم')}</Text>
-          </View>
-
-          {items.length === 0 ? (
-            <Text style={styles.emptyState}>{ar('لا توجد تحصيلات مسجلة خلال هذه الفترة')}</Text>
-          ) : (
-            items.map((it, idx) => (
-              <View
-                key={it.transaction_id}
-                style={[styles.tableRow, idx % 2 === 1 ? styles.rowAlt : {}]}
-                wrap={false}
-              >
-                <Text style={[styles.td, styles.colDesc]} numberOfLines={1}>
-                  {ar(it.description ?? '—')}
-                </Text>
-                <View style={styles.colAmt}>
-                  <PdfMoneyText amount={it.amount} align="center" style={{ fontSize: 7.5, fontWeight: 'bold' }} />
-                </View>
-                <Text style={[styles.td, styles.colBox]} numberOfLines={1}>
-                  {ar(`${it.cashbox_name}`)}
-                </Text>
-                <Text style={[styles.tdBold, styles.colTenant]} numberOfLines={1}>
-                  {ar(it.contact_name ? `${it.contact_name}${it.shop_number ? ` (${it.shop_number})` : ''}` : '—')}
-                </Text>
-                <View style={[styles.colTargetMonth, { alignItems: 'center' }]}>
-                  {it.target_month_status === 'PRIOR' ? (
-                    <Text style={styles.statusBadgePrior}>
-                      {ar(`⏳ ${it.target_rent_month || 'شهر سابق'}`)}
-                    </Text>
-                  ) : it.target_month_status === 'FUTURE' ? (
-                    <Text style={styles.statusBadgeFuture}>
-                      {ar(it.target_rent_month ? `مقدم: ${it.target_rent_month}` : 'مقدم')}
-                    </Text>
-                  ) : (
-                    <Text style={styles.statusBadgeCurrent}>
-                      {ar(it.target_rent_month || 'الشهر الحالي')}
-                    </Text>
-                  )}
-                </View>
-                <Text style={[styles.tdMuted, styles.colDate]}>{pdfFmtDate(it.tx_date)}</Text>
-                <Text style={[styles.tdMuted, styles.colNum]}>{pdfFmtNum(it.number)}</Text>
+        {items.length === 0 ? (
+          <Text style={styles.emptyState}>{ar('لا توجد تحصيلات مسجلة خلال هذه الفترة')}</Text>
+        ) : (
+          items.map((it, idx) => (
+            <View
+              key={it.transaction_id}
+              style={[styles.tableRow, idx % 2 === 1 ? styles.rowAlt : {}]}
+              wrap={false}
+              {...(idx === items.length - 1 ? { minPresenceAhead: CLOSING_AFTER_ROWS } : {})}
+            >
+              <Text style={[styles.td, styles.colDesc]} numberOfLines={1}>
+                {ar(it.description ?? '—')}
+              </Text>
+              <View style={styles.colAmt}>
+                <PdfMoneyText amount={it.amount} align="center" style={{ fontSize: 7.5, fontWeight: 'bold' }} />
               </View>
-            ))
-          )}
-        </View>
+              <Text style={[styles.td, styles.colBox]} numberOfLines={1}>
+                {ar(`${it.cashbox_name}`)}
+              </Text>
+              <Text style={[styles.tdBold, styles.colTenant]} numberOfLines={1}>
+                {ar(it.contact_name ? `${it.contact_name}${it.shop_number ? ` (${it.shop_number})` : ''}` : '—')}
+              </Text>
+              <View style={[styles.colTargetMonth, { alignItems: 'center' }]}>
+                {it.target_month_status === 'PRIOR' ? (
+                  <Text style={styles.statusBadgePrior}>
+                    {ar(it.target_rent_month || 'شهر سابق')}
+                  </Text>
+                ) : it.target_month_status === 'FUTURE' ? (
+                  <Text style={styles.statusBadgeFuture}>
+                    {ar(it.target_rent_month ? `مقدم: ${it.target_rent_month}` : 'مقدم')}
+                  </Text>
+                ) : (
+                  <Text style={styles.statusBadgeCurrent}>
+                    {ar(it.target_rent_month || 'الشهر الحالي')}
+                  </Text>
+                )}
+              </View>
+              <Text style={[styles.tdMuted, styles.colDate]}>{pdfFmtDate(it.tx_date)}</Text>
+              <Text style={[styles.tdMuted, styles.colNum]}>{pdfFmtNum(it.number)}</Text>
+            </View>
+          ))
+        )}
       </View>
 
-      {/* 5. Grand Total */}
-      <View style={styles.grandTotalWrap} wrap={false}>
-        <View style={styles.grandTotalLabelCol}>
-          <Text style={styles.grandTotalTitle}>{ar('الإجمالي العام للإيرادات المحصلة في الفترة')}</Text>
-          <Text style={styles.grandTotalSub}>
-            {ar(
-              `يشمل ${pdfFmtNum(priorPeriodCount)} تحصيل لشهور سابقة، و ${pdfFmtNum(currentPeriodCount)} تحصيل لنفس الشهر، و ${pdfFmtNum(futurePeriodCount)} تحصيل مقدم`
-            )}
-          </Text>
+      {/* 5. Grand Total — kept with the caption */}
+      <View wrap={false}>
+        <View style={styles.grandTotalWrap}>
+          <View style={styles.grandTotalLabelCol}>
+            <Text style={styles.grandTotalTitle}>{ar('الإجمالي العام للإيرادات المحصلة في الفترة')}</Text>
+            <Text style={styles.grandTotalSub}>
+              {ar(
+                `يشمل ${pdfFmtNum(priorPeriodCount)} تحصيل لشهور سابقة، و ${pdfFmtNum(currentPeriodCount)} تحصيل لنفس الشهر، و ${pdfFmtNum(futurePeriodCount)} تحصيل مقدم`
+              )}
+            </Text>
+          </View>
+          <View style={styles.grandTotalValueCol}>
+            <PdfMoneyText
+              amount={totalCollected}
+              align="right"
+              style={{ fontSize: 13, fontWeight: 'bold', color: PDF.primary }}
+            />
+          </View>
         </View>
-        <View style={styles.grandTotalValueCol}>
-          <PdfMoneyText
-            amount={totalCollected}
-            align="right"
-            style={{ fontSize: 13, fontWeight: 'bold', color: PDF.primary }}
-          />
-        </View>
-      </View>
 
-      <Text style={pdfBase.caption}>
-        {ar('وثيقة رسمية صادرة آلياً من منظومة تاج مول — كشف التحصيلات الفعلية')}
-      </Text>
+        <Text style={pdfBase.caption}>
+          {ar('وثيقة رسمية صادرة آلياً من منظومة تاج مول — كشف التحصيلات الفعلية')}
+        </Text>
+      </View>
     </ReportShell>
   );
 }

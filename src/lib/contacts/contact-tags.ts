@@ -49,10 +49,11 @@ function westernDigits(s: string): string {
 
 /** "2026-07", "2026-7", "2026/07", "2026-07-15" → "2026-07"; anything else → null. */
 export function toSinceMonth(value: string | null | undefined): string | null {
-  const m = /^\s*(\d{4})\s*[-/]\s*(\d{1,2})(?:\s*[-/]\s*\d{1,2})?\s*$/.exec(westernDigits(String(value ?? '')));
+  const m = /^\s*(\d{4})\s*[-/]\s*(\d{1,2})(?:\s*[-/]\s*(\d{1,2}))?\s*$/.exec(westernDigits(String(value ?? '')));
   if (!m) return null;
   const month = Number(m[2]);
-  return month >= 1 && month <= 12 ? `${m[1]}-${String(month).padStart(2, '0')}` : null;
+  const day = m[3] === undefined ? 1 : Number(m[3]);
+  return month >= 1 && month <= 12 && day >= 1 && day <= 31 ? `${m[1]}-${String(month).padStart(2, '0')}` : null;
 }
 
 export type ContactTags = {

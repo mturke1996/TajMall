@@ -35,6 +35,8 @@ DROP FUNCTION IF EXISTS public.leave_carry_over_for(uuid, integer);
 DROP FUNCTION IF EXISTS public.leave_days_in_year(date, date, integer);
 DROP FUNCTION IF EXISTS public.leave_next_working_day(date);
 DROP FUNCTION IF EXISTS public.leave_working_days(date, date);
+DROP FUNCTION IF EXISTS public.leave_range_label(date, date);
+DROP FUNCTION IF EXISTS public.leave_days_label(numeric);
 DROP FUNCTION IF EXISTS public.leave_type_label(text);
 DROP FUNCTION IF EXISTS public.leave_get_employee(uuid);
 DROP FUNCTION IF EXISTS public.leave_require(text);

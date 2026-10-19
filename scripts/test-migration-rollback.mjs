@@ -2,7 +2,7 @@
  * Proves the rollback files undo the proposed migrations, on an isolated PGlite replica.
  *   node scripts/test-migration-rollback.mjs
  *
- * Baseline = repository migrations + 078. Then 080, 081 and 082 are applied and rolled back in reverse
+ * Baseline = repository migrations + 078. Then 080, 081, 082, 083 and 084 are applied and rolled back in reverse
  * order, and the schema (tables, columns, functions with their bodies, views, policies, grants,
  * triggers) must be identical to the baseline. 078's own rollback restores the production function
  * bodies, which differ from the repository's, so for 078 the check is that apply → rollback → apply
@@ -65,14 +65,21 @@ if (await run('تطبيق 078', read('078_security_and_ledger_fixes.sql'))) {
   // 082 is applied twice: its saved copy must still hold the bodies from before the first run
   const ok082 = ok081 && (await run('تطبيق 082', read('082_role_and_voucher_guards.sql')))
     && (await run('إعادة تطبيق 082 فوق نفسه', read('082_role_and_voucher_guards.sql')));
-  if (ok082) {
-    const rb082 = await run('تراجع 082', read('082_role_and_voucher_guards.ROLLBACK.sql'));
+  // 083 (employee file and leave) and 084 (tenant claim start) are applied twice: both must be safe over themselves
+  const ok083 = ok082 && (await run('تطبيق 083', read('083_employee_leave.sql')))
+    && (await run('إعادة تطبيق 083 فوق نفسه', read('083_employee_leave.sql')));
+  const ok084 = ok083 && (await run('تطبيق 084', read('084_rent_summary_respects_claim_start.sql')))
+    && (await run('إعادة تطبيق 084 فوق نفسه', read('084_rent_summary_respects_claim_start.sql')));
+  if (ok084) {
+    const rb084 = await run('تراجع 084', read('084_rent_summary_respects_claim_start.ROLLBACK.sql'));
+    const rb083 = rb084 && (await run('تراجع 083', read('083_employee_leave.ROLLBACK.sql')));
+    const rb082 = rb083 && (await run('تراجع 082', read('082_role_and_voucher_guards.ROLLBACK.sql')));
     const rb081 = rb082 && (await run('تراجع 081', read('081_rent_safety.ROLLBACK.sql')));
     const rb080 = rb081 && (await run('تراجع 080', read('080_payroll.ROLLBACK.sql')));
     if (rb080) {
       const after = await schema();
       const dFn = diff(baseline, after);
-      check('التراجع عن 082 ثم 081 ثم 080 يعيد المخطط كما كان بعد 078 تماماً', dFn.length === 0, dFn.join('\n          '));
+      check('التراجع عن 084 ثم 083 ثم 082 ثم 081 ثم 080 يعيد المخطط كما كان بعد 078 تماماً', dFn.length === 0, dFn.join('\n          '));
       const leftover = (await db.query(`SELECT 1 FROM pg_namespace WHERE nspname = 'migration_backup'`)).rows.length;
       check('التراجع عن 082 يحذف نسخته المحفوظة', leftover === 0);
     }
@@ -80,9 +87,11 @@ if (await run('تطبيق 078', read('078_security_and_ledger_fixes.sql'))) {
   check('078 يُطبَّق ثم يُتراجع عنه ثم يُطبَّق من جديد بلا أخطاء',
     (await run('تراجع 078', read('078_security_and_ledger_fixes.ROLLBACK.sql')))
       && (await run('إعادة تطبيق 078', read('078_security_and_ledger_fixes.sql'))));
-  check('080 و081 و082 تُطبَّق من جديد بعد التراجع', (await run('إعادة 080', read('080_payroll.sql')))
+  check('080 و081 و082 و083 و084 تُطبَّق من جديد بعد التراجع', (await run('إعادة 080', read('080_payroll.sql')))
     && (await run('إعادة 081', read('081_rent_safety.sql')))
-    && (await run('إعادة 082', read('082_role_and_voucher_guards.sql'))));
+    && (await run('إعادة 082', read('082_role_and_voucher_guards.sql')))
+    && (await run('إعادة 083', read('083_employee_leave.sql')))
+    && (await run('إعادة 084', read('084_rent_summary_respects_claim_start.sql'))));
 }
 
 await db.close();

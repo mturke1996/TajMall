@@ -16,6 +16,9 @@ const W = {
   meta: '18%',
 };
 
+/** room needed after the table: its bottom margin and the caption */
+const CLOSING_AFTER_TABLE = 40;
+
 export type LedgerReportPdfProps = {
   category: { name_ar: string; code: string; type: string };
   startDate?: string;
@@ -53,6 +56,34 @@ export function LedgerReportPDF({
     startDate || endDate ? `${startDate ?? '…'} — ${endDate ?? '…'}` : 'كل الفترات';
   const closing = closingBalance ?? lines[lines.length - 1]?.runningBalance ?? openingBalance;
   const count = arabicCount(lines.length, ['حركة واحدة', 'حركتان', 'حركات', 'حركة']);
+
+  const renderLine = (l: LedgerReportPdfProps['lines'][number], i: number) => (
+    <View
+      key={`${l.journal_number}-${i}`}
+      style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]}
+      wrap={false}
+    >
+      <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
+        <PdfReportMoney amount={Number(l.runningBalance) || 0} showZero />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
+        <PdfReportMoney amount={Number(l.credit)} color={PDF.danger} />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
+        <PdfReportMoney amount={Number(l.debit)} color={PDF.success} />
+      </View>
+      <View style={{ width: W.desc, ...pdfReportTable.tdAr }}>
+        <Text style={pdfReportTable.tdAr}>{ar(l.description ?? '—')}</Text>
+        {l.journal_reference ? (
+          <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>{ar(l.journal_reference)}</Text>
+        ) : null}
+      </View>
+      <View style={{ width: W.meta, alignItems: 'center' }}>
+        <Text style={{ fontSize: 8, color: PDF.text, textAlign: 'center' }}>{l.entry_date}</Text>
+        <Text style={{ fontSize: 7.5, color: PDF.muted, textAlign: 'center' }}>#{l.journal_number}</Text>
+      </View>
+    </View>
+  );
 
   return (
     <ReportShell
@@ -113,49 +144,28 @@ export function LedgerReportPDF({
             <Text style={pdfReportTable.tdMuted}>{ar('لا توجد حركات مرحّلة في الفترة')}</Text>
           </View>
         ) : (
-          lines.map((l, i) => (
-            <View
-              key={`${l.journal_number}-${i}`}
-              style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]}
-              wrap={false}
-            >
-              <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
-                <PdfReportMoney amount={Number(l.runningBalance) || 0} showZero />
-              </View>
-              <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
-                <PdfReportMoney amount={Number(l.credit)} color={PDF.danger} />
-              </View>
-              <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
-                <PdfReportMoney amount={Number(l.debit)} color={PDF.success} />
-              </View>
-              <View style={{ width: W.desc, ...pdfReportTable.tdAr }}>
-                <Text style={pdfReportTable.tdAr}>{ar(l.description ?? '—')}</Text>
-                {l.journal_reference ? (
-                  <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>{ar(l.journal_reference)}</Text>
-                ) : null}
-              </View>
-              <View style={{ width: W.meta, alignItems: 'center' }}>
-                <Text style={{ fontSize: 8, color: PDF.text, textAlign: 'center' }}>{l.entry_date}</Text>
-                <Text style={{ fontSize: 7.5, color: PDF.muted, textAlign: 'center' }}>#{l.journal_number}</Text>
-              </View>
-            </View>
-          ))
+          lines.slice(0, -1).map(renderLine)
         )}
 
-        <View style={pdfReportTable.totalsRow} wrap={false}>
-          <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
-            <PdfReportMoney amount={closing} bold showZero />
+        {/* the last row travels with the totals row, and both with the caption that follows */}
+        <View wrap={false} minPresenceAhead={CLOSING_AFTER_TABLE}>
+          {lines.length > 0 ? renderLine(lines[lines.length - 1], lines.length - 1) : null}
+
+          <View style={pdfReportTable.totalsRow} wrap={false}>
+            <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
+              <PdfReportMoney amount={closing} bold showZero />
+            </View>
+            <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
+              <PdfReportMoney amount={Number(totalCredit) || 0} bold showZero />
+            </View>
+            <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
+              <PdfReportMoney amount={Number(totalDebit) || 0} bold showZero />
+            </View>
+            <View style={{ width: W.desc }}>
+              <Text style={pdfReportTable.totalsRowLabel}>{ar(`المجموع والرصيد الختامي (${count})`)}</Text>
+            </View>
+            <View style={{ width: W.meta }} />
           </View>
-          <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
-            <PdfReportMoney amount={Number(totalCredit) || 0} bold showZero />
-          </View>
-          <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
-            <PdfReportMoney amount={Number(totalDebit) || 0} bold showZero />
-          </View>
-          <View style={{ width: W.desc }}>
-            <Text style={pdfReportTable.totalsRowLabel}>{ar(`المجموع والرصيد الختامي (${count})`)}</Text>
-          </View>
-          <View style={{ width: W.meta }} />
         </View>
       </View>
 

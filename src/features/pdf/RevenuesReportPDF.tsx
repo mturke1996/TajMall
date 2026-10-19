@@ -3,7 +3,7 @@ import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ReportPageFrame } from './ReportPageFrame';
 import { ar } from './arabicPDF';
-import { PDF, pdfBase } from './pdfBase';
+import { PDF, pdfBase, PDF_PAGINATION } from './pdfBase';
 import { PDF_TABLE_ROW, PDF_AR_CELL, PDF_NUM_CELL } from './pdfTable';
 import { pdfReportTable, PdfReportMoney, PdfReportCaption } from './pdfReportTable';
 import { TajMallPdfFooter, PdfReportHeaderFlow } from './pdfBrandKit';
@@ -179,6 +179,284 @@ export type RevenuesReportPdfProps = {
   }>;
 };
 
+type RevenuesReportPdfGroup = NonNullable<RevenuesReportPdfProps['paymentMethodGroups']>[number];
+
+/**
+ * Page-break rules (the tables themselves are unchanged):
+ * - a payment-method band and a summary band never sit alone at the foot of a page, away from
+ *   their table (they are direct children of the page flow, so react-pdf can move them);
+ * - a row never splits across pages;
+ * - the last row travels with the group subtotal;
+ * - the last group's final rows, its subtotal and the grand-total bar are one block, so the
+ *   grand-total bar is never alone on a page (the frame is kept continuous across the cut);
+ * - a long category summary flows across pages instead of being pushed whole to a new page
+ *   (it used to be one unbreakable block: with many categories it overflowed the page).
+ */
+const KEEP_BAND_WITH_TABLE = 100;
+/** band of a group whose whole table is one unbreakable block: it stays only if that block fits after it */
+const KEEP_WHOLE_BLOCK = 2000;
+/**
+ * Spacing between two tables is the next band's top margin, never a bottom margin on a table:
+ * react-pdf counts a block's bottom margin as part of its "presence", so a long table that ends
+ * within its own margin of the page foot is moved whole to the next page (a huge blank area).
+ */
+const GAP_AFTER_TABLE = 40;
+const GAP_AFTER_STRIP = 10;
+const KEEP_LAST_ROW_WITH_SUBTOTAL = 40;
+const TAIL_ROWS = 2;
+const SMALL_SUMMARY_ROWS = 4;
+const FRAME_OPEN_BOTTOM = {
+  borderBottomWidth: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  marginBottom: 0,
+};
+const FRAME_OPEN_TOP = {
+  borderTopWidth: 0,
+  borderTopLeftRadius: 0,
+  borderTopRightRadius: 0,
+};
+/** the page's bottom padding must clear the fixed footer (its top edge is ~66pt above the sheet's bottom) */
+const FOOTER_CLEARANCE = 72;
+
+function CategorySummary({
+  categoriesSummary,
+  grandTotal,
+}: {
+  categoriesSummary: NonNullable<RevenuesReportPdfProps['categoriesSummary']>;
+  grandTotal: number;
+}) {
+  // a short summary stays in one piece; a long one flows across pages
+  const small = categoriesSummary.length <= SMALL_SUMMARY_ROWS;
+  const band = (
+    <View style={s.summaryBand} wrap={false} minPresenceAhead={small ? 0 : KEEP_BAND_WITH_TABLE}>
+      <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#fff', textAlign: 'right' }}>
+        {ar('ملخص إجمالي الإيرادات حسب البنود المحاسبية')}
+      </Text>
+    </View>
+  );
+  const table = (
+    <View style={small ? pdfReportTable.tableWrap : [pdfReportTable.tableWrap, { marginBottom: 0 }]}>
+      <View style={pdfReportTable.tableHead} wrap={false} {...(small ? {} : { fixed: true })}>
+        <Text style={[pdfReportTable.th, { width: W_CAT_SUMMARY.percent }]}>{ar('النسبة %')}</Text>
+        <Text style={[pdfReportTable.th, { width: W_CAT_SUMMARY.total }]}>{ar('إجمالي المحصل')}</Text>
+        <Text style={[pdfReportTable.th, { width: W_CAT_SUMMARY.count }]}>{ar('عدد السندات')}</Text>
+        <Text style={[pdfReportTable.th, { width: W_CAT_SUMMARY.code }]}>{ar('رمز البند')}</Text>
+        <Text style={[pdfReportTable.thAr, { width: W_CAT_SUMMARY.name }]}>{ar('البند المحاسبي')}</Text>
+      </View>
+      {categoriesSummary.map((cat, idx) => {
+        const pct = grandTotal > 0 ? ((cat.total / grandTotal) * 100).toFixed(1) : '0.0';
+        return (
+          <View
+            key={cat.name || idx}
+            style={[pdfReportTable.tableRow, idx % 2 === 1 ? pdfReportTable.rowAlt : {}]}
+            wrap={false}
+          >
+            <Text style={[pdfReportTable.tdMuted, { width: W_CAT_SUMMARY.percent, direction: 'ltr' }]}>
+              {`${pct}%`}
+            </Text>
+            <View style={[pdfReportTable.tdNum, { width: W_CAT_SUMMARY.total }]}>
+              <PdfReportMoney amount={cat.total} bold color={PDF.primary} />
+            </View>
+            <Text style={[pdfReportTable.tdMuted, { width: W_CAT_SUMMARY.count, direction: 'ltr' }]}>
+              {cat.count}
+            </Text>
+            <Text style={[pdfReportTable.tdMuted, { width: W_CAT_SUMMARY.code, direction: 'ltr' }]}>
+              {cat.code}
+            </Text>
+            <Text style={[pdfReportTable.tdAr, { width: W_CAT_SUMMARY.name, fontWeight: 'bold' }]}>
+              {ar(cat.name)}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+  if (small) {
+    return (
+      <View style={{ marginBottom: 14 }} wrap={false}>
+        {band}
+        {table}
+      </View>
+    );
+  }
+  return (
+    <>
+      {band}
+      {table}
+    </>
+  );
+}
+
+function MethodRow({
+  tx,
+  idx,
+  keepWithSubtotal,
+}: {
+  tx: TransactionWithRelations;
+  idx: number;
+  keepWithSubtotal: boolean;
+}) {
+  const isAlt = idx % 2 === 1;
+  return (
+    <View
+      style={[pdfReportTable.tableRow, isAlt ? pdfReportTable.rowAlt : {}]}
+      wrap={false}
+      minPresenceAhead={keepWithSubtotal ? KEEP_LAST_ROW_WITH_SUBTOTAL : 0}
+    >
+      <View style={[pdfReportTable.tdNum, { width: W_REV.amount }]}>
+        <PdfReportMoney amount={Number(tx.amount || 0)} bold color={PDF.primary} />
+      </View>
+
+      <Text style={[pdfReportTable.tdAr, { width: W_REV.bank, fontSize: 8 }]}>
+        {ar(tx.cashbox?.name_ar || '—')}
+      </Text>
+
+      <View style={{ width: W_REV.category, ...pdfReportTable.tdAr }}>
+        <Text style={{ fontSize: 8.5, fontWeight: 'bold', color: PDF.text }}>
+          {ar(tx.category?.name_ar || 'إيراد عام')}
+        </Text>
+        <Text style={{ fontSize: 7, color: PDF.muted, direction: 'ltr', textAlign: 'right' }}>
+          {tx.category?.code || '—'}
+        </Text>
+      </View>
+
+      <View style={{ width: W_REV.contact, ...pdfReportTable.tdAr }}>
+        <Text style={{ fontSize: 8.5, fontWeight: 'bold', color: PDF.text }}>
+          {ar(tx.contact?.name || 'عميل عام')}
+        </Text>
+        {tx.contact?.shop_number ? (
+          <Text style={{ fontSize: 7, color: PDF.muted }}>
+            {ar(`محل رقم: ${tx.contact.shop_number}`)}
+          </Text>
+        ) : null}
+      </View>
+
+      <Text style={[pdfReportTable.tdMuted, { width: W_REV.date, direction: 'ltr', textAlign: 'center' }]}>
+        {tx.tx_date ? tx.tx_date.slice(0, 10) : '—'}
+      </Text>
+
+      <Text
+        style={[
+          pdfReportTable.tdMuted,
+          { width: W_REV.number, fontWeight: 'bold', color: PDF.primary, direction: 'ltr', textAlign: 'center' },
+        ]}
+      >
+        {`#${tx.number ?? '—'}`}
+      </Text>
+    </View>
+  );
+}
+
+function MethodGroup({
+  group,
+  bandGap,
+  closing,
+}: {
+  group: RevenuesReportPdfGroup;
+  /** top margin of the band (larger when the group follows a table) */
+  bandGap: number;
+  /** passed to the last group only: the grand-total bar, kept together with this group's tail */
+  closing?: React.ReactNode;
+}) {
+  const items = group.items;
+  const renderBand = (keepAhead: number) => (
+    <View
+      style={[s.categoryBand, { marginTop: bandGap }]}
+      wrap={false}
+      minPresenceAhead={keepAhead}
+    >
+      <View style={s.badgeOk}>
+        <Text style={s.badgeTextOk}>
+          {ar(`${group.count} سند · `)}
+          <PdfReportMoney
+            amount={group.totalAmount}
+            bold
+            style={{ fontSize: 7.5, color: '#166534' }}
+          />
+        </Text>
+      </View>
+      <View style={{ flex: 1, paddingLeft: 8 }}>
+        <Text style={{ fontSize: 7, color: 'rgba(255,255,255,0.75)', textAlign: 'right' }}>
+          {ar('جدول إيرادات طريقة الدفع')}
+        </Text>
+        <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#fff', textAlign: 'right' }}>
+          {ar(group.labelAr)}
+        </Text>
+      </View>
+    </View>
+  );
+  const renderHead = (fixed: boolean) => (
+    <View style={pdfReportTable.tableHead} {...(fixed ? { fixed: true } : {})}>
+      <Text style={[pdfReportTable.th, { width: W_REV.amount }]}>{ar('المبلغ')}</Text>
+      <Text style={[pdfReportTable.thAr, { width: W_REV.bank }]}>{ar('الخزينة / المصرف')}</Text>
+      <Text style={[pdfReportTable.thAr, { width: W_REV.category }]}>{ar('البند المحاسبي')}</Text>
+      <Text style={[pdfReportTable.thAr, { width: W_REV.contact }]}>{ar('المستأجر / العميل')}</Text>
+      <Text style={[pdfReportTable.th, { width: W_REV.date }]}>{ar('التاريخ')}</Text>
+      <Text style={[pdfReportTable.th, { width: W_REV.number }]}>{ar('رقم السند')}</Text>
+    </View>
+  );
+  const subtotal = (
+    <View style={pdfReportTable.totalsRow} wrap={false}>
+      <View style={[pdfReportTable.tdNum, { width: W_REV.amount }]}>
+        <PdfReportMoney amount={group.totalAmount} bold color={PDF.primary} />
+      </View>
+      <Text style={[pdfReportTable.totalsRowLabel, { width: '84%', textAlign: 'right' }]}>
+        {ar(`مجموع ${group.labelAr} (${group.count} سند)`)}
+      </Text>
+    </View>
+  );
+  const renderRows = (from: number, to: number, keepLastWithSubtotal: boolean) =>
+    items
+      .slice(from, to)
+      .map((tx, i) => (
+        <MethodRow
+          key={tx.id || from + i}
+          tx={tx}
+          idx={from + i}
+          keepWithSubtotal={keepLastWithSubtotal && from + i === items.length - 1}
+        />
+      ));
+
+  // band and table are direct children of the page flow (not wrapped in a group View):
+  // react-pdf only moves an element that has something before it, so a wrapped band would
+  // stay alone at the foot of the page
+  if (!closing) {
+    return (
+      <>
+        {renderBand(KEEP_BAND_WITH_TABLE)}
+        <View style={[pdfReportTable.tableWrap, { marginBottom: 0 }]}>
+          {renderHead(true)}
+          {renderRows(0, items.length, true)}
+          {subtotal}
+        </View>
+      </>
+    );
+  }
+
+  // last group: [head + rows before the tail] + [last rows, subtotal, grand-total bar] as one block
+  const tailFrom = items.length > TAIL_ROWS ? items.length - TAIL_ROWS : 0;
+  return (
+    <>
+      {renderBand(tailFrom > 0 ? KEEP_BAND_WITH_TABLE : KEEP_WHOLE_BLOCK)}
+      {tailFrom > 0 ? (
+        <View style={[pdfReportTable.tableWrap, FRAME_OPEN_BOTTOM]}>
+          {renderHead(true)}
+          {renderRows(0, tailFrom, false)}
+        </View>
+      ) : null}
+      <View wrap={false}>
+        <View style={[pdfReportTable.tableWrap, tailFrom > 0 ? FRAME_OPEN_TOP : {}]}>
+          {tailFrom > 0 ? null : renderHead(false)}
+          {renderRows(tailFrom, items.length, false)}
+          {subtotal}
+        </View>
+        <View style={{ marginTop: 14 }}>{closing}</View>
+      </View>
+    </>
+  );
+}
+
 export function RevenuesReportPDF(props: RevenuesReportPdfProps) {
   const items = props.rows || props.transactions || [];
   const periodLabel = props.periodLabel || 'الفترة المحددة';
@@ -282,9 +560,44 @@ export function RevenuesReportPDF(props: RevenuesReportPdfProps) {
           return Array.from(map.values()).sort((a, b) => b.total - a.total);
         })();
 
+  // a long category summary is a table that flows across pages (a short one is a small block)
+  const summaryFlows =
+    props.includeSummaries !== false &&
+    categoriesSummary.length > 1 &&
+    categoriesSummary.length > SMALL_SUMMARY_ROWS;
+
+  // grand-total bar + caption: one block, printed with the last group's tail
+  const closing = (
+    <>
+      <View style={pdfReportTable.totalBar} wrap={false}>
+        <View style={pdfReportTable.totalCluster}>
+          <View style={pdfReportTable.totalMini}>
+            <Text style={pdfReportTable.totalMiniLabel}>{ar('إجمالي الإيرادات المعتمد')}</Text>
+            <PdfReportMoney amount={grandTotal} bold light />
+          </View>
+          <View style={pdfReportTable.totalMini}>
+            <Text style={pdfReportTable.totalMiniLabel}>{ar('إجمالي عدد السندات')}</Text>
+            <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: '#fff', textAlign: 'center', direction: 'ltr' }}>
+              {totalTransactionsCount}
+            </Text>
+          </View>
+        </View>
+        <Text style={pdfReportTable.totalLabel}>
+          {ar(`الإجمالي العام للإيرادات — ${periodLabel}`)}
+        </Text>
+      </View>
+
+      <PdfReportCaption />
+    </>
+  );
+
   return (
     <Document title={docTitle} author={BRAND.fullName}>
-      <Page size="A4" style={pdfBase.page} wrap>
+      <Page
+        size="A4"
+        style={[pdfBase.page, { paddingBottom: Math.max(PDF_PAGINATION.footerReserve, FOOTER_CLEARANCE) }]}
+        wrap
+      >
         <View style={pdfBase.pageAccentBar} fixed />
         <View style={pdfBase.pageFlow}>
           <PdfReportHeaderFlow title={titleAr} subtitle={subtitle} titleEn="REVENUES REPORT" />
@@ -344,178 +657,27 @@ export function RevenuesReportPDF(props: RevenuesReportPdfProps) {
             </View>
           </View>
 
-          {/* 3. Categories & Banks Summaries (if requested or available) */}
+          {/* 3. Categories Summary (if multiple categories) */}
           {props.includeSummaries !== false && categoriesSummary.length > 1 && (
-            <View style={{ marginBottom: 14 }} wrap={false}>
-              <View style={s.summaryBand}>
-                <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#fff', textAlign: 'right' }}>
-                  {ar('ملخص إجمالي الإيرادات حسب البنود المحاسبية')}
-                </Text>
-              </View>
-              <View style={pdfReportTable.tableWrap}>
-                <View style={pdfReportTable.tableHead}>
-                  <Text style={[pdfReportTable.th, { width: W_CAT_SUMMARY.percent }]}>{ar('النسبة %')}</Text>
-                  <Text style={[pdfReportTable.th, { width: W_CAT_SUMMARY.total }]}>{ar('إجمالي المحصل')}</Text>
-                  <Text style={[pdfReportTable.th, { width: W_CAT_SUMMARY.count }]}>{ar('عدد السندات')}</Text>
-                  <Text style={[pdfReportTable.th, { width: W_CAT_SUMMARY.code }]}>{ar('رمز البند')}</Text>
-                  <Text style={[pdfReportTable.thAr, { width: W_CAT_SUMMARY.name }]}>{ar('البند المحاسبي')}</Text>
-                </View>
-                {categoriesSummary.map((cat, idx) => {
-                  const pct = grandTotal > 0 ? ((cat.total / grandTotal) * 100).toFixed(1) : '0.0';
-                  return (
-                    <View
-                      key={cat.name || idx}
-                      style={[pdfReportTable.tableRow, idx % 2 === 1 ? pdfReportTable.rowAlt : {}]}
-                    >
-                      <Text style={[pdfReportTable.tdMuted, { width: W_CAT_SUMMARY.percent, direction: 'ltr' }]}>
-                        {`${pct}%`}
-                      </Text>
-                      <View style={[pdfReportTable.tdNum, { width: W_CAT_SUMMARY.total }]}>
-                        <PdfReportMoney amount={cat.total} bold color={PDF.primary} />
-                      </View>
-                      <Text style={[pdfReportTable.tdMuted, { width: W_CAT_SUMMARY.count, direction: 'ltr' }]}>
-                        {cat.count}
-                      </Text>
-                      <Text style={[pdfReportTable.tdMuted, { width: W_CAT_SUMMARY.code, direction: 'ltr' }]}>
-                        {cat.code}
-                      </Text>
-                      <Text style={[pdfReportTable.tdAr, { width: W_CAT_SUMMARY.name, fontWeight: 'bold' }]}>
-                        {ar(cat.name)}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
+            <CategorySummary categoriesSummary={categoriesSummary} grandTotal={grandTotal} />
           )}
 
-          {/* 4. Payment Method Grouped Tables */}
+          {/* 4. Payment Method Grouped Tables — the last group also carries the grand-total bar */}
           {paymentMethodGroups.length === 0 ? (
-            <Text style={s.emptyBox}>{ar('لا توجد إيرادات مسجلة مطابقة للخيارات المحددة')}</Text>
+            <>
+              <Text style={s.emptyBox}>{ar('لا توجد إيرادات مسجلة مطابقة للخيارات المحددة')}</Text>
+              {closing}
+            </>
           ) : (
-            paymentMethodGroups.map((group) => {
-              return (
-                <View key={group.method} style={{ marginBottom: 14 }}>
-                  {/* Category Band Bar */}
-                  <View style={s.categoryBand} wrap={false}>
-                    <View style={s.badgeOk}>
-                      <Text style={s.badgeTextOk}>
-                        {ar(`${group.count} سند · `)}
-                        <PdfReportMoney
-                          amount={group.totalAmount}
-                          bold
-                          style={{ fontSize: 7.5, color: '#166534' }}
-                        />
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1, paddingLeft: 8 }}>
-                      <Text style={{ fontSize: 7, color: 'rgba(255,255,255,0.75)', textAlign: 'right' }}>
-                        {ar('جدول إيرادات طريقة الدفع')}
-                      </Text>
-                      <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#fff', textAlign: 'right' }}>
-                        {ar(group.labelAr)}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Table */}
-                  <View style={pdfReportTable.tableWrap}>
-                    <View style={pdfReportTable.tableHead} fixed>
-                      <Text style={[pdfReportTable.th, { width: W_REV.amount }]}>{ar('المبلغ')}</Text>
-                      <Text style={[pdfReportTable.thAr, { width: W_REV.bank }]}>{ar('الخزينة / المصرف')}</Text>
-                      <Text style={[pdfReportTable.thAr, { width: W_REV.category }]}>{ar('البند المحاسبي')}</Text>
-                      <Text style={[pdfReportTable.thAr, { width: W_REV.contact }]}>{ar('المستأجر / العميل')}</Text>
-                      <Text style={[pdfReportTable.th, { width: W_REV.date }]}>{ar('التاريخ')}</Text>
-                      <Text style={[pdfReportTable.th, { width: W_REV.number }]}>{ar('رقم السند')}</Text>
-                    </View>
-
-                    {group.items.map((tx, idx) => {
-                      const isAlt = idx % 2 === 1;
-                      return (
-                        <View
-                          key={tx.id || idx}
-                          style={[pdfReportTable.tableRow, isAlt ? pdfReportTable.rowAlt : {}]}
-                          wrap={false}
-                        >
-                          <View style={[pdfReportTable.tdNum, { width: W_REV.amount }]}>
-                            <PdfReportMoney amount={Number(tx.amount || 0)} bold color={PDF.primary} />
-                          </View>
-
-                          <Text style={[pdfReportTable.tdAr, { width: W_REV.bank, fontSize: 8 }]}>
-                            {ar(tx.cashbox?.name_ar || '—')}
-                          </Text>
-
-                          <View style={{ width: W_REV.category, ...pdfReportTable.tdAr }}>
-                            <Text style={{ fontSize: 8.5, fontWeight: 'bold', color: PDF.text }}>
-                              {ar(tx.category?.name_ar || 'إيراد عام')}
-                            </Text>
-                            <Text style={{ fontSize: 7, color: PDF.muted, direction: 'ltr', textAlign: 'right' }}>
-                              {tx.category?.code || '—'}
-                            </Text>
-                          </View>
-
-                          <View style={{ width: W_REV.contact, ...pdfReportTable.tdAr }}>
-                            <Text style={{ fontSize: 8.5, fontWeight: 'bold', color: PDF.text }}>
-                              {ar(tx.contact?.name || 'عميل عام')}
-                            </Text>
-                            {tx.contact?.shop_number ? (
-                              <Text style={{ fontSize: 7, color: PDF.muted }}>
-                                {ar(`محل رقم: ${tx.contact.shop_number}`)}
-                              </Text>
-                            ) : null}
-                          </View>
-
-                          <Text style={[pdfReportTable.tdMuted, { width: W_REV.date, direction: 'ltr', textAlign: 'center' }]}>
-                            {tx.tx_date ? tx.tx_date.slice(0, 10) : '—'}
-                          </Text>
-
-                          <Text
-                            style={[
-                              pdfReportTable.tdMuted,
-                              { width: W_REV.number, fontWeight: 'bold', color: PDF.primary, direction: 'ltr', textAlign: 'center' },
-                            ]}
-                          >
-                            {`#${tx.number ?? '—'}`}
-                          </Text>
-                        </View>
-                      );
-                    })}
-
-                    {/* Subtotal Row */}
-                    <View style={pdfReportTable.totalsRow} wrap={false}>
-                      <View style={[pdfReportTable.tdNum, { width: W_REV.amount }]}>
-                        <PdfReportMoney amount={group.totalAmount} bold color={PDF.primary} />
-                      </View>
-                      <Text style={[pdfReportTable.totalsRowLabel, { width: '84%', textAlign: 'right' }]}>
-                        {ar(`مجموع ${group.labelAr} (${group.count} سند)`)}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              );
-            })
+            paymentMethodGroups.map((group, gi) => (
+              <MethodGroup
+                key={group.method}
+                group={group}
+                bandGap={gi > 0 || summaryFlows ? GAP_AFTER_TABLE : GAP_AFTER_STRIP}
+                closing={gi === paymentMethodGroups.length - 1 ? closing : undefined}
+              />
+            ))
           )}
-
-          {/* 5. Grand Total Bar */}
-          <View style={pdfReportTable.totalBar} wrap={false}>
-            <View style={pdfReportTable.totalCluster}>
-              <View style={pdfReportTable.totalMini}>
-                <Text style={pdfReportTable.totalMiniLabel}>{ar('إجمالي الإيرادات المعتمد')}</Text>
-                <PdfReportMoney amount={grandTotal} bold light />
-              </View>
-              <View style={pdfReportTable.totalMini}>
-                <Text style={pdfReportTable.totalMiniLabel}>{ar('إجمالي عدد السندات')}</Text>
-                <Text style={{ fontSize: 9.5, fontWeight: 'bold', color: '#fff', textAlign: 'center', direction: 'ltr' }}>
-                  {totalTransactionsCount}
-                </Text>
-              </View>
-            </View>
-            <Text style={pdfReportTable.totalLabel}>
-              {ar(`الإجمالي العام للإيرادات — ${periodLabel}`)}
-            </Text>
-          </View>
-
-          <PdfReportCaption />
         </View>
 
         <TajMallPdfFooter fixed />
