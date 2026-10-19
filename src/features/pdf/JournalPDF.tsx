@@ -56,6 +56,8 @@ const s = StyleSheet.create({
     fontSize: 8,
     color: PDF.muted,
     width: 72,
+    // «26 يوليو 2026»: without an explicit rtl the day, year and month come out jumbled
+    direction: 'rtl',
     textAlign: 'left',
   },
   indexDesc: {
@@ -102,6 +104,7 @@ const s = StyleSheet.create({
   entryDate: {
     fontSize: 9,
     color: PDF.muted,
+    direction: 'rtl',
     textAlign: 'left',
   },
   statusBadge: {
@@ -136,6 +139,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 6,
     color: PDF.muted,
+    direction: 'rtl',
     textAlign: 'right',
   },
   tableHead: {
@@ -224,6 +228,17 @@ const WHOLE_ENTRY_MAX_LINES = 3;
 /** room the closing block needs after the last entry (book total + caption; the caption alone for a single entry), so it is never left alone on a page */
 const CLOSING_BLOCK_HEIGHT = 90;
 const CLOSING_CAPTION_HEIGHT = 24;
+const ENTRY_OPEN_BOTTOM = {
+  borderBottomWidth: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  marginBottom: 0,
+};
+const ENTRY_OPEN_TOP = {
+  borderTopWidth: 0,
+  borderTopLeftRadius: 0,
+  borderTopRightRadius: 0,
+};
 
 export function JournalPDF({
   entries,
@@ -312,7 +327,7 @@ export function JournalPDF({
       periodSummary={{
         eyebrow: titleEn,
         title: periodLabel,
-        subtitle: `${entries.length} قيد · ${lineCount} بند`,
+        subtitle: `${entries.length} قيد`,
         hint: bookBalanced
           ? 'المدين = الدائن — الدفتر متوازن محاسبياً'
           : 'تنبيه: إجمالي المدين لا يساوي إجمالي الدائن',
@@ -470,22 +485,42 @@ export function JournalPDF({
             }
 
             // a long entry may break between lines, never right after its header or right before its total
-            return (
-              <View key={entry.id} style={s.entry}>
-                <View wrap={false}>
-                  {head}
-                  {rows[0]}
+            if (!isLast) {
+              return (
+                <View key={entry.id} style={s.entry}>
+                  <View wrap={false}>
+                    {head}
+                    {rows[0]}
+                  </View>
+                  {rows.slice(1, -1)}
+                  <View wrap={false}>
+                    {rows[n - 1]}
+                    {totalRow}
+                  </View>
                 </View>
-                {rows.slice(1, -1)}
+              );
+            }
+
+            // the last long entry is drawn as one card in two seamless halves: its closing lines can then
+            // travel to the next page with the book total, even when the entry itself would fit on this page
+            return (
+              <React.Fragment key={entry.id}>
+                <View style={[s.entry, ENTRY_OPEN_BOTTOM]}>
+                  <View wrap={false}>
+                    {head}
+                    {rows[0]}
+                  </View>
+                  {rows.slice(1, -1)}
+                </View>
                 <View
+                  style={[s.entry, ENTRY_OPEN_TOP]}
                   wrap={false}
-                  // the last entry keeps the book total (and caption) with its closing lines
-                  {...(isLast ? { minPresenceAhead: closingHeight + 14 } : {})}
+                  minPresenceAhead={closingHeight}
                 >
                   {rows[n - 1]}
                   {totalRow}
                 </View>
-              </View>
+              </React.Fragment>
             );
           })}
 

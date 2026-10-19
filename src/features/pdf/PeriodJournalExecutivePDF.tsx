@@ -34,9 +34,25 @@ const W_DETAILED = {
 
 /** room a bank band needs below it: the column head and two rows, so a band is never left alone at the foot of a page */
 const DETAIL_HEAD_ROOM = 96;
-/** room the grand total bar and the caption need after the last table */
-const CLOSING_AFTER_TABLE = 92;
+/** room the grand total bar and the caption need after the last table (its bottom margin is counted separately) */
+const CLOSING_AFTER_TABLE = 84;
 const CLOSING_AFTER_GROUP = 72;
+/**
+ * A detailed table is drawn as one card in two seamless halves: the last rows and the subtotal row sit in the
+ * second half, so they can travel to the next page together (and, for the last bank, with the grand total bar).
+ */
+const DETAIL_TAIL_ROWS = 1;
+const CARD_OPEN_BOTTOM = {
+  borderBottomWidth: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  marginBottom: 0,
+};
+const CARD_OPEN_TOP = {
+  borderTopWidth: 0,
+  borderTopLeftRadius: 0,
+  borderTopRightRadius: 0,
+};
 
 const s = StyleSheet.create({
   scopeStrip: {
@@ -283,7 +299,8 @@ export function PeriodJournalExecutivePDF({
 
   return (
     <Document title={docTitle} author={BRAND.fullName}>
-      <Page size="A4" style={pdfBase.page} wrap>
+      {/* the fixed footer is ~66pt tall from the page foot: a 56pt bottom padding let the last rows run under its rule */}
+      <Page size="A4" style={[pdfBase.page, { paddingBottom: PDF_PAGINATION.footerReserve + 14 }]} wrap>
         <View style={pdfBase.pageAccentBar} fixed />
         <View style={pdfBase.pageFlow}>
           <PdfReportHeaderFlow title={titleAr} subtitle={subtitle} titleEn="JOURNAL ENTRY" />
@@ -584,33 +601,49 @@ export function PeriodJournalExecutivePDF({
               };
 
               // ================= 3B: DETAILED (تفصيلي بكافة القيود) =================
-              const detailTable = (
-                <View style={pdfReportTable.tableWrap}>
-                  <View style={pdfReportTable.tableHead} fixed>
-                    <Text style={[pdfReportTable.th, { width: W_DETAILED.amount }]}>{ar('المبلغ')}</Text>
-                    <Text style={[pdfReportTable.thAr, { width: W_DETAILED.desc }]}>{ar('البيان والتفاصيل')}</Text>
-                    <Text style={[pdfReportTable.thAr, { width: W_DETAILED.tenant }]}>{ar('المستأجر / المحل')}</Text>
-                    <Text style={[pdfReportTable.th, { width: W_DETAILED.targetMonth }]}>{ar('شهر الاستحقاق')}</Text>
-                    <Text style={[pdfReportTable.th, { width: W_DETAILED.date }]}>{ar('تاريخ التسجيل')}</Text>
-                    <Text style={[pdfReportTable.th, { width: W_DETAILED.number }]}>{ar('رقم السند')}</Text>
-                  </View>
+              const detailSplit = bg.items.length > DETAIL_TAIL_ROWS;
+              const topItems = detailSplit ? bg.items.slice(0, bg.items.length - DETAIL_TAIL_ROWS) : bg.items;
+              const tailItems = detailSplit ? bg.items.slice(bg.items.length - DETAIL_TAIL_ROWS) : [];
 
-                  {bg.items.slice(0, -1).map(renderItem)}
-
-                  {/* the last row travels with the subtotal row (and, for the last bank, with the grand total bar) */}
-                  <View wrap={false} {...(isLastGroup ? { minPresenceAhead: CLOSING_AFTER_TABLE } : {})}>
-                    {bg.items.length > 0 ? renderItem(bg.items[bg.items.length - 1], bg.items.length - 1) : null}
-                    {/* Subtotal row */}
-                    <View style={pdfReportTable.totalsRow} wrap={false}>
-                      <View style={[pdfReportTable.tdNum, { width: W_DETAILED.amount }]}>
-                        <PdfReportMoney amount={sectionAmount} bold color={PDF.primary} />
-                      </View>
-                      <Text style={[pdfReportTable.totalsRowLabel, { width: '84%', textAlign: 'right' }]}>
-                        {ar(`مجموع حركات ${bg.name} (${bg.items.length} حركة)`)}
-                      </Text>
-                    </View>
+              const subtotalRow = (
+                <View style={pdfReportTable.totalsRow} wrap={false}>
+                  <View style={[pdfReportTable.tdNum, { width: W_DETAILED.amount }]}>
+                    <PdfReportMoney amount={sectionAmount} bold color={PDF.primary} />
                   </View>
+                  <Text style={[pdfReportTable.totalsRowLabel, { width: '84%', textAlign: 'right' }]}>
+                    {ar(`مجموع حركات ${bg.name} (${bg.items.length} حركة)`)}
+                  </Text>
                 </View>
+              );
+
+              const detailTable = (
+                <>
+                  <View style={[pdfReportTable.tableWrap, detailSplit ? CARD_OPEN_BOTTOM : null]}>
+                    <View style={pdfReportTable.tableHead} fixed>
+                      <Text style={[pdfReportTable.th, { width: W_DETAILED.amount }]}>{ar('المبلغ')}</Text>
+                      <Text style={[pdfReportTable.thAr, { width: W_DETAILED.desc }]}>{ar('البيان والتفاصيل')}</Text>
+                      <Text style={[pdfReportTable.thAr, { width: W_DETAILED.tenant }]}>{ar('المستأجر / المحل')}</Text>
+                      <Text style={[pdfReportTable.th, { width: W_DETAILED.targetMonth }]}>{ar('شهر الاستحقاق')}</Text>
+                      <Text style={[pdfReportTable.th, { width: W_DETAILED.date }]}>{ar('تاريخ التسجيل')}</Text>
+                      <Text style={[pdfReportTable.th, { width: W_DETAILED.number }]}>{ar('رقم السند')}</Text>
+                    </View>
+
+                    {topItems.map((it, idx) => renderItem(it, idx))}
+                    {detailSplit ? null : subtotalRow}
+                  </View>
+
+                  {/* the last rows and the subtotal row: one unit (and, for the last bank, kept with the grand total bar) */}
+                  {detailSplit ? (
+                    <View
+                      style={[pdfReportTable.tableWrap, CARD_OPEN_TOP]}
+                      wrap={false}
+                      {...(isLastGroup ? { minPresenceAhead: CLOSING_AFTER_TABLE } : {})}
+                    >
+                      {tailItems.map((it, k) => renderItem(it, topItems.length + k))}
+                      {subtotalRow}
+                    </View>
+                  ) : null}
+                </>
               );
 
               // the small summary groups are never split; the detailed ones flow, but their band keeps its table head with it
@@ -637,8 +670,8 @@ export function PeriodJournalExecutivePDF({
             })
           )}
 
-          {/* 4. Final Balanced Grand Total Bar — kept with the caption */}
-          <View wrap={false}>
+          {/* 4. Final Balanced Grand Total Bar — kept with the caption (14pt of air after the detailed tables, as the summary groups have) */}
+          <View wrap={false} style={viewLevel !== 'SUMMARY_ONLY' && bankGroups.length > 0 ? { marginTop: 14 } : null}>
             <View style={pdfReportTable.totalBar}>
               <View style={pdfReportTable.totalCluster}>
                 <View style={pdfReportTable.totalMini}>

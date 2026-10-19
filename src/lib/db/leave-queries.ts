@@ -13,7 +13,6 @@ import {
   parseBalanceRows,
   type EmployeeDetails,
   type EmployeeFileInput,
-  type EmploymentType,
   type LeaveBalanceLine,
   type LeaveRequest,
   type LeaveStatus,

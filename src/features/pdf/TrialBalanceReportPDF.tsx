@@ -17,7 +17,7 @@ const W = {
 };
 
 /** room needed after the last rows: the table's bottom margin, the grand total bar and the caption */
-const CLOSING_AFTER_ROWS = 90;
+const CLOSING_AFTER_ROWS = 70;
 /** the last rows sit in a second card, seamless with the first, so they can travel to the next page together with the grand total bar */
 const TAIL_ROWS = 2;
 const CARD_OPEN_BOTTOM = {

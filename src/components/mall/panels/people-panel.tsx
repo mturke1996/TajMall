@@ -4,49 +4,51 @@ import { useCallback, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Banknote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { MallPanelToolbar } from '@/components/mall/panel-toolbar';
 import { PeopleSegmentNav } from '@/components/mall/people-segment-nav';
-import { ContactsDirectory } from '@/components/contacts/contacts-directory';
+import { ADD_LABEL, ContactsDirectory } from '@/components/contacts/contacts-directory';
 import { ContactFormDialog } from '@/components/contacts/contact-form-dialog';
 import { useContactsDirectory } from '@/components/contacts/use-contacts-directory';
 import { MallEmployeesPanel } from '@/components/mall/panels/employees-panel';
-import {
-  isPeopleSegment,
-  mallTabHref,
-  peopleSegmentHref,
-  type PeopleSegment,
-} from '@/lib/mall/routes';
+import { normalizeRoleFilter, type RoleFilter } from '@/lib/contacts/directory';
+import { isPeopleSegment, mallTabHref, peopleSegmentHref, type PeopleSegment } from '@/lib/mall/routes';
 import type { ContactKind } from '@/lib/db/types';
 import { WriteGuard } from '@/components/auth/write-guard';
-
-const ADD_LABEL: Record<PeopleSegment, string> = {
-  all: 'إضافة جهة',
-  TENANT: 'إضافة مستأجر',
-  EMPLOYEE: 'إضافة موظف',
-  VENDOR: 'إضافة مورد',
-  CUSTOMER: 'إضافة عميل',
-};
 
 export function MallPeoplePanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawSegment = searchParams.get('segment');
   const segment: PeopleSegment = isPeopleSegment(rawSegment) ? rawSegment : 'all';
+  // a role from the address bar only counts in a list that offers it; changing the list drops it
+  const role: RoleFilter = normalizeRoleFilter(segment, searchParams.get('role'));
   const addKind = searchParams.get('add') as ContactKind | null;
 
+  const hrefFor = useCallback(
+    (next: PeopleSegment, nextRole: RoleFilter = 'ALL') => peopleSegmentHref(next, nextRole === 'ALL' ? undefined : { role: nextRole }),
+    [],
+  );
+
   const clearAddParam = useCallback(() => {
-    router.replace(peopleSegmentHref(segment), { scroll: false });
-  }, [router, segment]);
+    router.replace(hrefFor(segment, role), { scroll: false });
+  }, [router, hrefFor, segment, role]);
 
   const setSegment = useCallback(
     (next: PeopleSegment) => {
-      router.replace(peopleSegmentHref(next), { scroll: false });
+      router.replace(hrefFor(next), { scroll: false });
     },
-    [router],
+    [router, hrefFor],
+  );
+
+  const setRole = useCallback(
+    (next: RoleFilter) => {
+      router.replace(hrefFor(segment, next), { scroll: false });
+    },
+    [router, hrefFor, segment],
   );
 
   const directory = useContactsDirectory({
     segment,
+    role,
     addKind,
     onAddKindConsumed: clearAddParam,
   });
@@ -58,96 +60,54 @@ export function MallPeoplePanel() {
     }
   }, [highlightId, router]);
 
+  const formDialog = (
+    <ContactFormDialog
+      open={directory.isAddOpen}
+      onOpenChange={directory.setIsAddOpen}
+      formData={directory.formData}
+      onFormChange={directory.setFormData}
+      editingId={directory.editingId}
+      onSubmit={directory.handleSubmit}
+      isPending={directory.isPending}
+    />
+  );
+
   if (segment === 'EMPLOYEE') {
     return (
-      <div className="space-y-4">
-        <PeopleSegmentNav
-          active={segment}
-          counts={directory.segmentCounts}
-          onChange={setSegment}
-        />
-        <MallEmployeesPanel
-          embedded
-          onAddEmployee={() => directory.openAdd('EMPLOYEE')}
-        />
-        <ContactFormDialog
-          open={directory.isAddOpen}
-          onOpenChange={directory.setIsAddOpen}
-          formData={directory.formData}
-          onFormChange={directory.setFormData}
-          editingId={directory.editingId}
-          onSubmit={directory.handleSubmit}
-          isPending={directory.isPending}
-        />
+      <div className="space-y-5">
+        <PeopleSegmentNav active={segment} counts={directory.segmentCounts} onChange={setSegment} />
+        <MallEmployeesPanel embedded onAddEmployee={() => directory.openAdd('EMPLOYEE')} />
+        {formDialog}
       </div>
     );
   }
 
+  const addLabel = role === 'LANDLORD' ? 'إضافة مؤجر' : ADD_LABEL[segment];
+
   return (
-    <div className="space-y-4">
-      <PeopleSegmentNav
-        active={segment}
-        counts={directory.segmentCounts}
-        onChange={setSegment}
-      />
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <PeopleSegmentNav active={segment} counts={directory.segmentCounts} onChange={setSegment} />
 
-      <MallPanelToolbar className="justify-stretch gap-2 sm:justify-end">
-        {segment === 'TENANT' && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-11 flex-1 gap-1.5 touch-manipulation sm:flex-none md:h-9"
-            onClick={() => router.push(mallTabHref('tenants'))}
-          >
-            <Banknote className="h-4 w-4" />
-            تحصيل الإيجار
-          </Button>
-        )}
-        <WriteGuard permission="document.create">
-          <Button
-            size="sm"
-            className="h-11 flex-1 gap-1.5 touch-manipulation sm:flex-none md:h-9"
-            onClick={() =>
-              directory.openAdd(
-                segment === 'all' ? undefined : (segment as ContactKind),
-              )
-            }
-          >
-            <Plus className="h-4 w-4 me-1" />
-            {ADD_LABEL[segment]}
-          </Button>
-        </WriteGuard>
-      </MallPanelToolbar>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {segment === 'TENANT' && (
+            <Button variant="outline" className="h-11 gap-1.5 touch-manipulation sm:h-9" onClick={() => router.push(mallTabHref('tenants'))}>
+              <Banknote aria-hidden />
+              تحصيل الإيجار
+            </Button>
+          )}
+          <WriteGuard permission="document.create">
+            <Button className="h-11 gap-1.5 touch-manipulation sm:h-9" onClick={() => directory.openAdd()}>
+              <Plus aria-hidden />
+              {addLabel}
+            </Button>
+          </WriteGuard>
+        </div>
+      </div>
 
-      <ContactsDirectory
-        contacts={directory.contacts}
-        filteredContacts={directory.filteredContacts}
-        isLoading={directory.isLoading}
-        searchQuery={directory.searchQuery}
-        onSearchChange={directory.setSearchQuery}
-        roleFilter={directory.roleFilter}
-        onRoleFilterChange={directory.setRoleFilter}
-        hideKindFilters={segment !== 'all'}
-        stats={directory.stats}
-        onAdd={directory.openAdd}
-        onEdit={directory.startEdit}
-        onDelete={directory.handleDelete}
-        allowMutate={directory.canWrite}
-        showInactive={directory.showInactive}
-        onShowInactiveChange={directory.setShowInactive}
-        inactiveCount={directory.inactiveCount}
-      />
+      <ContactsDirectory directory={directory} segment={segment} role={role} onRoleChange={setRole} />
 
-      <ContactFormDialog
-        open={directory.isAddOpen}
-        onOpenChange={directory.setIsAddOpen}
-        formData={directory.formData}
-        onFormChange={directory.setFormData}
-        editingId={directory.editingId}
-        onSubmit={directory.handleSubmit}
-        isPending={directory.isPending}
-      />
-
+      {formDialog}
     </div>
   );
 }

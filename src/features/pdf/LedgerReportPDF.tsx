@@ -16,8 +16,24 @@ const W = {
   meta: '18%',
 };
 
-/** room needed after the table: its bottom margin and the caption */
-const CLOSING_AFTER_TABLE = 40;
+/** room needed after the table for the caption (the table's own bottom margin is counted separately) */
+const CLOSING_AFTER_TABLE = 24;
+/**
+ * The table is drawn as one card in two seamless halves: the last rows and the totals row sit in the second half,
+ * so they can travel to the next page together (never a lone caption or totals row). One row only: the column head is repeated on every continuation page of the first half, and the second half rarely stands alone.
+ */
+const TAIL_ROWS = 1;
+const CARD_OPEN_BOTTOM = {
+  borderBottomWidth: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  marginBottom: 0,
+};
+const CARD_OPEN_TOP = {
+  borderTopWidth: 0,
+  borderTopLeftRadius: 0,
+  borderTopRightRadius: 0,
+};
 
 export type LedgerReportPdfProps = {
   category: { name_ar: string; code: string; type: string };
@@ -85,6 +101,28 @@ export function LedgerReportPDF({
     </View>
   );
 
+  const totalsRow = (
+    <View style={pdfReportTable.totalsRow} wrap={false}>
+      <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
+        <PdfReportMoney amount={closing} bold showZero />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
+        <PdfReportMoney amount={Number(totalCredit) || 0} bold showZero />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
+        <PdfReportMoney amount={Number(totalDebit) || 0} bold showZero />
+      </View>
+      <View style={{ width: W.desc }}>
+        <Text style={pdfReportTable.totalsRowLabel}>{ar(`المجموع والرصيد الختامي (${count})`)}</Text>
+      </View>
+      <View style={{ width: W.meta }} />
+    </View>
+  );
+
+  const split = lines.length > TAIL_ROWS;
+  const topLines = split ? lines.slice(0, lines.length - TAIL_ROWS) : lines;
+  const tailLines = split ? lines.slice(lines.length - TAIL_ROWS) : [];
+
   return (
     <ReportShell
       title={`دفتر الأستاذ — ${category.name_ar}`}
@@ -118,7 +156,7 @@ export function LedgerReportPDF({
         </View>
       </View>
 
-      <View style={pdfReportTable.tableWrap}>
+      <View style={[pdfReportTable.tableWrap, split ? CARD_OPEN_BOTTOM : null]}>
         <View style={pdfReportTable.tableHead} wrap={false} fixed>
           <Text style={[pdfReportTable.th, { width: W.balance }]}>{ar('الرصيد')}</Text>
           <Text style={[pdfReportTable.th, { width: W.credit }]}>{ar('دائن')}</Text>
@@ -144,30 +182,22 @@ export function LedgerReportPDF({
             <Text style={pdfReportTable.tdMuted}>{ar('لا توجد حركات مرحّلة في الفترة')}</Text>
           </View>
         ) : (
-          lines.slice(0, -1).map(renderLine)
+          topLines.map((l, i) => renderLine(l, i))
         )}
-
-        {/* the last row travels with the totals row, and both with the caption that follows */}
-        <View wrap={false} minPresenceAhead={CLOSING_AFTER_TABLE}>
-          {lines.length > 0 ? renderLine(lines[lines.length - 1], lines.length - 1) : null}
-
-          <View style={pdfReportTable.totalsRow} wrap={false}>
-            <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
-              <PdfReportMoney amount={closing} bold showZero />
-            </View>
-            <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
-              <PdfReportMoney amount={Number(totalCredit) || 0} bold showZero />
-            </View>
-            <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
-              <PdfReportMoney amount={Number(totalDebit) || 0} bold showZero />
-            </View>
-            <View style={{ width: W.desc }}>
-              <Text style={pdfReportTable.totalsRowLabel}>{ar(`المجموع والرصيد الختامي (${count})`)}</Text>
-            </View>
-            <View style={{ width: W.meta }} />
-          </View>
-        </View>
+        {split ? null : totalsRow}
       </View>
+
+      {/* the last rows and the totals row: one unit, kept with the caption that follows */}
+      {split ? (
+        <View
+          style={[pdfReportTable.tableWrap, CARD_OPEN_TOP]}
+          wrap={false}
+          minPresenceAhead={CLOSING_AFTER_TABLE}
+        >
+          {tailLines.map((l, k) => renderLine(l, topLines.length + k))}
+          {totalsRow}
+        </View>
+      ) : null}
 
       <PdfReportCaption />
     </ReportShell>
