@@ -14,7 +14,7 @@ import { useMallRentChargesForYear } from '@/lib/db/mall-rent-dashboard-queries'
 import { buildMallRentDashboardModel, getMallRentDashboardYear } from '@/lib/mall-rent-collection-series';
 import { aggregateMallRentKpis, theoreticalYtdRentFromTenants } from '@/lib/mall-rent-kpis';
 import { currentMonthNameAr } from '@/lib/rent-months';
-import { ACCENT_VAR, IconTile } from '@/components/dashboard/dashboard-ui';
+import { ACCENT_VAR, IconTile, PhoneMoney } from '@/components/dashboard/dashboard-ui';
 
 type ChartRow = { month: string; مسدّد: number; متبقي: number; rate: number };
 
@@ -40,11 +40,11 @@ const FIGURE_TONE: Record<Tone, string> = {
   neutral: 'border-border bg-canvas-sunken text-foreground',
 };
 
-function Figure({ label, value, sub, tone, meter }: { label: string; value: string; sub?: string; tone: Tone; meter?: number }) {
+function Figure({ label, value, money, sub, tone, meter }: { label: string; value?: string; money?: number; sub?: string; tone: Tone; meter?: number }) {
   return (
-    <div className={cn('rounded-xl border p-3.5', FIGURE_TONE[tone])}>
+    <div className={cn('relative rounded-xl border p-3.5', FIGURE_TONE[tone])}>
       <p className="text-[12.5px] font-medium opacity-90">{label}</p>
-      <p className="mt-1 text-[18px] font-bold tabular-nums leading-tight sm:text-[20px]">{value}</p>
+      <p className="mt-1 text-[18px] font-bold tabular-nums leading-tight sm:text-[20px]">{money !== undefined ? <PhoneMoney value={money} /> : value}</p>
       {meter !== undefined && (
         <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-foreground/10" aria-hidden>
           <span className="block h-full rounded-full bg-current" style={{ width: `${Math.min(100, Math.max(0, meter))}%` }} />
@@ -126,14 +126,14 @@ export function MallRentCollectionSection() {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-5">
-              <Figure label="المطالَب" value={formatMoney(kpis.billed, 'LYD')} sub={`${kpis.chargeCount} مطالبة`} tone="info" />
-              <Figure label="المحصّل" value={formatMoney(kpis.collected, 'LYD')} tone="success" />
-              <Figure label="المتبقي" value={formatMoney(kpis.outstanding, 'LYD')} tone={kpis.outstanding > 0 ? 'danger' : 'neutral'} />
+              <Figure label="المطالَب" money={kpis.billed} sub={`${kpis.chargeCount} مطالبة`} tone="info" />
+              <Figure label="المحصّل" money={kpis.collected} tone="success" />
+              <Figure label="المتبقي" money={kpis.outstanding} tone={kpis.outstanding > 0 ? 'danger' : 'neutral'} />
               <Figure label="معدل التحصيل" value={`${kpis.rate.toFixed(1)}%`} tone="warning" meter={kpis.rate} />
               <div className="col-span-2 sm:col-span-1">
                 <Figure
                   label="مستحق من كل السنوات"
-                  value={formatMoney(lifetime.outstandingRent, 'LYD')}
+                  money={lifetime.outstandingRent}
                   sub={lifetime.openChargesCount > 0 ? `${lifetime.openChargesCount} مطالبة مفتوحة` : 'لا مطالبات مفتوحة'}
                   tone={lifetime.outstandingRent > 0 ? 'danger' : 'neutral'}
                 />

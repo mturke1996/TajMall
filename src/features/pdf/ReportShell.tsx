@@ -93,7 +93,8 @@ export function ReportPage({
     >
       <View style={pdfBase.pageAccentBar} fixed />
       <View style={pdfBase.pageFlow}>
-        {showHeader ? (
+        {/* a page with its own letterhead (headerProps) must not also get the standard one: two logos and two titles */}
+        {showHeader && !headerProps ? (
           <PdfReportHeaderFlow title={title} subtitle={subtitle} titleEn={titleEn} />
         ) : null}
         {headerProps ? (

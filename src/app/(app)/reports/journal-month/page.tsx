@@ -564,7 +564,7 @@ function JournalMonthContent() {
                   fileName={`كشف-التحصيلات-الفعلية-${periodLabel}`}
                   shareTitle={`كشف الإيرادات والتحصيلات المسجلة خلال ${periodLabel}`}
                   disabled={!cashCollectionsSummary || cashCollectionsSummary.items.length === 0}
-                  openLabel="تقرير التحصيل الفعلي PDF"
+                  openLabel="عرض PDF"
                   render={async () => {
                     const { PeriodCashCollectionsReportPDF } = await import(
                       '@/features/pdf/PeriodCashCollectionsReportPDF'
@@ -581,21 +581,6 @@ function JournalMonthContent() {
               </>
             ) : (
               <>
-                <ExportCsvButton
-                  fileName={exportNames.fileName}
-                  headers={['الرمز', 'البند', 'الخزينة', 'مدين', 'دائن', 'الصافي']}
-                  rows={csvRows}
-                  disabled={categoryPdfDisabled}
-                />
-                <TajMallPdfToolbar
-                  fileName={comprehensiveExportNames.fileName}
-                  shareTitle={comprehensiveExportNames.shareTitle}
-                  shareText={comprehensiveExportNames.shareText}
-                  cacheKey={`pje-comp:${startDate}:${endDate}:${statusFilter}:${comprehensiveModel?.lines.length ?? 0}:${comprehensiveModel?.totalDebit ?? 0}`}
-                  disabled={comprehensivePdfDisabled}
-                  openLabel="تقرير شامل PDF"
-                  render={renderComprehensivePdf}
-                />
                 {isFilteredView ? (
                   <TajMallPdfToolbar
                     fileName={exportNames.fileName}
@@ -603,10 +588,25 @@ function JournalMonthContent() {
                     shareText={exportNames.shareText}
                     cacheKey={`pje-cat:${startDate}:${endDate}:${statusFilter}:${categoryFilterId}:${displayModel?.lines.length ?? 0}:${displayModel?.totalDebit ?? 0}`}
                     disabled={categoryPdfDisabled}
-                    openLabel={isAggregateView ? 'التجميع PDF' : 'كشف البند PDF'}
+                    openLabel="عرض PDF"
                     render={renderCategoryPdf}
                   />
                 ) : null}
+                <TajMallPdfToolbar
+                  fileName={comprehensiveExportNames.fileName}
+                  shareTitle={comprehensiveExportNames.shareTitle}
+                  shareText={comprehensiveExportNames.shareText}
+                  cacheKey={`pje-comp:${startDate}:${endDate}:${statusFilter}:${comprehensiveModel?.lines.length ?? 0}:${comprehensiveModel?.totalDebit ?? 0}`}
+                  disabled={comprehensivePdfDisabled}
+                  openLabel={isFilteredView ? 'التقرير الشامل PDF' : 'عرض PDF'}
+                  render={renderComprehensivePdf}
+                />
+                <ExportCsvButton
+                  fileName={exportNames.fileName}
+                  headers={['الرمز', 'البند', 'الخزينة', 'مدين', 'دائن', 'الصافي']}
+                  rows={csvRows}
+                  disabled={categoryPdfDisabled}
+                />
               </>
             )}
           </>

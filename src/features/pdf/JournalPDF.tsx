@@ -320,11 +320,7 @@ export function JournalPDF({
           : 'تنبيه: إجمالي المدين لا يساوي إجمالي الدائن',
         badge: bookBalanced ? 'متوازن' : 'مراجعة',
       }}
-      headerProps={{
-        titleEn,
-        subtitleAr: title,
-        refLine: `JY-${periodLabel.replace(/\s+/g, '-')}`,
-      }}
+      titleEn={titleEn}
     >
       {entries.length === 0 ? (
         <View style={{ padding: 24, alignItems: 'center' }}>

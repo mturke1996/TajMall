@@ -31,7 +31,7 @@ import { monthNameAr } from '@/lib/rent-months';
 import { DashboardNewFeatures } from '@/components/dashboard/dashboard-new-features';
 import { FollowUpCard } from '@/components/dashboard/follow-up-card';
 import { MallRentCollectionSection } from '@/components/dashboard/mall-rent-collection-section';
-import { ACCENT_VAR, IconTile, type Accent } from '@/components/dashboard/dashboard-ui';
+import { ACCENT_VAR, IconTile, PhoneMoney, type Accent } from '@/components/dashboard/dashboard-ui';
 
 const AR_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
@@ -155,7 +155,7 @@ function KpiCard({
   return (
     <Card
       className={cn(
-        'p-4 sm:p-5',
+        'relative p-4 sm:p-5',
         highlight === 'good' && 'border-success-line bg-success-soft',
         highlight === 'bad' && 'border-danger-line bg-danger-soft',
       )}
@@ -168,7 +168,7 @@ function KpiCard({
         <Skeleton className="mt-3 h-7 w-32" />
       ) : (
         <p className={cn('mt-2 text-[20px] font-bold tabular-nums leading-tight text-foreground sm:text-[24px]', !failed && negative && 'text-danger-ink')}>
-          {failed ? '—' : formatMoney(value, 'LYD')}
+          {failed ? '—' : <PhoneMoney value={value} />}
         </p>
       )}
       {sub && !pending && !failed && (
@@ -458,13 +458,13 @@ export function AdvancedDashboard() {
                     </div>
                   </div>
                   <dl className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
-                    <div className="rounded-lg border border-success-line bg-success-soft px-3 py-2">
+                    <div className="relative rounded-lg border border-success-line bg-success-soft px-3 py-2">
                       <dt className="text-[12px] text-success-ink">إيرادات الأشهر</dt>
-                      <dd className="mt-0.5 text-[13px] font-semibold tabular-nums text-success-ink sm:text-[14px]">{formatMoney(sixMonths.revenue, 'LYD')}</dd>
+                      <dd className="mt-0.5 text-[13px] font-semibold tabular-nums text-success-ink sm:text-[14px]"><PhoneMoney value={sixMonths.revenue} /></dd>
                     </div>
-                    <div className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2">
+                    <div className="relative rounded-lg border border-danger-line bg-danger-soft px-3 py-2">
                       <dt className="text-[12px] text-danger-ink">مصروفات الأشهر</dt>
-                      <dd className="mt-0.5 text-[13px] font-semibold tabular-nums text-danger-ink sm:text-[14px]">{formatMoney(sixMonths.expense, 'LYD')}</dd>
+                      <dd className="mt-0.5 text-[13px] font-semibold tabular-nums text-danger-ink sm:text-[14px]"><PhoneMoney value={sixMonths.expense} /></dd>
                     </div>
                     <div className="rounded-lg border border-info-line bg-info-soft px-3 py-2">
                       <dt className="text-[12px] text-info-ink">الصافي</dt>
@@ -512,9 +512,11 @@ export function AdvancedDashboard() {
                     </li>
                   ))}
                 </ul>
-                <p className="flex items-center justify-between border-t border-border bg-warning-soft px-4 py-3 text-[13px] text-warning-ink sm:px-5">
+                <p className="relative flex items-center justify-between border-t border-border bg-warning-soft px-4 py-3 text-[13px] text-warning-ink sm:px-5">
                   الإجمالي
-                  <span className="text-[15px] font-bold tabular-nums">{formatMoney(cashTotal, 'LYD')}</span>
+                  <span className="text-[15px] font-bold tabular-nums">
+                    <PhoneMoney value={cashTotal} />
+                  </span>
                 </p>
               </>
             )}
