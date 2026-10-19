@@ -52,16 +52,18 @@ const rows = await contactLedgerUtils.fetchAllContactPages(async (offset, pageSi
 }, 100);
 assert.equal(rows.length, 250, 'profile ledger must include rows beyond the first 200 transactions');
 assert.deepEqual(requestedPages, [[0, 100], [100, 100], [200, 100]], 'pagination must stop after the final short page');
-assert.equal(typeof contactLedgerUtils.getPostedContactTransactions, 'function', 'financial summaries should use posted transactions only');
+assert.equal(typeof contactLedgerUtils.getCountedContactTransactions, 'function', 'financial summaries should count posted and reconciled transactions');
 assert.deepEqual(
-  contactLedgerUtils.getPostedContactTransactions([
+  contactLedgerUtils.getCountedContactTransactions([
     { id: 'posted', status: 'POSTED' },
     { id: 'draft', status: 'DRAFT' },
     { id: 'voided', status: 'VOIDED' },
     { id: 'reconciled', status: 'RECONCILED' },
+    { id: 'none' },
   ]).map((transaction) => transaction.id),
-  ['posted'],
-  'draft, voided and reconciled entries must not inflate posted profile totals',
+  ['posted', 'reconciled'],
+  'draft and voided entries must not inflate profile totals, while reconciled entries are real money and must count',
 );
+assert.deepEqual(contactLedgerUtils.getCountedContactTransactions([]), [], 'a contact with no transactions counts nothing');
 
-console.log('PASS: contact fields, inactive-state policy, complete pagination, and posted-only totals');
+console.log('PASS: contact fields, inactive-state policy, complete pagination, and counted (posted and reconciled) totals');

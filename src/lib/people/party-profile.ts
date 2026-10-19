@@ -184,6 +184,7 @@ export function backLabel(kind: string, landlord: boolean): string {
   if (landlord && (kind === 'VENDOR' || kind === 'CUSTOMER')) return 'المؤجرون';
   if (kind === 'VENDOR') return 'الموردون';
   if (kind === 'CUSTOMER') return 'العملاء';
+  if (kind === 'EMPLOYEE') return 'الموظفون';
   return 'الجهات';
 }
 
@@ -198,10 +199,18 @@ export function moveTarget(kind: string | null | undefined): KindMove | null {
   return null;
 }
 
-export const KIND_MOVE_WORDS: Record<KindMove, { menu: string; title: string; done: string; list: string }> = {
-  CUSTOMER: { menu: 'نقل إلى العملاء', title: 'نقل إلى العملاء', done: 'نُقل الملف إلى العملاء', list: 'العملاء' },
-  VENDOR: { menu: 'نقل إلى الموردين', title: 'نقل إلى الموردين', done: 'نُقل الملف إلى الموردين', list: 'الموردين' },
+export const KIND_MOVE_WORDS: Record<KindMove, { menu: string; title: string; done: string; list: string; as: string }> = {
+  CUSTOMER: { menu: 'نقل إلى العملاء', title: 'نقل إلى العملاء', done: 'نُقل الملف إلى العملاء', list: 'العملاء', as: 'عميلاً' },
+  VENDOR: { menu: 'نقل إلى الموردين', title: 'نقل إلى الموردين', done: 'نُقل الملف إلى الموردين', list: 'الموردين', as: 'مورداً' },
 };
+
+/** What the confirmation says. A landlord stays a landlord; only the kind it is filed under changes. */
+export function moveDescription(target: KindMove, landlord: boolean): string {
+  const from: KindMove = target === 'CUSTOMER' ? 'VENDOR' : 'CUSTOMER';
+  return landlord
+    ? `يُسجَّل الملف ${KIND_MOVE_WORDS[target].as}. يبقى مؤجراً للمول، والحركات والقيود لا تتغير.`
+    : `يُعرض الملف ضمن ${KIND_MOVE_WORDS[target].list} بدل ${KIND_MOVE_WORDS[from].list}. الحركات والقيود لا تتغير.`;
+}
 
 const orNull = (s: string) => (s.trim() === '' ? null : s);
 

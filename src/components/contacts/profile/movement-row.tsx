@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowDownToLine, ArrowUpFromLine, CopyPlus } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, CopyPlus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { IconTile } from '@/components/dashboard/dashboard-ui';
 import { CHIP } from '@/components/people';
@@ -8,35 +8,40 @@ import { isCountedTransaction } from '@/lib/contacts/contact-transactions';
 import type { TransactionWithRelations } from '@/lib/db/types';
 import { cn, formatDate, formatMoney } from '@/lib/utils';
 
-const STATUS_TEXT: Record<string, { label: string; tone: 'warning' | 'neutral' }> = {
+export const MOVEMENT_STATUS: Record<string, { label: string; tone: 'warning' | 'neutral' }> = {
   DRAFT: { label: 'مسودة', tone: 'warning' },
   VOIDED: { label: 'ملغاة', tone: 'neutral' },
 };
 
-/** A transaction as one line: direction tile, what it was for, where it went, the amount. */
-export function MovementRow({
-  tx,
-  onRepeat,
-  showNumber = true,
-}: {
-  tx: TransactionWithRelations;
-  /** the repeat button; absent for people who may not create this kind of transaction */
-  onRepeat?: (tx: TransactionWithRelations) => void;
-  showNumber?: boolean;
-}) {
+/** The movement's own amount with its direction: money in is green with +, money out red with −. */
+export function MovementAmount({ tx, className }: { tx: TransactionWithRelations; className?: string }) {
   const incoming = tx.kind === 'REVENUE';
-  const counted = isCountedTransaction(tx);
-  const status = STATUS_TEXT[tx.status];
   const amount = Number(tx.amount) || 0;
+  return (
+    <span
+      className={cn(
+        'whitespace-nowrap text-[13.5px] font-semibold tabular-nums',
+        isCountedTransaction(tx) ? (incoming ? 'text-success-ink' : 'text-danger-ink') : 'text-ink-mute',
+        className,
+      )}
+    >
+      {formatMoney(incoming ? amount : -amount, tx.currency || 'LYD', { signed: true })}
+    </span>
+  );
+}
+
+function MovementBody({ tx, showNumber }: { tx: TransactionWithRelations; showNumber: boolean }) {
+  const incoming = tx.kind === 'REVENUE';
+  const status = MOVEMENT_STATUS[tx.status];
   const title = tx.description?.trim() || tx.category?.name_ar || 'بدون بيان';
   // the account is the title when there is no description; otherwise it follows the date
   const account = tx.description?.trim() ? tx.category?.name_ar : null;
   return (
-    <li className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+    <>
       <IconTile
         icon={incoming ? ArrowDownToLine : ArrowUpFromLine}
         accent={incoming ? 'green' : 'red'}
-        className={cn('h-9 w-9 rounded-lg', !counted && 'opacity-50')}
+        className={cn('h-9 w-9 rounded-lg', !isCountedTransaction(tx) && 'opacity-50')}
       />
       <div className="min-w-0 flex-1">
         <p className={cn('truncate text-[13.5px] font-medium text-foreground', tx.status === 'VOIDED' && 'line-through decoration-ink-mute')}>{title}</p>
@@ -51,10 +56,26 @@ export function MovementRow({
           {status && <span className={cn('rounded-full border px-1.5 text-[11px] leading-5', CHIP[status.tone])}>{status.label}</span>}
         </p>
       </div>
+    </>
+  );
+}
+
+/** A transaction as one line of a list: direction tile, what it was for, the amount, repeat. */
+export function MovementRow({
+  tx,
+  onRepeat,
+  showNumber = true,
+}: {
+  tx: TransactionWithRelations;
+  /** the repeat button; absent for people who may not create this kind of transaction */
+  onRepeat?: (tx: TransactionWithRelations) => void;
+  showNumber?: boolean;
+}) {
+  return (
+    <li className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+      <MovementBody tx={tx} showNumber={showNumber} />
       <div className="flex shrink-0 items-center gap-1">
-        <span className={cn('text-[13.5px] font-semibold tabular-nums', counted ? (incoming ? 'text-success-ink' : 'text-danger-ink') : 'text-ink-mute')}>
-          {formatMoney(incoming ? amount : -amount, tx.currency || 'LYD', { signed: true })}
-        </span>
+        <MovementAmount tx={tx} />
         {onRepeat && (
           <Button
             type="button"
@@ -70,5 +91,39 @@ export function MovementRow({
         )}
       </div>
     </li>
+  );
+}
+
+/** The same movement as a card (the table's phone and tablet layout), with repeat and delete under it. */
+export function MovementCard({
+  tx,
+  onRepeat,
+  onDelete,
+}: {
+  tx: TransactionWithRelations;
+  onRepeat?: (tx: TransactionWithRelations) => void;
+  onDelete?: (tx: TransactionWithRelations) => void;
+}) {
+  return (
+    <div className="surface min-w-0 overflow-hidden p-3">
+      <div className="flex items-center gap-3">
+        <MovementBody tx={tx} showNumber />
+        <MovementAmount tx={tx} className="shrink-0" />
+      </div>
+      {(onRepeat || onDelete) && (
+        <div className="-mb-1 mt-1 flex items-center justify-end gap-1 border-t border-border pt-1">
+          {onRepeat && (
+            <Button type="button" variant="ghost" className="h-11 gap-1.5 px-3 text-[13px]" onClick={() => onRepeat(tx)} aria-label={`كرّر المعاملة #${tx.number}`}>
+              <CopyPlus /> كرّر
+            </Button>
+          )}
+          {onDelete && (
+            <Button type="button" variant="ghost" className="h-11 gap-1.5 px-3 text-[13px] text-danger-ink" onClick={() => onDelete(tx)} aria-label={`حذف المعاملة #${tx.number}`}>
+              <Trash2 /> حذف
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

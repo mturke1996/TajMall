@@ -70,7 +70,7 @@ export const DirectoryTableRow = memo(function DirectoryTableRow({ row, ctx }: {
               {ctx.hintIds.has(c.id) && <RentHint />}
             </div>
             {(c.code || detail) && (
-              <p className="mt-1 truncate text-[12px] text-ink-mute">
+              <p className="mt-1 line-clamp-2 break-words text-[12px] text-ink-mute">
                 {c.code && <span dir="ltr" className="tabular-nums">{c.code}</span>}
                 {c.code && detail && ' · '}
                 {detail}
@@ -136,7 +136,7 @@ export const DirectoryCard = memo(function DirectoryCard({ row, ctx }: { row: Di
             {ctx.hintIds.has(c.id) && <RentHint />}
           </div>
           {(c.code || detail) && (
-            <p className="mt-1.5 truncate text-[12px] text-ink-mute">
+            <p className="mt-1.5 line-clamp-2 break-words text-[12px] text-ink-mute">
               {c.code && <span dir="ltr" className="tabular-nums">{c.code}</span>}
               {c.code && detail && ' · '}
               {detail}

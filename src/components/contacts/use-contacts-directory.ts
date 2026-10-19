@@ -93,7 +93,8 @@ export function useContactsDirectory(options?: {
   const loadFailed = isError && !allContacts;
   const contacts = useMemo(() => allContacts ?? [], [allContacts]);
 
-  const activityQuery = useDirectoryActivity();
+  // the employees list has its own figures: it does not need the money of every contact
+  const activityQuery = useDirectoryActivity({ enabled: segment !== 'EMPLOYEE' });
   const activityState: ActivityState = activityQuery.data ? 'ready' : activityQuery.isError ? 'error' : 'loading';
   const activity = activityQuery.data ?? null;
 

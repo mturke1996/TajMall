@@ -49,7 +49,7 @@ type TabId = (typeof TAB_IDS)[number];
 function SupplyCard({ contact }: { contact: ContactRow }) {
   return (
     <SectionCard title="التوريد" icon={Truck} accent="amber">
-      <InfoList items={supplyItems(contact)} />
+      <InfoList items={supplyItems(contact).filter((i) => i.label !== 'التصنيف' || i.value)} />
     </SectionCard>
   );
 }

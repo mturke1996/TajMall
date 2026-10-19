@@ -16,7 +16,7 @@ BEGIN
   END IF;
 END $$;
 
--- ── 1. مشغّلات الكاتب ────────────────────────────────────────
+-- ── 1. المشغّلات التي أضافها 085 ─────────────────────────────
 DO $$
 DECLARE
   r record;
@@ -32,6 +32,12 @@ BEGIN
     EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', r.tgname, r.tbl);
   END LOOP;
 END $$;
+DO $$ BEGIN
+  IF to_regclass('public.tenant_charge_allocations') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_release_charge_on_allocation_delete ON public.tenant_charge_allocations;
+  END IF;
+END $$;
+DROP FUNCTION IF EXISTS public.release_charge_on_allocation_delete();
 DROP FUNCTION IF EXISTS public.stamp_actor_columns();
 DROP FUNCTION IF EXISTS public.guard_voucher_actor_columns();
 
@@ -68,7 +74,7 @@ BEGIN
       WHERE p.pronamespace = 'public'::regnamespace
         AND p.proname = r.proname
         AND pg_get_function_identity_arguments(p.oid) = r.args
-        AND pg_get_userbyid(p.proowner) = current_user
+        AND pg_has_role(current_user, p.proowner, 'MEMBER')
     LOOP
       EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated, service_role', f.sig);
       FOREACH g IN ARRAY r.grantees LOOP

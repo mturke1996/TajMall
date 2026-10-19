@@ -58,6 +58,9 @@ const s = StyleSheet.create({
   signText: { fontSize: 8, color: PDF.muted, textAlign: 'center' },
 });
 
+/** the last employee row keeps the total and the signatures under it: they never stand alone on a page */
+const lastRowKeepsClosing = { minPresenceAhead: 130 };
+
 const STATUS_AR: Record<PayrollRunStatus, string> = { DRAFT: 'مسودة', APPROVED: 'معتمد', POSTED: 'مُرحَّل' };
 
 function Money({ amount, bold }: { amount: number; bold?: boolean }) {
@@ -86,6 +89,7 @@ export function PayrollRegisterPDF({
   return (
     <ReportShell
       title="كشف الرواتب الشهري"
+      titleEn="PAYROLL"
       subtitle={monthAr}
       documentTitle={`كشف رواتب ${monthAr}`}
       periodSummary={{
@@ -101,7 +105,9 @@ export function PayrollRegisterPDF({
         { label: 'صافي الرواتب', moneyAmount: net, adaptiveMoney: true },
       ]}
     >
-      <Text style={pdfBase.sectionTitle}>{ar('تفاصيل الكشف')}</Text>
+      <Text style={pdfBase.sectionTitle} minPresenceAhead={90}>
+        {ar('تفاصيل الكشف')}
+      </Text>
 
       <View style={s.head} fixed>
         <Text style={[s.th, s.num]}>{ar('الصافي')}</Text>
@@ -114,7 +120,12 @@ export function PayrollRegisterPDF({
       </View>
 
       {lines.map((l, i) => (
-        <View key={l.id} style={[s.row, i % 2 === 1 ? s.rowAlt : {}]} wrap={false}>
+        <View
+          key={l.id}
+          style={[s.row, i % 2 === 1 ? s.rowAlt : {}]}
+          wrap={false}
+          {...(i === lines.length - 1 ? lastRowKeepsClosing : {})}
+        >
           <View style={s.num}><Money amount={n(l.net)} bold /></View>
           <View style={s.num}><Money amount={n(l.advance_repayment)} /></View>
           <View style={s.num}><Money amount={n(l.absence_deduction) + n(l.penalties) + n(l.other_deductions)} /></View>

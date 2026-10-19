@@ -147,6 +147,24 @@ const TRIGGER_FNS = ['audit_cashbox_changes', 'audit_contact_changes', 'audit_jo
 const PURE_FNS = ['year_close_source_id', 'set_updated_at', 'check_fiscal_period_overlap', '_assert_inventory_pin_format',
   'generate_contact_code', 'set_transaction_posted', 'check_lease_contract_overlap', 'payroll_month_end', 'auto_allocate_tenant_rent_payment'];
 
+
+/** A fresh tenant with one service charge, paid by a revenue transaction that allocates itself; returns the ids. */
+let chargeSeq = 0;
+async function payServiceCharge(amount, paid, who = 'owner') {
+  chargeSeq += 1;
+  await as('owner');
+  const tenant = await mkContact({ kind: 'TENANT', name: `مستأجر خدمات ${chargeSeq}`, shop_number: `SV-${chargeSeq}`, monthly_rent: 100 });
+  const lease = await val(`SELECT ensure_tenant_lease_contract($1)`, [tenant]);
+  await su();
+  const charge = await val(`INSERT INTO tenant_charges (contract_id, amount, due_date, type, description, status, total_paid)
+    VALUES ($1, $2, '2027-02-01', 'SERVICE', $3, 'UNPAID', 0) RETURNING id`, [lease, amount, `خدمة ${chargeSeq}`]);
+  await as(who);
+  const tx = await val(`INSERT INTO transactions (kind, status, method, amount, currency, tx_date, description, category_id, cashbox_id, contact_id, auto_allocate_charges)
+    VALUES ('REVENUE', 'POSTED', 'CASH', $1, 'LYD', '2027-01-05', 'دفعة خدمة', $2, $3, $4, true) RETURNING id`, [paid, cat['REV-SRV'], CASH, tenant]);
+  return { charge, tx, tenant, lease };
+}
+const chargeState = async (id) => { await su(); return one(`SELECT status, total_paid FROM tenant_charges WHERE id = $1`, [id]); };
+
 // ── 1. the defects, reproduced on the baseline ──────────────────────────────
 {
   await su();
@@ -181,6 +199,14 @@ const PURE_FNS = ['year_close_source_id', 'set_updated_at', 'check_fiscal_period
   check('baseline', 'DEFECT: backfill_existing_transactions_to_ledger reports success but posts nothing',
     bf.ok && /1/.test(bf.value) && n(await val(`SELECT count(*) FROM journal_entries WHERE source_type = 'TRANSACTION' AND source_id = $1 AND status = 'POSTED'`, [forged])) === 0, bf.value ?? bf.error);
   await db.query(`DELETE FROM transactions WHERE id = $1`, [forged]);
+  {
+    const { charge, tx } = await payServiceCharge(300, 300);
+    await as('accountant');
+    const je = await val(`SELECT id FROM journal_entries WHERE source_type = 'TRANSACTION' AND source_id = $1 AND status = 'POSTED'`, [tx]);
+    await attempt(() => val(`SELECT reverse_journal_entry($1)`, [je]));
+    const st = await chargeState(charge);
+    check('baseline', 'DEFECT: reversing a payment leaves the charge it was allocated to marked PAID', st.status === 'PAID' && near(st.total_paid, 300), `${st.status} ${st.total_paid}`);
+  }
   await as('cashier');
   const pin1 = await attempt(() => val(`SELECT set_cashbox_inventory_pin('1234')`));
   await as('owner');
@@ -258,8 +284,9 @@ await su();
   const secdefUnpinned = await rows(`SELECT p.proname FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace AND p.prosecdef
     AND (p.proconfig IS NULL OR NOT EXISTS (SELECT 1 FROM unnest(p.proconfig) c WHERE c LIKE 'search_path=%'))`);
   check('search_path', 'every SECURITY DEFINER function in public has a pinned search_path', secdefUnpinned.length === 0, secdefUnpinned.map((r) => r.proname).join(', '));
-  check('search_path', 'pure helpers still compute', (await val(`SELECT payroll_month_end('2026-02')`)) === '2026-02-28'
-    && /^[0-9a-f-]{36}$/.test(await val(`SELECT year_close_source_id(2026)`))
+  check('search_path', 'pure helpers still compute with an empty search_path',
+    (await val(`SELECT payroll_month_end('2026-02')::text`)) === '2026-02-28'
+    && /^[0-9a-f-]{36}$/.test(await val(`SELECT year_close_source_id(2026)::text`))
     && (await attempt(() => val(`SELECT _assert_inventory_pin_format('12')`))).ok === false
     && (await attempt(() => val(`SELECT _assert_inventory_pin_format('1234')`))).ok === true);
 }
@@ -312,7 +339,7 @@ await su();
     [`SELECT post_journal_entry('${ID}')`, 'manage'],
     [`SELECT reverse_journal_entry('${ID}')`, 'manage'],
     [`SELECT duplicate_journal_entry('${JID}')`, 'manage'],
-    [`SELECT close_fiscal_year(2020)`, 'manage'],
+    [`SELECT close_fiscal_year(2020, false)`, 'manage'],
     [`SELECT backfill_existing_transactions_to_ledger()`, 'manage'],
     [`SELECT * FROM rent_missing_charges('2026-03')`, 'manage'],
     [`SELECT ensure_tenant_portal_token('${ID}')`, 'manage'],
@@ -518,6 +545,14 @@ let journalRef;
     VALUES ('REVENUE', 'POSTED', 'CASH', 8, 'LYD', '2026-03-10', 'direct', $1, $2, $3) RETURNING id`, [REV, CASH, U.admin]);
   check('author', 'a direct database connection keeps the author it was given', (await val(`SELECT created_by FROM transactions WHERE id = $1`, [direct])) === U.admin);
 
+  await as('cashier');
+  const letter = await val(`INSERT INTO correspondence_letters (letter_number, letter_date, letter_type, subject, recipient_name, body, created_by)
+    VALUES ('H-1', '2026-03-11', 'routine', 'موضوع', 'جهة', 'نص', $1) RETURNING id`, [U.owner]);
+  await su();
+  check('author', 'the same stamp covers letters (and the other tables that carry created_by)', (await val(`SELECT created_by FROM correspondence_letters WHERE id = $1`, [letter])) === U.cashier
+    && n(await val(`SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid WHERE t.tgname = 'trg_stamp_actor' AND NOT t.tgisinternal
+      AND c.relname = ANY('{transactions,disbursement_vouchers,cash_transfers,budgets,correspondence_letters,receipt_vouchers}')`)) === 6);
+
   // vouchers: approver and submitter are always the caller
   await as('cashier');
   const forgedDraft = await attempt(() => db.query(`INSERT INTO disbursement_vouchers (voucher_number, voucher_date, payee, method, total_amount, created_by, approved_by, cashbox_id, category_id)
@@ -591,6 +626,62 @@ let journalRef;
     && n(await val(`SELECT count(*) FROM tenant_charge_allocations WHERE transaction_id = $1`, [pay])) === 1, `${first.error} | ${second.error}`);
   await as('viewer');
   check('alloc', 'a viewer cannot allocate', denied(await attempt(() => val(`SELECT apply_charge_allocations($1, $2::jsonb)`, [pay, alloc]))));
+}
+
+// ── 12b. releasing a payment gives the charge back ──────────────────────────
+{
+  {
+    const { charge, tx } = await payServiceCharge(300, 300);
+    check('release', 'a self-allocating payment settles the charge', (await chargeState(charge)).status === 'PAID');
+    await as('accountant');
+    const je = await val(`SELECT id FROM journal_entries WHERE source_type = 'TRANSACTION' AND source_id = $1 AND status = 'POSTED'`, [tx]);
+    const rev = await attempt(() => val(`SELECT reverse_journal_entry($1)`, [je]));
+    const st = await chargeState(charge);
+    check('release', 'reversing the payment\'s journal returns the charge to UNPAID with nothing paid', rev.ok && st.status === 'UNPAID' && near(st.total_paid, 0), `${rev.error ?? ''} ${st.status} ${st.total_paid}`);
+  }
+  {
+    const a = await payServiceCharge(300, 100, 'cashier');
+    check('release', 'a part payment leaves the charge PARTIAL', (await chargeState(a.charge)).status === 'PARTIAL');
+    await as('cashier');
+    const second = await val(`INSERT INTO transactions (kind, status, method, amount, currency, tx_date, description, category_id, cashbox_id, contact_id, auto_allocate_charges)
+      VALUES ('REVENUE', 'POSTED', 'CASH', 50, 'LYD', '2027-01-06', 'دفعة ثانية', $1, $2, $3, true) RETURNING id`, [cat['REV-SRV'], CASH, a.tenant]);
+    const mid = await chargeState(a.charge);
+    check('release', 'two part payments add up on the charge (100 + 50)', mid.status === 'PARTIAL' && near(mid.total_paid, 150), `${mid.status} ${mid.total_paid}`);
+    await as('cashier');
+    const del = await attempt(() => db.query(`DELETE FROM transactions WHERE id = $1`, [a.tx]));
+    const st = await chargeState(a.charge);
+    check('release', 'deleting the first payment (as the cashier) leaves exactly the second on the charge', del.ok && st.status === 'PARTIAL' && near(st.total_paid, 50), `${del.error ?? ''} ${st.status} ${st.total_paid}`);
+    await db.query(`DELETE FROM transactions WHERE id = $1`, [second]);
+    const none = await chargeState(a.charge);
+    check('release', 'deleting the second one returns the charge to UNPAID', none.status === 'UNPAID' && near(none.total_paid, 0), `${none.status} ${none.total_paid}`);
+  }
+  {
+    // manual allocation (apply_charge_allocations), then the payment is deleted
+    await as('owner');
+    const tenant = await mkContact({ kind: 'TENANT', name: 'مستأجر يدوي', shop_number: 'SV-M', monthly_rent: 100 });
+    const lease = await val(`SELECT ensure_tenant_lease_contract($1)`, [tenant]);
+    await su();
+    const charge = await val(`INSERT INTO tenant_charges (contract_id, amount, due_date, type, description, status, total_paid)
+      VALUES ($1, 200, '2027-11-01', 'SERVICE', 'يدوي', 'UNPAID', 0) RETURNING id`, [lease]);
+    await as('cashier');
+    const tx = await val(`INSERT INTO transactions (kind, status, method, amount, currency, tx_date, description, category_id, cashbox_id, contact_id, auto_allocate_charges)
+      VALUES ('REVENUE', 'POSTED', 'CASH', 200, 'LYD', '2027-11-02', 'يدوي', $1, $2, $3, false) RETURNING id`, [cat['REV-SRV'], CASH, tenant]);
+    await val(`SELECT apply_charge_allocations($1, $2::jsonb)`, [tx, JSON.stringify([{ charge_id: charge, amount: 200 }])]);
+    const paid = await chargeState(charge);
+    await as('cashier');
+    await db.query(`DELETE FROM transactions WHERE id = $1`, [tx]);
+    const back = await chargeState(charge);
+    check('release', 'a manual allocation is released when its payment is deleted', paid.status === 'PAID' && back.status === 'UNPAID' && near(back.total_paid, 0), `${paid.status} -> ${back.status} ${back.total_paid}`);
+    await su();
+    const del = await attempt(() => db.query(`DELETE FROM tenant_charges WHERE id = $1`, [charge]));
+    check('release', 'deleting a charge that has no allocations left still works', del.ok, del.error ?? '');
+    const c2 = await payServiceCharge(80, 80);
+    await su();
+    const delCharge = await attempt(() => db.query(`DELETE FROM tenant_charges WHERE id = $1`, [c2.charge]));
+    check('release', 'deleting a charge that still has allocations still works (cascade into the trigger)', delCharge.ok, delCharge.error ?? '');
+  }
+  await su();
+  check('release', 'the trigger function is closed to the API', (await callable('authenticated', 'public.release_charge_on_allocation_delete()')) === false);
 }
 
 // ── 13. 083 and 084 untouched (only when applied) ───────────────────────────

@@ -8,17 +8,18 @@
 -- ما وُجد وما يفعله هذا الملف (بالترتيب):
 --
 -- 1) assert_fiscal_period_open(date) قابلة للاستدعاء من أي حساب مسجَّل عبر /rest/v1/rpc، حتى المشاهد،
---    وهي SECURITY DEFINER تُدرج صفاً في fiscal_periods لأي تاريخ (سُنح الإثبات: مشاهد أنشأ فترة 2099-05).
+--    وهي SECURITY DEFINER تُدرج صفاً في fiscal_periods لأي تاريخ (أُثبت على النسخة: مشاهد أنشأ فترة 2099-05).
 --    الحل: تُسحب من authenticated (تستدعيها دوال الترحيل التي تعمل بصلاحية المالك فلا يتأثر التطبيق)،
 --    ويُضاف فحص دور داخل الدالة نفسها ليبقى الإغلاق قائماً لو أُعيد منح الصلاحية بخطأ.
 -- 2) generate_journal_reference(date) كذلك: تزيد عدّاد ترقيم القيود لأي سنة. مشاهد يستطيع حرق أرقام
 --    JY-YYYY-nnnnn فتظهر فجوات في ترقيم دفتر اليومية. السحب + فحص دور (محاسب أو مدير).
 --    وتُسحب generate_cash_transfer_reference و _assert_inventory_pin_format معهما (داخليتان).
 -- 3) دوال المشغّلات (audit_*، process_*، handle_new_user، prevent_role_self_escalation، set_updated_at
---    وغيرها، 21 دالة) كانت قابلة للتنفيذ من authenticated، وثلاث منها (prevent_contact_delete_with_history،
---    check_transaction_category_kind، charge_accrual_entry_date) من anon أيضاً عبر PUBLIC.
---    لا تُستدعى كـ RPC (PostgREST لا يعرض دوال trigger) لكنها تملأ تقرير مستشار Supabase.
---    تُسحب من PUBLIC وanon وauthenticated؛ المشغّلات نفسها تعمل لأن Postgres لا يفحص EXECUTE عند الإطلاق.
+--    وغيرها، 21 دالة) كانت قابلة للتنفيذ من authenticated، وثلاث دوال (المشغّلان prevent_contact_delete_with_history
+--    وcheck_transaction_category_kind والمساعدة charge_accrual_entry_date) من anon أيضاً عبر PUBLIC.
+--    لا تُستدعى كـ RPC (PostgREST لا يعرض دوال trigger) لكنها تملأ تقرير مستشار Supabase وتوسّع السطح بلا فائدة.
+--    تُسحب كل دوال RETURNS trigger في public من PUBLIC وanon وauthenticated (بحث ديناميكي، لا قائمة ثابتة)؛
+--    والمشغّلات نفسها تعمل لأن Postgres لا يفحص EXECUTE عند إطلاق المشغّل (أُثبت بدور بلا EXECUTE).
 --    وتُكنَس كل دوال public من PUBLIC وanon (كما فعل 078 قبل أن تظهر الثلاث بعده).
 -- 4) ثبّت search_path على الدوال التسع التي يرفضها المستشار (function_search_path_mutable):
 --    year_close_source_id، set_updated_at، check_fiscal_period_overlap، _assert_inventory_pin_format،
@@ -32,7 +33,7 @@
 -- 7) handle_new_user كانت تكتب الدور 'cashier' في الملف الجديد وتعتمد على مشغّل آخر ليخفضه إلى viewer.
 --    الآن تكتب 'viewer' مباشرة (أقل صلاحية افتراضية، لا تعتمد على مشغّل ثانٍ). مسار الدعوة لا يتأثر
 --    (يعيّن الدور بعد الإنشاء بمفتاح الخدمة).
--- 8) مُنتحَل الكاتب: created_by على المعاملات والأذونات والتحويلات والميزانيات والمراسلات والإيصالات تأتي من
+-- 8) انتحال الكاتب: created_by على المعاملات والأذونات والتحويلات والميزانيات والمراسلات والإيصالات تأتي من
 --    المتصفح ولا يفرضها أحد، فأمين الخزينة يكتب معاملة باسم المالك (أُثبت: القيد المرحَّل يحمل
 --    created_by_user_id للمالك). الحل: مشغّل BEFORE يفرض created_by = auth.uid() لطلبات المستخدم المسجَّل
 --    ويمنع تغييره لاحقاً، ومشغّل على disbursement_vouchers يمنع كتابة approved_by/submitted_by باسم غيرك.
@@ -42,14 +43,18 @@
 --    الآن تعيد الترحيل فعلاً بتحويل الحالة مسودة ثم مرحّلة، وتتخطى ما يتعذّر (فترة مغلقة) وتذكر عدده.
 -- 10) apply_charge_allocations: لا قفل على المعاملة فاستدعاءان متزامنان يخصّصانها مرتين (لا قيد فريد على
 --    (charge_id, transaction_id))، ولا تفحص نوع المعاملة فمصروف يُخصَّص كأنه دفعة إيجار. القفل + نوع REVENUE فقط.
--- 11) app_secrets (الرقم السري المشفَّر): RLS بلا سياسات يحميها، لكن authenticated يحمل عليها كل الصلاحيات.
+-- 11) حذف دفعة مخصَّصة على مطالبة (حذف المعاملة أو عكس قيدها) كان يحذف سطر التخصيص ويترك المطالبة «مدفوعة»
+--    بمبلغها كاملاً (أُثبت: مطالبة خدمات 300 دُفعت ثم عُكس قيدها، فبقيت PAID بـ 300). الآن مشغّل AFTER DELETE
+--    على tenant_charge_allocations يعيد المبلغ من total_paid ويصحّح الحالة (UNPAID/PARTIAL/PAID).
+--    لا يصلح مطالبات تعطّلت سابقاً (لا تغيير في البيانات): استعلام الفحص في تقرير التدقيق.
+-- 12) app_secrets (الرقم السري المشفَّر): RLS بلا سياسات يحميها، لكن authenticated يحمل عليها كل الصلاحيات.
 --    تُسحب الصلاحيات أيضاً (الدوال التي تقرؤها SECURITY DEFINER فلا تتأثر).
 --
--- ما لا تغيّره (مقصود): فحوص الأدوار في بقية الدوال (فُحصت كلها، انظر تقرير التدقيق)، حجم الرقم السري (4-8 أرقام)
--- وإمكان تخمينه عبر RPC: الخطأ يُلغي المعاملة فلا يبقى عدّاد محاولات، والإغلاق الحقيقي يحتاج تغييراً في
+-- ما لا تغيّره (مقصود): فحوص الأدوار في بقية الدوال (فُحصت كلها وهي سليمة، انظر تقرير التدقيق)، وحجم الرقم السري
+-- (4-8 أرقام) وإمكان تخمينه عبر RPC: الخطأ يُلغي المعاملة فلا يبقى عدّاد محاولات، والإغلاق الحقيقي يحتاج تغييراً في
 -- الواجهة (إرجاع {ok:false} بدل الاستثناء)، وهو خارج هذا الملف.
 --
--- يتطلب 082 (auth_is_trusted_backend). لا تغيير في البيانات. التراجع: 085_function_hardening.ROLLBACK.sql
+-- يتطلب 082 (auth_is_trusted_backend). يُنفَّذ بحساب postgres (محرر SQL). لا تغيير في البيانات. التراجع: 085_function_hardening.ROLLBACK.sql
 -- تنبيه: إعادة تشغيل 078 بعد هذا الملف تعيد منح EXECUTE على كل الدوال لـ authenticated؛ طبّق 085 بعد 078 دائماً.
 -- ============================================================
 
@@ -213,7 +218,7 @@ BEGIN
     WHERE p.pronamespace = 'public'::regnamespace
       AND p.prokind = 'f'
       AND p.prorettype = 'trigger'::regtype
-      AND pg_get_userbyid(p.proowner) = current_user
+      AND pg_has_role(current_user, p.proowner, 'MEMBER')
   LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated', r.sig);
     v_n := v_n + 1;
@@ -238,7 +243,7 @@ BEGIN
     FROM pg_proc p
     WHERE p.pronamespace = 'public'::regnamespace
       AND p.prokind = 'f'
-      AND pg_get_userbyid(p.proowner) = current_user
+      AND pg_has_role(current_user, p.proowner, 'MEMBER')
   LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon', r.sig);
   END LOOP;
@@ -547,6 +552,53 @@ BEGIN
 END;
 $function$;
 
+-- ── 8b. حذف تخصيص دفعة يعيد المطالبة ─────────────────────────
+-- يعمل مع حذف المعاملة (ON DELETE CASCADE) وعكس قيدها وحذف سطر التخصيص مباشرة. حذف المطالبة نفسها لا يتأثر
+-- (سطر المطالبة محذوف عند وصول المشغّل فلا يُحدَّث شيء). المطالبات المحدَّثة هنا تمرّ بمشغّل الترحيل
+-- process_tenant_charge_posting الذي يتجاوز ما كان بعمق مشغّل أكبر من 1، فلا يُعاد ترحيل استحقاق.
+CREATE OR REPLACE FUNCTION public.release_charge_on_allocation_delete()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_paid numeric;
+BEGIN
+  SELECT GREATEST(COALESCE(tc.total_paid, 0) - OLD.amount, 0) INTO v_paid
+  FROM public.tenant_charges tc
+  WHERE tc.id = OLD.charge_id
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN OLD;
+  END IF;
+
+  UPDATE public.tenant_charges tc
+  SET
+    total_paid = v_paid,
+    status = CASE
+      WHEN v_paid >= tc.amount THEN 'PAID'
+      WHEN v_paid > 0 THEN 'PARTIAL'
+      ELSE 'UNPAID'
+    END,
+    updated_at = now()
+  WHERE tc.id = OLD.charge_id;
+
+  RETURN OLD;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.release_charge_on_allocation_delete() FROM PUBLIC, anon, authenticated;
+
+DO $$ BEGIN
+  IF to_regclass('public.tenant_charge_allocations') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_release_charge_on_allocation_delete ON public.tenant_charge_allocations;
+    CREATE TRIGGER trg_release_charge_on_allocation_delete
+      AFTER DELETE ON public.tenant_charge_allocations
+      FOR EACH ROW EXECUTE FUNCTION public.release_charge_on_allocation_delete();
+  END IF;
+END $$;
+
 -- ── 9. توثيق ─────────────────────────────────────────────────
 COMMENT ON FUNCTION public.assert_fiscal_period_open(date) IS
   'داخلية: تتحقق من أن الفترة مفتوحة وتُنشئها عند الغياب. لا تُستدعى من الواجهة؛ تفحص الدور أيضاً (085).';
@@ -558,6 +610,8 @@ COMMENT ON FUNCTION public.backfill_existing_transactions_to_ledger() IS
   'يعيد ترحيل المعاملات المرحّلة التي بلا قيد (محاسب أو مدير)؛ يتخطى ما يتعذّر ويذكر عدده (085).';
 COMMENT ON FUNCTION public.stamp_actor_columns() IS
   'مشغّل: created_by = auth.uid() لطلبات المستخدم المسجَّل ولا يتغيّر بعد الإدخال (085).';
+COMMENT ON FUNCTION public.release_charge_on_allocation_delete() IS
+  'مشغّل: عند حذف تخصيص دفعة يُنقَص total_paid من المطالبة وتُصحَّح حالتها (085).';
 COMMENT ON FUNCTION public.guard_voucher_actor_columns() IS
   'مشغّل: approved_by وsubmitted_by على إذن الصرف لا يُكتبان باسم مستخدم آخر (085).';
 

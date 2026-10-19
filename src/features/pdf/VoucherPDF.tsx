@@ -50,8 +50,12 @@ const s = StyleSheet.create({
   heroCell: { width: '31%', direction: 'rtl' },
   heroLabel: { fontSize: 8.5, color: PDF.muted, marginBottom: 4, textAlign: 'right' },
   heroValue: { fontSize: 11, fontWeight: 'bold', color: PDF.text, textAlign: 'right' },
+  /** the account number is its own left-to-right run: inside one Arabic line its digit groups come out reversed */
+  heroAccount: { fontSize: 9, color: PDF.muted, textAlign: 'right', direction: 'ltr', marginTop: 2 },
 
   th_desc: { flex: 1, textAlign: 'right' },
+  /** the row is laid out left to right; the statement text itself must be read right to left (a leading digit stays at the right edge) */
+  descRtl: { direction: 'rtl' },
   th_amount: { width: 110, textAlign: 'center' },
 
   /** رأس وجسم جدول البيان — نفس نمط pdfBase: ltr + row-reverse لوضع البيان يميناً والمبلغ يساراً */
@@ -153,6 +157,9 @@ const s = StyleSheet.create({
 
 });
 
+/** notes longer than this may flow onto the next page; shorter ones stay with the total and the signatures */
+const KEEP_NOTES_CHARS = 700;
+
 export function VoucherPDF({
   voucher,
   currency = 'د.ل',
@@ -165,10 +172,12 @@ export function VoucherPDF({
       ? voucher.contactName.trim()
       : null;
   const payeeDisplay = voucher.payee?.trim() || linkedParty || 'المستفيد';
+  const keepClosing = (voucher.notes ?? '').length <= KEEP_NOTES_CHARS;
 
   return (
     <ReportShell
       title="إذن صرف"
+      titleEn="VOUCHER"
       subtitle={`رقم ${voucher.number}`}
       documentTitle={`إذن صرف ${voucher.number}`}
       summaryPrimaryDateIso={voucher.voucherDate}
@@ -219,66 +228,68 @@ export function VoucherPDF({
         </View>
         <View style={s.heroCell}>
           <Text style={s.heroLabel}>{ar('المصرف / الحساب')}</Text>
-          <Text style={s.heroValue}>
-            {voucher.bank ? ar(`${voucher.bank} · ${voucher.account ?? ''}`) : ar('—')}
-          </Text>
+          <Text style={s.heroValue}>{voucher.bank ? ar(voucher.bank) : ar('—')}</Text>
+          {voucher.bank && voucher.account?.trim() ? <Text style={s.heroAccount}>{voucher.account.trim()}</Text> : null}
         </View>
       </View>
 
       {/* جدول البنود (البيان + المبلغ) — الإجمالي منفصل أسفله */}
-      <View style={s.tableHeadRtl}>
+      <View style={s.tableHeadRtl} wrap={false} minPresenceAhead={60}>
         <Text style={[pdfBase.th, s.th_desc]}>{ar('البيـان')}</Text>
         <Text style={[pdfBase.th, s.th_amount, { textAlign: 'center' }]}>{ar('المبلغ')}</Text>
       </View>
       {voucher.lines.map((l, i) => (
-        <View key={i} style={[s.tableRowRtl, i % 2 !== 0 && pdfBase.rowEven]}>
-          <Text style={[pdfBase.td, s.th_desc]}>{ar(l.description)}</Text>
+        <View key={i} style={[s.tableRowRtl, i % 2 !== 0 && pdfBase.rowEven]} wrap={false}>
+          <Text style={[pdfBase.td, s.th_desc, s.descRtl]}>{ar(l.description)}</Text>
           <View style={[pdfBase.td, s.th_amount]}>
             <PdfMoneyText amount={l.amount} style={s.tdAmountNum} align="center" />
           </View>
         </View>
       ))}
 
-      {/* إجمالي الإذن — مبلغ واحد معزول: الرقم ثم العملة */}
-      <View style={s.totalBox} wrap={false}>
-        <PdfMoneyText
-          amount={voucher.total}
-          currency={currency}
-          light
-          align="left"
-          style={s.totalNum}
-          currStyle={s.totalCurr}
-          containerStyle={{ width: 'auto', flexShrink: 0 }}
-        />
-        <Text style={s.totalLabel}>{ar('إجمالي مبلغ الإذن')}</Text>
-      </View>
+      {/* the total, the notes and the signatures move together: a signature line never stands alone on a page */}
+      <View wrap={!keepClosing}>
+        {/* إجمالي الإذن — مبلغ واحد معزول: الرقم ثم العملة */}
+        <View style={s.totalBox} wrap={false}>
+          <PdfMoneyText
+            amount={voucher.total}
+            currency={currency}
+            light
+            align="left"
+            style={s.totalNum}
+            currStyle={s.totalCurr}
+            containerStyle={{ width: 'auto', flexShrink: 0 }}
+          />
+          <Text style={s.totalLabel}>{ar('إجمالي مبلغ الإذن')}</Text>
+        </View>
 
-      {/* Notes */}
-      {voucher.notes ? (
-        <View style={s.notes}>
-          <Text style={s.notesLabel}>{ar('ملاحظات')}</Text>
-          <Text style={s.notesText}>{ar(voucher.notes)}</Text>
-        </View>
-      ) : null}
+        {/* Notes */}
+        {voucher.notes ? (
+          <View style={s.notes}>
+            <Text style={s.notesLabel}>{ar('ملاحظات')}</Text>
+            <Text style={s.notesText}>{ar(voucher.notes)}</Text>
+          </View>
+        ) : null}
 
-      {/* Signatures */}
-      <View style={s.signRow} wrap={false}>
-        <View style={s.signBox}>
-          <Text style={s.signLabel}>{ar('المستلم')}</Text>
-          <View style={s.signLine}>
-            <Text style={s.signName}>{ar('الاسم والتوقيع')}</Text>
+        {/* Signatures */}
+        <View style={s.signRow} wrap={false}>
+          <View style={s.signBox}>
+            <Text style={s.signLabel}>{ar('المستلم')}</Text>
+            <View style={s.signLine}>
+              <Text style={s.signName}>{ar('الاسم والتوقيع')}</Text>
+            </View>
           </View>
-        </View>
-        <View style={s.signBox}>
-          <Text style={s.signLabel}>{ar('المراجع')}</Text>
-          <View style={s.signLine}>
-            <Text style={s.signName}>{ar('الاسم والتوقيع')}</Text>
+          <View style={s.signBox}>
+            <Text style={s.signLabel}>{ar('المراجع')}</Text>
+            <View style={s.signLine}>
+              <Text style={s.signName}>{ar('الاسم والتوقيع')}</Text>
+            </View>
           </View>
-        </View>
-        <View style={s.signBox}>
-          <Text style={s.signLabel}>{ar('المدير المالي')}</Text>
-          <View style={s.signLine}>
-            <Text style={s.signName}>{ar('الاسم والتوقيع')}</Text>
+          <View style={s.signBox}>
+            <Text style={s.signLabel}>{ar('المدير المالي')}</Text>
+            <View style={s.signLine}>
+              <Text style={s.signName}>{ar('الاسم والتوقيع')}</Text>
+            </View>
           </View>
         </View>
       </View>

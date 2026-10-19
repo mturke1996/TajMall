@@ -14,12 +14,13 @@ import { todayISODate } from '@/lib/utils';
  *
  * It sits under `party_report`, which every posted, edited or deleted transaction refreshes.
  */
-export function useDirectoryActivity() {
+export function useDirectoryActivity(options: { enabled?: boolean } = {}) {
   const asOf = todayISODate();
   const from = activityWindowStart(asOf);
   return useQuery<Map<string, ContactActivity>>({
     queryKey: ['party_report', 'directory_12m', from],
     staleTime: 60_000,
+    enabled: options.enabled ?? true,
     queryFn: async () => {
       const supabase = createSupabaseBrowserClient();
       const rows = await fetchAllPages<ActivityInput>(

@@ -20,16 +20,25 @@ const toneColor = (tone: string) => (tone === 'good' ? PDF.success : tone === 'b
 /** Tables longer than this may continue on the next page; shorter ones always move whole, with their title. */
 const KEEP_TOGETHER_ROWS = 12;
 
+/** Room a breakable block needs below its start: title, note, column heads and two rows. */
+const BLOCK_START_ROOM = 150;
+
 /** A titled block. Whole on one page unless `keep` is false (a long table); rows never split either way. */
 function Block({ title, note, keep = true, children }: { title: string; note?: string; keep?: boolean; children: React.ReactNode }) {
   return (
-    <View wrap={!keep}>
-      <Text style={pdfReportTable.sectionTitle} minPresenceAhead={90}>
-        {ar(title)}
-      </Text>
-      {note ? <Text style={[pdfReportTable.caption, { marginTop: -4, marginBottom: 6 }]}>{ar(note)}</Text> : null}
-      {children}
-    </View>
+    <>
+      {/*
+        A block that may break is not atomic, so a rule on its own title cannot move it: the title is the first thing inside
+        it and react-pdf only breaks an element that has something before it. This empty element in front of the block carries
+        the rule instead: the title, the column heads and the first rows start on this page or the block starts on the next.
+      */}
+      {keep ? null : <View minPresenceAhead={BLOCK_START_ROOM} />}
+      <View wrap={!keep}>
+        <Text style={pdfReportTable.sectionTitle}>{ar(title)}</Text>
+        {note ? <Text style={[pdfReportTable.caption, { marginTop: -4, marginBottom: 6 }]}>{ar(note)}</Text> : null}
+        {children}
+      </View>
+    </>
   );
 }
 

@@ -39,7 +39,7 @@ export function useProfileTab<T extends string>(ids: readonly T[], initial: stri
 
 /**
  * Tabs for a profile. Arrow keys move between tabs (Radix, right-to-left aware), Tab moves into the panel.
- * On a phone the tabs share the row equally; the labels are short enough for 390px.
+ * Below lg the tabs share the row equally (the labels are short enough for 390px); from lg they hug their text.
  */
 export function ProfileTabs<T extends string>({
   tabs,
@@ -62,7 +62,7 @@ export function ProfileTabs<T extends string>({
     <TabsPrimitive.Root dir="rtl" value={value} onValueChange={(v) => onValueChange(v as T)} className={cn('flex min-w-0 flex-col gap-4', className)}>
       <TabsPrimitive.List
         aria-label={label}
-        className="grid gap-1 rounded-xl border border-border bg-canvas-sunken p-1 sm:inline-flex sm:w-fit"
+        className="grid gap-1 rounded-xl border border-border bg-canvas-sunken p-1 lg:inline-flex lg:w-fit"
         style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
       >
         {tabs.map((t) => {
@@ -72,16 +72,16 @@ export function ProfileTabs<T extends string>({
               key={t.id}
               value={t.id}
               className={cn(
-                'inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-[13px] font-medium text-ink-mute sm:min-h-9 sm:px-4 sm:text-[13.5px]',
+                'inline-flex min-h-11 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1 text-[13px] font-medium text-ink-mute sm:min-h-9 sm:gap-1.5 sm:text-[13.5px] lg:px-4',
                 'transition-colors hover:text-foreground',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
                 'data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-whisper',
               )}
             >
-              {Icon && <Icon className="hidden h-4 w-4 shrink-0 sm:block" aria-hidden />}
+              {Icon && <Icon className="hidden h-4 w-4 shrink-0 lg:block" aria-hidden />}
               <span className="truncate">{t.label}</span>
               {t.count != null && (
-                <span className="rounded-full bg-muted px-1.5 text-[11.5px] leading-5 tabular-nums text-ink-soft">{t.count}</span>
+                <span className="rounded-full bg-muted px-1 text-[11.5px] leading-5 tabular-nums text-ink-soft sm:px-1.5">{t.count}</span>
               )}
             </TabsPrimitive.Trigger>
           );

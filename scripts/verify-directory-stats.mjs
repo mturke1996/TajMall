@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 
 const d = await import('../src/lib/contacts/directory.ts');
 const { buildPartyStats, primaryDirection } = await import('../src/lib/people/party-stats.ts');
+const routes = await import('../src/lib/mall/routes.ts');
 const {
   segmentOfContact,
   inSegment,
@@ -461,6 +462,28 @@ check('the second line says what identifies the file, and is null when there is 
   assert.equal(contactDetail(contact({ kind: 'CUSTOMER', address: 'طرابلس', notes: 'إعلانات الواجهة\n[role:customer]' })), 'طرابلس · إعلانات الواجهة');
   assert.equal(contactDetail(contact({ kind: 'CUSTOMER', notes: '[role:customer]' })), null);
   assert.equal(contactDetail(contact({ kind: 'CUSTOMER', email: 'info@rowad.ly' })), null); // the mail has its own column
+});
+
+// ------------------------------------------------------------ the way back from a profile
+
+check('the way back from a landlord is the landlords list, whatever its kind; other files go to their own list', () => {
+  const { contactBackHref } = routes;
+  assert.equal(contactBackHref('VENDOR', { landlord: true }), '/mall?tab=people&segment=CUSTOMER&role=LANDLORD');
+  assert.equal(contactBackHref('CUSTOMER', { landlord: true }), '/mall?tab=people&segment=CUSTOMER&role=LANDLORD');
+  assert.equal(contactBackHref('VENDOR'), '/mall?tab=people&segment=VENDOR');
+  assert.equal(contactBackHref('VENDOR', { landlord: false }), '/mall?tab=people&segment=VENDOR');
+  assert.equal(contactBackHref('CUSTOMER'), '/mall?tab=people&segment=CUSTOMER');
+  assert.equal(contactBackHref('TENANT', { landlord: true }), '/mall?tab=tenants'); // a tenant is never a landlord
+  assert.equal(contactBackHref('EMPLOYEE'), '/mall?tab=people&segment=EMPLOYEE');
+  assert.equal(contactBackHref('OTHER'), '/mall?tab=people&segment=all');
+});
+
+check('a list address carries the role, and the role comes back through the same check', () => {
+  const { peopleSegmentHref } = routes;
+  const href = peopleSegmentHref('CUSTOMER', { role: 'LANDLORD' });
+  const role = new URLSearchParams(href.split('?')[1]).get('role');
+  assert.equal(normalizeRoleFilter('CUSTOMER', role), 'LANDLORD');
+  assert.equal(normalizeRoleFilter('VENDOR', role), 'ALL');
 });
 
 console.log(`\n${passed} checks passed`);

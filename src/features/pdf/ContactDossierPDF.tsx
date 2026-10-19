@@ -79,7 +79,8 @@ const s = StyleSheet.create({
   },
   rowAlt: { backgroundColor: PDF.rowAlt },
   td: { fontSize: 8.5, color: PDF.text, textAlign: 'center' },
-  tdRight: { textAlign: 'right', paddingRight: 4 },
+  /** the row is laid out left to right; the text itself is read right to left (a leading digit stays at the right edge) */
+  tdRight: { textAlign: 'right', paddingRight: 4, direction: 'rtl' },
   colDate: { width: '14%' },
   colAmt: { width: '16%' },
   colMethod: { width: '12%' },
@@ -117,6 +118,9 @@ export type ContactDossierPdfProps = {
   rent: TenantRentSummary | null;
   transactions: TransactionWithRelations[];
 };
+
+/** the last row keeps the total under it: the total never stands alone on a page */
+const lastRowKeepsTotal = { minPresenceAhead: 40 };
 
 export function ContactDossierPDF({ contact, rent, transactions }: ContactDossierPdfProps) {
   const role = extractContactBusinessRole(contact);
@@ -183,7 +187,6 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
         { label: 'عدد الدفعات', value: pdfFmtNum(partyRows.length) },
       ]
     : [
-        { label: 'النوع', value: kindLabel },
         { label: 'الهاتف', value: contact.phone ?? '—' },
         { label: 'إجمالي الإيراد', moneyAmount: revenueTotal },
         { label: 'إجمالي المصروف', moneyAmount: expenseTotal },
@@ -197,12 +200,13 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
   return (
     <ReportShell
       title={ar(title)}
+      titleEn="PROFILE"
       subtitle={ar(subtitle)}
       documentTitle={title}
       metaCells={metaCells}
     >
       {isTenant && rent ? (
-        <View style={s.summaryRow}>
+        <View style={s.summaryRow} wrap={false}>
           <View style={s.summaryCard}>
             <Text style={s.summaryLabel}>{ar('حالة شهر الإيجار')}</Text>
             <Text style={s.summaryValue}>{ar(rentStatusAr)}</Text>
@@ -233,7 +237,7 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
       ) : null}
 
       {!isTenant ? (
-        <View style={s.summaryRow}>
+        <View style={s.summaryRow} wrap={false}>
           <View style={s.summaryCard}>
             <Text style={s.summaryLabel}>{ar('إيرادات مرتبطة')}</Text>
             <PdfMoneyText amount={revenueTotal} style={s.summaryValue} />
@@ -249,8 +253,10 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
         </View>
       ) : null}
 
-      <Text style={pdfBase.sectionTitle}>{ar('البيانات الأساسية')}</Text>
-      <View style={s.infoGrid}>
+      <Text style={pdfBase.sectionTitle} minPresenceAhead={140}>
+        {ar('البيانات الأساسية')}
+      </Text>
+      <View style={s.infoGrid} wrap={(contact.notes ?? '').length > 600}>
         <View style={s.infoCell}>
           <Text style={s.infoLabel}>{ar('النوع')}</Text>
           <Text style={s.infoValue}>{ar(kindLabel)}</Text>
@@ -287,7 +293,7 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
         ) : null}
       </View>
 
-      <Text style={pdfBase.sectionTitle}>
+      <Text style={pdfBase.sectionTitle} minPresenceAhead={90}>
         {ar(isTenant ? 'دفعات الإيجار والتحصيل' : 'المعاملات المرتبطة')}
       </Text>
 
@@ -312,6 +318,7 @@ export function ContactDossierPDF({ contact, rent, transactions }: ContactDossie
               key={tx.id}
               style={[s.row, i % 2 === 1 ? s.rowAlt : {}]}
               wrap={false}
+              {...(i === partyRows.length - 1 ? lastRowKeepsTotal : {})}
             >
               <Text style={[s.td, s.colDesc, s.tdRight]}>
                 {ar(tx.description || tx.category?.name_ar || (isTenant ? 'إيجار' : '—'))}

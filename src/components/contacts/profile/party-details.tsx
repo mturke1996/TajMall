@@ -79,7 +79,7 @@ export function hasSupplyFacts(contact: ContactRow, role: string): boolean {
 export function supplyItems(contact: ContactRow): InfoItem[] {
   const role = extractContactBusinessRole(contact);
   return [
-    { label: 'نوع التوريد', value: CONTACT_ROLES[role].label },
+    { label: 'نوع التوريد', value: CONTACT_ROLES[role].badge },
     { label: 'رقم العداد أو العقد', value: clean(contact.shop_number), ltr: true },
     { label: 'التصنيف', value: clean(contact.department) },
   ];

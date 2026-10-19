@@ -6,14 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { TransactionsTable } from '@/components/data/transactions-table';
 import { JournalVoucherTable } from '@/components/accounting/journal-voucher-table';
-import { JournalBalanceBadge } from '@/components/accounting/journal-balance-badge';
 import { EmptyBlock, ErrorBlock, LoadingBlock, CHIP } from '@/components/people';
 import { ProfilePanel, ProfileTabs, type ProfileTabDef } from '@/components/contacts/profile/profile-tabs';
 import { ProfileKpis, UncountedNote } from '@/components/contacts/profile/profile-kpis';
-import { MovementRow } from '@/components/contacts/profile/movement-row';
-import { useRepeatTransaction } from '@/components/transactions/use-repeat-transaction';
+import { MovementsTable } from '@/components/contacts/profile/movements-table';
 import { mapJournalLineRowToVoucherLine } from '@/lib/journal-entry-display';
 import { useJournalLines, type JournalEntryRow } from '@/lib/db/journal-queries';
 import { TajMallPdfToolbar } from '@/features/pdf/taj-mall-pdf-toolbar';
@@ -56,7 +53,6 @@ export function ContactTransactionsList({
   const [side, setSide] = useState<Side>('all');
   const openTx = useTxDialog((s) => s.open);
   const { can } = usePermission();
-  const { canRepeat, repeat } = useRepeatTransaction();
 
   const hasBoth = useMemo(
     () => transactions.some((t) => t.kind === 'REVENUE') && transactions.some((t) => t.kind === 'EXPENSE'),
@@ -137,16 +133,9 @@ export function ContactTransactionsList({
           {filtered ? 'لا توجد حركات مطابقة.' : 'لا توجد حركات لهذه الجهة بعد.'}
         </EmptyBlock>
       ) : (
-        <>
-          <div className="hidden sm:block">
-            <TransactionsTable rows={rows} loading={false} tableId="contact-transactions" isFiltered={filtered} />
-          </div>
-          <ul className="divide-y divide-border px-4 py-1 sm:hidden" aria-label="حركات الجهة">
-            {rows.map((tx) => (
-              <MovementRow key={tx.id} tx={tx} onRepeat={canRepeat(tx) ? repeat : undefined} />
-            ))}
-          </ul>
-        </>
+        <div className="p-3 sm:p-4">
+          <MovementsTable rows={rows} isFiltered={filtered} />
+        </div>
       )}
     </Card>
   );
@@ -237,19 +226,13 @@ function JournalEntryItem({ entry }: { entry: JournalEntryRow }) {
           ) : voucherLines.length === 0 ? (
             <p className="py-3 text-center text-[12.5px] text-ink-mute">لا بنود مسجّلة لهذا القيد.</p>
           ) : (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[12.5px] font-semibold">أطراف القيد (مدين / دائن)</span>
-                <JournalBalanceBadge debit={entry.total_debit} credit={entry.total_credit} />
-              </div>
-              <JournalVoucherTable
-                lines={voucherLines}
-                totalDebit={entry.total_debit}
-                totalCredit={entry.total_credit}
-                density="compact"
-                className="rounded-lg border border-border bg-card"
-              />
-            </div>
+            <JournalVoucherTable
+              lines={voucherLines}
+              totalDebit={entry.total_debit}
+              totalCredit={entry.total_credit}
+              density="compact"
+              className="rounded-lg"
+            />
           )}
         </div>
       )}

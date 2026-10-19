@@ -89,13 +89,20 @@ const s = StyleSheet.create({
   signHint: { fontSize: 8, color: PDF.muted, textAlign: 'right', marginTop: 4 },
 });
 
+/** a last paragraph longer than this is left to flow on its own; a shorter one stays with the closing and the signature */
+const KEEP_LAST_PARAGRAPH_CHARS = 600;
+
 export function OfficialLetterPDF({ letter }: { letter: OfficialLetterPdfModel }) {
   const paragraphs = letter.body.split(/\n+/).filter(Boolean);
   const isOfficial = letter.letterType === 'official';
+  const last = paragraphs[paragraphs.length - 1];
+  const keepLast = last != null && last.length <= KEEP_LAST_PARAGRAPH_CHARS;
+  const flowParagraphs = keepLast ? paragraphs.slice(0, -1) : paragraphs;
 
   return (
     <ReportShell
       title={letter.letterTypeAr}
+      titleEn="LETTER"
       subtitle={`رقم ${letter.number}`}
       documentTitle={letter.documentTitle}
       summaryPrimaryDateIso={letter.letterDate}
@@ -140,27 +147,32 @@ export function OfficialLetterPDF({ letter }: { letter: OfficialLetterPdfModel }
         <Text style={s.subjectText}>{ar(letter.subject)}</Text>
       </View>
 
-      {paragraphs.map((p, i) => (
+      {flowParagraphs.map((p, i) => (
         <Text key={i} style={s.body}>
           {ar(p)}
         </Text>
       ))}
 
-      <Text style={s.closing}>
-        {ar(
-          isOfficial
-            ? 'وتفضلوا بقبول فائق الاحترام والتقدير،'
-            : 'مع أطيب التحيات،',
-        )}
-      </Text>
+      {/* the last paragraph, the closing line and the signature move together: the signature never stands alone on a page */}
+      <View wrap={false}>
+        {keepLast ? <Text style={s.body}>{ar(last)}</Text> : null}
 
-      <View style={s.signBlock} wrap={false}>
-        <View style={s.signLine} />
-        <Text style={s.signOrg}>{ar(BRAND.fullName)}</Text>
-        <Text style={s.signHint}>{ar('الإدارة')}</Text>
+        <Text style={s.closing}>
+          {ar(
+            isOfficial
+              ? 'وتفضلوا بقبول فائق الاحترام والتقدير،'
+              : 'مع أطيب التحيات،',
+          )}
+        </Text>
+
+        <View style={s.signBlock} wrap={false}>
+          <View style={s.signLine} />
+          <Text style={s.signOrg}>{ar(BRAND.fullName)}</Text>
+          <Text style={s.signHint}>{ar('الإدارة')}</Text>
+        </View>
+
+        <PdfReportCaption />
       </View>
-
-      <PdfReportCaption />
     </ReportShell>
   );
 }

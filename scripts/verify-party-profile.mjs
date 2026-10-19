@@ -184,6 +184,7 @@ check('back label names the list the file is shown in', () => {
   assert.equal(pp.backLabel('VENDOR', true), 'المؤجرون');
   assert.equal(pp.backLabel('CUSTOMER', true), 'المؤجرون');
   assert.equal(pp.backLabel('OTHER', true), 'الجهات');
+  assert.equal(pp.backLabel('EMPLOYEE', false), 'الموظفون');
   assert.equal(pp.backLabel('TENANT', false), 'الجهات');
 });
 
@@ -228,6 +229,14 @@ check('moving any other file drops the old list\'s role tag but keeps the text a
   assert.equal(extractContactBusinessRole({ ...tagged, ...toVendors }), 'SUPPLIER_GOODS');
 
   assert.equal(pp.moveKindPatch(customer(), 'VENDOR').notes, null);
+});
+
+check('the move confirmation names the list, and says a landlord stays a landlord', () => {
+  assert.equal(pp.moveDescription('CUSTOMER', false), 'يُعرض الملف ضمن العملاء بدل الموردين. الحركات والقيود لا تتغير.');
+  assert.equal(pp.moveDescription('VENDOR', false), 'يُعرض الملف ضمن الموردين بدل العملاء. الحركات والقيود لا تتغير.');
+  assert.match(pp.moveDescription('CUSTOMER', true), /عميلاً.*يبقى مؤجراً للمول/);
+  assert.match(pp.moveDescription('VENDOR', true), /مورداً.*يبقى مؤجراً للمول/);
+  for (const t of ['CUSTOMER', 'VENDOR']) assert.ok(pp.KIND_MOVE_WORDS[t].menu.startsWith('نقل إلى'));
 });
 
 // ---- approving a landlord ----

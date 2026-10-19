@@ -14,7 +14,6 @@ import { canCreateContactTransaction, formatContactSaveError } from '@/lib/conta
 import { CONTACT_ROLES, type ContactBusinessRole } from '@/lib/contacts/contact-roles';
 import { contactBackHref } from '@/lib/mall/routes';
 import { useUpdateContact } from '@/lib/db/queries';
-import { useMediaQuery } from '@/lib/hooks/use-media-query';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { useTxDialog } from '@/stores/transaction-dialog';
 import {
@@ -22,6 +21,7 @@ import {
   buildStatement,
   DIRECTION_WORDS,
   KIND_MOVE_WORDS,
+  moveDescription,
   moveKindPatch,
   moveTarget,
   profileLook,
@@ -60,7 +60,6 @@ export function PartyHeader({
   const { can, canWrite } = usePermission();
   const openTx = useTxDialog((s) => s.open);
   const update = useUpdateContact();
-  const isDesktop = useMediaQuery('(min-width: 640px)');
   const [moving, setMoving] = useState(false);
 
   const txKind = txKindOfDirection(direction);
@@ -107,7 +106,7 @@ export function PartyHeader({
   ) : null;
 
   const actions = (
-    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+    <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:flex-nowrap">
       {primary}
       {extraActions}
       <ContactWhatsAppButton name={contact.name} phone={contact.phone} kind={contact.kind} iconOnPhone className="shrink-0" />
@@ -117,7 +116,7 @@ export function PartyHeader({
         cacheKey={`${transactions.length}:${statement.net}`}
         render={renderStatement}
         disabled={!statementReady || statement.rows.length === 0}
-        showDownload={isDesktop}
+        showDownload={false}
         openLabel="كشف الحساب"
         className="flex-1 flex-nowrap sm:flex-none [&>button]:flex-1"
       />
@@ -128,7 +127,7 @@ export function PartyHeader({
         </Button>
       )}
       {target && (
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button type="button" variant="outline" size="icon" className="h-11 w-11 shrink-0 sm:h-9 sm:w-9" aria-label="المزيد">
               <Ellipsis aria-hidden />
@@ -148,6 +147,8 @@ export function PartyHeader({
   return (
     <>
       <ProfileHeader
+        // below xl the actions drop under the name instead of squeezing it
+        className="sm:[&>div]:flex-wrap"
         name={contact.name}
         code={contact.code}
         role={role}
@@ -188,7 +189,7 @@ export function PartyHeader({
           onOpenChange={setMoving}
           tone="default"
           title={KIND_MOVE_WORDS[target].title}
-          description={`يُعرض الملف ضمن ${KIND_MOVE_WORDS[target].list} بدل ${KIND_MOVE_WORDS[target === 'CUSTOMER' ? 'VENDOR' : 'CUSTOMER'].list}. الحركات والقيود لا تتغير${landlord ? '، ويبقى مؤجراً للمول' : ''}.`}
+          description={moveDescription(target, landlord)}
           details={[{ label: 'الجهة', value: contact.name }]}
           confirmLabel="انقل الملف"
           onConfirm={move}

@@ -4,7 +4,7 @@ import { useMemo, type ReactNode } from 'react';
 import { ChartColumn, ChevronLeft, PieChart, Plus, Receipt, StickyNote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { DonutBreakdown, MonthlyBarChart, SectionCard, type ChartRow } from '@/components/people';
+import { DonutBreakdown, ErrorBlock, MonthlyBarChart, SectionCard, type ChartRow } from '@/components/people';
 import { MovementRow } from '@/components/contacts/profile/movement-row';
 import { useRepeatTransaction } from '@/components/transactions/use-repeat-transaction';
 import {
@@ -95,6 +95,18 @@ export function PartyOverview({
       <p className="whitespace-pre-line text-[13.5px] leading-relaxed text-ink-soft">{noteText}</p>
     </SectionCard>
   ) : null;
+
+  if (failed) {
+    return (
+      <div className="grid min-w-0 gap-4 lg:grid-cols-3 lg:gap-5">
+        <Card className="lg:col-span-3">
+          <ErrorBlock message={errorText} onRetry={onRetry} />
+        </Card>
+        {extra}
+        {notesCard}
+      </div>
+    );
+  }
 
   if (nothingYet) {
     return (

@@ -5,7 +5,6 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/data/empty-state';
-import { Button } from '@/components/ui/button';
 import { ContactFormDialog } from '@/components/contacts/contact-form-dialog';
 import { OtherContactDetailBody } from '@/components/contacts/other-contact-detail-body';
 import { UtilitySupplierPanel } from '@/components/contacts/utility-supplier-panel';
@@ -37,15 +36,8 @@ function PageMessage({ title, description, retry }: { title: string; description
         icon={AlertTriangle}
         title={title}
         description={description}
-        action={retry ? undefined : { label: 'العودة', href: contactBackHref('CUSTOMER') }}
+        action={retry ? { label: 'إعادة المحاولة', onClick: retry } : { label: 'العودة', href: contactBackHref('CUSTOMER') }}
       />
-      {retry && (
-        <div className="mt-3 flex justify-center">
-          <Button type="button" variant="outline" className="min-h-11 sm:min-h-9" onClick={retry}>
-            إعادة المحاولة
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 /**
  * What needs the owner's attention today, as numbers: arrears gone past 60 days, leases that ended or end
- * within 30 days, rent still owed this month, vouchers waiting for approval, months whose charges were not
- * all generated, shops empty for months.
+ * within 30 days, rent still owed this month, rent the mall owes its landlords, vouchers waiting for approval,
+ * months whose charges were not all generated, shops empty for months.
  *
  * Each source is `undefined` when it does not apply (the user may not approve vouchers), `null` when it
  * could not be read, or its data. A source that could not be read is reported as unavailable, so a quiet
@@ -10,17 +10,21 @@
 import type { BillingMonthStatus } from '@/lib/billing-preview';
 import { billingIsLate, latestIncompleteMonth } from '@/lib/billing-preview';
 import type { ContractExpiry } from '@/lib/contract-expiry';
+import type { LandlordAttention } from '@/lib/landlord-dues';
+import { arabicCount, formatMoney } from '@/lib/utils';
 
-export type FollowUpKey = 'expired' | 'arrears60' | 'vouchers' | 'ending30' | 'billing' | 'rent' | 'vacant';
+export type FollowUpKey = 'expired' | 'arrears60' | 'vouchers' | 'ending30' | 'billing' | 'rent' | 'landlords' | 'vacant';
 export type FollowUpTone = 'bad' | 'warn' | 'neutral';
 
 export type FollowUpItem = {
   key: FollowUpKey;
   tone: FollowUpTone;
-  /** tenants, leases, vouchers or shops, depending on the key */
+  /** tenants, leases, landlords, vouchers or shops, depending on the key */
   count: number;
   /** money that goes with the count (arrears, rent at stake, rent still owed); null when there is none */
   amount: number | null;
+  /** only for 'landlords': some owed month has no known amount, so `amount` is a floor */
+  atLeast?: boolean;
   href: string;
   /** only for 'billing': the month named, the leases it should bill, and how many earlier months are incomplete too */
   billing?: { month: string; total: number; earlierMonths: number };
@@ -50,6 +54,11 @@ export type FollowUpInput = {
   pendingVouchers: number | null | undefined;
   /** shops free for months, from the occupancy picture */
   longVacant: number | null;
+  /**
+   * what the mall owes its landlords: `count` landlords owed, 0 when none (the screen builds it from the
+   * landlord dues); undefined when the user may not see it, null when it could not be read
+   */
+  landlords?: Pick<LandlordAttention, 'count' | 'amount' | 'amountComplete' | 'behind'> | null;
   /** billing completeness of the current month and the two before; undefined when the user cannot generate charges */
   billing?: BillingMonthStatus[] | null;
 };
@@ -71,6 +80,7 @@ const HREF = {
   rent: '/mall?tab=tenants',
   vouchers: '/vouchers',
   vacant: '/mall?tab=units',
+  landlords: '/mall?tab=people&role=LANDLORD',
   // the month is appended: the charges tab opens its generate dialog on it
   billing: '/mall?tab=charges&billing=',
 } satisfies Record<FollowUpKey, string>;
@@ -148,6 +158,21 @@ export function buildFollowUp(input: FollowUpInput): FollowUp {
     }
   }
 
+  // rent the mall owes its landlords: bad once a landlord is behind, a warning while it is only this month's
+  if (input.landlords === null) {
+    unavailable.push('landlords');
+  } else if (input.landlords !== undefined && input.landlords.count > 0) {
+    const l = input.landlords;
+    items.push({
+      key: 'landlords',
+      tone: l.behind > 0 ? 'bad' : 'warn',
+      count: l.count,
+      amount: l.amount > EPS ? round3(l.amount) : null,
+      ...(l.amountComplete ? {} : { atLeast: true }),
+      href: HREF.landlords,
+    });
+  }
+
   if (input.longVacant === null) {
     unavailable.push('vacant');
   } else if (input.longVacant > 0) {
@@ -155,7 +180,20 @@ export function buildFollowUp(input: FollowUpInput): FollowUp {
   }
 
   const rank: Record<FollowUpTone, number> = { bad: 0, warn: 1, neutral: 2 };
-  // stable: within a tone the order above (leases, arrears, vouchers, billing, rent, shops) is kept
+  // stable: within a tone the order above (leases, arrears, vouchers, billing, rent, landlords, shops) is kept
   items.sort((a, b) => rank[a.tone] - rank[b.tone]);
   return { items, unavailable };
+}
+
+const LANDLORDS: [string, string, string, string] = ['مؤجر واحد', 'مؤجران', 'مؤجرين', 'مؤجراً'];
+
+/** The row's title: an earlier month unpaid is named as late, otherwise it is this month's rent. */
+export function landlordFollowUpTitle(tone: FollowUpTone): string {
+  return tone === 'bad' ? 'إيجار متأخر للمؤجرين' : 'إيجار هذا الشهر للمؤجرين لم يُسدَّد';
+}
+
+/** «3 مؤجرين · المستحق للمؤجرين 52,000 د.ل»; «على الأقل» when a month has no known amount. */
+export function landlordFollowUpDetail(item: Pick<FollowUpItem, 'count' | 'amount' | 'atLeast'>): string {
+  const money = item.amount != null ? ` · المستحق للمؤجرين ${formatMoney(item.amount, 'LYD')}${item.atLeast ? ' على الأقل' : ''}` : '';
+  return `${arabicCount(item.count, LANDLORDS)}${money}`;
 }

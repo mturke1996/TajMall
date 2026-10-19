@@ -10,6 +10,7 @@ import { TajMallPdfFooter, PdfReportHeaderFlow } from './pdfBrandKit';
 import { BRAND } from '@/lib/brand';
 import type { TransactionWithRelations } from '@/lib/db/types';
 import { arabicCount } from '@/lib/utils';
+import { PdfPrintLine, PdfScopeNote, PdfSignatureBlock } from './options/PdfReportExtras';
 
 const W_REV = {
   amount: '16%',
@@ -177,6 +178,20 @@ export type RevenuesReportPdfProps = {
     count: number;
     total: number;
   }>;
+  /**
+   * Added for the options dialog; every one is optional and a report that sets none of them renders as before.
+   * The small line above each group's name (default: the payment-method caption), for groups that are not payment methods.
+   */
+  groupCaptionAr?: string;
+  /** false leaves out each group's subtotal row (with one group it only repeats the grand total) */
+  groupSubtotals?: boolean;
+  /** one muted line under the scope strip saying which filters were applied */
+  scopeNote?: string;
+  /** who made the report and when, printed under the totals */
+  printedBy?: string;
+  printedAt?: string;
+  /** the «أعدّه / اعتمده» lines after the totals */
+  signature?: boolean;
 };
 
 type RevenuesReportPdfGroup = NonNullable<RevenuesReportPdfProps['paymentMethodGroups']>[number];
@@ -352,12 +367,17 @@ function MethodGroup({
   group,
   bandGap,
   closing,
+  captionAr,
+  showSubtotal = true,
 }: {
   group: RevenuesReportPdfGroup;
   /** top margin of the band (larger when the group follows a table) */
   bandGap: number;
   /** passed to the last group only: the grand-total bar, kept together with this group's tail */
   closing?: React.ReactNode;
+  /** the small line above the group's name; default: the payment-method caption */
+  captionAr?: string;
+  showSubtotal?: boolean;
 }) {
   const items = group.items;
   const renderBand = (keepAhead: number) => (
@@ -378,7 +398,7 @@ function MethodGroup({
       </View>
       <View style={{ flex: 1, paddingLeft: 8 }}>
         <Text style={{ fontSize: 7, color: 'rgba(255,255,255,0.75)', textAlign: 'right' }}>
-          {ar('جدول إيرادات طريقة الدفع')}
+          {ar(captionAr || 'جدول إيرادات طريقة الدفع')}
         </Text>
         <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#fff', textAlign: 'right' }}>
           {ar(group.labelAr)}
@@ -428,7 +448,7 @@ function MethodGroup({
         <View style={[pdfReportTable.tableWrap, { marginBottom: 0 }]}>
           {renderHead(true)}
           {renderRows(0, items.length, true)}
-          {subtotal}
+          {showSubtotal ? subtotal : null}
         </View>
       </>
     );
@@ -449,7 +469,7 @@ function MethodGroup({
         <View style={[pdfReportTable.tableWrap, tailFrom > 0 ? FRAME_OPEN_TOP : {}]}>
           {tailFrom > 0 ? null : renderHead(false)}
           {renderRows(tailFrom, items.length, false)}
-          {subtotal}
+          {showSubtotal ? subtotal : null}
         </View>
         <View style={{ marginTop: 14 }}>{closing}</View>
       </View>
@@ -514,6 +534,8 @@ export function RevenuesReportPDF(props: RevenuesReportPdfProps) {
   const grandTotal = calculatedGrandTotal;
   const totalTransactionsCount = totalCount;
   const paymentMethodGroups = methodGroups;
+  // the groups can be something other than payment methods (the options dialog), so the methods used are counted from the rows
+  const methodsUsed = new Set(items.map((it) => it.method || 'CASH')).size;
 
   const categoriesSummary =
     props.categoriesSummary && props.categoriesSummary.length > 0
@@ -588,6 +610,8 @@ export function RevenuesReportPDF(props: RevenuesReportPdfProps) {
       </View>
 
       <PdfReportCaption />
+      <PdfPrintLine printedBy={props.printedBy} printedAt={props.printedAt} />
+      {props.signature ? <PdfSignatureBlock preparedBy={props.printedBy} /> : null}
     </>
   );
 
@@ -603,7 +627,7 @@ export function RevenuesReportPDF(props: RevenuesReportPdfProps) {
           <PdfReportHeaderFlow title={titleAr} subtitle={subtitle} titleEn="REVENUES REPORT" />
 
           {/* 1. Scope & Meta Strip */}
-          <View style={s.scopeStrip} wrap={false}>
+          <View style={[s.scopeStrip, props.scopeNote ? { marginBottom: 4 } : null]} wrap={false}>
             <View style={s.scopeItem}>
               <Text style={s.scopeLabel}>{ar('الفترة الزمنية')}</Text>
               <Text style={s.scopeValue}>{ar(periodLabel)}</Text>
@@ -622,6 +646,8 @@ export function RevenuesReportPDF(props: RevenuesReportPdfProps) {
             </View>
           </View>
 
+          {props.scopeNote ? <PdfScopeNote text={props.scopeNote} /> : null}
+
           {/* 2. KPI Summary Cards */}
           <View style={s.kpiStrip} wrap={false}>
             <View style={s.kpiCell}>
@@ -634,7 +660,7 @@ export function RevenuesReportPDF(props: RevenuesReportPdfProps) {
 
             <View style={s.kpiCell}>
               <Text style={s.kpiLabel}>{ar('طرق الدفع المستخدمة')}</Text>
-              <Text style={s.kpiValue}>{ar(arabicCount(paymentMethodGroups.length, ['طريقة دفع واحدة', 'طريقتا دفع', 'طرق دفع', 'طريقة دفع']))}</Text>
+              <Text style={s.kpiValue}>{ar(arabicCount(methodsUsed, ['طريقة دفع واحدة', 'طريقتا دفع', 'طرق دفع', 'طريقة دفع']))}</Text>
               <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right', marginTop: 2 }}>
                 {ar('نقدي، بطاقة، حوالة، صك')}
               </Text>
@@ -675,6 +701,8 @@ export function RevenuesReportPDF(props: RevenuesReportPdfProps) {
                 group={group}
                 bandGap={gi > 0 || summaryFlows ? GAP_AFTER_TABLE : GAP_AFTER_STRIP}
                 closing={gi === paymentMethodGroups.length - 1 ? closing : undefined}
+                captionAr={props.groupCaptionAr}
+                showSubtotal={props.groupSubtotals !== false}
               />
             ))
           )}

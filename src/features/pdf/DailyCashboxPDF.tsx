@@ -20,16 +20,32 @@ const s = StyleSheet.create({
   signText: { fontSize: 8, color: PDF.muted, textAlign: 'center' },
 });
 
+/**
+ * A box whose table has at most this many movements stays whole on one page. A longer one flows from where the
+ * previous box ends (rows never split): keeping it whole pushed it to the next page and left the page before it
+ * mostly blank, the first page worst of all.
+ */
+const KEEP_BOX_LINES = 6;
+
+/** Room a breakable block needs below its start: title, column heads, the opening row and one movement. */
+const BLOCK_START_ROOM = 150;
+
 /** a titled block that stays whole on a page unless its table is long */
 function Block({ title, note, keep = true, children }: { title: string; note?: string; keep?: boolean; children: React.ReactNode }) {
   return (
-    <View wrap={!keep}>
-      <Text style={pdfReportTable.sectionTitle} minPresenceAhead={90}>
-        {ar(title)}
-      </Text>
-      {note ? <Text style={[pdfReportTable.caption, { marginTop: -4, marginBottom: 6 }]}>{ar(note)}</Text> : null}
-      {children}
-    </View>
+    <>
+      {/*
+        A block that may break is not atomic, so a rule on its own title cannot move it: the title is the first thing inside
+        it and react-pdf only breaks an element that has something before it. This empty element in front of the block carries
+        the rule instead: the title, the column heads and the first rows start on this page or the block starts on the next.
+      */}
+      {keep ? null : <View minPresenceAhead={BLOCK_START_ROOM} />}
+      <View wrap={!keep}>
+        <Text style={pdfReportTable.sectionTitle}>{ar(title)}</Text>
+        {note ? <Text style={[pdfReportTable.caption, { marginTop: -4, marginBottom: 6 }]}>{ar(note)}</Text> : null}
+        {children}
+      </View>
+    </>
   );
 }
 
@@ -51,9 +67,13 @@ const COLUMNS = [
   { label: 'المرجع', width: '13%' },
 ];
 
-function Row({ cells, alt, bold }: { cells: React.ReactNode[]; alt?: boolean; bold?: boolean }) {
+function Row({ cells, alt, bold, keepWithNext }: { cells: React.ReactNode[]; alt?: boolean; bold?: boolean; keepWithNext?: boolean }) {
   return (
-    <View style={[bold ? pdfReportTable.totalsRow : pdfReportTable.tableRow, alt ? pdfReportTable.rowAlt : {}]} wrap={false}>
+    <View
+      style={[bold ? pdfReportTable.totalsRow : pdfReportTable.tableRow, alt ? pdfReportTable.rowAlt : {}]}
+      wrap={false}
+      {...(keepWithNext ? { minPresenceAhead: 40 } : {})}
+    >
       {cells.map((cell, i) => (
         <View key={i} style={{ width: COLUMNS[i].width }}>
           {cell}
@@ -85,6 +105,8 @@ function BoxTable({ box }: { box: DailyBox }) {
         <Row
           key={l.id}
           alt={i % 2 === 0}
+          // the closing balance row never stands alone at the top of a page
+          keepWithNext={i === box.lines.length - 1}
           cells={[
             money(l.balanceAfter),
             incoming(l) ? dash() : money(l.amount),
@@ -121,7 +143,7 @@ export function DailyCashboxPDF({ statement }: { statement: DailyStatement }) {
       ]}
     >
       {statement.boxes.map((box) => (
-        <Block key={box.id} title={box.name} keep={box.lines.length <= 12}>
+        <Block key={box.id} title={box.name} keep={box.lines.length <= KEEP_BOX_LINES}>
           <BoxTable box={box} />
         </Block>
       ))}

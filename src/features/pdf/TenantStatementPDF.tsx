@@ -17,6 +17,31 @@ const dateLabel = (iso: string) => {
 };
 const side = (n: number) => (n > 0.0005 ? 'عليه' : n < -0.0005 ? 'له' : '');
 
+/**
+ * Page-break rules (the table itself is unchanged):
+ * - the table is cut in two: everything above the last TAIL_ROWS rows, and a tail that holds those rows, the
+ *   totals row, the closing-balance bar and the notes as one block. So the bar and the notes are never alone on
+ *   a page; in the all-tenants file such a page would be a blank page between two statements;
+ * - the frame is open at the cut (no bottom border above it, no top border below it), so the two halves read as
+ *   one table when they share a page;
+ * - the gap under the table belongs to the block that follows it (margin-top), never to the table
+ *   (margin-bottom): react-pdf counts a bottom margin as room the block still needs, so a table that fitted the
+ *   page by less than 16pt used to be moved whole to the next page and left the rest of this one empty.
+ */
+export const TAIL_ROWS = 2;
+export const FRAME_OPEN_BOTTOM = {
+  borderBottomWidth: 0,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  marginBottom: 0,
+};
+export const FRAME_OPEN_TOP = {
+  borderTopWidth: 0,
+  borderTopLeftRadius: 0,
+  borderTopRightRadius: 0,
+  marginBottom: 0,
+};
+
 function BalanceMoney({ value, bold }: { value: number; bold?: boolean }) {
   return (
     <View style={{ alignItems: 'center' }}>
@@ -48,9 +73,91 @@ export function TenantStatementPDF(props: TenantStatementPdfProps) {
 /** صفحات كشف مستأجر واحد — تُطبع وحدها أو ضمن كشوف كل المستأجرين. */
 export function TenantStatementPage({ tenantName, shopNumber, phone, periodLabel, issuedOn, statement }: TenantStatementPdfProps) {
   const { rows, opening, totalDebit, totalCredit, closing, reconciliation: rec, year } = statement;
+
+  const notes = [
+    rec && Math.abs(rec.difference) > 0.0005
+      ? { text: 'يوجد فرق في ربط بعض الدفعات بالأشهر — راجع ربط الإيصالات قبل اعتماد الكشف.', danger: true }
+      : null,
+    rec && rec.unlinked > 0.0005 ? { text: 'يشمل المدفوع مبالغ محصّلة لم تُربط بشهر محدد بعد.' } : null,
+    { text: 'يُحتسب إيجار كل شهر في أول يوم منه. هذا الكشف لا يشمل التأمين ولا رسوم الخدمات.' },
+  ].filter(Boolean);
+
+  const statementRow = (r, i) => (
+    <View key={r.key} style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]} wrap={false}>
+      <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
+        <BalanceMoney value={r.balance} />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
+        <PdfReportMoney amount={r.credit} color={PDF.success} />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
+        <PdfReportMoney amount={r.debit} />
+      </View>
+      <View style={{ width: W.desc }}>
+        <Text style={pdfReportTable.tdAr}>{ar(r.label)}</Text>
+        {r.detail ? <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>{ar(r.detail)}</Text> : null}
+        {r.reference ? (
+          <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>
+            {ar('مرجع: ')}
+            <Text style={{ direction: 'ltr' }}>{r.reference}</Text>
+          </Text>
+        ) : null}
+      </View>
+      <View style={{ width: W.date, alignItems: 'center' }}>
+        <Text style={{ fontSize: 8, color: PDF.text, textAlign: 'center' }}>{dateLabel(r.date)}</Text>
+      </View>
+    </View>
+  );
+
+  const openingRow =
+    year != null ? (
+      <View key="opening" style={[pdfReportTable.tableRow, pdfReportTable.rowAlt]} wrap={false}>
+        <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
+          <BalanceMoney value={opening} bold />
+        </View>
+        <View style={{ width: W.credit }} />
+        <View style={{ width: W.debit }} />
+        <View style={{ width: W.desc }}>
+          <Text style={[pdfReportTable.tdAr, { fontWeight: 'bold' }]}>{ar(`رصيد سابق (قبل ${year})`)}</Text>
+        </View>
+        <View style={{ width: W.date }} />
+      </View>
+    ) : null;
+  const body = [openingRow, ...rows.map(statementRow)].filter(Boolean);
+  const tailFrom = Math.max(0, body.length - TAIL_ROWS);
+
+  const head = (
+    <View style={pdfReportTable.tableHead} wrap={false} {...(tailFrom > 0 ? { fixed: true } : {})}>
+      <Text style={[pdfReportTable.th, { width: W.balance }]}>{ar('الرصيد')}</Text>
+      <Text style={[pdfReportTable.th, { width: W.credit }]}>{ar('مدفوع')}</Text>
+      <Text style={[pdfReportTable.th, { width: W.debit }]}>{ar('مستحق')}</Text>
+      <Text style={[pdfReportTable.thAr, { width: W.desc }]}>{ar('البيان')}</Text>
+      <Text style={[pdfReportTable.th, { width: W.date }]}>{ar('التاريخ')}</Text>
+    </View>
+  );
+
+  const totalsRow = (
+    <View style={pdfReportTable.totalsRow} wrap={false}>
+      <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
+        <BalanceMoney value={closing} bold />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
+        <PdfReportMoney amount={totalCredit} bold showZero />
+      </View>
+      <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
+        <PdfReportMoney amount={totalDebit} bold showZero />
+      </View>
+      <View style={{ width: W.desc }}>
+        <Text style={pdfReportTable.totalsRowLabel}>{ar(`المجموع (${rows.length} حركة)`)}</Text>
+      </View>
+      <View style={{ width: W.date }} />
+    </View>
+  );
+
   return (
     <ReportPage
       title="كشف حساب الإيجار"
+      titleEn="STATEMENT"
       subtitle={`${tenantName}${shopNumber ? ` · محل ${shopNumber}` : ''} · ${periodLabel}`}
       summaryPrimaryDateIso={issuedOn}
       summaryPrimaryDateLabel="تاريخ الكشف"
@@ -79,97 +186,39 @@ export function TenantStatementPage({ tenantName, shopNumber, phone, periodLabel
         </View>
       </View>
 
-      <View style={pdfReportTable.tableWrap}>
-        <View style={pdfReportTable.tableHead} wrap={false} fixed>
-          <Text style={[pdfReportTable.th, { width: W.balance }]}>{ar('الرصيد')}</Text>
-          <Text style={[pdfReportTable.th, { width: W.credit }]}>{ar('مدفوع')}</Text>
-          <Text style={[pdfReportTable.th, { width: W.debit }]}>{ar('مستحق')}</Text>
-          <Text style={[pdfReportTable.thAr, { width: W.desc }]}>{ar('البيان')}</Text>
-          <Text style={[pdfReportTable.th, { width: W.date }]}>{ar('التاريخ')}</Text>
+      {tailFrom > 0 ? (
+        <View style={[pdfReportTable.tableWrap, FRAME_OPEN_BOTTOM]}>
+          {head}
+          {body.slice(0, tailFrom)}
+        </View>
+      ) : null}
+      <View wrap={false}>
+        <View style={[pdfReportTable.tableWrap, tailFrom > 0 ? FRAME_OPEN_TOP : { marginBottom: 0 }]}>
+          {tailFrom > 0 ? null : head}
+          {body.slice(tailFrom)}
+          {totalsRow}
         </View>
 
-        {year != null ? (
-          <View style={[pdfReportTable.tableRow, pdfReportTable.rowAlt]} wrap={false}>
-            <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
-              <BalanceMoney value={opening} bold />
+        <View style={[pdfReportTable.totalBar, { marginTop: 16 }]}>
+          <View style={pdfReportTable.totalCluster}>
+            <View style={pdfReportTable.totalMini}>
+              <Text style={pdfReportTable.totalMiniLabel}>{ar(statementBalanceLabel(closing))}</Text>
+              <PdfReportMoney amount={Math.abs(closing)} bold light showZero />
             </View>
-            <View style={{ width: W.credit }} />
-            <View style={{ width: W.debit }} />
-            <View style={{ width: W.desc }}>
-              <Text style={[pdfReportTable.tdAr, { fontWeight: 'bold' }]}>{ar(`رصيد سابق (قبل ${year})`)}</Text>
-            </View>
-            <View style={{ width: W.date }} />
           </View>
-        ) : null}
+          <Text style={pdfReportTable.totalLabel}>{ar('الرصيد الختامي')}</Text>
+        </View>
 
-        {rows.map((r, i) => (
-          <View key={r.key} style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]} wrap={false}>
-            <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
-              <BalanceMoney value={r.balance} />
-            </View>
-            <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
-              <PdfReportMoney amount={r.credit} color={PDF.success} />
-            </View>
-            <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
-              <PdfReportMoney amount={r.debit} />
-            </View>
-            <View style={{ width: W.desc }}>
-              <Text style={pdfReportTable.tdAr}>{ar(r.label)}</Text>
-              {r.detail ? <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>{ar(r.detail)}</Text> : null}
-              {r.reference ? (
-                <Text style={{ fontSize: 7, color: PDF.muted, textAlign: 'right' }}>
-                  {ar('مرجع: ')}
-                  <Text style={{ direction: 'ltr' }}>{r.reference}</Text>
-                </Text>
-              ) : null}
-            </View>
-            <View style={{ width: W.date, alignItems: 'center' }}>
-              <Text style={{ fontSize: 8, color: PDF.text, textAlign: 'center' }}>{dateLabel(r.date)}</Text>
-            </View>
-          </View>
+        {notes.map((n, i) => (
+          <Text
+            key={i}
+            style={[pdfReportTable.caption, { marginTop: i === 0 ? 7 : 3, lineHeight: 1.35 }, n.danger ? { color: PDF.danger } : {}]}
+          >
+            {ar(n.text)}
+          </Text>
         ))}
-
-        <View style={pdfReportTable.totalsRow} wrap={false}>
-          <View style={[pdfReportTable.tdNum, { width: W.balance }]}>
-            <BalanceMoney value={closing} bold />
-          </View>
-          <View style={[pdfReportTable.tdNum, { width: W.credit }]}>
-            <PdfReportMoney amount={totalCredit} bold showZero />
-          </View>
-          <View style={[pdfReportTable.tdNum, { width: W.debit }]}>
-            <PdfReportMoney amount={totalDebit} bold showZero />
-          </View>
-          <View style={{ width: W.desc }}>
-            <Text style={pdfReportTable.totalsRowLabel}>{ar(`المجموع (${rows.length} حركة)`)}</Text>
-          </View>
-          <View style={{ width: W.date }} />
-        </View>
+        <PdfReportCaption />
       </View>
-
-      <View style={pdfReportTable.totalBar} wrap={false}>
-        <View style={pdfReportTable.totalCluster}>
-          <View style={pdfReportTable.totalMini}>
-            <Text style={pdfReportTable.totalMiniLabel}>{ar(statementBalanceLabel(closing))}</Text>
-            <PdfReportMoney amount={Math.abs(closing)} bold light showZero />
-          </View>
-        </View>
-        <Text style={pdfReportTable.totalLabel}>{ar('الرصيد الختامي')}</Text>
-      </View>
-
-      {rec && Math.abs(rec.difference) > 0.0005 ? (
-        <Text style={[pdfReportTable.caption, { color: PDF.danger }]}>
-          {ar('يوجد فرق في ربط بعض الدفعات بالأشهر — راجع ربط الإيصالات قبل اعتماد الكشف.')}
-        </Text>
-      ) : null}
-      {rec && rec.unlinked > 0.0005 ? (
-        <Text style={pdfReportTable.caption}>
-          {ar('يشمل المدفوع مبالغ محصّلة لم تُربط بشهر محدد بعد.')}
-        </Text>
-      ) : null}
-      <Text style={pdfReportTable.caption}>
-        {ar('يُحتسب إيجار كل شهر في أول يوم منه. هذا الكشف لا يشمل التأمين ولا رسوم الخدمات.')}
-      </Text>
-      <PdfReportCaption />
     </ReportPage>
   );
 }

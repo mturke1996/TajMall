@@ -43,6 +43,7 @@ export function ProfileKpis({
         ? 'لا حركة بعد'
         : [f.count > 0 && arabicCount(f.count, VOUCHERS[direction]), f.other.count > 0 && `${f.other.count} ${other.countOf}`].filter(Boolean).join(' · ');
 
+    // a failed load says so in every card; one retry is enough
     return [
       {
         label: w.total,
@@ -60,7 +61,6 @@ export function ProfileKpis({
         value: f?.last?.amount ?? null,
         context: f ? (f.last ? formatDate(f.last.date) : w.lastNone) : undefined,
         state,
-        onRetry,
       },
       {
         label: 'عدد الحركات',
@@ -70,7 +70,6 @@ export function ProfileKpis({
         value: f?.totalCount ?? null,
         context: countContext,
         state,
-        onRetry,
       },
       {
         label: 'المتوسط الشهري',
@@ -79,7 +78,6 @@ export function ProfileKpis({
         value: f && f.activeMonths > 0 ? f.average : null,
         context: f ? (f.activeMonths > 0 ? `أشهر الحركة: ${f.activeMonths}` : 'لا حركة بعد') : undefined,
         state,
-        onRetry,
       },
     ];
   }, [stats, direction, loading, error, onRetry]);

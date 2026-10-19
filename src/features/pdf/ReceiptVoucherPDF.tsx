@@ -43,6 +43,8 @@ const s = StyleSheet.create({
   heroCell: { direction: 'rtl', flex: 1, minWidth: 0 },
   heroLabel: { fontSize: 7.5, color: PDF.muted, fontWeight: 'bold', marginBottom: 4, textAlign: 'right' },
   heroValue: { fontSize: 10, fontWeight: 'bold', color: PDF.text, textAlign: 'right', lineHeight: 1.35 },
+  /** the account number is its own left-to-right run: inside one Arabic line its digit groups come out reversed */
+  heroAccount: { fontSize: 9, color: PDF.muted, textAlign: 'right', direction: 'ltr', marginTop: 2 },
   notes: {
     direction: 'rtl',
     marginTop: 14,
@@ -64,6 +66,9 @@ const s = StyleSheet.create({
   signLine: { borderTopWidth: 1, borderTopColor: PDF.text, width: '100%', paddingTop: 4 },
 });
 
+/** notes longer than this may flow onto the next page; shorter ones stay with the total and the signatures */
+const KEEP_NOTES_CHARS = 700;
+
 export function ReceiptVoucherPDF({
   voucher,
   currency = 'د.ل',
@@ -71,9 +76,11 @@ export function ReceiptVoucherPDF({
   voucher: ReceiptVoucherPdfModel;
   currency?: string;
 }) {
+  const keepClosing = (voucher.notes ?? '').length <= KEEP_NOTES_CHARS;
   return (
     <ReportShell
       title="إيصال قبض"
+      titleEn="RECEIPT"
       subtitle={`رقم ${voucher.number}`}
       documentTitle={voucher.documentTitle}
       summaryPrimaryDateIso={voucher.receiptDate}
@@ -94,12 +101,13 @@ export function ReceiptVoucherPDF({
         </View>
         <View style={s.heroCell}>
           <Text style={s.heroLabel}>{ar('المصرف / الحساب')}</Text>
-          <Text style={s.heroValue}>
-            {voucher.bank ? ar(`${voucher.bank} · ${voucher.account ?? ''}`) : ar('—')}
-          </Text>
+          <Text style={s.heroValue}>{voucher.bank ? ar(voucher.bank) : ar('—')}</Text>
+          {voucher.bank && voucher.account?.trim() ? <Text style={s.heroAccount}>{voucher.account.trim()}</Text> : null}
         </View>
       </View>
 
+      {/* the column head is the first thing inside the table, which cannot move it: this element carries the rule (head and first row start here, or the table starts on the next page) */}
+      <View minPresenceAhead={80} />
       <View style={pdfReportTable.tableWrap}>
         <View style={pdfReportTable.tableHead} wrap={false}>
           <Text style={[pdfReportTable.th, { width: W.amount }]}>{ar('المبلغ')}</Text>
@@ -109,6 +117,7 @@ export function ReceiptVoucherPDF({
           <View
             key={i}
             style={[pdfReportTable.tableRow, i % 2 === 1 ? pdfReportTable.rowAlt : {}]}
+            wrap={false}
           >
             <View style={[pdfReportTable.tdNum, { width: W.amount }]}>
               <PdfMoneyText amount={l.amount} align="center" adaptive adaptiveBase={9} />
@@ -118,41 +127,47 @@ export function ReceiptVoucherPDF({
         ))}
       </View>
 
-      <View style={pdfReportTable.totalBar} wrap={false}>
-        <PdfMoneyText
-          amount={voucher.total}
-          currency={currency}
-          align="left"
-          adaptive
-          adaptiveBase={11}
-          style={{ fontSize: 14, fontWeight: 'bold', color: '#FBF8F1' }}
-        />
-        <Text style={pdfReportTable.totalLabel}>{ar('إجمالي المبلغ المستلم')}</Text>
+      {/* the total, the notes and the signatures move together: a signature line never stands alone on a page */}
+      <View wrap={!keepClosing}>
+        <View style={pdfReportTable.totalBar} wrap={false}>
+          <PdfMoneyText
+            amount={voucher.total}
+            currency={currency}
+            light
+            align="left"
+            adaptive
+            adaptiveBase={11}
+            style={{ fontSize: 14, fontWeight: 'bold', color: '#FBF8F1' }}
+            // as in the voucher: the figure takes its own width, so the label keeps the right edge instead of running out of the bar
+            containerStyle={{ width: 'auto', flexShrink: 0 }}
+          />
+          <Text style={pdfReportTable.totalLabel}>{ar('إجمالي المبلغ المستلم')}</Text>
+        </View>
+
+        {voucher.notes?.trim() ? (
+          <View style={s.notes}>
+            <Text style={s.notesLabel}>{ar('ملاحظات')}</Text>
+            <Text style={s.notesText}>{ar(voucher.notes)}</Text>
+          </View>
+        ) : null}
+
+        <View style={s.signRow} wrap={false}>
+          <View style={s.signBox}>
+            <Text style={s.signLabel}>{ar('توقيع المستلم')}</Text>
+            <View style={s.signLine} />
+          </View>
+          <View style={s.signBox}>
+            <Text style={s.signLabel}>{ar('توقيع أمين الصندوق')}</Text>
+            <View style={s.signLine} />
+          </View>
+          <View style={s.signBox}>
+            <Text style={s.signLabel}>{ar('توقيع الدافع')}</Text>
+            <View style={s.signLine} />
+          </View>
+        </View>
+
+        <PdfReportCaption />
       </View>
-
-      {voucher.notes?.trim() ? (
-        <View style={s.notes}>
-          <Text style={s.notesLabel}>{ar('ملاحظات')}</Text>
-          <Text style={s.notesText}>{ar(voucher.notes)}</Text>
-        </View>
-      ) : null}
-
-      <View style={s.signRow} wrap={false}>
-        <View style={s.signBox}>
-          <Text style={s.signLabel}>{ar('توقيع المستلم')}</Text>
-          <View style={s.signLine} />
-        </View>
-        <View style={s.signBox}>
-          <Text style={s.signLabel}>{ar('توقيع أمين الصندوق')}</Text>
-          <View style={s.signLine} />
-        </View>
-        <View style={s.signBox}>
-          <Text style={s.signLabel}>{ar('توقيع الدافع')}</Text>
-          <View style={s.signLine} />
-        </View>
-      </View>
-
-      <PdfReportCaption />
     </ReportShell>
   );
 }
