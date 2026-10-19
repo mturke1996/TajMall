@@ -1,15 +1,25 @@
 import { monthKey, monthNameAr, parseMonthKey } from '@/lib/rent-months';
+import { libyaDateParts } from '@/lib/utils';
 
-/** سنة عرض مؤشرات الإيجار في لوحة التحكم (السنة الحالية) */
-export function getMallRentDashboardYear(reference = new Date()): number {
-  return reference.getFullYear();
+/**
+ * The year and month of `reference`; without one, the year and month it is now in Libya (so a server in UTC,
+ * or a till whose clock zone is wrong, turns over to the new month with the mall and not hours before or after).
+ * A Date the caller built is read with its own local parts, as `new Date(2026, 2, 10)` means 10 March.
+ */
+function calendarOf(reference?: Date): { year: number; month: number } {
+  return reference ? { year: reference.getFullYear(), month: reference.getMonth() + 1 } : libyaDateParts();
 }
 
-export const MALL_RENT_DASHBOARD_YEAR = getMallRentDashboardYear();
+/** سنة عرض مؤشرات الإيجار في لوحة التحكم (السنة الحالية) */
+export function getMallRentDashboardYear(reference?: Date): number {
+  return calendarOf(reference).year;
+}
 
 export type RentChargeSlice = {
   id?: string;
   contract_id: string;
+  /** whose rent it is; when given, a tenant's month is one charge even if it sits on two of his leases */
+  tenant_id?: string | null;
   amount: number;
   total_paid: number;
   due_date: string;
@@ -59,8 +69,9 @@ function chargeIsMorePaid(a: RentChargeSlice, b: RentChargeSlice): boolean {
 }
 
 /**
- * مطالبة واحدة لكل (عقد + شهر) — نفس منطق تقويم المستأجر.
- * يمنع مضاعفة المبالغ عند وجود مطالبات مكررة.
+ * مطالبة واحدة لكل (مستأجر + شهر) — نفس منطق تقويم المستأجر الذي يختار مطالبة واحدة لكل شهر عبر كل عقود
+ * المستأجر. عند غياب المستأجر في الصف يُكتفى بالعقد. يمنع مضاعفة المبالغ عند وجود مطالبات مكررة، مثلاً
+ * مطالبة الشهر نفسه على عقدين للمستأجر نفسه بعد إعادة تأجيره.
  */
 export function dedupeRentChargesByContractMonth(
   charges: RentChargeSlice[],
@@ -68,7 +79,7 @@ export function dedupeRentChargesByContractMonth(
   const byKey = new Map<string, RentChargeSlice>();
   for (const c of charges) {
     if (!c.contract_id || !c.due_date) continue;
-    const key = `${c.contract_id}|${monthKeyFromDueDate(c.due_date)}`;
+    const key = `${c.tenant_id || c.contract_id}|${monthKeyFromDueDate(c.due_date)}`;
     const existing = byKey.get(key);
     if (!existing || chargeIsMorePaid(c, existing)) {
       byKey.set(key, c);
@@ -119,10 +130,9 @@ export function buildYearMonthSeries(
 /** أشهر السنة المنقضية حتى الشهر الحالي (أو كامل السنة إن انتهت) */
 export function ytdMonthKeysInYear(
   year: number,
-  reference = new Date(),
+  reference?: Date,
 ): string[] {
-  const refYear = reference.getFullYear();
-  const refMonth = reference.getMonth() + 1;
+  const { year: refYear, month: refMonth } = calendarOf(reference);
   const endMonth =
     refYear > year ? 12 : refYear === year ? refMonth : 0;
   if (endMonth <= 0) return [];
@@ -137,7 +147,7 @@ export function ytdMonthKeysInYear(
 export function lastNMonthKeysInYear(
   year: number,
   n = 6,
-  reference = new Date(),
+  reference?: Date,
 ): string[] {
   const ytd = ytdMonthKeysInYear(year, reference);
   if (ytd.length === 0) return [];
@@ -180,7 +190,7 @@ export function aggregatePeriodFromSeries(
 export function buildMallRentDashboardModel(
   rawCharges: RentChargeSlice[],
   year = getMallRentDashboardYear(),
-  reference = new Date(),
+  reference?: Date,
 ) {
   const deduped = dedupeRentChargesByContractMonth(rawCharges);
   const duplicateCount = Math.max(0, rawCharges.length - deduped.length);
@@ -205,8 +215,7 @@ export function buildMallRentDashboardModel(
   const chartSeries = series.filter((s) => {
     if (s.chargeCount === 0) return false;
     const { month } = parseMonthKey(s.monthKey);
-    const refYear = reference.getFullYear();
-    const refMonth = reference.getMonth() + 1;
+    const { year: refYear, month: refMonth } = calendarOf(reference);
     if (refYear < year) return false;
     if (refYear > year) return true;
     return month <= refMonth;

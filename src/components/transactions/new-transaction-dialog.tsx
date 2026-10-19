@@ -17,7 +17,6 @@ import {
   useCreateTransaction,
   useContact,
   useContacts,
-  useCreateContact,
   useTransactionFormDrafts,
   useSaveTransactionFormDraft,
   useDeleteTransactionFormDraft,
@@ -47,7 +46,9 @@ import { useTenantChargesForTenant } from '@/lib/db/mall-queries';
 import { formatMonthLabelAr, formatMonthsLabelAr } from '@/lib/rent-months';
 import { toast } from 'sonner';
 import { usePermission } from '@/lib/supabase/use-permission';
-import { formatContactSaveError } from '@/lib/contacts/form-utils';
+import { ContactCreateDialog } from '@/components/contacts/form/contact-create-dialog';
+import type { ContactBusinessRole } from '@/lib/contacts/contact-roles';
+import { roleForEntry } from '@/lib/contacts/form-rules';
 import { NEEDS_DB_UPDATE, friendlyError } from '@/lib/user-messages';
 import { DuplicateNote, FIELD_CLASS, NATIVE_SELECT_CLASS, PartySuggestions, PaymentDetailsFields, SuggestionChip } from './entry-parts';
 import { DEPOSIT_CODE } from '@/lib/lease-settlement';
@@ -145,7 +146,6 @@ export function NewTransactionDialog() {
   const contactsAll = useMemo(() => contactsData ?? [], [contactsData]);
   const createTx = useCreateTransaction();
   const recordRentPayment = useRecordRentPayment();
-  const createContact = useCreateContact();
 
   // the deposit account is a liability (kind ADJUSTMENT); an expense in it is the refund of a tenant's deposit
   const categories = useMemo(
@@ -539,28 +539,19 @@ export function NewTransactionDialog() {
     }
   }
 
-  async function handleCreateContact() {
-    if (!newContactName.trim() || createContact.isPending) return;
+  // the role a new contact starts with: what the party filter says, else what the entry is (rent paid is a landlord)
+  const newContactRole: ContactBusinessRole = roleForEntry({
+    kind: isRevenue ? 'REVENUE' : 'EXPENSE',
+    partyFilter: contactKind,
+    categoryCode: selectedCategory?.code,
+  });
 
-    const createKind =
-      contactKind === 'ALL' ? (isRevenue ? 'CUSTOMER' : 'VENDOR') : contactKind;
-    const label = contactKindLabelAr(createKind);
-
-    try {
-      const newContact = await createContact.mutateAsync({
-        name: newContactName.trim(),
-        kind: createKind,
-        is_active: true,
-      });
-      setCreatedContacts((list) => [...list, newContact]);
-      setContactId(newContact.id);
-      setContactKind(createKind);
-      setShowNewContact(false);
-      setNewContactName('');
-      toast.success(`تم إضافة ${label}`);
-    } catch (err) {
-      toast.error(formatContactSaveError(err));
-    }
+  function handleContactCreated(newContact: ContactRow) {
+    setCreatedContacts((list) => [...list, newContact]);
+    setContactId(newContact.id);
+    setContactKind(newContact.kind === 'OTHER' ? 'ALL' : newContact.kind);
+    // the name belonged to this contact: the next «+» starts empty
+    setNewContactName('');
   }
 
   function applyDraft(row: TransactionFormDraftRow) {
@@ -809,70 +800,36 @@ export function NewTransactionDialog() {
                 ))}
               </div>
 
-              {showNewContact ? (
-                // not a nested <form>: its submit would post the transaction itself
-                <div className="flex gap-2">
-                  <Input
-                    id="tx-contact"
-                    value={newContactName}
-                    onChange={(e) => setNewContactName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        void handleCreateContact();
-                      }
-                    }}
-                    placeholder="اسم الجهة الجديدة"
-                    aria-label="اسم الجهة الجديدة"
-                    className={cn('flex-1', FIELD_CLASS)}
-                    autoFocus
-                  />
-                  <Button
-                    type="button"
-                    size="icon"
-                    className="size-11 sm:size-9"
-                    aria-label="إضافة الجهة"
-                    disabled={!newContactName.trim() || createContact.isPending}
-                    onClick={() => void handleCreateContact()}
-                  >
-                    {createContact.isPending ? <Loader2 className="animate-spin" /> : <Plus className="stroke-[1.6]" />}
-                  </Button>
-                  <Button type="button" variant="ghost" size="icon" className="size-11 sm:size-9" aria-label="إلغاء إضافة جهة" onClick={() => setShowNewContact(false)}>
-                    <X className="stroke-[1.6]" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <Combobox
-                    id="tx-contact"
-                    className="min-w-0 flex-1"
-                    value={contactId}
-                    onValueChange={setContactId}
-                    options={partyOptions}
-                    usage={usage.contacts}
-                    placeholder="اختر الجهة"
-                    fallbackLabel={selectedContact?.name}
-                    searchPlaceholder="ابحث بالاسم أو رقم المحل أو الهاتف"
-                    title={isRevenue ? 'اختر المسدِّد' : 'اختر المستفيد'}
-                    allHeading="كل الجهات"
-                    clearLabel="بدون جهة"
-                    emptyText={contactKind === 'ALL' ? 'لا توجد جهات بعد.' : `لا توجد جهات من نوع «${contactKindLabelAr(contactKind)}». جرّب «الكل».`}
-                    loading={contactsLoading}
-                    error={contactsError && contactsAll.length === 0 ? 'تعذّر تحميل الجهات.' : null}
-                    onRetry={() => void refetchContacts()}
-                    onCreate={{
-                      label: (q) => `إضافة «${q}» كجهة جديدة`,
-                      run: (q) => {
-                        setNewContactName(q);
-                        setShowNewContact(true);
-                      },
-                    }}
-                  />
-                  <Button type="button" variant="outline" size="icon" className="size-11 shrink-0 sm:size-9" aria-label="إضافة جهة جديدة" onClick={() => setShowNewContact(true)}>
-                    <Plus className="stroke-[1.6]" />
-                  </Button>
-                </div>
-              )}
+              <div className="flex gap-2">
+                <Combobox
+                  id="tx-contact"
+                  className="min-w-0 flex-1"
+                  value={contactId}
+                  onValueChange={setContactId}
+                  options={partyOptions}
+                  usage={usage.contacts}
+                  placeholder="اختر الجهة"
+                  fallbackLabel={selectedContact?.name}
+                  searchPlaceholder="ابحث بالاسم أو رقم المحل أو الهاتف"
+                  title={isRevenue ? 'اختر المسدِّد' : 'اختر المستفيد'}
+                  allHeading="كل الجهات"
+                  clearLabel="بدون جهة"
+                  emptyText={contactKind === 'ALL' ? 'لا توجد جهات بعد.' : `لا توجد جهات من نوع «${contactKindLabelAr(contactKind)}». جرّب «الكل».`}
+                  loading={contactsLoading}
+                  error={contactsError && contactsAll.length === 0 ? 'تعذّر تحميل الجهات.' : null}
+                  onRetry={() => void refetchContacts()}
+                  onCreate={{
+                    label: (q) => `إضافة «${q}» كجهة جديدة`,
+                    run: (q) => {
+                      setNewContactName(q);
+                      setShowNewContact(true);
+                    },
+                  }}
+                />
+                <Button type="button" variant="outline" size="icon" className="size-11 shrink-0 sm:size-9" aria-label="إضافة جهة جديدة" onClick={() => { setNewContactName(''); setShowNewContact(true); }}>
+                  <Plus className="stroke-[1.6]" />
+                </Button>
+              </div>
 
               {selectedCategory && isCustomerServiceRevenueCode(selectedCategory.code) && isRevenue ? (
                 <p className="text-[12.5px] leading-snug text-ink-mute">إيراد خدمة/مواقف — يمكن ربطه بعميل مباشرة دون عقد إيجار.</p>
@@ -1096,6 +1053,14 @@ export function NewTransactionDialog() {
         </form>
         {receipt ? <PaymentReceiptSuccess pending={receipt} onDone={close} /> : null}
       </div>
+      {/* the same add form as the people lists; it opens over the entry and hands the new contact back */}
+      <ContactCreateDialog
+        open={showNewContact}
+        onOpenChange={setShowNewContact}
+        role={newContactRole}
+        name={newContactName}
+        onCreated={handleContactCreated}
+      />
     </div>
   );
 }

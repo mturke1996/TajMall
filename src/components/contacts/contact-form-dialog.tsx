@@ -1,127 +1,51 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import {
-  Building2,
-  Building,
-  Zap,
-  Droplets,
-  Package,
-  Wrench,
-  Briefcase,
-  User,
-  Store,
-  Phone,
-  MapPin,
-  DollarSign,
-  Loader2,
-  ChevronDown,
-  ChevronUp,
-  Calendar,
-  Layers,
-} from 'lucide-react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type MutableRefObject, type RefObject } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { Callout } from '@/components/people/callout';
+import { FixedKind, KindPicker, RolePicker } from '@/components/contacts/form/pickers';
+import { BasicSection, MoreSection, NotesSection } from '@/components/contacts/form/sections-common';
+import { CustomerSection, LandlordSection, TenantSection, VendorSection } from '@/components/contacts/form/sections-party';
+import { EmployeeSections } from '@/components/contacts/form/sections-employee';
+import type { FormContext } from '@/components/contacts/form/context';
+import type { SaveOutcome } from '@/components/contacts/form/use-contact-save';
+import { useEmployeeSupport } from '@/components/contacts/form/use-employee-support';
+import { useVisualViewportFit } from '@/lib/hooks/use-visual-viewport-fit';
+import { useContacts } from '@/lib/db/queries';
+import { usePermission } from '@/lib/supabase/use-permission';
+import { CONTACT_ROLES, type ContactBusinessRole } from '@/lib/contacts/contact-roles';
+import { findContactMatches, prepareContacts } from '@/lib/contacts/duplicates';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
-import type { ContactKind } from '@/lib/db/types';
+  KIND_LABEL,
+  canMoveTo,
+  firstInvalidField,
+  formKindOf,
+  switchKind,
+  switchRole,
+  validateContactForm,
+  type FormField,
+  type FormKind,
+} from '@/lib/contacts/form-rules';
 import {
-  type ContactFormState,
   defaultContactFormState,
+  isFormDirty,
+  type ContactFormState,
+  type EmployeeFormFields,
 } from '@/lib/contacts/form-utils';
-import {
-  CONTACT_ROLES,
-  type ContactBusinessRole,
-} from '@/lib/contacts/contact-roles';
+import { leavePowers } from '@/lib/leave';
+import type { ContactKind } from '@/lib/db/types';
+import { cn } from '@/lib/utils';
 
-export const ROLE_OPTIONS: Array<{
-  value: ContactBusinessRole;
-  label: string;
-  badge: string;
-  icon: typeof Building2;
-  color: string;
-  bg: string;
-  border: string;
-}> = [
-  {
-    value: 'TENANT',
-    label: 'مستأجر محل بالمول',
-    badge: 'مستأجر محل',
-    icon: Building2,
-    color: 'text-success-ink',
-    bg: 'bg-success-soft',
-    border: 'border-success-line',
-  },
-  {
-    value: 'LANDLORD',
-    label: 'مؤجر للمول (المول مستأجر منه)',
-    badge: 'مؤجر للمول',
-    icon: Building,
-    color: 'text-warning-ink',
-    bg: 'bg-warning-soft',
-    border: 'border-warning-line',
-  },
-  {
-    value: 'SUPPLIER_ELECTRICITY',
-    label: 'مورّد كهرباء وطاقة / محروقات',
-    badge: 'توريد كهرباء',
-    icon: Zap,
-    color: 'text-warning-ink',
-    bg: 'bg-warning-soft',
-    border: 'border-warning-line',
-  },
-  {
-    value: 'SUPPLIER_WATER',
-    label: 'مورّد مياه وصرف صحي',
-    badge: 'توريد مياه',
-    icon: Droplets,
-    color: 'text-info-ink',
-    bg: 'bg-info-soft',
-    border: 'border-info-line',
-  },
-  {
-    value: 'SUPPLIER_GOODS',
-    label: 'مورّد بضاعة ومواد تشغيل',
-    badge: 'توريد بضاعة',
-    icon: Package,
-    color: 'text-info-ink',
-    bg: 'bg-info-soft',
-    border: 'border-info-line',
-  },
-  {
-    value: 'SERVICE_PROVIDER',
-    label: 'مقدّم خدمات ومقاولات وصيانة',
-    badge: 'خدمات ومقاولات',
-    icon: Wrench,
-    color: 'text-info-ink',
-    bg: 'bg-info-soft',
-    border: 'border-info-line',
-  },
-  {
-    value: 'EMPLOYEE',
-    label: 'موظف / كادر إداري',
-    badge: 'موظف',
-    icon: Briefcase,
-    color: 'text-plum-ink',
-    bg: 'bg-plum-soft',
-    border: 'border-plum-line',
-  },
-  {
-    value: 'CUSTOMER',
-    label: 'عميل عام / مستفيد',
-    badge: 'عميل عام',
-    icon: User,
-    color: 'text-success-ink',
-    bg: 'bg-success-soft',
-    border: 'border-success-line',
-  },
-];
+// ---- kept for the screens that label a kind with the colour and icon of its role (the tenant profile header)
+
+export const ROLE_OPTIONS = (
+  ['TENANT', 'LANDLORD', 'SUPPLIER_ELECTRICITY', 'SUPPLIER_WATER', 'SUPPLIER_GOODS', 'SERVICE_PROVIDER', 'EMPLOYEE', 'CUSTOMER'] as const
+).map((value) => {
+  const meta = CONTACT_ROLES[value];
+  return { value, label: meta.label, badge: meta.badge, icon: meta.icon, color: meta.color, bg: meta.bgColor, border: meta.borderColor };
+});
 
 export const KIND_OPTIONS = ROLE_OPTIONS.map((r) => ({
   value: r.value as unknown as ContactKind,
@@ -130,479 +54,370 @@ export const KIND_OPTIONS = ROLE_OPTIONS.map((r) => ({
   color: r.color,
 }));
 
+// ---- the dialog
+
+export type ContactSubmitOptions = {
+  /** keep the form open and start the next one */
+  addAnother?: boolean;
+};
+
 type ContactFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   formData: ContactFormState;
   onFormChange: (data: ContactFormState) => void;
+  /** the contact being edited; null adds a new one */
   editingId: string | null;
-  onSubmit: (e: React.FormEvent) => void;
+  /**
+   * Saves the form. Resolve with the outcome and the dialog shows a failure under the buttons and starts the next
+   * form after «حفظ وإضافة آخر». The caller closes the dialog after a plain save.
+   */
+  onSubmit(e?: FormEvent, options?: ContactSubmitOptions): Promise<SaveOutcome | void> | SaveOutcome | void;
   isPending: boolean;
   /** منع تغيير النوع عند التعديل */
   lockKind?: boolean;
+  /**
+   * Whether the form that opens is one the person typed earlier and closed without saving (it says so and offers a
+   * fresh start). Left out, a new form already holding something counts as one; a screen that fills a field itself
+   * (a name from a search box) says `false`.
+   */
+  restoredDraft?: boolean;
 };
 
-export function ContactFormDialog({
-  open,
-  onOpenChange,
+/** What the dialog must know when someone tries to close it: written by the form, read by the dialog. */
+type Guard = { dirty: MutableRefObject<boolean>; busy: MutableRefObject<boolean> };
+
+/**
+ * The add and edit form of every kind of contact: a wide dialog on a desktop (two columns, a header and buttons that
+ * stay in view), a full-height sheet on a phone. The kind is chosen first and only the fields that kind needs
+ * follow. Enter saves, Escape closes at once (what was typed comes back the next time it opens), a tap outside does
+ * not close a form that has been typed in, and nothing closes while a save is running.
+ */
+export function ContactFormDialog(props: ContactFormDialogProps) {
+  const { open, onOpenChange } = props;
+  const [panel, setPanel] = useState<HTMLDivElement | null>(null);
+  useVisualViewportFit(panel, 'fill');
+  const nameRef = useRef<HTMLInputElement>(null);
+  const dirtyRef = useRef(false);
+  const busyRef = useRef(false);
+  const guard: Guard = { dirty: dirtyRef, busy: busyRef };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && busyRef.current) return;
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent
+        ref={setPanel}
+        dir="rtl"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          nameRef.current?.focus({ preventScroll: true });
+        }}
+        onInteractOutside={(e) => {
+          if (dirtyRef.current || busyRef.current) e.preventDefault();
+        }}
+        className={cn(
+          'flex flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl sm:max-h-[min(92dvh,880px)] sm:min-h-[min(72dvh,640px)]',
+          // the whole screen on a phone, with a close button that is a 44px target
+          'max-sm:[&>button]:top-1.5 max-sm:[&>button]:p-3.5',
+          'max-sm:left-0 max-sm:top-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0',
+        )}
+      >
+        <ContactFormBody {...props} nameRef={nameRef} guard={guard} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** «إضافة مورد»، «إضافة مؤجر»… follows the choice. */
+function addTitle(form: ContactFormState): string {
+  if (form.businessRole === 'LANDLORD') return 'إضافة مؤجر';
+  return `إضافة ${KIND_LABEL[formKindOf(form)]}`;
+}
+
+function ContactFormBody({
   formData,
   onFormChange,
   editingId,
   onSubmit,
   isPending,
   lockKind = false,
-}: ContactFormDialogProps) {
-  const [showOptional, setShowOptional] = useState(false);
-  const role = formData.businessRole || 'CUSTOMER';
+  restoredDraft,
+  onOpenChange,
+  nameRef,
+  guard,
+}: ContactFormDialogProps & { nameRef: RefObject<HTMLInputElement | null>; guard: Guard }) {
+  const editing = Boolean(editingId);
+  const { role: userRole } = usePermission();
+  const canManage = leavePowers(userRole).canManage;
+  const kind = formKindOf(formData);
 
+  // The body exists only while the dialog is open, so these are the form as it opened: the baseline an edit is compared
+  // with, the kind the file had, and whether the form came back from an earlier, unsaved try.
+  const [baseline] = useState<ContactFormState | null>(() => (editingId ? formData : null));
+  const [openedAs] = useState<ContactKind>(() => formData.kind);
+  const [draftNotice, setDraftNotice] = useState(() => !editingId && (restoredDraft ?? isFormDirty(formData)));
+
+  const [attempted, setAttempted] = useState(false);
+  const [touched, setTouched] = useState<Partial<Record<FormField, true>>>({});
+  const [busy, setBusy] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [added, setAdded] = useState<{ name: string; id: string | null } | null>(null);
+  const sending = useRef(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // two changes in one tick (typing, then leaving the field) must not overwrite each other
+  const latest = useRef(formData);
   useEffect(() => {
-    if (open) setShowOptional(Boolean(editingId));
-  }, [editingId, open]);
+    latest.current = formData;
+  }, [formData]);
+  const patch = useCallback(
+    (changes: Partial<ContactFormState>) => {
+      const next = { ...latest.current, ...changes };
+      latest.current = next;
+      onFormChange(next);
+      setAdded(null);
+    },
+    [onFormChange],
+  );
+  const patchEmployee = useCallback(
+    (changes: Partial<EmployeeFormFields>) => patch({ employee: { ...latest.current.employee, ...changes } }),
+    [patch],
+  );
 
-  const isTenant = role === 'TENANT';
-  const isLandlord = role === 'LANDLORD';
-  const isElectricity = role === 'SUPPLIER_ELECTRICITY';
-  const isWater = role === 'SUPPLIER_WATER';
-  const isGoods = role === 'SUPPLIER_GOODS';
-  const isService = role === 'SERVICE_PROVIDER';
-  const isEmployee = role === 'EMPLOYEE';
+  const employeeSupport = useEmployeeSupport(kind === 'EMPLOYEE' && canManage);
+  const employeeFileShown = !editing && kind === 'EMPLOYEE' && canManage && employeeSupport.file;
 
-  const handleRoleChange = (newRole: ContactBusinessRole) => {
-    const isT = newRole === 'TENANT';
-    const isE = newRole === 'EMPLOYEE';
-    const isL = newRole === 'LANDLORD';
-    const newKind: ContactKind = isT ? 'TENANT' : isE ? 'EMPLOYEE' : isL ? 'VENDOR' : newRole === 'CUSTOMER' ? 'CUSTOMER' : 'VENDOR';
+  const errors = useMemo(
+    () => validateContactForm(formData, { baseline, employeeFile: employeeFileShown }),
+    [formData, baseline, employeeFileShown],
+  );
+  const errorOf = useCallback((field: FormField) => (attempted || touched[field] ? errors[field] : undefined), [attempted, touched, errors]);
+  const touch = useCallback((field: FormField) => setTouched((t) => (t[field] ? t : { ...t, [field]: true })), []);
 
-    onFormChange({
-      ...formData,
-      kind: newKind,
-      businessRole: newRole,
-      job_title: isL ? (formData.job_title || 'مؤجر للمول') : formData.job_title,
-    });
+  // who already has this name or this phone: only what the person typed, not what the file came with
+  const contacts = useContacts(undefined, { includeInactive: true });
+  const prepared = useMemo(() => prepareContacts(contacts.data ?? []), [contacts.data]);
+  const typedName = useDeferredValue(formData.name);
+  const typedPhone = useDeferredValue(formData.phone);
+  const typedPhone2 = useDeferredValue(formData.phone2);
+  const matches = useMemo(() => {
+    const changed = (now: string, was: string | undefined) => (baseline && now === was ? '' : now);
+    return findContactMatches(
+      prepared,
+      { name: changed(typedName, baseline?.name), phones: [changed(typedPhone, baseline?.phone), changed(typedPhone2, baseline?.phone2)] },
+      { excludeId: editingId },
+    );
+  }, [prepared, typedName, typedPhone, typedPhone2, baseline, editingId]);
+
+  // what the dialog must know when someone tries to close it
+  const dirty = editing ? JSON.stringify(formData) !== JSON.stringify(baseline) : isFormDirty(formData);
+  const { dirty: dirtyRef, busy: busyRef } = guard;
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty, dirtyRef]);
+  useEffect(() => {
+    busyRef.current = busy;
+  }, [busy, busyRef]);
+  useEffect(
+    () => () => {
+      dirtyRef.current = false;
+      busyRef.current = false;
+    },
+    [dirtyRef, busyRef],
+  );
+
+  function focusField(field: FormField) {
+    const el = document.getElementById(`cf-${field}`);
+    if (!el) return;
+    el.closest('details')?.setAttribute('open', '');
+    el.focus();
+    el.scrollIntoView({ block: 'center' });
+  }
+
+  async function save(addAnother: boolean, event?: FormEvent) {
+    event?.preventDefault();
+    if (sending.current || isPending) return;
+    setAttempted(true);
+    setAdded(null);
+    const first = firstInvalidField(errors);
+    if (first) {
+      setSubmitError(null);
+      focusField(first);
+      return;
+    }
+    sending.current = true;
+    setBusy(true);
+    setSubmitError(null);
+    try {
+      const outcome = await onSubmit(event, { addAnother });
+      if (outcome && outcome.ok === false) {
+        if (outcome.error) setSubmitError(outcome.error);
+        return;
+      }
+      if (addAnother) {
+        const saved = { name: formData.name.trim(), id: outcome && outcome.ok ? (outcome.contact?.id ?? null) : null };
+        const fresh = defaultContactFormState(formData.businessRole, formData.kind);
+        latest.current = fresh;
+        onFormChange(fresh);
+        setAttempted(false);
+        setTouched({});
+        setDraftNotice(false);
+        setAdded(saved);
+        // the notice at the top is what says it worked: show it, then put the cursor in the first field
+        scrollRef.current?.scrollTo({ top: 0 });
+        requestAnimationFrame(() => nameRef.current?.focus({ preventScroll: true }));
+      }
+    } finally {
+      sending.current = false;
+      setBusy(false);
+    }
+  }
+
+  const ctx: FormContext = {
+    form: formData,
+    patch,
+    patchEmployee,
+    errorOf,
+    touch,
+    editing,
+    editingId,
+    nameRef,
+    submit: () => void save(false),
+    employeeSupport,
+    canManage,
+    matches,
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-xl max-h-[90dvh] overflow-y-auto overscroll-contain sm:max-h-[85vh] w-[calc(100%-1.5rem)] sm:w-full rounded-2xl p-0"
-        dir="rtl"
-      >
-        <div className="border-b border-border bg-canvas-sunken/60 px-5 py-4">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold text-foreground">
-              {editingId ? 'تعديل بيانات جهة الاتصال' : 'إضافة جهة اتصال جديدة'}
-            </DialogTitle>
-            <p className="text-xs text-muted-foreground pt-0.5">
-              حدد نوع ودور جهة التعامل بدقة لتهيئة البروفايل المحاسبي المتخصص
-            </p>
-          </DialogHeader>
-        </div>
+  const role: ContactBusinessRole = formData.businessRole;
+  const chooseKind = (next: FormKind) => patch(switchKind(latest.current, next));
+  const chooseRole = (next: ContactBusinessRole) => patch(switchRole(latest.current, next));
+  const startOver = () => {
+    const fresh = defaultContactFormState(formData.businessRole, formData.kind);
+    latest.current = fresh;
+    onFormChange(fresh);
+    setDraftNotice(false);
+    setTouched({});
+    setAttempted(false);
+  };
 
-        <form onSubmit={onSubmit} className="p-5 space-y-4">
-          {/* 1. Business Role Selector */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <Label className="text-xs font-bold text-foreground">
-                نوع ودور جهة التعامل *
-              </Label>
-              {editingId && (
-                <span className="text-[11px] font-semibold text-success-ink bg-success-soft px-2 py-0.5 rounded-full border border-success-line">
-                  قابلة للتغيير والتحويل
-                </span>
+  const fixedKind = editing && (openedAs === 'TENANT' || openedAs === 'EMPLOYEE');
+  const hasRoles = kind === 'VENDOR' || kind === 'CUSTOMER';
+  const supplier = kind === 'VENDOR' && role !== 'LANDLORD';
+
+  return (
+    <>
+      <div className="shrink-0 border-b border-border py-3.5 ps-4 pe-12 sm:ps-6">
+        <DialogTitle className="text-[16px]">{editing ? 'تعديل الملف' : addTitle(formData)}</DialogTitle>
+        {editing && baseline?.name ? (
+          <DialogDescription className="mt-0.5 truncate">{baseline.name}</DialogDescription>
+        ) : (
+          <DialogDescription className="sr-only">نموذج إضافة جهة جديدة</DialogDescription>
+        )}
+      </div>
+
+      <form onSubmit={(e) => void save(false, e)} noValidate aria-busy={busy} className="flex min-h-0 flex-1 flex-col">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
+          <div className="flex flex-col gap-5">
+            {draftNotice && (
+              <Callout
+                tone="info"
+                action={
+                  <Button type="button" variant="outline" onClick={startOver}>
+                    ابدأ من جديد
+                  </Button>
+                }
+              >
+                استُرجعت البيانات التي كتبتها ولم تُحفظ.
+              </Callout>
+            )}
+            {added && (
+              <Callout
+                tone="success"
+                action={
+                  added.id ? (
+                    <a
+                      href={`/contacts/${added.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center rounded-md border border-success-line bg-card px-3 text-[13px] font-medium text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    >
+                      فتح الملف
+                      <span className="sr-only">(في صفحة جديدة)</span>
+                    </a>
+                  ) : undefined
+                }
+              >
+                تمت إضافة «{added.name}». اكتب بيانات التالي.
+              </Callout>
+            )}
+
+            <div className="flex flex-col gap-3">
+              {fixedKind ? (
+                <FixedKind kind={kind} note="نوع الملف لا يتغيّر بعد إضافته." />
+              ) : (
+                <>
+                  <KindPicker value={kind} onChange={chooseKind} canChoose={(k) => !lockKind && canMoveTo(editing ? openedAs : null, k)} />
+                  {editing && (
+                    <p className="text-[12.5px] leading-snug text-ink-mute">
+                      {kind === 'OTHER'
+                        ? 'ملف غير مصنّف. اختر نوعه ليظهر ما يناسبه، أو احفظه كما هو.'
+                        : 'يمكن نقل الملف بين الموردين والعملاء. الحركات والقيود لا تتغيّر.'}
+                    </p>
+                  )}
+                </>
+              )}
+              {hasRoles && <RolePicker kind={kind} value={role} onChange={chooseRole} />}
+              {kind === 'VENDOR' && role === 'LANDLORD' && (
+                <p className="text-[12.5px] leading-snug text-ink-mute">يظهر المؤجرون في قائمة العملاء والمؤجرين.</p>
               )}
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-0.5">
-              {ROLE_OPTIONS.map((r) => {
-                const isSelected = role === r.value;
-                const Icon = r.icon;
-                return (
-                  <button
-                    key={r.value}
-                    type="button"
-                    onClick={() => handleRoleChange(r.value)}
-                    className={cn(
-                      'flex items-center gap-2.5 p-2.5 rounded-lg border text-start transition-all cursor-pointer',
-                      isSelected
-                        ? cn('border-2 font-bold ring-1 ring-primary/20', r.border, r.bg, r.color)
-                        : 'border-border bg-card hover:bg-muted/40 text-muted-foreground'
-                    )}
-                  >
-                    <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', r.bg)}>
-                      <Icon className={cn('h-4 w-4', r.color)} />
-                    </div>
-                    <span className="text-xs leading-tight line-clamp-1">{r.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <BasicSection ctx={ctx} />
+            {supplier && <VendorSection ctx={ctx} />}
+            {role === 'LANDLORD' && <LandlordSection ctx={ctx} />}
+            {role === 'CUSTOMER' && <CustomerSection ctx={ctx} />}
+            {role === 'TENANT' && <TenantSection ctx={ctx} />}
+            {role === 'EMPLOYEE' && <EmployeeSections ctx={ctx} />}
+            <NotesSection ctx={ctx} />
+            <MoreSection ctx={ctx} />
           </div>
+        </div>
 
-
-          {/* 2. Basic Info (Name & Phone) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <div>
-              <Label className="text-xs font-semibold block mb-1">
-                {isLandlord ? 'اسم المؤجر / مالك العقار *' : isTenant ? 'اسم المستأجر / النشاط *' : isElectricity || isWater || isGoods ? 'اسم المورد / الشركة *' : 'الاسم *'}
-              </Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => onFormChange({ ...formData, name: e.target.value })}
-                placeholder={isLandlord ? 'مثال: شركة العقارات / فلان الفلاني' : 'الاسم الكامل'}
-                className="h-9 text-xs"
-                autoFocus
-              />
-            </div>
-
-            <div>
-              <Label className="text-xs font-semibold block mb-1">الهاتف الرئيسي</Label>
-              <Input
-                value={formData.phone}
-                onChange={(e) => onFormChange({ ...formData, phone: e.target.value })}
-                placeholder="09xxxxxxxx"
-                inputMode="tel"
-                className="h-9 text-xs"
-              />
-            </div>
-          </div>
-
-          {/* 3A. Specialized Card: LANDLORD (مؤجر للمول) */}
-          {isLandlord && (
-            <div className="rounded-xl border border-warning-line bg-warning-soft/60 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-warning-ink">
-                <Building className="h-4 w-4 stroke-2" />
-                <span className="text-xs font-bold">بيانات عقد الإيجار للمؤجر المستحق</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-[11px] font-semibold text-warning-ink block mb-1">
-                    قيمة الإيجار الشهري المستحق للمؤجر (د.ل) *
-                  </Label>
-                  <Input
-                    type="number"
-                    value={formData.monthly_rent}
-                    onChange={(e) => onFormChange({ ...formData, monthly_rent: e.target.value })}
-                    placeholder="مثال: 5000"
-                    className="h-9 text-xs bg-card font-mono font-bold text-warning-ink"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-[11px] font-semibold text-warning-ink block mb-1">
-                    اسم العقار / الموقع المستأجر للمول
-                  </Label>
-                  <Input
-                    value={formData.shop_number}
-                    onChange={(e) => onFormChange({ ...formData, shop_number: e.target.value })}
-                    placeholder="مثال: أرضية المولدات / مواقف السيارات"
-                    className="h-9 text-xs bg-card"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-[11px] font-semibold text-warning-ink block mb-1">
-                    تاريخ بداية عقد الإيجار
-                  </Label>
-                  <Input
-                    type="date"
-                    value={formData.contract_start}
-                    onChange={(e) => onFormChange({ ...formData, contract_start: e.target.value })}
-                    className="h-9 text-xs bg-card font-mono"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-[11px] font-semibold text-warning-ink block mb-1">
-                    تاريخ نهاية عقد الإيجار
-                  </Label>
-                  <Input
-                    type="date"
-                    value={formData.contract_end}
-                    onChange={(e) => onFormChange({ ...formData, contract_end: e.target.value })}
-                    className="h-9 text-xs bg-card font-mono"
-                  />
-                </div>
-              </div>
-            </div>
+        <div className="shrink-0 border-t border-border bg-card px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
+          {submitError && (
+            <p role="alert" className="mb-2 text-[13px] leading-relaxed text-danger-ink">
+              {submitError}
+            </p>
           )}
-
-          {/* 3B. Specialized Card: TENANT (مستأجر محل بالمول) */}
-          {isTenant && (
-            <div className="rounded-xl border border-success-line bg-success-soft/60 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-success-ink">
-                <Building2 className="h-4 w-4 stroke-2" />
-                <span className="text-xs font-bold">بيانات المحل المستأجر بالمول</span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-[11px] font-semibold text-success-ink block mb-1">
-                    رقم المحل
-                  </Label>
-                  <Input
-                    value={formData.shop_number}
-                    onChange={(e) => onFormChange({ ...formData, shop_number: e.target.value })}
-                    placeholder="مثال: 12"
-                    className="h-9 text-xs bg-card font-mono"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-[11px] font-semibold text-success-ink block mb-1">
-                    الطابق
-                  </Label>
-                  <Input
-                    value={formData.floor}
-                    onChange={(e) => onFormChange({ ...formData, floor: e.target.value })}
-                    placeholder="الأرضي / الأول"
-                    className="h-9 text-xs bg-card"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-[11px] font-semibold text-success-ink block mb-1">
-                    المساحة (م²)
-                  </Label>
-                  <Input
-                    value={formData.area_sqm}
-                    onChange={(e) => onFormChange({ ...formData, area_sqm: e.target.value })}
-                    placeholder="مثال: 45"
-                    className="h-9 text-xs bg-card font-mono"
-                  />
-                </div>
-
-                <div className="col-span-2 sm:col-span-3">
-                  <Label className="text-[11px] font-semibold text-success-ink block mb-1">
-                    قيمة الإيجار الشهري (د.ل)
-                  </Label>
-                  <Input
-                    type="number"
-                    value={formData.monthly_rent}
-                    onChange={(e) => onFormChange({ ...formData, monthly_rent: e.target.value })}
-                    placeholder="مثال: 3500"
-                    className="h-9 text-xs bg-card font-mono font-bold text-success-ink"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 3C. Specialized Card: UTILITIES & SUPPLIERS (كهرباء ومياه وبضاعة ومقاولات) */}
-          {(isElectricity || isWater || isGoods || isService) && (
-            <div className="rounded-xl border border-border bg-canvas p-4 space-y-3">
-              <div className="flex items-center gap-2 text-foreground">
-                <Layers className="h-4 w-4 text-primary" />
-                <span className="text-xs font-bold">بيانات التوريد والاشتراك</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-[11px] font-semibold block mb-1">
-                    {isElectricity || isWater ? 'رقم العداد / الوحدة / المعرف' : 'كود التوريد / العقد'}
-                  </Label>
-                  <Input
-                    value={formData.shop_number}
-                    onChange={(e) => onFormChange({ ...formData, shop_number: e.target.value })}
-                    placeholder={isElectricity ? 'مثال: عداد رقم 104' : 'المعرف'}
-                    className="h-9 text-xs bg-card"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-[11px] font-semibold block mb-1">
-                    التصنيف / نوع التوريد
-                  </Label>
-                  <Input
-                    value={formData.department}
-                    onChange={(e) => onFormChange({ ...formData, department: e.target.value })}
-                    placeholder={isElectricity ? 'ديزل مولدات / شبكة عامة' : isWater ? 'صهاريج / شبكة' : 'نوع المواد'}
-                    className="h-9 text-xs bg-card"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 3D. Specialized Card: EMPLOYEE (موظف) */}
-          {isEmployee && (
-            <div className="rounded-xl border border-plum-line bg-plum-soft/50 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-plum-ink">
-                <Briefcase className="h-4 w-4 stroke-2" />
-                <span className="text-xs font-bold">بيانات الموظف والمرتب</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-[11px] font-semibold text-plum-ink block mb-1">
-                    المسمى الوظيفي
-                  </Label>
-                  <Input
-                    value={formData.job_title}
-                    onChange={(e) => onFormChange({ ...formData, job_title: e.target.value })}
-                    placeholder="محاسب / فني"
-                    className="h-9 text-xs bg-card"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-[11px] font-semibold text-plum-ink block mb-1">
-                    القسم
-                  </Label>
-                  <Input
-                    value={formData.department}
-                    onChange={(e) => onFormChange({ ...formData, department: e.target.value })}
-                    placeholder="الإدارة المالية"
-                    className="h-9 text-xs bg-card"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-[11px] font-semibold text-plum-ink block mb-1">
-                    المرتب الشهري (د.ل)
-                  </Label>
-                  <Input
-                    type="number"
-                    value={formData.salary}
-                    onChange={(e) => onFormChange({ ...formData, salary: e.target.value })}
-                    placeholder="2500"
-                    className="h-9 text-xs bg-card font-mono font-bold"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Optional Fields Toggle */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setShowOptional(!showOptional)}
-              className="flex min-h-11 items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground py-1"
-            >
-              {showOptional ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-              {showOptional ? 'إخفاء بيانات الملف الإضافية' : 'بيانات الملف والتواصل الإضافية'}
-            </button>
-
-            {showOptional && (
-              <div className="space-y-3 pt-2 border-t border-border/80">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-[11px] font-medium block mb-1">الاسم باللغة الإنجليزية</Label>
-                    <Input
-                      value={formData.name_en}
-                      onChange={(e) => onFormChange({ ...formData, name_en: e.target.value })}
-                      autoComplete="organization"
-                      className="h-11 text-sm bg-card"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[11px] font-medium block mb-1">رقم الهوية / السجل</Label>
-                    <Input
-                      value={formData.id_number}
-                      onChange={(e) => onFormChange({ ...formData, id_number: e.target.value })}
-                      autoComplete="off"
-                      className="h-11 text-sm bg-card"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[11px] font-medium block mb-1">الرقم الضريبي</Label>
-                    <Input
-                      value={formData.tax_number}
-                      onChange={(e) => onFormChange({ ...formData, tax_number: e.target.value })}
-                      autoComplete="off"
-                      className="h-11 text-sm bg-card"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[11px] font-medium block mb-1">تاريخ بدء التعامل / التعيين</Label>
-                    <Input
-                      type="date"
-                      value={formData.hire_date}
-                      onChange={(e) => onFormChange({ ...formData, hire_date: e.target.value })}
-                      className="h-11 text-sm bg-card"
-                    />
-                  </div>
-                </div>
-
-                <label className="flex min-h-11 items-center justify-between rounded-xl border border-border bg-card px-3 text-sm">
-                  <span className="font-medium">الجهة نشطة ويمكن التعامل معها</span>
-                  <input
-                    type="checkbox"
-                    checked={formData.is_active}
-                    onChange={(e) => onFormChange({ ...formData, is_active: e.target.checked })}
-                    className="h-5 w-5 accent-success"
-                    aria-label="الجهة نشطة ويمكن التعامل معها"
-                  />
-                </label>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-[11px] font-medium block mb-1">الهاتف الإضافي</Label>
-                    <Input
-                      value={formData.phone2}
-                      onChange={(e) => onFormChange({ ...formData, phone2: e.target.value })}
-                      placeholder="هاتف بديل"
-                      className="h-9 text-xs bg-card"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[11px] font-medium block mb-1">البريد الإلكتروني</Label>
-                    <Input
-                      value={formData.email}
-                      onChange={(e) => onFormChange({ ...formData, email: e.target.value })}
-                      placeholder="email@example.com"
-                      className="h-9 text-xs bg-card"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-[11px] font-medium block mb-1">العنوان أو الموقع</Label>
-                  <Input
-                    value={formData.address}
-                    onChange={(e) => onFormChange({ ...formData, address: e.target.value })}
-                    placeholder="العنوان التفصيلي"
-                    className="h-9 text-xs bg-card"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-[11px] font-medium block mb-1">ملاحظات خاصة</Label>
-                  <Input
-                    value={formData.notes}
-                    onChange={(e) => onFormChange({ ...formData, notes: e.target.value })}
-                    placeholder="أي ملاحظات أو بنود خاصة بالاتفاق"
-                    className="h-9 text-xs bg-card"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Dialog Actions */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-              className="text-xs"
-            >
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="ghost" className="min-h-11 px-3 sm:min-h-9" onClick={() => onOpenChange(false)} disabled={busy}>
               إلغاء
             </Button>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={isPending || !formData.name.trim()}
-              className="text-xs font-bold gap-1.5 min-w-24"
-            >
-              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {editingId ? 'حفظ التعديلات' : 'إضافة الجهة'}
-            </Button>
+            <div className="flex flex-1 justify-end gap-2">
+              {!editing && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11 flex-1 px-3 sm:min-h-9 sm:flex-none"
+                  onClick={() => void save(true)}
+                  disabled={busy}
+                >
+                  حفظ وإضافة آخر
+                </Button>
+              )}
+              <Button type="submit" className="min-h-11 flex-1 px-4 sm:min-h-9 sm:min-w-28 sm:flex-none" disabled={busy}>
+                {busy && <Loader2 className="animate-spin" aria-hidden />}
+                {editing ? 'حفظ التعديلات' : 'حفظ'}
+              </Button>
+            </div>
           </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </form>
+    </>
   );
 }

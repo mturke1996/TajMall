@@ -2,7 +2,7 @@
 -- التراجع عن 086 — يعيد كل صلاحية سُحبت وكل سياسة تغيّرت وخيارات الواجهات ونشرة Realtime والصلاحيات
 -- الافتراضية من النسخة المحفوظة في migration_backup (m086_*)، ويحذف ما أنشأه 086: مشغّلات السجلات
 -- والملفات الشخصية، دوال auth_is_member و api_pre_request وغيرها، وعمود profiles.approved_at (يُفقد
--- تاريخ الاعتماد فقط). لا يلمس أي بيانات أخرى.
+-- تاريخ الاعتماد فقط). لا يلمس أي بيانات أخرى (ملفات viewer التي أنشأها 086 لمستخدمين بلا ملف تبقى، وهي لا تضر).
 -- إن كنت فعّلت كتلة pre-request الاختيارية فشغّل كتلة UNDO منها قبل هذا الملف.
 -- ============================================================
 
@@ -27,6 +27,12 @@ BEGIN
        AND (r.grantee = 'PUBLIC' OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r.grantee)) THEN
       EXECUTE format('GRANT %s ON TABLE %s TO %s', r.privilege, r.object,
                      CASE WHEN r.grantee = 'PUBLIC' THEN 'PUBLIC' ELSE quote_ident(r.grantee) END);
+    END IF;
+  END LOOP;
+
+  FOR r IN SELECT kind, object, grantee, privilege FROM migration_backup.m086_revoked WHERE kind = 'schema' LOOP
+    IF to_regnamespace(r.object) IS NOT NULL AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r.grantee) THEN
+      EXECUTE format('GRANT %s ON SCHEMA %I TO %I', r.privilege, r.object, r.grantee);
     END IF;
   END LOOP;
 
@@ -83,6 +89,18 @@ BEGIN
   END LOOP;
 END $$;
 
+-- ── 3b. الدوال التي عدّلها 086 (النص الأصلي كما كان) ─────────
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT signature, definition FROM migration_backup.m086_functions LOOP
+    IF to_regprocedure(r.signature) IS NOT NULL THEN
+      EXECUTE r.definition;
+    END IF;
+  END LOOP;
+END $$;
+
 -- ── 4. ما أنشأه 086 ─────────────────────────────────────────
 DROP TRIGGER IF EXISTS trg_audit_log_append_only ON public.audit_log;
 DROP TRIGGER IF EXISTS trg_audit_log_no_truncate ON public.audit_log;
@@ -91,9 +109,13 @@ DROP TRIGGER IF EXISTS trg_guard_journal_entries_truncate ON public.journal_entr
 DROP TRIGGER IF EXISTS trg_guard_journal_lines ON public.journal_lines;
 DROP TRIGGER IF EXISTS trg_guard_journal_lines_truncate ON public.journal_lines;
 DROP TRIGGER IF EXISTS trg_profiles_approval ON public.profiles;
+DROP TRIGGER IF EXISTS trg_zz_audit_profile_access ON public.profiles;
+DROP TRIGGER IF EXISTS trg_zz_audit_fiscal_periods ON public.fiscal_periods;
 DROP FUNCTION IF EXISTS public.audit_log_append_only();
 DROP FUNCTION IF EXISTS public.guard_ledger_rows();
 DROP FUNCTION IF EXISTS public.guard_profile_approval();
+DROP FUNCTION IF EXISTS public.audit_profile_access_changes();
+DROP FUNCTION IF EXISTS public.audit_fiscal_period_changes();
 DROP FUNCTION IF EXISTS public.api_pre_request();
 DROP FUNCTION IF EXISTS public.auth_is_member();
 ALTER TABLE public.profiles DROP COLUMN IF EXISTS approved_at;
@@ -139,6 +161,7 @@ DROP TABLE IF EXISTS migration_backup.m086_policies;
 DROP TABLE IF EXISTS migration_backup.m086_view_options;
 DROP TABLE IF EXISTS migration_backup.m086_publication;
 DROP TABLE IF EXISTS migration_backup.m086_default_acl;
+DROP TABLE IF EXISTS migration_backup.m086_functions;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relnamespace = 'migration_backup'::regnamespace)
      AND NOT EXISTS (SELECT 1 FROM pg_proc WHERE pronamespace = 'migration_backup'::regnamespace) THEN

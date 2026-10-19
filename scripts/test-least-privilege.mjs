@@ -263,6 +263,7 @@ async function suite(label, { with085 }) {
       triggers: await q(`SELECT c.relname, t.tgname, pg_get_triggerdef(t.oid) d FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
         WHERE NOT t.tgisinternal AND c.relnamespace = 'public'::regnamespace`),
       publication: await q(`SELECT pubname, tablename FROM pg_publication_tables`),
+      schemaAcl: await q(`SELECT n.nspname, coalesce(n.nspacl::text, '') a FROM pg_namespace n WHERE n.nspname IN ('public', 'migration_backup')`),
       defaultAcl: await q(`SELECT defaclrole::regrole::text r, defaclnamespace::regnamespace::text ns, defaclobjtype t,
         (SELECT string_agg(${g} || ':' || a.privilege_type, ',' ORDER BY ${g}, a.privilege_type) FROM aclexplode(defaclacl) a) a FROM pg_default_acl`),
       backup: await q(`SELECT c.relname FROM pg_class c WHERE c.relnamespace = 'migration_backup'::regnamespace AND c.relname LIKE 'm086%'`),
@@ -450,6 +451,16 @@ async function suite(label, { with085 }) {
   await su();
   await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
   await db.query(`UPDATE profiles SET role = 'accountant' WHERE id = $1`, [U.accountant]);
+  await as('owner');
+  await db.query(`UPDATE profiles SET role = 'viewer' WHERE id = $1`, [U.cashier]);
+  await db.query(`UPDATE profiles SET role = 'cashier' WHERE id = $1`, [U.cashier]);
+  await su();
+  const aud = await rows(`SELECT entity_type, severity, summary_ar FROM audit_log WHERE entity_type IN ('fiscal_period', 'profile') ORDER BY created_at`);
+  check('audit', 'closing and reopening a fiscal period (info / warning) and changing a role are written to the audit log, none of which was recorded before',
+    aud.some((r) => r.entity_type === 'fiscal_period' && r.severity === 'info') && aud.some((r) => r.entity_type === 'fiscal_period' && r.severity === 'warning')
+    && aud.filter((r) => r.entity_type === 'profile').length >= 2, JSON.stringify(aud.map((r) => `${r.entity_type}/${r.severity}`)));
+  const noise = n(await val(`SELECT count(*) FROM audit_log WHERE entity_type = 'fiscal_period' AND summary_ar NOT LIKE '%إغلاق%' AND summary_ar NOT LIKE '%إعادة فتح%'`));
+  check('audit', 'a period that is merely created (assert_fiscal_period_open) or edited without changing its state leaves no audit row', noise === 0);
 
   // ── 5. what is now refused ────────────────────────────────────────────────
   await as('accountant');
@@ -569,6 +580,23 @@ async function suite(label, { with085 }) {
   check('sign-up', '… the suspended account falls back to viewer', (await val(`SELECT role FROM profiles WHERE id = $1`, [U.invitee])) === 'viewer');
   await as('invitee');
   check('sign-up', '… reads nothing and writes nothing', n(await val(`SELECT count(*) FROM transactions`)) === 0 && await blocked(`INSERT INTO transactions (kind, status, method, amount, category_id, cashbox_id) VALUES ('EXPENSE', 'POSTED', 'CASH', 1, $1, $2)`, [cat['EXP-MNT'], CASH]));
+  // suspending is a role change in disguise (approved_at = NULL forces viewer): it follows 082's rules
+  await as('admin');
+  const susOwner = await errorOf(`UPDATE profiles SET approved_at = NULL WHERE id = $1`, [U.owner]);
+  const susAdminSelf = await errorOf(`UPDATE profiles SET approved_at = NULL WHERE id = $1`, [U.admin]);
+  await as('owner');
+  const susOwnerSelf = await errorOf(`UPDATE profiles SET approved_at = NULL WHERE id = $1`, [U.owner]);
+  check('sign-up', 'an admin cannot suspend the owner (that would demote the owner, which 082 reserves to the owner), and nobody suspends themselves',
+    /غير مصرح/.test(susOwner) && /غير مصرح/.test(susAdminSelf) && /غير مصرح/.test(susOwnerSelf), [susOwner, susAdminSelf, susOwnerSelf].map((e) => e.slice(0, 40)).join(' | '));
+  await su();
+  const ownerRow = await one(`SELECT role, approved_at IS NOT NULL ok FROM profiles WHERE id = $1`, [U.owner]);
+  check('sign-up', '… the owner is still an approved owner', ownerRow?.role === 'owner' && ownerRow?.ok === true, JSON.stringify(ownerRow));
+  await as('admin');
+  check('sign-up', 'an admin can suspend an ordinary member and re-approve it by assigning the role',
+    await changed(`UPDATE profiles SET approved_at = NULL WHERE id = $1`, [U.stranger1]) && await changed(`UPDATE profiles SET role = 'cashier' WHERE id = $1`, [U.stranger1]));
+  await su();
+  const s1c = await one(`SELECT role, approved_at IS NOT NULL ok FROM profiles WHERE id = $1`, [U.stranger1]);
+  check('sign-up', '… and the member is back, as a cashier', s1c?.role === 'cashier' && s1c?.ok === true, JSON.stringify(s1c));
   // direct database session (SQL editor): approves, and a restore keeps approval dates
   await signUp('stranger2');
   await su();
@@ -682,6 +710,131 @@ async function suite(label, { with085 }) {
   await db.close();
 }
 
+// ── extras: throwaway replicas for the cases the main fixture cannot show ──────
+async function extras() {
+  pass = 'extras';
+  const sql086 = read('086_least_privilege.sql');
+  const rollback086 = read('086_least_privilege.ROLLBACK.sql');
+  const fresh = async () => {
+    const { db } = await createReplica();
+    for (const f of [...BASE, ...BASE_AFTER_DUMP]) await db.exec(read(f));
+    return db;
+  };
+  const q = (db) => async (sql, p) => (await db.query(sql, p)).rows;
+  const tryExec = async (db, sql) => {
+    try { await db.exec(sql); return null; } catch (e) { try { await db.exec('ROLLBACK'); } catch {} return e.message; }
+  };
+
+  // A. accounts that exist when 086 is applied keep what they see today; a restore into a database with 086 starts pending
+  {
+    const db = await fresh();
+    const rows = q(db);
+    const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    await db.query(`INSERT INTO auth.users (id, email) VALUES ($1, 'has-profile@test.local'), ($2, 'no-profile@test.local')`, [A, B]);
+    await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+    await db.query(`UPDATE profiles SET role = 'owner' WHERE id = $1`, [A]);
+    await db.query(`SELECT set_config('request.jwt.claims', '', false)`);
+    await db.query(`DELETE FROM profiles WHERE id = $1`, [B]);
+    const err = await tryExec(db, sql086);
+    check('extras', '086 applies with a user that has no profile row', err === null, err);
+    const prof = await rows(`SELECT id, role, approved_at IS NOT NULL AS ok FROM profiles WHERE id IN ($1, $2) ORDER BY id`, [A, B]);
+    check('extras', 'both existing users are approved, the owner stays owner, the one without a row gets a viewer row',
+      prof.length === 2 && prof.every((r) => r.ok) && prof.find((r) => r.id === A)?.role === 'owner' && prof.find((r) => r.id === B)?.role === 'viewer', JSON.stringify(prof));
+    await actAs(db, 'authenticated', B);
+    check('extras', 'the user who had no profile row still reads what a viewer read before', n((await rows(`SELECT count(*) FROM categories`))[0].count) > 0);
+    await actAs(db, 'superuser');
+    // restore of an old backup: rows come back without approved_at
+    await db.query(`DELETE FROM profiles WHERE id = $1`, [A]);
+    await db.query(`INSERT INTO profiles (id, role) VALUES ($1, 'owner')`, [A]);
+    const pend = (await rows(`SELECT approved_at IS NULL AS pending FROM profiles WHERE id = $1`, [A]))[0];
+    await actAs(db, 'authenticated', A);
+    const seen = n((await rows(`SELECT count(*) FROM categories`))[0].count);
+    await actAs(db, 'superuser');
+    check('extras', 'a profile restored from an old backup comes back pending (the database fails closed)', pend.pending === true && seen === 0, `pending=${pend.pending} categories=${seen}`);
+    await db.query(`UPDATE profiles SET approved_at = now() WHERE approved_at IS NULL`);
+    await actAs(db, 'authenticated', A);
+    check('extras', '… and the documented one-line UPDATE from the SQL editor brings it back', n((await rows(`SELECT count(*) FROM categories`))[0].count) > 0);
+    await db.close();
+  }
+
+  // B. a view the live database defines differently from the repository must stop the migration, not the users
+  {
+    const db = await fresh();
+    const rows = q(db);
+    await db.exec(`DROP VIEW public.top_expense_categories;
+      CREATE VIEW public.top_expense_categories AS SELECT c.portal_token AS t FROM public.contacts c;`);
+    const err = await tryExec(db, sql086);
+    check('extras', '086 stops when a definer view it would convert reads a column authenticated cannot (contacts.portal_token)',
+      /086/.test(err ?? '') && /top_expense_categories/.test(err ?? ''), err);
+    const left = (await rows(`SELECT (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'approved_at')::int AS col,
+      to_regclass('migration_backup.m086_revoked') IS NOT NULL AS backup,
+      (SELECT coalesce(reloptions::text, '') FROM pg_class WHERE relname = 'employee_summary') AS opts`))[0];
+    check('extras', '… and the aborted run left nothing behind (no column, no backup tables, views untouched)', left.col === 0 && left.backup === false && !/security_invoker/.test(left.opts), JSON.stringify(left));
+    await db.exec(`CREATE OR REPLACE VIEW public.top_expense_categories AS SELECT c.name AS t FROM public.contacts c`);
+    const err2 = await tryExec(db, sql086);
+    check('extras', '… with a readable definition the same file applies', err2 === null, err2);
+    await db.close();
+  }
+
+  // C. schema CREATE for the API roles, and the function that re-grants anon on contacts
+  {
+    const db = await fresh();
+    const rows = q(db);
+    const has = async (role, priv) => (await rows(`SELECT has_schema_privilege($1, 'public', $2) AS x`, [role, priv]))[0].x;
+    await db.exec(`GRANT CREATE ON SCHEMA public TO authenticated, anon`);
+    await db.exec(`SELECT public.refresh_contacts_api_grants()`);
+    const anonBefore = (await rows(`SELECT has_column_privilege('anon', 'public.contacts', 'name', 'SELECT') AS x`))[0].x;
+    info('extras', 'before 086, running refresh_contacts_api_grants() hands anon column SELECT on contacts (and the repository migrations 073/074 run it)', `anon can select contacts.name: ${anonBefore}`);
+    const def0 = (await rows(`SELECT pg_get_functiondef('public.refresh_contacts_api_grants()'::regprocedure) d`))[0].d;
+    const err = await tryExec(db, sql086);
+    check('extras', '086 applies over a database where authenticated and anon hold CREATE on schema public', err === null, err);
+    check('extras', 'authenticated and anon no longer hold CREATE on schema public (USAGE kept)',
+      !(await has('authenticated', 'CREATE')) && !(await has('anon', 'CREATE')) && (await has('authenticated', 'USAGE')) && (await has('anon', 'USAGE')));
+    await db.exec(`SELECT public.refresh_contacts_api_grants()`);
+    const anonAfter = (await rows(`SELECT has_any_column_privilege('anon', 'public.contacts', 'SELECT, INSERT, UPDATE, REFERENCES') AS x`))[0].x;
+    const authCols = (await rows(`SELECT has_column_privilege('authenticated', 'public.contacts', 'name', 'SELECT') AS a, has_column_privilege('authenticated', 'public.contacts', 'portal_token', 'SELECT') AS p, has_column_privilege('authenticated', 'public.contacts', 'salary', 'UPDATE') AS u`))[0];
+    check('extras', 'refresh_contacts_api_grants() no longer gives anon anything, and still grants authenticated the same columns (portal_token excluded)',
+      anonAfter === false && authCols.a === true && authCols.p === false && authCols.u === true, JSON.stringify({ anonAfter, ...authCols }));
+    const def1 = (await rows(`SELECT pg_get_functiondef('public.refresh_contacts_api_grants()'::regprocedure) d`))[0].d;
+    check('extras', 'only the anon grant changed in that function', def1 === def0.replace('TO anon, authenticated', 'TO authenticated') && def1 !== def0);
+    const execs = (await rows(`SELECT has_function_privilege('authenticated', 'public.refresh_contacts_api_grants()', 'EXECUTE') a, has_function_privilege('anon', 'public.refresh_contacts_api_grants()', 'EXECUTE') n`))[0];
+    const err3 = await tryExec(db, sql086);
+    const def2 = (await rows(`SELECT pg_get_functiondef('public.refresh_contacts_api_grants()'::regprocedure) d`))[0].d;
+    check('extras', 'a second application changes nothing here either', err3 === null && def2 === def1, err3);
+    const errRb = await tryExec(db, rollback086);
+    const def3 = (await rows(`SELECT pg_get_functiondef('public.refresh_contacts_api_grants()'::regprocedure) d`))[0].d;
+    check('extras', 'the rollback restores the schema grants and the original function text, and its execute rights are untouched',
+      errRb === null && (await has('authenticated', 'CREATE')) && (await has('anon', 'CREATE')) && def3 === def0
+      && (await rows(`SELECT has_function_privilege('authenticated', 'public.refresh_contacts_api_grants()', 'EXECUTE') a, has_function_privilege('anon', 'public.refresh_contacts_api_grants()', 'EXECUTE') n`))[0].a === execs.a, errRb);
+    await db.close();
+  }
+
+  // D. the owner may apply 086 first and 085 afterwards: nothing in 085 may lock the API roles out of 086's helpers
+  if (HAS_085) {
+    const db = await fresh();
+    const rows = q(db);
+    const V = '22222222-2222-4222-8222-222222222222'; const X = '66666666-6666-4666-8666-666666666666';
+    await db.query(`INSERT INTO auth.users (id, email) VALUES ($1, 'v@test.local')`, [V]);
+    await db.query(`SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false)`);
+    await db.query(`UPDATE profiles SET role = 'viewer' WHERE id = $1`, [V]);
+    await db.query(`SELECT set_config('request.jwt.claims', '', false)`);
+    const e1 = await tryExec(db, sql086);
+    const e2 = await tryExec(db, read('085_function_hardening.sql'));
+    check('extras', '086 first and 085 afterwards both apply', e1 === null && e2 === null, `${e1 ?? ''} ${e2 ?? ''}`);
+    await db.query(`INSERT INTO auth.users (id, email) VALUES ($1, 'x@evil.test')`, [X]);
+    await actAs(db, 'authenticated', V);
+    const viewerSees = n((await rows(`SELECT count(*) FROM categories`))[0].count);
+    await actAs(db, 'authenticated', X);
+    const strangerSees = n((await rows(`SELECT count(*) FROM categories`))[0].count);
+    await actAs(db, 'superuser');
+    const exec = (await rows(`SELECT has_function_privilege('authenticated', 'public.auth_is_member()', 'EXECUTE') a, has_function_privilege('anon', 'public.auth_is_member()', 'EXECUTE') n,
+      has_function_privilege('authenticated', 'public.api_pre_request()', 'EXECUTE') p`))[0];
+    check('extras', '… the approved viewer still reads, the stranger reads nothing, authenticated still runs the helpers and anon does not',
+      viewerSees > 0 && strangerSees === 0 && exec.a === true && exec.p === true && exec.n === false, JSON.stringify({ viewerSees, strangerSees, ...exec }));
+    await db.close();
+  }
+}
+
 // ── children: the long-form suites with 086 applied ─────────────────────────
 function failures(out) {
   return new Set(out.split('\n').filter((l) => /^\s*FAIL\b/.test(l)).map((l) => l.replace(/^\s*FAIL\s+/, '').trim()));
@@ -731,6 +884,7 @@ const guarded = async (label, fn) => {
 await guarded('086 alone', () => suite('086 alone', { with085: false }));
 if (HAS_085) await guarded('085 + 086', () => suite('085 + 086', { with085: true }));
 else info('setup', '085_function_hardening.sql not found: only the 086-alone pass ran');
+await guarded('extras', extras);
 if (!NO_CHILDREN) await guarded('regression', async () => childSuites());
 
 let area = '';

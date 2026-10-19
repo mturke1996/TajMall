@@ -66,4 +66,50 @@ assert.deepEqual(
 );
 assert.deepEqual(contactLedgerUtils.getCountedContactTransactions([]), [], 'a contact with no transactions counts nothing');
 
-console.log('PASS: contact fields, inactive-state policy, complete pagination, and counted (posted and reconciled) totals');
+// ── what an edit must never wipe: the machine tags in the notes, the tracking month, the kind a landlord is filed under ──
+
+const landlord = {
+  ...contact,
+  id: 'landlord-test-id',
+  kind: 'CUSTOMER',
+  name: 'ميلاد الورفلي',
+  phone: '+218 91 3000222',
+  phone2: 'مكتب 021-480',
+  email: null,
+  job_title: 'مؤجر للمول',
+  monthly_rent: '27000',
+  shop_number: 'أرض المواقف',
+  contract_start: '2026-01-01',
+  contract_end: '2026-12-31',
+  is_active: true,
+  notes: 'عقد سنوي يُجدد في يناير\n[role:landlord]\n[since:2026-06]',
+};
+const opened = contactFormUtils.contactToFormState(landlord);
+assert.equal(opened.notes, 'عقد سنوي يُجدد في يناير', 'the form shows the note without its machine tags');
+assert.equal(opened.since, '2026-06', 'the tracking month is carried by the form, not shown as text');
+assert.equal(opened.businessRole, 'LANDLORD');
+
+const untouched = contactFormUtils.buildContactPayload(opened, opened);
+assert.equal(untouched.notes, landlord.notes, 'saving an unchanged form rewrites the notes exactly');
+assert.equal(untouched.kind, 'CUSTOMER', 'a landlord filed under customers stays there (the role alone would say vendor)');
+assert.equal(untouched.phone, '+218 91 3000222', 'a phone number that was not touched is saved as it was');
+assert.equal(untouched.phone2, 'مكتب 021-480', 'text that is not a number is never thrown away');
+for (const key of ['job_title', 'monthly_rent', 'shop_number', 'contract_start', 'contract_end']) {
+  assert.equal(untouched[key], landlord[key], `editing must preserve ${key}`);
+}
+
+const edited = contactFormUtils.buildContactPayload({ ...opened, notes: 'عقد سنوي، تغيّر الإيجار', phone: '٠٩١٣٠٠٠٢٢٢' }, opened);
+assert.equal(edited.notes, 'عقد سنوي، تغيّر الإيجار\n[role:landlord]\n[since:2026-06]', 'a changed note keeps both tags');
+assert.equal(edited.phone, '0913000222', 'a phone that was typed is written the standard way');
+
+const cleared = contactFormUtils.buildContactPayload({ ...opened, notes: '' }, opened);
+assert.equal(cleared.notes, '[role:landlord]\n[since:2026-06]', 'emptying the note leaves the tags, not a role-less file');
+
+const profileLib = await import('../src/lib/people/party-profile.ts');
+assert.deepEqual(
+  profileLib.reconcileSavePayload(untouched, landlord, opened),
+  untouched,
+  'the profile page correction has nothing left to fix on a payload built by this form',
+);
+
+console.log('PASS: contact fields, inactive-state policy, complete pagination, counted (posted and reconciled) totals, and notes tags, tracking month and kind surviving an edit');

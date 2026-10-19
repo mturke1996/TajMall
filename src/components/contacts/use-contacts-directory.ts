@@ -2,17 +2,19 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from '@/lib/db/queries';
+import { useContacts, useUpdateContact, useDeleteContact } from '@/lib/db/queries';
 import { toast } from 'sonner';
 import type { ContactKind, ContactRow } from '@/lib/db/types';
 import {
   type ContactFormState,
   defaultContactFormState,
-  buildContactPayload,
   contactToFormState,
-  formatContactSaveError,
+  isFormDirty,
 } from '@/lib/contacts/form-utils';
+import { formKindOf, startingKind, switchKind, switchRole } from '@/lib/contacts/form-rules';
 import type { ContactBusinessRole } from '@/lib/contacts/contact-roles';
+import { useContactSave, type SaveOutcome } from '@/components/contacts/form/use-contact-save';
+import type { ContactSubmitOptions } from '@/components/contacts/contact-form-dialog';
 import { withRole } from '@/lib/contacts/contact-tags';
 import {
   DEFAULT_SORT,
@@ -72,6 +74,18 @@ function startingRole(segment: PeopleSegment, role: RoleFilter): ContactBusiness
   return segment;
 }
 
+/**
+ * A new form for what the list or the link asked for. A landlord is filed with the customers, where the list
+ * shows landlords, unless it was asked for from the vendors' list.
+ */
+function startingForm(segment: PeopleSegment, role: RoleFilter, roleOrKind?: ContactBusinessRole | ContactKind): ContactFormState {
+  let target: ContactBusinessRole;
+  if (roleOrKind === 'VENDOR') target = role !== 'ALL' && segment === 'VENDOR' ? role : 'SUPPLIER_GOODS';
+  else if (roleOrKind) target = roleOrKind as ContactBusinessRole;
+  else target = startingRole(segment, role);
+  return defaultContactFormState(target, startingKind(target, segment === 'VENDOR' ? 'VENDOR' : segment === 'CUSTOMER' ? 'CUSTOMER' : null));
+}
+
 export function useContactsDirectory(options?: {
   segment?: PeopleSegment;
   /** the role filter, already checked against the list (it comes from the address bar) */
@@ -96,7 +110,7 @@ export function useContactsDirectory(options?: {
   const activityState: ActivityState = activityQuery.data ? 'ready' : activityQuery.isError ? 'error' : 'loading';
   const activity = activityQuery.data ?? null;
 
-  const createContact = useCreateContact();
+  const saver = useContactSave();
   const updateContact = useUpdateContact();
   const deleteContact = useDeleteContact();
 
@@ -202,23 +216,25 @@ export function useContactsDirectory(options?: {
   const [isAddOpen, setIsAddOpenState] = useState(false);
   // what had focus when the form opened gets it back when the form closes
   const openerRef = useRef<HTMLElement | null>(null);
-  const setIsAddOpen = useCallback((open: boolean) => {
-    setIsAddOpenState(open);
-    if (open) return;
-    const opener = openerRef.current;
-    openerRef.current = null;
-    if (opener) requestAnimationFrame(() => opener.isConnected && opener.focus());
-  }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<ContactFormState>(defaultContactFormState());
+  // a new file that was typed in and closed without saving comes back the next time the form opens for a new file
+  const draftRef = useRef<ContactFormState | null>(null);
+
+  const setIsAddOpen = useCallback(
+    (open: boolean) => {
+      setIsAddOpenState(open);
+      if (open) return;
+      if (!editingId && isFormDirty(formData)) draftRef.current = formData;
+      const opener = openerRef.current;
+      openerRef.current = null;
+      if (opener) requestAnimationFrame(() => opener.isConnected && opener.focus());
+    },
+    [editingId, formData],
+  );
 
   // before the files have loaded a count of zero would be a claim: show none
   const segmentNavCounts = useMemo((): Partial<Record<PeopleSegment, number>> => (isLoading || loadFailed ? {} : { ...segmentCounts }), [segmentCounts, isLoading, loadFailed]);
-
-  const resetForm = useCallback((r: ContactBusinessRole = 'CUSTOMER') => {
-    setFormData(defaultContactFormState(r));
-    setEditingId(null);
-  }, []);
 
   const startEdit = useCallback(
     (contact: ContactRow, opener?: HTMLElement | null) => {
@@ -240,15 +256,21 @@ export function useContactsDirectory(options?: {
         toast.error('صلاحية القراءة فقط — لا يمكن إضافة جهات');
         return;
       }
-      let target: ContactBusinessRole;
-      if (roleOrKind === 'VENDOR') target = role !== 'ALL' && segment === 'VENDOR' ? role : 'SUPPLIER_GOODS';
-      else if (roleOrKind) target = roleOrKind as ContactBusinessRole;
-      else target = startingRole(segment, role);
+      const fresh = startingForm(segment, role, roleOrKind);
+      const draft = draftRef.current;
+      draftRef.current = null;
+      let next = fresh;
+      if (draft) {
+        // the typed form returns; the kind that was asked for wins when it differs
+        next = switchKind(draft, formKindOf(fresh));
+        if (fresh.businessRole === 'LANDLORD') next = switchRole(next, 'LANDLORD');
+      }
       openerRef.current = document.activeElement as HTMLElement | null;
-      resetForm(target);
+      setFormData(next);
+      setEditingId(null);
       setIsAddOpen(true);
     },
-    [resetForm, segment, role, canWrite, setIsAddOpen],
+    [segment, role, canWrite, setIsAddOpen],
   );
 
   // `?add=KIND` opens the add dialog once. Waits for the role (otherwise a writer is told they are
@@ -271,35 +293,21 @@ export function useContactsDirectory(options?: {
     }
   }, [addKind, permissionLoading, openAdd, onAddKindConsumed]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(e?: React.FormEvent, options?: ContactSubmitOptions): Promise<SaveOutcome> {
+    e?.preventDefault();
     if (!canWrite) {
       toast.error('صلاحية القراءة فقط');
-      return;
+      return { ok: false, error: 'صلاحية القراءة فقط' };
     }
-    if (!formData.name?.trim()) {
-      toast.error('أدخل الاسم على الأقل');
-      return;
-    }
-
-    try {
-      const payload = buildContactPayload(formData);
-      if (editingId) {
-        await updateContact.mutateAsync({ id: editingId, ...payload });
-        toast.success('تم التحديث بنجاح');
-        setIsAddOpen(false);
-        resetForm();
-        return;
-      }
-      const created = await createContact.mutateAsync(payload);
-      toast.success('تمت إضافة الجهة بنجاح');
+    const previous = editingId ? (allContacts ?? []).find((c) => c.id === editingId) : null;
+    const outcome = await saver.run(formData, { editingId, previous });
+    if (!outcome.ok) return outcome;
+    if (editingId || !options?.addAnother) {
       setIsAddOpen(false);
-      resetForm();
-      router.push(`/contacts/${created.id}`);
-    } catch (err) {
-      console.error('[contacts] save failed', err);
-      toast.error(formatContactSaveError(err));
+      // closing keeps a typed form as a draft; this one was saved
+      draftRef.current = null;
     }
+    return outcome;
   }
 
   async function handleDelete(id: string) {
@@ -371,7 +379,7 @@ export function useContactsDirectory(options?: {
     startEdit,
     handleSubmit,
     handleDelete,
-    isPending: createContact.isPending || updateContact.isPending,
+    isPending: saver.pending,
     goToRentCollection: () => router.push(mallTabHref('tenants')),
   };
 }

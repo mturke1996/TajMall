@@ -35,7 +35,6 @@ export default function SetupPage() {
               <li>NEXT_PUBLIC_SUPABASE_URL</li>
               <li>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY أو NEXT_PUBLIC_SUPABASE_ANON_KEY</li>
               <li>SUPABASE_SECRET_KEY</li>
-              <li>DATABASE_URL</li>
               <li>KEEPALIVE_SECRET</li>
             </ul>
           </div>

@@ -92,6 +92,25 @@ check('the input keeps digits and the characters a number is written with', () =
   assert.equal(phone.cleanPhoneInput('+218'), '+218');
 });
 
+check('odd input never throws and never reads as a number: nothing, only symbols, too many digits, a null', () => {
+  for (const raw of [undefined, null, '', ' ', '+', '00', '()', '---', '+++', '١٢٣٤٥٦٧٨٩٠١٢٣٤٥٦٧٨٩٠', '😀', {}, 5]) {
+    const p = phone.parsePhone(raw);
+    assert.ok(['empty', 'invalid'].includes(p.kind), String(raw));
+    assert.equal(p.key, '', String(raw));
+  }
+  assert.equal(phone.parsePhone('+1234567890123456').kind, 'invalid', 'more than 15 digits is not a number');
+  assert.equal(phone.parsePhone('0912345678').key, phone.parsePhone(912345678).key, 'a number given as a number reads the same');
+  assert.equal(phone.normalizePhoneForSave('+++'), '+++', 'an entry that is not a number is kept as typed');
+  assert.equal(phone.displayPhone('+++'), '+++');
+});
+
+check('names are compared through diacritics, the elongation mark, hamza and ta marbuta', () => {
+  const list = dup.prepareContacts([base({ id: 'z', name: 'مُؤَسَّسَة الأمـل', kind: 'CUSTOMER' }), base({ id: 'y', name: null, kind: 'CUSTOMER' })]);
+  assert.deepEqual(dup.findContactMatches(list, { name: 'مؤسسه الامل' }).map((m) => m.contact.id), ['z']);
+  assert.deepEqual(dup.findContactMatches([], { name: 'أي اسم', phones: ['0912345678'] }), [], 'an empty directory finds nothing');
+  assert.deepEqual(dup.findContactMatches(list, { name: null, phones: [null, undefined, ''] }), []);
+});
+
 // ───────────────────────────────────────────── duplicates
 
 const directory = [
@@ -202,6 +221,19 @@ check('an existing file moves between vendors and customers; a tenant and an emp
   assert.equal(rules.canMoveTo('EMPLOYEE', 'CUSTOMER'), false);
   assert.equal(rules.canMoveTo('TENANT', 'TENANT'), true);
   assert.equal(rules.canMoveTo(null, 'EMPLOYEE'), true, 'a new file may be anything');
+});
+
+check('messages and warnings name the file correctly: a landlord is a landlord whatever list it is filed in', () => {
+  assert.equal(rules.nounFor('LANDLORD', 'CUSTOMER'), 'المؤجر');
+  assert.equal(rules.nounFor('LANDLORD', 'VENDOR'), 'المؤجر');
+  assert.equal(rules.nounFor('SUPPLIER_WATER', 'VENDOR'), 'المورد');
+  assert.equal(rules.nounFor('CUSTOMER', 'CUSTOMER'), 'العميل');
+  assert.equal(rules.nounFor('EMPLOYEE', 'EMPLOYEE'), 'الموظف');
+  assert.equal(rules.nounFor('TENANT', 'TENANT'), 'المستأجر');
+  assert.equal(rules.nounFor('OTHER', 'OTHER'), 'الجهة');
+  assert.equal(rules.kindOrRoleLabel({ kind: 'CUSTOMER' }, 'LANDLORD'), 'مؤجر للمول');
+  assert.equal(rules.kindOrRoleLabel({ kind: 'VENDOR' }, 'SUPPLIER_GOODS'), 'مورد');
+  assert.equal(rules.kindOrRoleLabel({ kind: 'OTHER' }, 'OTHER'), 'جهة أخرى');
 });
 
 // ───────────────────────────────────────────── what is saved
@@ -423,14 +455,38 @@ check('the first wrong field is the one drawn first', () => {
   assert.equal(rules.firstInvalidField({}), null);
 });
 
+check('a hand-built or older form state still saves: no tracking month key, a numeric salary, an unknown kind', () => {
+  const { since, employee, ...older } = form('LANDLORD', { monthly_rent: '100' }, 'CUSTOMER');
+  void since;
+  void employee;
+  const p = utils.buildContactPayload(older);
+  assert.deepEqual(rules.validateContactForm(older), {}, 'a state without the employee part validates');
+  const staff = { ...older, kind: 'EMPLOYEE', businessRole: 'EMPLOYEE', salary: '900' };
+  assert.equal(utils.buildContactPayload(staff).salary, '900');
+  assert.equal(rules.planSalaryStructure(staff, '2026-10-19').total, 900);
+  assert.equal(rules.planEmployeeFile(staff), null);
+  assert.deepEqual(rules.validateContactForm(staff, { employeeFile: true }), {});
+  assert.equal(p.kind, 'CUSTOMER');
+  assert.equal(tags.readTags(p.notes).since, null);
+  const numeric = utils.contactToFormState(base({ kind: 'EMPLOYEE', salary: 2250, monthly_rent: 5, hire_date: '2024-03-01T00:00:00Z', notes: '[role:employee]' }));
+  assert.equal(numeric.salary, '2250');
+  assert.equal(numeric.hire_date, '2024-03-01');
+  const other = utils.buildContactPayload(utils.contactToFormState(base({ kind: 'OTHER', name: 'جهة حكومية', notes: null })));
+  assert.equal(other.kind, 'OTHER', 'saving a file of another kind does not file it as something else');
+  assert.equal(rules.formKindOf({ kind: 'OTHER' }), 'OTHER');
+  assert.equal(rules.switchKind(utils.contactToFormState(base({ kind: 'OTHER', notes: null })), 'CUSTOMER').businessRole, 'CUSTOMER');
+});
+
 // ───────────────────────────────────────────── an employee's pay and file
 
 const emp = (o = {}, e = {}) => ({ ...form('EMPLOYEE', o, 'EMPLOYEE'), employee: { ...utils.defaultEmployeeFields(), ...e } });
 
 check('the salary structure starts in the hire month, else this month, and carries each part', () => {
   const plan = rules.planSalaryStructure(emp({ salary: '2000', hire_date: '2026-09-15' }, { housing: '300', transport: '150' }), '2026-10-19');
-  assert.deepEqual(plan, { effectiveFrom: '2026-09-01', base: 2000, housing: 300, transport: 150, other: 0, total: 2450 });
+  assert.deepEqual(plan, { effectiveFrom: '2026-09-01', fromHireDate: true, base: 2000, housing: 300, transport: 150, other: 0, total: 2450 });
   assert.equal(rules.planSalaryStructure(emp({ salary: '1800' }), '2026-10-19').effectiveFrom, '2026-10-01');
+  assert.equal(rules.planSalaryStructure(emp({ salary: '1800' }), '2026-10-19').fromHireDate, false, 'the screen says «هذا الشهر» only when the hire date is missing');
+  assert.equal(rules.planSalaryStructure(emp({ salary: '1800', hire_date: 'soon' }), '2026-10-19').fromHireDate, false);
   assert.equal(rules.planSalaryStructure(emp({ salary: '1800', hire_date: '2027-02-01' }), '2026-10-19').effectiveFrom, '2027-02-01', 'a hire next year starts then');
 });
 
@@ -464,6 +520,13 @@ check('each part of the file alone opens it; a contract end is dropped for a per
   assert.equal(rules.planEmployeeFile(emp({}, { bankName: 'م', annualLeaveDays: '' })).annualLeaveDays, 30);
 });
 
+check('an employee that has no payroll yet can still be saved: pay on the card, no structure when it is zero', () => {
+  const p = utils.buildContactPayload(emp({ salary: '1500' }, { housing: '0', transport: '' }));
+  assert.equal(p.salary, '1500');
+  assert.equal(utils.buildContactPayload(emp({ salary: '0' })).salary, '0', 'a zero entered on purpose is kept, not turned into a missing salary');
+  assert.equal(rules.planSalaryStructure(emp({ salary: '1500', hire_date: 'soon' }), '2026-10-19').effectiveFrom, '2026-10-01', 'an unreadable hire date falls back to this month');
+});
+
 // ───────────────────────────────────────────── payment terms in the notes
 
 check('payment terms are one line in the notes: set, replaced, removed, and the rest of the note is untouched', () => {
@@ -488,6 +551,54 @@ check('a form is dirty only when something was typed or chosen beyond its starti
   const e = utils.defaultContactFormState('EMPLOYEE');
   assert.equal(utils.isFormDirty({ ...e, employee: { ...e.employee, iban: 'LY' } }), true);
   assert.equal(utils.isFormDirty(utils.defaultContactFormState('EMPLOYEE')), false);
+});
+
+// ───────────────────────────────────────────── amounts typed the way people write them
+
+check('a rent or an area typed with a thousands comma, Arabic digits or spaces is saved, never dropped', () => {
+  const land = (o) => form('LANDLORD', o, 'CUSTOMER');
+  assert.deepEqual(rules.validateContactForm(land({ monthly_rent: '3,200' })), {}, 'the form accepts it');
+  assert.equal(utils.buildContactPayload(land({ monthly_rent: '3,200' })).monthly_rent, '3200', 'so it must be saved');
+  assert.equal(utils.buildContactPayload(land({ monthly_rent: '25,000.5' })).monthly_rent, '25000.5');
+  assert.equal(utils.buildContactPayload(land({ monthly_rent: '٢٧٠٠٠' })).monthly_rent, '27000');
+  assert.equal(utils.buildContactPayload(land({ monthly_rent: '3 200' })).monthly_rent, '3200');
+  assert.equal(utils.buildContactPayload(land({ area_sqm: '1,250.5' })).area_sqm, '1250.5');
+  // a plain number is kept exactly as it was written, so an untouched value round-trips
+  assert.equal(utils.buildContactPayload(land({ monthly_rent: '2500.000' })).monthly_rent, '2500.000');
+  assert.equal(utils.buildContactPayload(land({ monthly_rent: '2500' })).monthly_rent, '2500');
+  assert.equal(utils.buildContactPayload(land({ monthly_rent: '' })).monthly_rent, null);
+  assert.equal(utils.buildContactPayload(land({ monthly_rent: '   ' })).monthly_rent, null);
+  // what is not an amount is refused by the form before it can be saved
+  for (const bad of ['abc', '1.2.3', '25000.', '12,34,567', '1e5', '0x10']) {
+    assert.ok(rules.validateContactForm(land({ monthly_rent: bad })).monthly_rent, bad);
+    assert.equal(utils.buildContactPayload(land({ monthly_rent: bad })).monthly_rent, null, `${bad} is never written`);
+  }
+  assert.equal(utils.amountOrNull(null), null);
+  assert.equal(utils.amountOrNull(undefined), null);
+  assert.equal(utils.amountOrNull(0), '0');
+});
+
+// ───────────────────────────────────────────── the role a party added from an entry starts with
+
+check('a party added from a transaction entry opens on what the entry is about', () => {
+  const r = (kind, partyFilter, categoryCode) => rules.roleForEntry({ kind, partyFilter, categoryCode });
+  assert.equal(r('EXPENSE', 'VENDOR', 'EXP-RNT'), 'LANDLORD', 'rent paid is a landlord even under the vendors filter');
+  assert.equal(r('EXPENSE', 'CUSTOMER', 'EXP-RNT'), 'LANDLORD', 'and under the customers filter, where landlords are listed');
+  assert.equal(r('EXPENSE', 'ALL', 'exp-rnt'), 'LANDLORD', 'the code is read in any case');
+  assert.equal(r('EXPENSE', 'VENDOR', 'EXP-ELC'), 'SUPPLIER_ELECTRICITY');
+  assert.equal(r('EXPENSE', 'VENDOR', 'EXP-WTR'), 'SUPPLIER_WATER');
+  assert.equal(r('EXPENSE', 'ALL', 'EXP-MNT'), 'SERVICE_PROVIDER');
+  assert.equal(r('EXPENSE', 'CUSTOMER', 'EXP-WTR'), 'CUSTOMER', 'a utility is never filed under the customers filter');
+  assert.equal(r('EXPENSE', 'VENDOR', 'EXP-OTH'), 'SUPPLIER_GOODS');
+  assert.equal(r('EXPENSE', 'VENDOR', null), 'SUPPLIER_GOODS');
+  assert.equal(r('EXPENSE', 'ALL', undefined), 'SUPPLIER_GOODS');
+  assert.equal(r('EXPENSE', 'EMPLOYEE', 'EXP-SAL'), 'EMPLOYEE');
+  assert.equal(r('EXPENSE', 'TENANT', 'EXP-RNT'), 'TENANT', 'a tenant filter is exact');
+  assert.equal(r('REVENUE', 'ALL', 'REV-SVC'), 'CUSTOMER');
+  assert.equal(r('REVENUE', 'TENANT', 'REV-RNT'), 'TENANT');
+  assert.equal(r('REVENUE', 'CUSTOMER', 'EXP-RNT'), 'CUSTOMER', 'an income never starts a landlord');
+  // a landlord starts under customers, where every list shows landlords
+  assert.equal(rules.startingKind(r('EXPENSE', 'VENDOR', 'EXP-RNT')), 'CUSTOMER');
 });
 
 // ───────────────────────────────────────────── error text

@@ -8,6 +8,7 @@
  * Anything left over is a linking difference (a receipt linked to more than it brought in, or to a month
  * that has since been excluded) and is shown as such instead of being hidden.
  */
+import { isCountedTransaction } from '@/lib/contacts/contact-transactions';
 import { roundLyd } from '@/lib/rent-allocation';
 import { formatMonthLabelAr } from '@/lib/rent-months';
 import type { TenantRentAccount } from '@/lib/tenant-rent-account';
@@ -61,9 +62,9 @@ export type TenantStatement = {
 
 const DEBIT_KINDS = new Set(['paid', 'partial', 'due', 'uncharged']);
 
-/** Rent receipts that count on the statement: posted rent revenue. */
+/** Rent receipts that count on the statement: posted or reconciled rent revenue, like every other total. */
 export function isStatementReceipt(t: StatementReceipt) {
-  return t.status === 'POSTED' && t.kind === 'REVENUE' && t.category?.code === 'REV-RNT';
+  return isCountedTransaction(t) && t.kind === 'REVENUE' && t.category?.code === 'REV-RNT';
 }
 
 export function buildTenantStatement(input: {

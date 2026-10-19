@@ -9,8 +9,11 @@
  *
  * Owed now = months that have started, are inside the claim period and are not fully paid. A month with
  * no charge counts only from the claim start (or, when no claim start is recorded, from the first charged
- * month): before that nothing says the tenant owed it.
+ * month): before that nothing says the tenant owed it. When every lease of the tenant has ended, a month with
+ * no charge after the end of the last one is not owed either (`claimEnd`); a charge that was raised, or money
+ * that was paid, keeps its month visible.
  */
+import { isCountedTransaction } from '@/lib/contacts/contact-transactions';
 import { resolveRentAmount, roundLyd, type RentPricing } from '@/lib/rent-allocation';
 import {
   formatMonthLabelAr,
@@ -30,7 +33,7 @@ export type RentAccountMonthKind =
   | 'uncharged'
   /** has not started yet */
   | 'upcoming'
-  /** excluded from the claim: before the claim start, or marked "no claim" */
+  /** excluded from the claim: before the claim start, after the end of his last lease, or marked "no claim" */
   | 'exempt'
   /** no rent price for this month */
   | 'no_price';
@@ -47,7 +50,7 @@ export type RentAccountMonth = {
   isCurrent: boolean;
   /** part of `remaining` that is owed now (0 for months that have not started) */
   owedNow: number;
-  exemptReason: 'before_start' | 'manual' | null;
+  exemptReason: 'before_start' | 'after_end' | 'manual' | null;
   chargeId: string | null;
   journalNumbers: number[];
 };
@@ -75,6 +78,8 @@ export type TenantRentAccount = {
   paidThrough: string | null;
   /** the month that unpaid/no-charge months are counted from, if known */
   claimFrom: string | null;
+  /** the last month with no charge that is still claimed: the month his last lease ended in; null while a lease runs */
+  claimTo: string | null;
 };
 
 const ZERO_COUNTS = (): Record<RentAccountMonthKind, number> => ({
@@ -101,11 +106,17 @@ export function buildTenantRentAccount(input: {
   /** YYYY-MM-DD or YYYY-MM; months before it are not claimed */
   claimStart: string | null | undefined;
   manualExemptMonths?: Iterable<string>;
+  /**
+   * YYYY-MM-DD or YYYY-MM: the day his last lease ended, when none of his leases is running (`tenantClaimEnd`).
+   * A month after it with no charge is not owed. Omit it while a lease runs or when he has none.
+   */
+  claimEnd?: string | null;
   /** YYYY-MM of the current month */
   now: string;
 }): TenantRentAccount {
   const manual = new Set(input.manualExemptMonths ?? []);
   const claimStartMonth = input.claimStart?.trim() ? input.claimStart.trim().slice(0, 7) : null;
+  const claimEndMonth = input.claimEnd?.trim() ? input.claimEnd.trim().slice(0, 7) : null;
   const allMonths = input.calendars.flatMap((c) => c.months);
   const firstChargedMonth =
     allMonths
@@ -168,6 +179,10 @@ export function buildTenantRentAccount(input: {
     }
     // no_charge / na: what the database would charge for it
     const amount = priced(resolveRentAmount(m.month, input.pricing));
+    // his leases have all ended: the rent on his card is no longer billed, and the run raises no more charges
+    if (claimEndMonth && m.month > claimEndMonth) {
+      return { ...base, kind: 'exempt', amount, paid: 0, remaining: 0, owedNow: 0, exemptReason: 'after_end' };
+    }
     if (amount <= 0) {
       return { ...base, kind: 'no_price', amount: 0, paid: 0, remaining: 0, owedNow: 0 };
     }
@@ -216,7 +231,25 @@ export function buildTenantRentAccount(input: {
     currentMonth: ordered.find((m) => m.isCurrent) ?? null,
     paidThrough,
     claimFrom,
+    claimTo: claimEndMonth,
   };
+}
+
+/**
+ * The day to stop claiming rent that was never charged: the latest end date of the tenant's leases, once none
+ * of them is running. null while a lease is ACTIVE (the monthly run still bills it, even past its end date),
+ * for a tenant with no lease (billed from his card, as before) and when no ended lease has an end date.
+ */
+export function tenantClaimEnd(
+  leases: { status: string; end_date?: string | null }[] | null | undefined,
+): string | null {
+  if (!leases || leases.length === 0) return null;
+  if (leases.some((l) => l.status === 'ACTIVE')) return null;
+  const ends = leases
+    .map((l) => String(l.end_date ?? '').slice(0, 10))
+    .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+    .sort();
+  return ends.length > 0 ? ends[ends.length - 1] : null;
 }
 
 const nextMonth = (key: string) => {
@@ -306,7 +339,7 @@ export function unlinkedRentReceipts(input: {
   let total = 0;
   let count = 0;
   for (const t of input.receipts) {
-    if (t.status !== 'POSTED' || t.kind !== 'REVENUE' || t.category?.code !== 'REV-RNT') continue;
+    if (!isCountedTransaction(t) || t.kind !== 'REVENUE' || t.category?.code !== 'REV-RNT') continue;
     const entry = entryByReceipt.get(t.id);
     if (!entry) continue;
     const free = roundLyd((Number(t.amount) || 0) - (linked.get(entry) ?? 0));

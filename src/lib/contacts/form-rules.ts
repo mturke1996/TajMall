@@ -6,6 +6,7 @@
 import { CONTACT_ROLES, type ContactBusinessRole } from '@/lib/contacts/contact-roles';
 import {
   amountOf,
+  employeeOf,
   kindForRole,
   salaryTotal,
   type ContactFormState,
@@ -98,6 +99,63 @@ export function canMoveTo(original: ContactKind | null | undefined, target: Form
   if (!original) return true;
   if (original === 'TENANT' || original === 'EMPLOYEE') return original === target;
   return target === 'VENDOR' || target === 'CUSTOMER';
+}
+
+/** The roles an expense category points to: rent is paid to a landlord, a utility bill to that utility. */
+const EXPENSE_CODE_ROLE: Record<string, ContactBusinessRole> = {
+  'EXP-RNT': 'LANDLORD',
+  'EXP-ELC': 'SUPPLIER_ELECTRICITY',
+  'EXP-UTL': 'SUPPLIER_ELECTRICITY',
+  'EXP-WTR': 'SUPPLIER_WATER',
+  'EXP-MNT': 'SERVICE_PROVIDER',
+  'EXP-CLN': 'SERVICE_PROVIDER',
+  'EXP-SEC': 'SERVICE_PROVIDER',
+};
+
+/**
+ * The role a party added from a transaction entry starts with, so the form opens on what the entry is about. The
+ * party filter of a tenant or an employee is exact. Otherwise an expense says who it was paid to (rent: a landlord,
+ * whichever list the filter shows; a utility or a service: that supplier, when the filter is vendors or all), a
+ * plain expense is a supplier of goods and an income a customer. The person can still change it in the form.
+ */
+export function roleForEntry(entry: {
+  kind: 'REVENUE' | 'EXPENSE';
+  partyFilter: 'ALL' | 'TENANT' | 'EMPLOYEE' | 'CUSTOMER' | 'VENDOR';
+  categoryCode?: string | null;
+}): ContactBusinessRole {
+  const { kind, partyFilter } = entry;
+  if (partyFilter === 'TENANT') return 'TENANT';
+  if (partyFilter === 'EMPLOYEE') return 'EMPLOYEE';
+  if (kind === 'EXPENSE') {
+    const byCategory = EXPENSE_CODE_ROLE[String(entry.categoryCode ?? '').trim().toUpperCase()];
+    if (byCategory === 'LANDLORD') return byCategory;
+    if (byCategory && (partyFilter === 'VENDOR' || partyFilter === 'ALL')) return byCategory;
+  }
+  if (partyFilter === 'CUSTOMER') return 'CUSTOMER';
+  if (partyFilter === 'VENDOR') return 'SUPPLIER_GOODS';
+  return kind === 'REVENUE' ? 'CUSTOMER' : 'SUPPLIER_GOODS';
+}
+
+/** «مؤجر للمول» for a landlord, otherwise the kind: «مورد»، «عميل»، «موظف»، «مستأجر». */
+export function kindOrRoleLabel(contact: Pick<ContactFormState, 'kind'>, role: ContactBusinessRole): string {
+  return role === 'LANDLORD' ? 'مؤجر للمول' : KIND_LABEL[formKindOf(contact)];
+}
+
+/** The noun for a message about one file: «المورد»، «العميل»، «المؤجر»، «الموظف»، «المستأجر». */
+export function nounFor(role: ContactBusinessRole, kind: ContactKind): string {
+  if (role === 'LANDLORD') return 'المؤجر';
+  switch (kind) {
+    case 'VENDOR':
+      return 'المورد';
+    case 'CUSTOMER':
+      return 'العميل';
+    case 'EMPLOYEE':
+      return 'الموظف';
+    case 'TENANT':
+      return 'المستأجر';
+    default:
+      return 'الجهة';
+  }
 }
 
 // ---------------------------------------------------------------- payment terms (kept as a line in the notes)
@@ -212,23 +270,24 @@ export function validateContactForm(
   }
 
   if (role === 'EMPLOYEE') {
-    for (const [field, value] of [['salary', form.salary], ['housing', form.employee.housing], ['transport', form.employee.transport]] as const) {
+    const e = employeeOf(form);
+    for (const [field, value] of [['salary', form.salary], ['housing', e.housing], ['transport', e.transport]] as const) {
       const problem = amountProblem(value);
       if (problem) errors[field] = problem;
     }
-    if (!errors.salary && !filled(form.salary) && (filled(form.employee.housing) || filled(form.employee.transport))) {
+    if (!errors.salary && !filled(form.salary) && (filled(e.housing) || filled(e.transport))) {
       errors.salary = 'اكتب الراتب الأساسي';
     }
-    const { employmentType, contractEnd } = form.employee;
+    const { employmentType, contractEnd } = e;
     if ((employmentType === 'CONTRACT' || employmentType === 'TEMPORARY') && filled(contractEnd) && filled(form.hire_date) && contractEnd < form.hire_date) {
       errors.employeeContractEnd = 'نهاية العقد قبل تاريخ التعيين';
     }
     if (options.employeeFile) {
-      if (filled(form.employee.iban) && !isValidIban(form.employee.iban)) errors.iban = IBAN_PROBLEM;
-      const emergency = parsePhone(form.employee.emergencyPhone).problem;
+      if (filled(e.iban) && !isValidIban(e.iban)) errors.iban = IBAN_PROBLEM;
+      const emergency = parsePhone(e.emergencyPhone).problem;
       if (emergency) errors.emergencyPhone = emergency;
-      const days = parseAmountInput(form.employee.annualLeaveDays);
-      if (filled(form.employee.annualLeaveDays) && (!Number.isFinite(days) || days < 0 || days > 365)) {
+      const days = parseAmountInput(e.annualLeaveDays);
+      if (filled(e.annualLeaveDays) && (!Number.isFinite(days) || days < 0 || days > 365)) {
         errors.annualLeaveDays = 'اكتب عدد أيام بين 0 و365';
       }
     }
@@ -246,6 +305,8 @@ export function firstInvalidField(errors: FormErrors): FormField | null {
 export type SalaryPlan = {
   /** the first day of the month the pay starts: the hire month, else this month */
   effectiveFrom: string;
+  /** the month comes from the hire date; false when there is none and it is this month */
+  fromHireDate: boolean;
   base: number;
   housing: number;
   transport: number;
@@ -265,9 +326,10 @@ export function planSalaryStructure(form: ContactFormState, today: string): Sala
   const month = hire ?? today.slice(0, 7);
   return {
     effectiveFrom: `${month}-01`,
+    fromHireDate: hire !== null,
     base: amountOf(form.salary),
-    housing: amountOf(form.employee.housing),
-    transport: amountOf(form.employee.transport),
+    housing: amountOf(employeeOf(form).housing),
+    transport: amountOf(employeeOf(form).transport),
     other: 0,
     total,
   };
@@ -280,7 +342,7 @@ export function planSalaryStructure(form: ContactFormState, today: string): Sala
  */
 export function planEmployeeFile(form: ContactFormState): EmployeeFileInput | null {
   if (form.businessRole !== 'EMPLOYEE') return null;
-  const e = form.employee;
+  const e = employeeOf(form);
   const days = filled(e.annualLeaveDays) ? parseAmountInput(e.annualLeaveDays) : DEFAULT_ANNUAL_LEAVE_DAYS;
   const timeBound = e.employmentType === 'CONTRACT' || e.employmentType === 'TEMPORARY';
   const contractEnd = timeBound && filled(e.contractEnd) ? e.contractEnd : null;

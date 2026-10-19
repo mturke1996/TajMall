@@ -1,25 +1,34 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server';
-import { can, normalizeRole } from '@/lib/permissions';
+import { normalizeRole } from '@/lib/permissions';
+import { isJsonRequest, isSameOriginRequest } from '@/lib/supabase/request-guard';
 
 const schema = z.object({
   user_id: z.uuid('معرّف مستخدم غير صالح'),
-  password: z.string('كلمة المرور مطلوبة').min(10, 'كلمة المرور يجب أن تكون 10 أحرف على الأقل'),
+  // 72 is the most the auth service hashes (bcrypt)
+  password: z
+    .string('كلمة المرور مطلوبة')
+    .min(10, 'كلمة المرور يجب أن تكون 10 أحرف على الأقل')
+    .max(72, 'كلمة المرور يجب ألا تزيد على 72 حرفاً'),
 });
 
 /**
  * يعيّن كلمة مرور جديدة لمستخدم دون الحاجة للكلمة القديمة.
- * للمدير/المالك فقط (org.users) — يستخدم مفتاح الخدمة.
+ *
+ * للمالك (owner) وحده. كان المدير (admin) يستطيع أيضاً تعيين كلمة مرور مدير آخر من نفس مرتبته: أي
+ * أن مديراً واحداً يستولي على حساب مدير ثانٍ ويعمل باسمه بلا أثر في أي سجل. الشاشة لا تعرض الزر
+ * إلا للمالك، والخادم الآن يفرض القاعدة نفسها، فلا يتجاوزها من يستدعي الواجهة مباشرة.
+ * الدور يُقرأ من قاعدة البيانات بجلسة المستدعي، لا من أي ادّعاء في الطلب.
  */
 export async function POST(req: Request) {
   try {
-    const parsed = schema.safeParse(await req.json().catch(() => ({})));
-    if (!parsed.success) {
-      const message = parsed.error.issues[0]?.message ?? 'بيانات غير صالحة';
-      return NextResponse.json({ error: message }, { status: 400 });
+    if (!isSameOriginRequest(req)) {
+      return NextResponse.json({ error: 'طلب مرفوض' }, { status: 403 });
     }
-    const { user_id, password } = parsed.data;
+    if (!isJsonRequest(req)) {
+      return NextResponse.json({ error: 'نوع الطلب غير مدعوم' }, { status: 415 });
+    }
 
     const supabase = await createSupabaseServerClient();
     const {
@@ -36,10 +45,24 @@ export async function POST(req: Request) {
       .single();
 
     const callerRole = normalizeRole(callerProfile?.role);
-    if (!can(callerRole, 'org.users')) {
+    if (callerRole !== 'owner') {
       return NextResponse.json(
-        { error: 'غير مصرّح — تحتاج صلاحية إدارة المستخدمين' },
+        { error: 'غير مصرّح — تعيين كلمة مرور حساب آخر للمالك (owner) فقط' },
         { status: 403 },
+      );
+    }
+
+    const parsed = schema.safeParse(await req.json().catch(() => ({})));
+    if (!parsed.success) {
+      const message = parsed.error.issues[0]?.message ?? 'بيانات غير صالحة';
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+    const { user_id, password } = parsed.data;
+
+    if (user_id === caller.id) {
+      return NextResponse.json(
+        { error: 'لحسابك استخدم «نسيت كلمة المرور» من صفحة الدخول' },
+        { status: 400 },
       );
     }
 
@@ -63,24 +86,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'لم يُعثر على المستخدم' }, { status: 404 });
     }
 
-    const targetRole = normalizeRole(targetProfile.role);
-    if (targetRole === 'owner' && callerRole !== 'owner') {
-      return NextResponse.json({ error: 'فقط owner يستطيع تغيير كلمة مرور owner' }, { status: 403 });
-    }
-
-    if (user_id === caller.id) {
-      return NextResponse.json(
-        { error: 'لحسابك استخدم «نسيت كلمة المرور» من صفحة الدخول' },
-        { status: 400 },
-      );
-    }
-
     const { error: updateErr } = await admin.auth.admin.updateUserById(user_id, {
       password,
     });
     if (updateErr) {
-      return NextResponse.json({ error: updateErr.message }, { status: 400 });
+      console.error('[admin/reset-password] auth call failed', { status: updateErr.status, code: updateErr.code });
+      const msg = /weak|password/i.test(updateErr.message ?? '')
+        ? 'كلمة المرور مرفوضة — اختر كلمة أقوى'
+        : 'تعذّر تعيين كلمة المرور';
+      return NextResponse.json({ error: msg }, { status: 400 });
     }
+
+    // سجل تدقيق على الخادم (معرّفات فقط، لا كلمة مرور)
+    console.info(
+      '[audit] admin.reset_password',
+      JSON.stringify({ actor: caller.id, target: user_id, targetRole: normalizeRole(targetProfile.role) }),
+    );
 
     return NextResponse.json({ ok: true });
   } catch (e) {

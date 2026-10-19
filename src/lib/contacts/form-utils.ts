@@ -36,6 +36,19 @@ export function numericOrNull(value?: string | null | number): string | null {
   return Number.isFinite(n) ? s : null;
 }
 
+/**
+ * A typed amount for a numeric column: «3,200» and «٣٢٠٠٫٥» are read the way the form's own check reads them
+ * (`parseAmountInput`), not dropped for being more than digits. Blank or not an amount is null; a plain number is
+ * kept exactly as written.
+ */
+export function amountOrNull(value?: string | null | number): string | null {
+  const s = emptyToNull(value);
+  if (s == null) return null;
+  if (/^(\d+(\.\d+)?|\.\d+)$/.test(s)) return s;
+  const n = parseAmountInput(s);
+  return Number.isFinite(n) ? String(n) : null;
+}
+
 /** Do not start financial activity from an archived contact profile. */
 export function canCreateContactTransaction(isActive: boolean, hasPermission: boolean): boolean {
   return isActive && hasPermission;
@@ -239,9 +252,13 @@ export function amountOf(value: string | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** The employee part of a form; a hand-built or older state may not carry one. */
+export const employeeOf = (form: Pick<ContactFormState, 'employee'>): EmployeeFormFields => form.employee ?? defaultEmployeeFields();
+
 /** The monthly pay of an employee: basic salary plus housing and transport. This is what the contact card keeps. */
 export function salaryTotal(form: Pick<ContactFormState, 'salary' | 'employee'>): number {
-  return round3(amountOf(form.salary) + amountOf(form.employee.housing) + amountOf(form.employee.transport));
+  const e = employeeOf(form);
+  return round3(amountOf(form.salary) + amountOf(e.housing) + amountOf(e.transport));
 }
 
 const isBlank = (v: string | null | undefined) => (v ?? '').trim() === '';
@@ -269,7 +286,7 @@ export function buildContactPayload(form: ContactFormState, baseline?: ContactFo
 
   let jobTitle = emptyToNull(form.job_title);
   let department = emptyToNull(form.department);
-  let monthlyRent = numericOrNull(form.monthly_rent);
+  let monthlyRent = amountOrNull(form.monthly_rent);
 
   if (role === 'LANDLORD') {
     if (!jobTitle || CUSTOMER_TYPE_TITLES.has(jobTitle)) jobTitle = LANDLORD_TITLE;
@@ -298,7 +315,8 @@ export function buildContactPayload(form: ContactFormState, baseline?: ContactFo
   // role it would make a vendor read as a landlord
   if (role !== 'LANDLORD' && role !== 'TENANT' && role !== 'CUSTOMER') monthlyRent = null;
 
-  const pay = role === 'EMPLOYEE' && [form.salary, form.employee.housing, form.employee.transport].some((v) => !isBlank(v));
+  const e = employeeOf(form);
+  const pay = role === 'EMPLOYEE' && [form.salary, e.housing, e.transport].some((v) => !isBlank(v));
   const salary = pay ? String(salaryTotal(form)) : null;
 
   const untouched = (key: 'phone' | 'phone2') => !!baseline && baseline[key] === form[key];
@@ -313,7 +331,7 @@ export function buildContactPayload(form: ContactFormState, baseline?: ContactFo
     address: emptyToNull(form.address),
     shop_number: emptyToNull(form.shop_number),
     floor: emptyToNull(form.floor),
-    area_sqm: numericOrNull(form.area_sqm),
+    area_sqm: amountOrNull(form.area_sqm),
     monthly_rent: monthlyRent,
     job_title: jobTitle,
     department,

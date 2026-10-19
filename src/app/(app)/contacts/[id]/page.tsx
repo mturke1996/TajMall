@@ -3,27 +3,20 @@
 import { useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
-import { toast } from 'sonner';
 import { EmptyState } from '@/components/data/empty-state';
 import { ContactFormDialog } from '@/components/contacts/contact-form-dialog';
+import { useContactSave } from '@/components/contacts/form/use-contact-save';
 import { OtherContactDetailBody } from '@/components/contacts/other-contact-detail-body';
 import { UtilitySupplierPanel } from '@/components/contacts/utility-supplier-panel';
 import { LandlordFrame } from '@/components/contacts/profile/landlord-frame';
 import { ProfileSkeleton } from '@/components/contacts/profile/profile-skeleton';
 import { TenantFrame } from '@/components/contacts/profile/tenant-frame';
 import { useReturnFocus } from '@/components/contacts/profile/use-return-focus';
-import { useContact, useContactTransactions, useTenantRentForContact, useUpdateContact } from '@/lib/db/queries';
+import { useContact, useContactTransactions, useTenantRentForContact } from '@/lib/db/queries';
 import { useJournalEntries } from '@/lib/db/journal-queries';
 import { extractContactBusinessRole } from '@/lib/contacts/contact-roles';
-import {
-  buildContactPayload,
-  contactToFormState,
-  defaultContactFormState,
-  formatContactSaveError,
-  type ContactFormState,
-} from '@/lib/contacts/form-utils';
+import { contactToFormState, defaultContactFormState, type ContactFormState } from '@/lib/contacts/form-utils';
 import { contactBackHref } from '@/lib/mall/routes';
-import { reconcileSavePayload } from '@/lib/people/party-profile';
 import { fallbackTenantRentFromContact } from '@/lib/tenant-rent-fallback';
 import { usePermission } from '@/lib/supabase/use-permission';
 import { friendlyError } from '@/lib/user-messages';
@@ -54,7 +47,7 @@ export default function ContactDetailPage() {
   const txQuery = useContactTransactions(id);
   const rentQuery = useTenantRentForContact(id);
   const jeQuery = useJournalEntries({ contactId: id, status: 'ALL' }, 500);
-  const updateContact = useUpdateContact();
+  const saver = useContactSave();
 
   const contact = contactQuery.data;
   const transactions = useMemo(() => txQuery.data ?? [], [txQuery.data]);
@@ -76,24 +69,14 @@ export default function ContactDetailPage() {
     setIsEditOpen(true);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
     if (!contact) return;
-    if (!formData.name?.trim()) {
-      toast.error('أدخل الاسم');
-      return;
-    }
-    try {
-      // the form derives the kind from the role and shows only the visible notes: keep the list a landlord
-      // is filed in and the month it is followed from
-      const payload = reconcileSavePayload(buildContactPayload(formData), contact, formData);
-      await updateContact.mutateAsync({ id, ...payload });
-      toast.success('تم التحديث');
-      setIsEditOpen(false);
-    } catch (err) {
-      console.error('[contacts] update failed', err);
-      toast.error(formatContactSaveError(err));
-    }
+    // saving goes through the one place every form uses: a landlord keeps the list it is filed in, the tracking
+    // month and the tags in the notes survive, and a phone that was not touched is saved as it was
+    const outcome = await saver.run(formData, { editingId: id, previous: contact });
+    if (outcome.ok) setIsEditOpen(false);
+    return outcome;
   }
 
   if (!id) {
@@ -174,7 +157,7 @@ export default function ContactDetailPage() {
         onFormChange={setFormData}
         editingId={id}
         onSubmit={handleSubmit}
-        isPending={updateContact.isPending}
+        isPending={saver.pending}
       />
     </>
   );

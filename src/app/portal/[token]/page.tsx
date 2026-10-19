@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { BrandGlyph } from '@/components/brand/logo';
 import { formatDate, formatMoney } from '@/lib/utils';
@@ -17,6 +18,24 @@ import {
 } from '@/lib/rent-price-schedule';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * The address of this page is the tenant's credential. It must not be indexed, cached by a search engine,
+ * or sent along as a Referer when the tenant follows a link (the response headers in next.config.mjs say
+ * the same; the tags cover a crawler that reads the HTML only).
+ */
+export const metadata: Metadata = {
+  title: 'بوابة المستأجر',
+  robots: { index: false, follow: false, nocache: true, noarchive: true, nosnippet: true },
+  referrer: 'no-referrer',
+};
+
+/**
+ * The portal token is 64 hex characters (two UUIDs without hyphens, made by ensure_tenant_portal_token).
+ * Anything that cannot be one is refused before the database is asked, so the page is not a way to probe
+ * the contacts table with odd strings, and a short or guessable value can never match.
+ */
+const PORTAL_TOKEN_SHAPE = /^[A-Za-z0-9_-]{32,128}$/;
 
 type ChargeRow = {
   id: string;
@@ -68,7 +87,7 @@ function chargeRemaining(c: ChargeRow): number {
  */
 export default async function TenantPortalPage({ params }: { params: Promise<{ token: string }> }) {
   const token = (await params).token?.trim();
-  if (!token) return <InvalidLink />;
+  if (!token || !PORTAL_TOKEN_SHAPE.test(token)) return <InvalidLink />;
 
   let supabase;
   try {
@@ -79,7 +98,7 @@ export default async function TenantPortalPage({ params }: { params: Promise<{ t
 
   const { data: contact, error: contactError } = await supabase
     .from('contacts')
-    .select('id, name, shop_number, floor, monthly_rent, phone')
+    .select('id, name, shop_number, floor, monthly_rent')
     .eq('portal_token', token)
     // a deactivated tenant's link stops working
     .eq('kind', 'TENANT')

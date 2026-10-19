@@ -34,27 +34,66 @@
 --    viewer ويقرأ كل شيء (جهات التعامل برواتبها وأرقام هوياتها، أرقام حسابات الخزائن وIBAN، كل
 --    المعاملات والقيود). لا يوجد في القاعدة ما يفرّق بين غريب ومشاهد عيّنه المالك.
 --
--- 7) سجل الرقابة لا يعدّله أحد عبر REST (RLS بلا سياسة كتابة)، لكن لا شيء يمنع service_role (مفتاحه
---    كان مكشوفاً في تاريخ git، انظر SECURITY.md) من حذف سطوره أو تعديلها.
+-- 7) سجل الرقابة لا يعدّله أحد عبر REST (RLS بلا سياسة كتابة)، لكن لا شيء يمنع service_role من حذف سطوره
+--    أو تعديلها. (SECURITY.md يذكر أن مفتاحه كان مكشوفاً في تاريخ git؛ لم أجد قيماً حقيقية في النسخة المحلية
+--    من التاريخ، ولا أستطيع التحقق من المستودع العام ولا من أن المفتاح دُوِّر، فالحراسة هنا تغلق الباب
+--    على المفتاح لا على من يملك كلمة مرور القاعدة.)
 --
 -- 8) نشرة supabase_realtime تضم contacts و transactions و journal_entries و journal_lines، والواجهة
---    لا تشترك إلا في app_notifications. Realtime يبثّ صف الجدول كاملاً لكل مشترك يجتاز RLS.
+--    لا تشترك إلا في app_notifications. Realtime يبثّ تغييرات الصفوف لكل مشترك يجتاز RLS، وقد تضم الحمولة أعمدة
+--    لا يملك المشترك صلاحية قراءتها من الجدول (مثل contacts.portal_token)؛ لم أستطع التحقق من ذلك على Supabase الحي،
+--    وسحب الجداول غير المستعملة من النشرة بلا ضرر على أي حال.
+--
+-- 9) refresh_contacts_api_grants() (من 073/074، وتشغّلها الترحيلات القديمة عند إعادة البناء) تمنح anon
+--    صلاحية SELECT على أعمدة contacts كلما شُغّلت، فتُلغي ما سحبه 078 من anon. لا يستدعيها التطبيق ولا
+--    تُستدعى عبر REST، لكن أي تشغيل يدوي لها (محرر SQL، سكربت) يعيد الفتحة.
+--
+-- 10) احتياط تحويل الواجهات: الواجهة التي تصير security_invoker تقرأ جداولها وتنفّذ دوالها بصلاحية
+--    المستدعي لا المالك. نص الواجهات في القاعدة الحية لم أستطع قراءته (لا اتصال بها من هنا)، لذا يجرّب
+--    الملف قراءة كل واجهة محوَّلة بدور authenticated قبل أن يُتمّ، وتُلغى العملية كلها إن رُفضت.
+--
+-- 11) لا أثر تدقيق لإعادة فتح فترة مالية مغلقة ولا لتغيير دور مستخدم (جدولا fiscal_periods و profiles بلا مشغّل رقابة)،
+--    مع أن إعادة الفتح هي الطريق الوحيد المتبقي لتعديل شهر مقفل (يملكه المحاسب فما فوق بتصميم الواجهة).
 --
 -- ما يفعله هذا الملف (كل جزء يُختبر في scripts/test-least-privilege.mjs):
 --   الجزء 1  الواجهات: سبع منها تصير security_invoker (تحترم RLS للمستدعي)، و payroll_run_lines_status
 --            تبقى بصلاحية المالك عن قصد (تُخفي تفاصيل الراتب عن أمين الخزينة) مع security_barrier؛
---            ولا واجهة تحمل INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER لأي دور.
+--            ولا واجهة تحمل INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER لأي دور؛ وفحص قراءة فعلي
+--            لكل واجهة بدور authenticated (1d).
 --   الجزء 2  الجداول: سحب TRUNCATE/TRIGGER/REFERENCES(/MAINTAIN) من authenticated وanon، وسحب الكتابة
 --            المباشرة من الجداول التي لا تكتبها الواجهة ولا يكتبها مشغّل بصلاحية المستدعي، وتضييق
---            app_notifications إلى تحديث is_read فقط، وضبط الصلاحيات الافتراضية للجداول الجديدة.
+--            app_notifications إلى تحديث is_read فقط، وضبط الصلاحيات الافتراضية للجداول الجديدة، وسحب
+--            CREATE على مخطط public من anon وauthenticated إن كانت ممنوحة لهما صراحةً (2e)، وإصلاح
+--            refresh_contacts_api_grants() كي لا تمنح anon شيئاً (2f).
 --   الجزء 3  السجلات: حذف القيد المباشر للمسودات فقط، وحراسة مشغّلات تمنع أدوار الواجهة (حتى
---            service_role) من تعديل القيود والأسطر وسجل الرقابة؛ دوال القاعدة والمالك يمرّون.
+--            service_role) من تعديل القيود والأسطر وسجل الرقابة؛ دوال القاعدة والمالك يمرّون؛ وأثر
+--            في سجل الرقابة لإغلاق الفترة المالية وإعادة فتحها ولتغيير الأدوار واعتماد الحسابات
+--            (لم يكن يُسجَّل شيء منها؛ النوعان الجديدان fiscal_period و profile يظهران باسمهما الإنجليزي
+--            في شاشة الرقابة حتى تُضاف تسميتهما إلى AUDIT_ENTITY_LABELS في src/lib/db/audit-queries.ts).
 --   الجزء 4  احتواء التسجيل الذاتي: عمود profiles.approved_at، والغريب يبقى «بانتظار الموافقة» ولا
 --            تُرجع له سياسات القراءة صفاً واحداً؛ الاعتماد يتم تلقائياً عندما يعيّن المالك/المدير
---            دوره (أو مسار الدعوة بمفتاح الخدمة) فلا يتغير سير العمل الحالي.
+--            دوره (أو مسار الدعوة بمفتاح الخدمة) فلا يتغير سير العمل الحالي. إيقاف حساب معتمد (أو
+--            إيقاف المالك) لا يملكه إلا من يملك تغيير دوره، ولا يوقف أحد حسابه بنفسه.
 --   الجزء 5  نشرة Realtime: إبقاء app_notifications وحدها.
 --   الجزء 6  فحوص بعدية داخل الإجراء نفسه: إن لم تتحقق أي قاعدة تُلغى العملية كلها.
 --   لا يعتمد على 085 ولا 085 عليه؛ يعملان بأي ترتيب (كلاهما يعيد التطبيق بلا ضرر).
+--
+-- قبل التطبيق (دقيقة واحدة، في محرر SQL): من يوجد الآن في Auth؟ كل حساب موجود وقت التطبيق يُعتمد كما هو
+-- (يحتفظ بما يراه اليوم). فإن رأيت حساباً لا تعرفه فاحذفه أولاً من Authentication > Users:
+--   SELECT u.email, p.role, u.created_at, u.last_sign_in_at, (p.id IS NULL) AS no_profile
+--   FROM auth.users u LEFT JOIN public.profiles p ON p.id = u.id ORDER BY u.created_at;
+-- مستخدم Auth بلا ملف شخصي يُنشأ له ملف viewer معتمد (وإلا انقطع عنه ما كان يقرؤه).
+--
+-- للتحقق بعد التطبيق (قراءة فقط): كل الواجهات بلا صلاحية كتابة، وسبع منها security_invoker:
+--   SELECT c.relname, c.reloptions, has_table_privilege('authenticated', c.oid, 'UPDATE') AS authenticated_can_update
+--   FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'v' ORDER BY 1;
+--
+-- بعد التطبيق: (أ) الحساب الجديد (دعوة من التطبيق أو إضافة يدوية من لوحة Supabase) يبقى «بانتظار الموافقة» حتى
+-- يعيّن له المالك/المدير دوراً من شاشة المستخدمين (فيُعتمد في الخطوة نفسها)، أو بـ
+--   UPDATE public.profiles SET approved_at = now() WHERE id = '<uuid>';
+-- (ب) استعادة نسخة احتياطية قديمة بالسكربت الطارئ (restore-cold-backup) تُرجع صفوف profiles بلا approved_at
+-- فتصير كلها «بانتظار الموافقة» وينقطع الجميع؛ الحل نفسه: UPDATE public.profiles SET approved_at = now() WHERE approved_at IS NULL;
+-- بحساب قاعدة البيانات المباشر. هذا سلوك مقصود (الفشل يغلق ولا يفتح).
 --
 -- ما لا يفعله (بقرار المالك، موثّق في أسفل الملف كتعليمات `--|` مُختبَرة):
 --   • تفعيل ربط api_pre_request بـ PostgREST (يحجب RPC القراءة عن غير المعتمدين).
@@ -73,8 +112,8 @@ CREATE SCHEMA IF NOT EXISTS migration_backup;
 REVOKE ALL ON SCHEMA migration_backup FROM PUBLIC;
 
 CREATE TABLE IF NOT EXISTS migration_backup.m086_revoked (
-  kind text NOT NULL,        -- table
-  object text NOT NULL,      -- public.contacts
+  kind text NOT NULL,        -- table | schema
+  object text NOT NULL,      -- public.contacts | public
   grantee text NOT NULL,     -- اسم الدور أو PUBLIC
   privilege text NOT NULL,
   PRIMARY KEY (kind, object, grantee, privilege)
@@ -109,6 +148,10 @@ CREATE TABLE IF NOT EXISTS migration_backup.m086_default_acl (
   grantee text NOT NULL,
   privilege text NOT NULL,
   PRIMARY KEY (owner_role, grantee, privilege)
+);
+CREATE TABLE IF NOT EXISTS migration_backup.m086_functions (
+  signature text PRIMARY KEY,
+  definition text NOT NULL
 );
 REVOKE ALL ON ALL TABLES IN SCHEMA migration_backup FROM PUBLIC, anon, authenticated;
 
@@ -201,6 +244,39 @@ BEGIN
   END LOOP;
 END
 $part1$;
+
+-- 1d. فحص قراءة فعلي: الواجهة المحوَّلة تُنفَّذ الآن بصلاحية المستدعي، فإن كان نصها الحي يقرأ عموداً أو يستدعي
+--     دالة لا يملكها authenticated (مثل contacts.portal_token) فلن تعمل لأحد. نجرّبها هنا بدور authenticated:
+--     الرفض يُلغي الملف كله قبل أن يتغيّر شيء، بدل أن يكتشفه المستخدمون في الشاشات.
+--     (إن لم يسمح دور هذا الاتصال بالتحول إلى authenticated يُتخطى الفحص مع تنبيه.)
+DO $part1d$
+DECLARE
+  v text;
+  v_switched boolean := false;
+BEGIN
+  BEGIN
+    EXECUTE 'SET LOCAL ROLE authenticated';
+    v_switched := true;
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE '086: تعذّر التحول إلى authenticated في هذه الجلسة — تُرك فحص قراءة الواجهات (جرّبها بعد التطبيق من التطبيق نفسه)';
+  END;
+  IF NOT v_switched THEN RETURN; END IF;
+
+  FOREACH v IN ARRAY ARRAY['monthly_summary', 'top_expense_categories', 'employee_summary',
+                           'journal_lines_with_categories', 'tenant_rent_summary', 'tenants_rent_status',
+                           'cashbox_balances', 'payroll_run_lines_status'] LOOP
+    IF to_regclass('public.' || v) IS NULL THEN CONTINUE; END IF;
+    BEGIN
+      EXECUTE format('SELECT * FROM public.%I LIMIT 0', v);
+    EXCEPTION WHEN insufficient_privilege THEN
+      EXECUTE 'RESET ROLE';
+      RAISE EXCEPTION '086: الواجهة % لا يستطيع authenticated قراءتها بعد تحويلها إلى صلاحية المستدعي (%). أبقِها بصلاحية المالك وأخبر المطوّر.', v, SQLERRM
+        USING ERRCODE = '42501';
+    END;
+  END LOOP;
+  EXECUTE 'RESET ROLE';
+END
+$part1d$;
 
 -- ── 2. صلاحيات الجداول ───────────────────────────────────────
 DO $part2$
@@ -298,8 +374,40 @@ BEGIN
       RAISE NOTICE '086: لا صلاحية لتغيير الصلاحيات الافتراضية للدور % (طبّقها بحساب مالك ذلك الدور)', v_role;
     END;
   END LOOP;
+
+  -- 2e. مخطط public: لا CREATE لأدوار الواجهة. تُسحب فقط إن كانت ممنوحة لهما صراحةً (لا نلمس PUBLIC ولا
+  --     postgres: ترحيلاتك تعمل بحساب postgres وقد تعتمد عليهما). لا يصلها أحد عبر REST أصلاً.
+  FOREACH g IN ARRAY ARRAY['authenticated', 'anon'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname = g)
+       AND EXISTS (SELECT 1 FROM pg_namespace n,
+                          aclexplode(COALESCE(n.nspacl, acldefault('n', n.nspowner))) a
+                   WHERE n.nspname = 'public' AND a.privilege_type = 'CREATE'
+                     AND a.grantee = (SELECT r.oid FROM pg_roles r WHERE r.rolname = g)) THEN
+      INSERT INTO migration_backup.m086_revoked (kind, object, grantee, privilege)
+      VALUES ('schema', 'public', g, 'CREATE') ON CONFLICT DO NOTHING;
+      EXECUTE format('REVOKE CREATE ON SCHEMA public FROM %I', g);
+    END IF;
+  END LOOP;
 END
 $part2$;
+
+-- 2f. refresh_contacts_api_grants(): نفس الدالة بلا منح anon شيئاً (الباقي حرفياً كما هو في القاعدة).
+--     يُحفظ نصها الأصلي للتراجع. إن كانت مصحَّحة أصلاً أو نصها مختلف عن المتوقع لا يُغيَّر شيء.
+DO $part2f$
+DECLARE
+  v_def text;
+  v_new text;
+BEGIN
+  IF to_regprocedure('public.refresh_contacts_api_grants()') IS NULL THEN RETURN; END IF;
+  v_def := pg_get_functiondef('public.refresh_contacts_api_grants()'::regprocedure);
+  v_new := replace(v_def, 'TO anon, authenticated', 'TO authenticated');
+  IF v_new <> v_def THEN
+    INSERT INTO migration_backup.m086_functions (signature, definition)
+    VALUES ('public.refresh_contacts_api_grants()', v_def) ON CONFLICT DO NOTHING;
+    EXECUTE v_new;
+  END IF;
+END
+$part2f$;
 
 -- ── 3. السجلات: القيود وسجل الرقابة ──────────────────────────
 -- يعمل المشغّلان التاليان بصلاحية المستدعي (ليسا SECURITY DEFINER عن قصد) حتى يرى current_user الحقيقي:
@@ -391,6 +499,34 @@ BEGIN
 END
 $part3$;
 
+-- أثر تدقيق لإغلاق الفترة المالية وإعادة فتحها: المحاسب (فما فوق) يعيد فتح فترة مغلقة بتحديث واحد، ثم ينشئ
+-- أو يعكس قيوداً فيها بالدوال العادية، وكل هذا لم يكن يترك أثراً على الفتح نفسه. الحدث الآن في سجل الرقابة.
+CREATE OR REPLACE FUNCTION public.audit_fiscal_period_changes()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+BEGIN
+  PERFORM public.write_audit_log(
+    'UPDATE', 'fiscal_period', NEW.id, NEW.name,
+    CASE WHEN NEW.is_closed THEN 'إغلاق الفترة المالية ' || NEW.name
+         ELSE 'إعادة فتح الفترة المالية ' || NEW.name || ' (كانت مغلقة)' END,
+    NEW.start_date, NULL, NULL,
+    CASE WHEN NEW.is_closed THEN 'info' ELSE 'warning' END,
+    jsonb_build_object('event', CASE WHEN NEW.is_closed THEN 'period_closed' ELSE 'period_reopened' END,
+                       'start_date', NEW.start_date, 'end_date', NEW.end_date)
+  );
+  RETURN NEW;
+END
+$fn$;
+REVOKE ALL ON FUNCTION public.audit_fiscal_period_changes() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS trg_zz_audit_fiscal_periods ON public.fiscal_periods;
+CREATE TRIGGER trg_zz_audit_fiscal_periods
+  AFTER UPDATE ON public.fiscal_periods
+  FOR EACH ROW WHEN (OLD.is_closed IS DISTINCT FROM NEW.is_closed)
+  EXECUTE FUNCTION public.audit_fiscal_period_changes();
+
 -- مسودات النماذج: صاحبها فقط (الواجهة تقرأ وتكتب بـ user_id = المستخدم الحالي في كل موضع)
 DO $part3b$
 DECLARE
@@ -418,15 +554,27 @@ $part3b$;
 DO $part4a$
 DECLARE
   v_list text;
+  v_orphans int := 0;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'approved_at') THEN
     ALTER TABLE public.profiles ADD COLUMN approved_at timestamptz;
+    -- مستخدم Auth بلا ملف شخصي: كان يقرأ كل شيء بصفة مشاهد (get_my_role يعيد viewer لمن لا ملف له). نُنشئ له
+    -- ملف viewer معتمداً فيحتفظ بما يراه اليوم بدل أن ينقطع. (التريغر الجديد لم يُنشأ بعد، فيبقى approved_at كما ندخله.)
+    BEGIN
+      INSERT INTO public.profiles (id, role, approved_at)
+      SELECT u.id, 'viewer', now() FROM auth.users u
+      WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id)
+      ON CONFLICT (id) DO NOTHING;
+      GET DIAGNOSTICS v_orphans = ROW_COUNT;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE NOTICE '086: تعذّر إنشاء ملفات للمستخدمين بلا ملف (%): أنشئها يدوياً وإلا لن يقرؤوا شيئاً', SQLERRM;
+    END;
     SELECT string_agg(coalesce(u.email, p.id::text) || ' [' || coalesce(p.role, '-') || ']', ', ' ORDER BY p.created_at)
       INTO v_list
     FROM public.profiles p LEFT JOIN auth.users u ON u.id = p.id;
     UPDATE public.profiles SET approved_at = COALESCE(created_at, now()) WHERE approved_at IS NULL;
-    RAISE NOTICE '086: اعتُمدت الحسابات الموجودة: %', COALESCE(v_list, '(لا شيء)');
+    RAISE NOTICE '086: اعتُمدت الحسابات الموجودة (% منها بلا ملف سابق): %', v_orphans, COALESCE(v_list, '(لا شيء)');
   END IF;
 END
 $part4a$;
@@ -474,6 +622,17 @@ BEGIN
     IF NEW.approved_at IS DISTINCT FROM OLD.approved_at AND NOT v_trusted THEN
       RAISE EXCEPTION 'غير مصرح: اعتماد الحسابات للمالك أو المدير فقط.' USING ERRCODE = '42501';
     END IF;
+    -- إيقاف حساب معتمد = إسقاطه إلى viewer بلا اعتماد، أي تغيير دور فعلاً: يخضع لقواعد 082 نفسها
+    -- (لا أحد يوقف حسابه بنفسه، والمالك وحده يوقف مالكاً). يُستثنى service_role واتصال القاعدة المباشر.
+    IF OLD.approved_at IS NOT NULL AND NEW.approved_at IS NULL
+       AND v_jwt_role IS DISTINCT FROM 'service_role' AND (v_jwt_role IS NOT NULL OR v_uid IS NOT NULL) THEN
+      IF NEW.id = v_uid THEN
+        RAISE EXCEPTION 'غير مصرح: لا يمكنك إيقاف حسابك بنفسك.' USING ERRCODE = '42501';
+      END IF;
+      IF lower(trim(coalesce(OLD.role, ''))) = 'owner' AND public.get_my_role() <> 'owner' THEN
+        RAISE EXCEPTION 'غير مصرح: إيقاف حساب المالك للمالك فقط.' USING ERRCODE = '42501';
+      END IF;
+    END IF;
     -- من يعيّن دور حساب غيره (المالك، المدير، مسار الدعوة بمفتاح الخدمة) يعتمده في الخطوة نفسها
     IF OLD.approved_at IS NULL AND NEW.approved_at IS NULL AND v_trusted AND NEW.id IS DISTINCT FROM v_uid THEN
       NEW.approved_at := now();
@@ -492,6 +651,38 @@ DROP TRIGGER IF EXISTS trg_profiles_approval ON public.profiles;
 CREATE TRIGGER trg_profiles_approval
   BEFORE INSERT OR UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.guard_profile_approval();
+
+-- أثر تدقيق لتغيير الأدوار والاعتماد والإيقاف (لم يكن يُسجَّل شيء منها). بعد الاعتماد الأولي أعلاه فلا ضجيج.
+CREATE OR REPLACE FUNCTION public.audit_profile_access_changes()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+DECLARE
+  v_name text := coalesce(NEW.full_name_ar, NEW.full_name, NEW.id::text);
+BEGIN
+  PERFORM public.write_audit_log(
+    'UPDATE', 'profile', NEW.id, v_name,
+    CASE
+      WHEN OLD.approved_at IS NULL AND NEW.approved_at IS NOT NULL THEN 'اعتماد حساب ' || v_name || ' بدور ' || coalesce(NEW.role, '-')
+      WHEN OLD.approved_at IS NOT NULL AND NEW.approved_at IS NULL THEN 'إيقاف حساب ' || v_name || ' (كان ' || coalesce(OLD.role, '-') || ')'
+      ELSE 'تغيير دور ' || v_name || ': ' || coalesce(OLD.role, '-') || ' ← ' || coalesce(NEW.role, '-')
+    END,
+    CURRENT_DATE, NULL, NULL, 'warning',
+    jsonb_build_object('event', 'profile_access', 'old_role', OLD.role, 'new_role', NEW.role,
+                       'was_approved', OLD.approved_at IS NOT NULL, 'approved', NEW.approved_at IS NOT NULL)
+  );
+  RETURN NEW;
+END
+$fn$;
+REVOKE ALL ON FUNCTION public.audit_profile_access_changes() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS trg_zz_audit_profile_access ON public.profiles;
+CREATE TRIGGER trg_zz_audit_profile_access
+  AFTER UPDATE ON public.profiles
+  FOR EACH ROW WHEN (OLD.role IS DISTINCT FROM NEW.role
+                     OR (OLD.approved_at IS NULL) IS DISTINCT FROM (NEW.approved_at IS NULL))
+  EXECUTE FUNCTION public.audit_profile_access_changes();
 
 -- كل سياسات القراءة المفتوحة (USING true) تصير «عضو معتمد». الصياغة (SELECT ...) تُقيَّم مرة لكل جملة.
 DO $part4b$
@@ -574,7 +765,7 @@ END
 $fn$;
 
 -- ── 5. نشرة Realtime ─────────────────────────────────────────
--- الواجهة تشترك في app_notifications فقط (src/lib/db/notification-queries.ts). Realtime يبثّ الصف كاملاً
+-- الواجهة تشترك في app_notifications فقط (src/lib/db/notification-queries.ts). Realtime قد يبثّ الصف كاملاً
 -- (ومنه contacts.portal_token) لكل مشترك يجتاز RLS؛ فتبقى النشرة على ما تستعمله الواجهة.
 DO $part5$
 DECLARE
@@ -657,8 +848,23 @@ BEGIN
     AND lower(btrim(coalesce(p.qual, ''))) IN ('true', '(true)');
   IF v_list IS NOT NULL THEN RAISE EXCEPTION '086: سياسات قراءة ما زالت مفتوحة: %', v_list; END IF;
 
+  -- الدالة التي تعيد منح الأعمدة لم تعد تمنح anon
+  IF to_regprocedure('public.refresh_contacts_api_grants()') IS NOT NULL
+     AND pg_get_functiondef('public.refresh_contacts_api_grants()'::regprocedure) LIKE '%TO anon, authenticated%' THEN
+    RAISE EXCEPTION '086: refresh_contacts_api_grants() ما زالت تمنح anon أعمدة contacts (نصها الحي مختلف عن المتوقع، عدّلها يدوياً)';
+  END IF;
+
   SELECT count(*) INTO n FROM public.profiles WHERE approved_at IS NULL;
   IF n > 0 THEN RAISE NOTICE '086: % حساب بانتظار الموافقة (راجعها قبل الاعتماد)', n; END IF;
+
+  SELECT count(*) INTO n FROM auth.users u WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id);
+  IF n > 0 THEN RAISE NOTICE '086: % مستخدم Auth بلا ملف شخصي — لن يقرأ شيئاً حتى يُنشأ له ملف', n; END IF;
+
+  FOREACH v_list IN ARRAY ARRAY['authenticated', 'anon'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = v_list) AND has_schema_privilege(v_list, 'public', 'CREATE') THEN
+      RAISE NOTICE '086: الدور % ما زال يملك CREATE على مخطط public (ممنوح عبر PUBLIC أو عضوية دور — راجعه في لوحة Supabase)', v_list;
+    END IF;
+  END LOOP;
 END
 $post$;
 

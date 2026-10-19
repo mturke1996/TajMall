@@ -298,7 +298,10 @@ function rentOf(rows: ReportRentRow[]): RentMonth {
       continue;
     }
     const amount = num(r.current_month_amount) || num(r.monthly_rent);
-    const paid = num(r.current_month_paid);
+    // a month the database calls fully paid is paid in full, as the tenant's own calendar shows it, even when
+    // the amount recorded on it is short of the rent (a charge marked paid after a price change); otherwise
+    // the report would list money as remaining from tenants it counts as paid in full
+    const paid = status === 'paid_full' ? Math.max(num(r.current_month_paid), amount) : num(r.current_month_paid);
     out.due += amount;
     out.collected += paid;
     out.remaining += Math.max(amount - paid, 0);
@@ -361,17 +364,28 @@ export function buildMonthlyReport(input: MonthlyReportInput): MonthlyReport {
 
   let arrears: MonthlyReport['arrears'] = null;
   if (input.aging) {
-    const owing = input.aging.filter((r) => num(r.total_outstanding) > EPS);
-    const sum = (f: (r: ReportAgingRow) => unknown) => round3(owing.reduce((s, r) => s + num(f(r)), 0));
+    // The aging function lists what is open now and files rent that has not fallen due as of its date under
+    // "current". For a month that is over, the report is "until its last day": rent that fell due afterwards
+    // did not exist then, so it is left out (what was paid after the month still cannot be added back).
+    const monthOver = end < today;
+    const rows = input.aging
+      .map((r) => ({ r, owed: Math.max(num(r.total_outstanding) - (monthOver ? num(r.bucket_current) : 0), 0) }))
+      .filter((x) => x.owed > EPS);
+    const sum = (f: (x: { r: ReportAgingRow; owed: number }) => unknown) => round3(rows.reduce((s, x) => s + num(f(x)), 0));
     arrears = {
-      total: sum((r) => r.total_outstanding),
-      tenants: owing.length,
-      buckets: { current: sum((r) => r.bucket_current), d30: sum((r) => r.bucket_30), d60: sum((r) => r.bucket_60), d90: sum((r) => r.bucket_90_plus) },
-      top: owing
+      total: sum((x) => x.owed),
+      tenants: rows.length,
+      buckets: {
+        current: monthOver ? 0 : sum((x) => x.r.bucket_current),
+        d30: sum((x) => x.r.bucket_30),
+        d60: sum((x) => x.r.bucket_60),
+        d90: sum((x) => x.r.bucket_90_plus),
+      },
+      top: rows
         .slice()
-        .sort((a, b) => num(b.total_outstanding) - num(a.total_outstanding) || a.tenant_name.localeCompare(b.tenant_name, 'ar'))
+        .sort((a, b) => b.owed - a.owed || a.r.tenant_name.localeCompare(b.r.tenant_name, 'ar'))
         .slice(0, TOP_DEBTORS)
-        .map((r) => ({ tenantId: r.tenant_id, name: r.tenant_name, shop: r.shop_number, phone: r.phone ?? null, amount: round3(num(r.total_outstanding)) })),
+        .map(({ r, owed }) => ({ tenantId: r.tenant_id, name: r.tenant_name, shop: r.shop_number, phone: r.phone ?? null, amount: round3(owed) })),
     };
   }
 
