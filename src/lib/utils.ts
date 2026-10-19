@@ -94,11 +94,12 @@ const fullFormatter = new Intl.NumberFormat('en-US', {
 });
 
 /**
- * "262,150.5 د.ل" — in an Arabic (right-to-left) line the number comes first on the right and the currency
- * follows it on the left, the way it is read aloud. Only the number (sign and digits) sits in a
- * left-to-right isolate (U+2066 … U+2069) so it keeps its own order; the currency stays in the line's
- * direction. Putting both inside one isolate — as an earlier version did — drew the currency on the right,
- * before the number.
+ * "262,150.5 د.ل" — read right to left: the number first, then the currency after it (on its left).
+ * The whole figure is an isolate that runs right to left (U+2067 … U+2069) whatever the surrounding
+ * direction is, and the number alone (sign and digits) is a left-to-right isolate inside it (U+2066 … U+2069)
+ * so it keeps its own digit order. Without the outer isolate a cell or span set to dir="ltr" (amount columns,
+ * codes) drew the currency on the right of the number, i.e. read first in Arabic; without the inner one the
+ * sign and the digits could trade places.
  * A negative amount always carries − (an overdrawn box or a net loss must never read as positive);
  * pass `signed` to also show + on positive amounts, and Math.abs() when a label already gives the side.
  */
@@ -110,14 +111,14 @@ export function formatMoney(
   const label = CURRENCY_LABEL[currency] ?? currency;
   const unit = label ? ` ${label}` : '';
   const raw = typeof amount === 'string' ? Number(amount) : Number(amount);
-  if (!Number.isFinite(raw)) return `⁦0⁩${unit}`;
+  if (!Number.isFinite(raw)) return `⁧⁦0⁩${unit}⁩`;
 
   // the sign follows the rounded value, so -0.0001 is shown as 0, not as a negative zero
   const n = Math.round(raw * 1000) / 1000;
   const sign = n < 0 ? '−' : options?.signed && n > 0 ? '+' : '';
   const abs = Math.abs(n);
   const digits = options?.compact && abs >= 1000 ? compactFormatter.format(abs) : fullFormatter.format(abs);
-  return `⁦${sign}${digits}⁩${unit}`;
+  return `⁧⁦${sign}${digits}⁩${unit}⁩`;
 }
 
 /**
