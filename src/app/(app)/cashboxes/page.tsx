@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Plus, Wallet, Landmark, Loader2, Pencil, ArrowLeftRight, ChevronLeft, BookOpen, ClipboardList } from 'lucide-react';
+import { Plus, Wallet, Landmark, Loader2, Pencil, ArrowLeftRight, ChevronLeft, BookOpen, ClipboardList, FileText } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
@@ -64,8 +64,15 @@ export default function CashboxesPage() {
         title="إدارة الخزائن"
         description="تابع أرصدة الخزائن والحسابات المصرفية، حوّل بينها، واعرض سجل حركات كل خزينة."
         actions={
-          canManage ? (
-            <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            <Button size="sm" variant="outline" className="gap-1.5 touch-manipulation" asChild>
+              <Link href="/cashboxes/daily">
+                <FileText className="stroke-[1.6]" />
+                كشف اليوم
+              </Link>
+            </Button>
+            {canManage && (
+              <>
               <Button
                 size="sm"
                 variant="outline"
@@ -91,8 +98,9 @@ export default function CashboxesPage() {
                 <Plus className="stroke-[1.6]" />
                 خزينة جديدة
               </Button>
-            </div>
-          ) : undefined
+              </>
+            )}
+          </div>
         }
       />
 

@@ -52,6 +52,7 @@ jobs:
           npm run verify:occupancy
           npm run verify:monthly-report
           npm run verify:follow-up
+          npm run verify:daily-cashbox
 
       - name: Database replica tests (proposed migrations, no live database)
         run: |
