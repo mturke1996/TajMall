@@ -461,8 +461,12 @@ let futureApproved;
   check('early', 'السبب إلزامي', has(await callEarly('owner', og.value, day(-1), ' '), 'سبب'));
   check('early', 'نهاية لا تقصّر (مساوية أو أبعد) تُرفض', has(await callEarly('owner', og.value, day(0)), 'بين') && has(await callEarly('owner', og.value, day(5)), 'بين'));
   check('early', 'نهاية قبل البداية تُرفض', has(await callEarly('owner', og.value, addDaysISO(start, -1)), 'بين'));
-  const pend = await request('accountant', E.g, 'SICK', day(40), day(41));
-  check('early', 'تُقصَّر المعتمدة فقط', has(await callEarly('owner', pend.value, day(40)), 'المعتمدة'));
+  // the request must start on a working day: when today + 40 fell on a Friday the system (rightly) refused a
+  // request that was all weekend, and this check failed one day in seven
+  let pendStart = day(40);
+  while ([5, 6].includes(L.weekdayOf(pendStart))) pendStart = addDaysISO(pendStart, 1);
+  const pend = await request('accountant', E.g, 'SICK', pendStart, addDaysISO(pendStart, 1));
+  check('early', 'تُقصَّر المعتمدة فقط', has(await callEarly('owner', pend.value, pendStart), 'المعتمدة'));
   // a leave that starts on a Friday and is cut back to the weekend leaves no working day
   let fri = day(60);
   while (L.weekdayOf(fri) !== 5) fri = addDaysISO(fri, 1);
