@@ -45,8 +45,11 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
 
   icons: {
-    icon: [{ url: '/TajMall-Icon.jpg', type: 'image/jpeg' }],
-    apple: [{ url: '/TajMall-Icon.jpg', sizes: '180x180', type: 'image/jpeg' }],
+    icon: [
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
     shortcut: '/TajMall-Icon.jpg',
   },
 
@@ -103,7 +106,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content={BRAND.name} />
-        <link rel="apple-touch-icon" href="/TajMall-Icon.jpg" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body
         className="min-h-dvh bg-background font-sans text-foreground"

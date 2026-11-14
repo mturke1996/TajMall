@@ -8,22 +8,35 @@
   "scope": "/",
   "id": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#171717",
-  "categories": ["finance", "business", "productivity"],
+  "categories": [
+    "finance",
+    "business",
+    "productivity"
+  ],
   "icons": [
     {
-      "src": "/TajMall-Icon.jpg",
-      "sizes": "192x192 256x256 384x384 512x512",
-      "type": "image/jpeg",
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/TajMall-Icon.jpg",
+      "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/jpeg",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ],
@@ -32,19 +45,37 @@
       "name": "إيراد جديد",
       "short_name": "إيراد",
       "url": "/revenues",
-      "icons": [{ "src": "/TajMall-Icon.jpg", "sizes": "512x512", "type": "image/jpeg" }]
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     },
     {
       "name": "مصروف جديد",
       "short_name": "مصروف",
       "url": "/expenses",
-      "icons": [{ "src": "/TajMall-Icon.jpg", "sizes": "512x512", "type": "image/jpeg" }]
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     },
     {
       "name": "دفتر اليومية",
       "short_name": "قيود",
       "url": "/journals",
-      "icons": [{ "src": "/TajMall-Icon.jpg", "sizes": "512x512", "type": "image/jpeg" }]
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

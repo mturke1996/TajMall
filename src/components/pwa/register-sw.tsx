@@ -18,12 +18,12 @@ export function RegisterServiceWorker() {
     if (new URL(window.location.href).searchParams.has('nosw')) return;
 
     let refreshing = false;
-    const hadControllerAtRegister = !!navigator.serviceWorker.controller;
+    // The page is reloaded for a new version ONLY after the user taps "تحديث". A reload nobody asked for
+    // would throw away whatever is typed in an open form (and later, the offline queue's screen state).
+    let userAcceptedUpdate = false;
 
-    // New SW took control — reload once. Skip toast on first install (no prior controller).
     const handleControllerChange = () => {
-      if (refreshing) return;
-      if (!hadControllerAtRegister) return;
+      if (refreshing || !userAcceptedUpdate) return;
       refreshing = true;
       window.location.reload();
     };
@@ -50,9 +50,12 @@ export function RegisterServiceWorker() {
               toast.info('تحديث جديد متاح', {
                 description: 'هناك نسخة جديدة من التطبيق متاحة.',
                 id: 'pwa-sw-updatefound',
+                // stays until the user decides: the update must never interrupt work in progress
+                duration: Infinity,
                 action: {
                   label: 'تحديث',
                   onClick: () => {
+                    userAcceptedUpdate = true;
                     newWorker.postMessage({ type: 'SKIP_WAITING' });
                   },
                 },

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <meta name="color-scheme" content="light dark" />
+  <title>لا يوجد اتصال — تاج مول</title>
+  <style>
+    :root { --bg: #fbfbfa; --ink: #15171a; --muted: #5b5f66; --line: #eceae3; --brand: #2f3d27; --on-brand: #fbfbfa; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #15171a; --ink: #f2f1ec; --muted: #a9acb2; --line: #2a2d31; --brand: #8fa583; --on-brand: #15171a; }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px;
+      background: var(--bg); color: var(--ink);
+      font-family: "Segoe UI", Tahoma, "Noto Naskh Arabic", "Noto Sans Arabic", system-ui, sans-serif; line-height: 1.7;
+    }
+    main { max-width: 30rem; width: 100%; text-align: center; }
+    .mark { width: 64px; height: 64px; margin: 0 auto 20px; border-radius: 16px; background: var(--brand); color: var(--on-brand);
+            display: grid; place-items: center; font-size: 34px; font-weight: 700; }
+    h1 { font-size: 1.35rem; margin: 0 0 8px; }
+    p { margin: 0 0 8px; color: var(--muted); }
+    .actions { margin-top: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    a, button {
+      font: inherit; padding: 10px 18px; border-radius: 10px; border: 1px solid var(--line); cursor: pointer;
+      background: transparent; color: var(--ink); text-decoration: none;
+    }
+    button.primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+    a:focus-visible, button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+    small { display: block; margin-top: 28px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main role="main">
+    <div class="mark" aria-hidden="true">ت</div>
+    <h1>لا يوجد اتصال بالإنترنت</h1>
+    <p>هذه الصفحة لم تُحفظ على هذا الجهاز بعد، فلا يمكن فتحها الآن.</p>
+    <p>الصفحات التي فتحتها من قبل تبقى متاحة للعرض. أما حفظ بيانات جديدة فيحتاج إلى اتصال.</p>
+    <div class="actions">
+      <button class="primary" type="button" id="retry">إعادة المحاولة</button>
+      <a href="/dashboard">لوحة التحكم</a>
+    </div>
+    <small id="status" aria-live="polite"></small>
+  </main>
+  <script>
+    (function () {
+      var status = document.getElementById('status');
+      document.getElementById('retry').addEventListener('click', function () {
+        if (navigator.onLine) { location.reload(); } else { status.textContent = 'ما زال الجهاز غير متصل.'; }
+      });
+      window.addEventListener('online', function () { location.reload(); });
+    })();
+  </script>
+</body>
+</html>
