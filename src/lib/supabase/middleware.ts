@@ -74,11 +74,9 @@ export async function updateSession(request: NextRequest) {
     path.startsWith('/login') ||
     path.startsWith('/auth/callback') ||
     path.startsWith('/auth/confirm') ||
-    path.startsWith('/signup') ||
     path.startsWith('/portal') ||
     path.startsWith('/api/health') ||
     path.startsWith('/api/keepalive') ||
-    path.startsWith('/api/auth/forgot-password') ||
     path.startsWith('/_next') ||
     path.startsWith('/favicon') ||
     path.startsWith('/fonts') ||

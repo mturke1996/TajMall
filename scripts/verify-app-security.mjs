@@ -195,6 +195,24 @@ check('bearer + constant-time compare', () => {
   assert.equal(guard.safeEqual('', ''), true);
 });
 
+const { interpretRestProbe, overallHealth } = await import('../src/lib/keepalive.ts');
+check('keepalive: only an HTTP answer below 500 is healthy; 5xx, timeout, network error and missing keys are failures', () => {
+  for (const status of [200, 204, 401, 403, 404]) assert.equal(interpretRestProbe({ kind: 'response', status }, 5).success, true, `status ${status}`);
+  for (const status of [500, 502, 503, 504]) assert.equal(interpretRestProbe({ kind: 'response', status }, 5).success, false, `status ${status}`);
+  assert.equal(interpretRestProbe({ kind: 'timeout', afterMs: 8000 }, 8000).success, false);
+  assert.equal(interpretRestProbe({ kind: 'network-error' }, 3).success, false);
+  assert.equal(interpretRestProbe({ kind: 'not-configured' }, 0).success, false);
+  assert.ok(!/https?:\/\//.test(interpretRestProbe({ kind: 'network-error' }, 3).message), 'a failure message must not carry the project URL');
+});
+check('keepalive: one failed probe turns the whole answer into 503 (so the scheduled workflow goes red)', () => {
+  const up = { success: true, message: 'ok', duration: 1 };
+  const down = { success: false, message: 'down', duration: 1 };
+  assert.deepEqual(overallHealth([up, up]), { ok: true, status: 200 });
+  assert.deepEqual(overallHealth([up, down]), { ok: false, status: 503 });
+  assert.deepEqual(overallHealth([down, up]), { ok: false, status: 503 });
+  assert.deepEqual(overallHealth([]), { ok: false, status: 503 });
+});
+
 const { isHttpsRequest } = await import('../src/lib/supabase/env.ts');
 check('cookies: Secure is chosen from the proxy header, then the URL protocol', () => {
   assert.equal(isHttpsRequest('https'), true);
@@ -372,6 +390,36 @@ check('middleware: unauthenticated visitors are sent to /login except for the li
   }
 });
 
+check('middleware: the public path list is exactly the reviewed one (a new public path needs a decision, not an accident)', () => {
+  const m = route('src/lib/supabase/middleware.ts');
+  const block = m.slice(m.indexOf('const isPublic'), m.indexOf('// Unauthenticated'));
+  const found = [...block.matchAll(/path(?:\s*===\s*|\.startsWith\()\s*'([^']+)'/g)].map((x) => x[1]).sort();
+  const expected = ['/', '/api/health', '/api/keepalive', '/apple-', '/auth/callback', '/auth/confirm', '/favicon', '/fonts', '/icon-', '/login', '/manifest.webmanifest', '/portal', '/sw.js', '/_next', '/ui-kit'].sort();
+  assert.deepEqual(found, expected);
+});
+check('api routes: every handler is either on the public allowlist or checks the caller with auth.getUser()', () => {
+  const publicApi = new Set(['src/app/api/health/route.ts', 'src/app/api/keepalive/route.ts']);
+  const handlers = srcFiles.filter((f) => /^src\/app\/api\/.+\/route\.ts$/.test(f.rel));
+  assert.ok(handlers.length >= 3, 'expected the admin and public handlers to be found');
+  for (const f of handlers) {
+    if (publicApi.has(f.rel)) continue;
+    assert.match(f.text, /auth\.getUser\(/, `${f.rel} is not public but never checks who is calling`);
+  }
+  assert.ok(!handlers.some((f) => f.rel.includes('forgot-password')), 'the unused public forgot-password route must stay deleted');
+});
+check('pages: nothing under src/app/(app) reads data on the server; the proxy skips prefetches because those pages are data-free shells', () => {
+  for (const f of srcFiles) {
+    if (!f.rel.startsWith('src/app/(app)/')) continue;
+    assert.ok(!/from ['"]@\/lib\/supabase\/(server|request-guard)['"]/.test(f.text), `${f.rel} imports server-only Supabase code`);
+    assert.ok(!/createSupabase(Server|Admin)Client/.test(f.text), `${f.rel} creates a server-side Supabase client`);
+  }
+});
+check('keepalive: the route reports a failed probe as a failure (no success-on-error fallbacks)', () => {
+  const k = route('src/app/api/keepalive/route.ts');
+  assert.match(k, /overallHealth\(/);
+  assert.ok(!/Keep-alive activity triggered|Keep-alive check completed/.test(k));
+});
+
 await checkAsync('headers: next.config.mjs sets the security headers and a report-only CSP in production', async () => {
   const savedEnv = { ...process.env };
   try {
@@ -474,7 +522,6 @@ check('dependencies: install-time scripts are only reviewed local files with no 
 });
 check('database access: the app never talks to Postgres directly (everything goes through Supabase and RLS)', () => {
   for (const f of srcFiles) {
-    if (f.rel === 'src/lib/prisma.ts') continue;
     assert.ok(!/from ['"](?:@prisma\/client|pg)['"]|@\/lib\/prisma/.test(f.text), `${f.rel} imports Prisma or pg`);
   }
 });

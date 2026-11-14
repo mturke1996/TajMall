@@ -1,15 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { bearerToken, safeEqual } from "@/lib/supabase/request-guard";
+import { interpretRestProbe, overallHealth, type ProbeResult } from "@/lib/keepalive";
 
 /**
- * Keep-alive endpoint to prevent Supabase free-tier inactivity suspension.
- * This endpoint is called periodically to keep the project active.
+ * Keep-alive and health endpoint, called on a schedule by .github/workflows/keepalive.yml.
+ * It touches the project (so a free-tier database is not paused for inactivity) and reports honestly
+ * whether the backend answered: any failed probe makes this endpoint answer 503, which turns the
+ * workflow red. See src/lib/keepalive.ts for the decision rules.
  */
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
+
+const REST_TIMEOUT_MS = 8000;
 
 function authorized(req: NextRequest): boolean {
   const secret = process.env.KEEPALIVE_SECRET;
@@ -18,21 +23,17 @@ function authorized(req: NextRequest): boolean {
   return Boolean(secret && token && safeEqual(token, secret));
 }
 
-async function checkDatabaseConnectivity(): Promise<{
-  success: boolean;
-  message: string;
-  duration: number;
-}> {
+async function checkDatabaseConnectivity(): Promise<ProbeResult> {
   const start = Date.now();
   try {
     const supabase = createSupabaseAdminClient();
     // Query a lightweight table to verify database connectivity and trigger activity
     const { error } = await supabase.from("branches").select("id").limit(1);
-    
+
     if (error) {
       throw error;
     }
-    
+
     return {
       success: true,
       message: "Database ping successful",
@@ -48,74 +49,39 @@ async function checkDatabaseConnectivity(): Promise<{
   }
 }
 
-async function checkSupabaseConnectivity(): Promise<{
-  success: boolean;
-  message: string;
-  duration: number;
-}> {
+async function checkSupabaseConnectivity(): Promise<ProbeResult> {
   const start = Date.now();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceKey =
+    process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return interpretRestProbe({ kind: "not-configured" }, Date.now() - start);
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REST_TIMEOUT_MS);
 
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceKey =
-      process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return {
-        success: false,
-        message: "Missing Supabase credentials",
-        duration: Date.now() - start,
-      };
-    }
-
-    // Simple connectivity check - just verify the endpoint responds
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-    try {
-      const response = await fetch(`${supabaseUrl}/rest/v1`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${supabaseServiceKey}`,
-          apikey: supabaseServiceKey,
-        },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-      const duration = Date.now() - start;
-
-      // Any response (even 401/403) means the service is alive
-      return {
-        success: true,
-        message: `API responding (${response.status})`,
-        duration,
-      };
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-
-      // Even timeout/error triggers activity which keeps instance awake
-      if (fetchError instanceof Error && fetchError.name === "AbortError") {
-        return {
-          success: true,
-          message: "Keep-alive activity triggered (timeout)",
-          duration: Date.now() - start,
-        };
-      }
-
-      // Other network errors still count as activity
-      return {
-        success: true,
-        message: "Keep-alive activity triggered",
-        duration: Date.now() - start,
-      };
-    }
-  } catch (error) {
-    return {
-      success: true,
-      message: "Keep-alive check completed",
-      duration: Date.now() - start,
-    };
+    const response = await fetch(`${supabaseUrl}/rest/v1/`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${supabaseServiceKey}`,
+        apikey: supabaseServiceKey,
+      },
+      signal: controller.signal,
+    });
+    return interpretRestProbe({ kind: "response", status: response.status }, Date.now() - start);
+  } catch {
+    // the error text can carry the request URL: only its kind is reported
+    return interpretRestProbe(
+      controller.signal.aborted
+        ? { kind: "timeout", afterMs: REST_TIMEOUT_MS }
+        : { kind: "network-error" },
+      Date.now() - start,
+    );
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -135,10 +101,10 @@ export async function GET(req: NextRequest) {
     const checkRest = await checkSupabaseConnectivity();
     const checkDb = await checkDatabaseConnectivity();
 
-    const success = checkRest.success && checkDb.success;
+    const health = overallHealth([checkRest, checkDb]);
 
     const response = {
-      ok: success,
+      ok: health.ok,
       timestamp: new Date().toISOString(),
       restApi: {
         connected: checkRest.success,
@@ -157,9 +123,7 @@ export async function GET(req: NextRequest) {
       `[keepalive] Completed - REST: ${checkRest.message} (${checkRest.duration}ms), DB: ${checkDb.message} (${checkDb.duration}ms)`,
     );
 
-    return NextResponse.json(response, {
-      status: success ? 200 : 503,
-    });
+    return NextResponse.json(response, { status: health.status });
   } catch (error) {
     console.error("[keepalive] Error:", error);
     return NextResponse.json(
