@@ -10,10 +10,15 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# the workflow token can read the repository and nothing else
+permissions:
+  contents: read
+
 jobs:
   checks:
     name: Typecheck + Lint + Build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,8 +32,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate Prisma client
-        run: npx prisma generate
+      - name: Dependency audit (production dependencies, high and critical)
+        run: npm run audit:deps
 
       - name: Typecheck (tsc --noEmit)
         run: npm run typecheck
@@ -81,24 +86,45 @@ jobs:
           npm run verify:entry-guards
           npm run verify:payment-receipt
           npm run verify:contact-roles
+          npm run verify:backup-coverage
+          npm run verify:service-worker
 
-      - name: Database replica tests (proposed migrations, no live database)
+      - name: Clock simulator (libfaketime)
         run: |
-          npm run test:payroll:local
-          npm run test:rollback
-          npm run test:leave
-          npm run test:hardening
-          npm run test:rent-integrity
-          node scripts/test-least-privilege.mjs --no-children
-          npm run verify:rent-allocation
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends faketime
+
+      # These suites were written with 2026 months and Friday/Saturday weekend rules, and the database makes rent
+      # charges for the CURRENT year only. Run on the real date they fail for reasons that are not regressions:
+      # the leave suite on a Sunday (UTC+2) and test:hardening / verify:rent-allocation from 1 January 2027. The
+      # clock starts at a fixed Monday so a red build always means a real change. (The cold-restore suite is
+      # date-independent and is checked on other dates by hand; see docs/ENGINEERING-STANDARDS.)
+      - name: Database replica tests (proposed migrations, no live database; clock fixed at 2026-11-16)
+        run: |
+          t() { faketime '2026-11-16 12:00:00' "$@"; }
+          t npm run test:payroll:local
+          t npm run test:rollback
+          t npm run test:leave
+          t npm run test:hardening
+          t npm run test:rent-integrity
+          t node scripts/test-least-privilege.mjs --no-children
+          t npm run verify:rent-allocation
+          t npm run test:cold-restore
 
       - name: Build (next build)
         run: npm run build
         env:
           # لا حاجة لأسرار حقيقية: الصفحات الثابتة تنشئ عميل Supabase أثناء التوليد المسبق
           # ويفشل مع رابط فارغ، فتكفي قيم وهمية — البناء لا يتصل بأي قاعدة بيانات.
-          NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+          # (a closed local port: the offline-shell check below serves this same build, and its session
+          # lookups then fail at once instead of waiting on a network that is not there)
+          NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:9"
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
           NEXT_PUBLIC_APP_NAME: "Fluxen"
           NEXT_PUBLIC_DEFAULT_LOCALE: "ar"
           NEXT_PUBLIC_DEFAULT_CURRENCY: "LYD"
+
+      - name: Offline shell in a real browser (service worker, offline page, update policy)
+        run: npm run e2e:offline-shell
+        env:
+          PW_CHANNEL: chrome # the runner's installed Google Chrome; no browser download

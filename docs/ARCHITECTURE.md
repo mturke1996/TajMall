@@ -50,7 +50,7 @@ Organization
 
 ## 4. Data access
 
-- **Prisma** for type-safe queries.
+- **Supabase client** (`@supabase/supabase-js`) with RLS for all data access; the schema is the hand-written SQL in `supabase/migrations/`.
 - **TanStack Query** for client-side caching and optimistic updates.
 - **Server Actions** for mutations where appropriate (forms, status changes).
 

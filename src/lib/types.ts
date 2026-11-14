@@ -1,6 +1,6 @@
 /**
  * Shared TypeScript types for the UI layer.
- * These mirror the Prisma models but stay JSON-safe (Decimal → number).
+ * Domain types as the app uses them: JSON-safe (numeric columns arrive as numbers).
  */
 
 export type TxKind = 'REVENUE' | 'EXPENSE' | 'TRANSFER' | 'OPENING' | 'ADJUSTMENT';

@@ -1,0 +1,31 @@
+# Weekly dependency updates, grouped so a week produces a few reviewable pull requests, not dozens.
+# Majors are never grouped: each one is its own pull request and its own decision (docs/MASTER-DEVELOPMENT-PLAN
+# section 10: one library at a time, every check green after each).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: cargo
+    directory: "/src-tauri"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3

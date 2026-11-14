@@ -26,7 +26,7 @@
 | Framework        | Next.js 16 (App Router) + React 19 + TypeScript           |
 | Styling          | Tailwind CSS 4 + shadcn/ui pattern (custom)               |
 | Database         | PostgreSQL via Supabase — schema managed by hand-written SQL in `supabase/migrations/` |
-| ORM              | ~~Prisma~~ غير مستخدم فعلياً في التطبيق (راجع الملاحظة أدناه) |
+| Data access      | `@supabase/supabase-js` مع RLS — لا ORM ولا اتصال مباشر بـ Postgres من التطبيق |
 | Auth             | Supabase Auth (SSR)                                       |
 | State            | TanStack Query 5 + Zustand                                |
 | Tables           | TanStack Table 8                                          |
@@ -48,8 +48,7 @@ cp .env.example .env.local
 # بقيم حقيقية من مشروعك على Supabase — لا تضع القيم الحقيقية في .env.example نفسه
 
 # 3. طبّق مخطط القاعدة الفعلي (SQL يدوي، بالترتيب، في Supabase → SQL Editor)
-# راجع supabase/README.md — هذا هو المخطط الحقيقي الذي يقرأه التطبيق، لا Prisma.
-# لا تُشغّل `prisma db push` على قاعدة تحتوي بيانات حقيقية — انظر الملاحظة أدناه.
+# راجع supabase/README.md — هذا هو المخطط الحقيقي الذي يقرأه التطبيق.
 
 # 4. تشغيل التطوير
 npm run dev
@@ -57,10 +56,8 @@ npm run dev
 
 افتح [http://localhost:3000](http://localhost:3000).
 
-> **عن Prisma**: `prisma/schema.prisma` و`npm run prisma:studio` مفيدان فقط كأداة تصفّح/فحص محلية
-> للقاعدة إن رغبت. لا تُشغّل `npm run prisma:push` على القاعدة الحقيقية — نماذج Prisma (متعددة
-> المؤسسات، تسمية camelCase) لا تطابق الجداول الفعلية (`profiles`, `categories`, `cashboxes`...)
-> وقد يُنشئ أو يُعدّل جدولاً بشكل غير متوقع. التطبيق لا يستدعي `@prisma/client` في أي مكان فعلي.
+> **ملاحظة**: كان في المشروع Prisma بمخطط متعدد المؤسسات لا يطابق القاعدة الفعلية ولا يستعمله التطبيق؛
+> أُزيل (يبقى في تاريخ Git). القاعدة الفعلية هي ملفات SQL في `supabase/migrations/` فقط.
 
 ## بنية المجلدات
 
@@ -96,13 +93,10 @@ src/
     dashboard/              # stat, charts, breakdowns
     data/                   # toolbar, table, empty state
   lib/
-    prisma.ts               # عميل Prisma — مُعرَّف لكن غير مستدعى من أي كود آخر (dev tool فقط)
     supabase/               # عملاء Supabase (browser, server, admin) — هذا ما يستخدمه التطبيق فعلياً
     constants.ts            # seed templates (categories, cashboxes, roles)
     utils.ts                # formatters (date, money, number, etc.)
     types.ts                # JSON-safe domain types
-prisma/
-  schema.prisma             # مخطط قديم/تجريبي متعدد المؤسسات — غير مطابق للقاعدة الفعلية، غير مستخدم في التطبيق
 public/
   favicon.svg
 ```
@@ -125,10 +119,6 @@ public/
 - **audit_log** — سجل تدقيق شامل
 - **app_notifications / attachments / settings**
 
-`prisma/schema.prisma` يحتوي تصميماً أقدم/تجريبياً متعدد المؤسسات (`Organization`, `User`, `Role`…)
-لا يطابق الجداول أعلاه ولا يُستخدم في أي استعلام فعلي بالتطبيق — احتفظ به فقط إن رغبت باستخدام
-Prisma Studio كأداة تصفّح محلية، وتعامل معه كوثيقة تصميم قديمة لا كمصدر حقيقة.
-
 ## نظام التصميم
 
 التصميم يتبع منهج editorial light:
@@ -144,17 +134,19 @@ Prisma Studio كأداة تصفّح محلية، وتعامل معه كوثيق�
 1. ادفع المشروع إلى GitHub.
 2. اربط Vercel بالـ repo.
 3. أضف متغيرات البيئة من `.env.example`.
-4. أمر البناء: `prisma generate && next build` (مُهيّأ في `vercel.json`).
-5. سيتم تفعيل Vercel Cron كل 6 ساعات على `/api/keepalive` تلقائياً.
+4. أمر البناء: `next build` (مُهيّأ في `vercel.json`).
+5. الـ keep-alive لا يعتمد على Vercel Cron: يستدعيه GitHub Actions كل 6 ساعات (انظر القسم التالي).
 
 ## نظام الـ Keep-Alive
 
 Supabase free-tier يوقف قاعدة البيانات بعد عدم النشاط. النظام يحل ذلك بطبقتين:
 
-1. **Vercel Cron** كل 6 ساعات → ينادي `/api/keepalive` → يُنفذ `SELECT 1` على قاعدة البيانات.
-2. **`/api/health`** متاح لخدمات monitoring خارجية مثل UptimeRobot للمراقبة الإضافية.
+1. **GitHub Actions** ([`.github/workflows/keepalive.yml`](.github/workflows/keepalive.yml)) كل 6 ساعات →
+   ينادي `/api/keepalive` بالسر `KEEPALIVE_SECRET` → يستعلم عن واجهة REST وعن جدول `branches`. إن لم يستجب أي منهما
+   يردّ المسار بحالة 503 فيفشل التشغيل ويصلك إشعار GitHub (كان يردّ نجاحاً دائماً حتى مع الانقطاع).
+2. **`/api/health`** متاح لخدمات monitoring خارجية مثل UptimeRobot للمراقبة الإضافية (لا يكشف شيئاً).
 
-كلا المسارين محميان: الـ keepalive يقبل فقط طلبات Vercel Cron أو طلبات تحمل `KEEPALIVE_SECRET`.
+الـ keepalive يقبل فقط الطلبات التي تحمل `KEEPALIVE_SECRET` (مقارنة بزمن ثابت).
 
 ## النسخ الاحتياطي
 

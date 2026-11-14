@@ -6,9 +6,13 @@ on:
     - cron: "0 */6 * * *"
   workflow_dispatch:
 
+# only curl runs here: the workflow token needs no permission at all
+permissions: {}
+
 jobs:
   ping-database:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Ping keepalive endpoint
         env:
