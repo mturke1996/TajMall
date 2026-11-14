@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { collectColdBackupSnapshot } from './collect-snapshot';
-import { isTauriDesktop, saveColdBackup, type BackupInfo } from './tauri-bridge';
+import { getShellInfo, isShellCompatible, isTauriDesktop, saveColdBackup, type BackupInfo } from './tauri-bridge';
 
 export type RunColdBackupResult =
   | { ok: true; info: BackupInfo }
@@ -19,6 +19,15 @@ export async function runColdBackup(
     return {
       ok: false,
       error: 'النسخ الاحتياطي المحلي متاح فقط من تطبيق سطح المكتب (Taj Mall).',
+    };
+  }
+
+  // A shell older than this page's IPC contract is told to update; a shell that predates the handshake
+  // (null) still works, so an old desktop app never loses its backups just because it is old.
+  if (!isShellCompatible(await getShellInfo())) {
+    return {
+      ok: false,
+      error: 'إصدار تطبيق سطح المكتب أقدم من المطلوب لهذه النسخة — حدّث التطبيق ثم أعد المحاولة.',
     };
   }
 

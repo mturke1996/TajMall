@@ -9,8 +9,24 @@ export type BackupInfo = {
   zipPath: string;
   sqliteBytes: number;
   zipBytes: number;
+  /** Digest of the data (per-table hashes). Present in every backup. */
   checksum: string;
+  /** SHA-256 of the finished ZIP file. Absent in backups made by older shells. */
+  zipSha256?: string;
+  /** Tables that were not in the database when this backup ran (a migration not applied yet). */
+  skippedTables?: string[];
 };
+
+/** What the installed desktop shell reports about itself (see `get_shell_info`). */
+export type ShellInfo = {
+  shellVersion: string;
+  /** Version of the IPC contract between the shell and this web app. */
+  ipcProtocol: number;
+  commands: string[];
+};
+
+/** The IPC contract version this web app was written for. Raise it together with the shell. */
+export const WEB_IPC_PROTOCOL = 1;
 
 type TauriInvoke = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
 
@@ -40,6 +56,7 @@ export async function saveColdBackup(
     source: string;
     createdAt: string;
     tables: Record<string, Record<string, unknown>[]>;
+    skippedTables?: string[];
   },
 ): Promise<BackupInfo> {
   return invoke<BackupInfo>('save_cold_backup', { snapshot });
@@ -59,4 +76,22 @@ export async function exportBackupCopy(id: string): Promise<string | null> {
 
 export async function getBackupsDir(): Promise<string> {
   return invoke<string>('get_backups_dir');
+}
+
+/**
+ * Asks the installed shell which IPC contract it speaks. Returns null for a shell older than this command
+ * (installed before the handshake existed): callers treat that as "legacy" and carry on, never as an error,
+ * so an old desktop app keeps taking backups until it is updated.
+ */
+export async function getShellInfo(): Promise<ShellInfo | null> {
+  try {
+    return await invoke<ShellInfo>('get_shell_info');
+  } catch {
+    return null;
+  }
+}
+
+/** True when the shell can do everything this web app needs. A legacy shell (null) is allowed. */
+export function isShellCompatible(info: ShellInfo | null): boolean {
+  return info === null || info.ipcProtocol >= WEB_IPC_PROTOCOL;
 }

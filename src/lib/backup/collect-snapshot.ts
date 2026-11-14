@@ -3,6 +3,7 @@ import { normalizeRole } from '@/lib/permissions';
 import {
   COLD_BACKUP_TABLES,
   PAGE_SIZE,
+  coldBackupOrderBy,
   coldBackupSelect,
   type ColdBackupTable,
 } from './tables';
@@ -12,17 +13,43 @@ export type ColdBackupSnapshot = {
   source: string;
   createdAt: string;
   tables: Record<string, Record<string, unknown>[]>;
+  /** Listed tables that were not in the database (a migration not applied yet): named, never hidden. */
+  skippedTables: string[];
 };
 
 export type CollectSnapshotResult =
   | { ok: true; snapshot: ColdBackupSnapshot; tableCounts: Record<string, number> }
   | { ok: false; error: string };
 
+function isMissingTable(error: { code?: string; message: string }): boolean {
+  return (
+    error.code === '42P01' ||
+    error.code === 'PGRST205' ||
+    /does not exist|schema cache/i.test(error.message)
+  );
+}
+
+/**
+ * Two rows with the same key in one table means paging read a row twice (and therefore skipped another):
+ * the backup would look complete and not be. Stop instead of writing it.
+ */
+function assertUniqueKeys(table: string, key: string, rows: Record<string, unknown>[]): void {
+  const seen = new Set<unknown>();
+  for (const row of rows) {
+    const value = row[key];
+    if (seen.has(value)) {
+      throw new Error(`${table}: القيمة ${String(value)} مكررة في عمود ${key} — تغيّرت البيانات أثناء النسخ، أعد المحاولة`);
+    }
+    seen.add(value);
+  }
+}
+
 async function fetchAllRows(
   supabase: SupabaseClient,
   table: ColdBackupTable,
-): Promise<Record<string, unknown>[]> {
+): Promise<{ rows: Record<string, unknown>[]; missing: boolean }> {
   const rows: Record<string, unknown>[] = [];
+  const orderBy = coldBackupOrderBy(table);
   let from = 0;
 
   for (;;) {
@@ -30,18 +57,13 @@ async function fetchAllRows(
     const { data, error } = await supabase
       .from(table)
       .select(coldBackupSelect(table))
+      .order(orderBy, { ascending: true })
       .range(from, to);
 
     if (error) {
-      // Missing table / no SELECT grant — skip with empty set rather than aborting
-      // the whole backup (draft tables may be absent in older projects).
-      if (
-        error.code === '42P01' ||
-        error.code === 'PGRST205' ||
-        /does not exist|schema cache/i.test(error.message)
-      ) {
-        return rows;
-      }
+      // A table that does not exist yet (draft/optional migration) is skipped by name; anything else —
+      // above all "permission denied" — stops the backup, because a quiet gap here is lost data.
+      if (isMissingTable(error)) return { rows: [], missing: true };
       throw new Error(`${table}: ${error.message}`);
     }
 
@@ -51,12 +73,13 @@ async function fetchAllRows(
     from += PAGE_SIZE;
   }
 
-  return rows;
+  assertUniqueKeys(table, orderBy, rows);
+  return { rows, missing: false };
 }
 
 /**
  * Pulls every business table visible to the signed-in owner/admin via RLS.
- * High-fidelity snapshot per table, paginated. Most tables use `*`; contacts
+ * High-fidelity snapshot per table, paginated in primary-key order. Most tables use `*`; contacts
  * uses an explicit column list (portal_token is excluded — regenerate via RPC after restore).
  */
 export async function collectColdBackupSnapshot(
@@ -74,10 +97,15 @@ export async function collectColdBackupSnapshot(
 
   const tables: Record<string, Record<string, unknown>[]> = {};
   const tableCounts: Record<string, number> = {};
+  const skippedTables: string[] = [];
 
   try {
     for (const table of COLD_BACKUP_TABLES) {
-      const rows = await fetchAllRows(supabase, table);
+      const { rows, missing } = await fetchAllRows(supabase, table);
+      if (missing) {
+        skippedTables.push(table);
+        continue;
+      }
       tables[table] = rows;
       tableCounts[table] = rows.length;
     }
@@ -94,6 +122,7 @@ export async function collectColdBackupSnapshot(
       source: 'supabase',
       createdAt: new Date().toISOString(),
       tables,
+      skippedTables,
     },
   };
 }
