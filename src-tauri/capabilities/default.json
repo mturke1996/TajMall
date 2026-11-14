@@ -1,17 +1,21 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Desktop shell + cold backup IPC for the hosted Fluxen UI",
+  "description": "Production shell: the hosted Fluxen UI on its production origin only, the cold-backup commands, and Tauri's read-only core defaults. No local origin ships in the release.",
   "windows": ["main"],
   "remote": {
     "urls": [
       "https://taj-mall-nu.vercel.app",
-      "https://taj-mall-nu.vercel.app/*",
-      "http://localhost:3000",
-      "http://localhost:3000/*",
-      "http://127.0.0.1:3000",
-      "http://127.0.0.1:3000/*"
+      "https://taj-mall-nu.vercel.app/*"
     ]
   },
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "allow-save-cold-backup",
+    "allow-list-cold-backups",
+    "allow-reveal-backups-folder",
+    "allow-export-backup-copy",
+    "allow-get-backups-dir",
+    "allow-get-shell-info"
+  ]
 }

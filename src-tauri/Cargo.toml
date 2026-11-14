@@ -28,3 +28,18 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 sha2 = "0.10"
 rfd = "0.15"
+
+# Desktop only: a second launch focuses the running window instead of racing it on the same local data.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+# The installer ships the release build: smaller, one codegen unit, aborts on panic instead of unwinding.
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = "s"
+panic = "abort"
+strip = true
