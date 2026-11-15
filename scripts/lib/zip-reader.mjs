@@ -98,10 +98,13 @@ export function readZip(buf, { maxEntries = 5000, maxTotalBytes = 2 * 1024 ** 3 
     const commentLength = buf.readUInt16LE(pos + 32);
     const localOffset = buf.readUInt32LE(pos + 42);
     if (pos + 46 + nameLength + extraLength + commentLength > eocd) throw new ZipError('اسم عنصر خارج الحدود');
-    const name = buf.toString(flags & 0x800 ? 'utf8' : 'latin1', pos + 46, pos + 46 + nameLength);
+    const rawName = buf.toString(flags & 0x800 ? 'utf8' : 'latin1', pos + 46, pos + 46 + nameLength);
     pos += 46 + nameLength + extraLength + commentLength;
 
-    if (name.endsWith('/')) continue; // directory entry
+    if (rawName.endsWith('/')) continue; // directory entry
+    // `tar -a -c -f x.zip -C dir .` (bsdtar, which is also Windows' tar.exe) names entries "./manifest.json":
+    // the same file, so the leading "./" is dropped before any check
+    const name = rawName.replace(/^(?:\.\/)+/, '');
     if (unsafeName(name)) throw new ZipError(`اسم عنصر غير آمن في الأرشيف: ${JSON.stringify(name)}`);
     if (entries.has(name)) throw new ZipError(`اسم مكرر في الأرشيف: ${name}`);
     if (flags & 0x1) throw new ZipError(`العنصر ${name} مشفّر، والأداة لا تفك التشفير`);

@@ -12,9 +12,11 @@
  *  - a database that already holds business data is refused.
  */
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { deflateRawSync } from 'node:zlib';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { createReplica, actAs } from './lib/pglite-replica.mjs';
 import { crc32, readZip, ZipError } from './lib/zip-reader.mjs';
 import { ARCHIVE_FORMAT, BUSINESS_DATA_TABLES, RestoreError, orderTables, parseArchive, restoreArchive } from './lib/cold-restore.mjs';
@@ -82,6 +84,27 @@ function makeZip(entries, { tamper } = {}) {
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 const json = (v) => JSON.stringify(v, null, 2);
 
+
+/** The shape `npm run db:snapshot` writes: `tar -a -c -f x.zip -C dir .` names, directory entries, manifest.tables map. */
+function makeSnapshotArchive(tables, { tamperHash = false } = {}) {
+  const files = Object.entries(tables).map(([name, rows]) => ({ name, body: JSON.stringify(rows) }));
+  const manifest = {
+    id: 'snapshot-2026-11-15T00-00-00-000Z',
+    createdAt: '2026-11-15T00:00:00.000Z',
+    format: 'fluxen-cold-backup-v1+schema',
+    source: 'scripts/backup-database-snapshot.mjs',
+    tables: Object.fromEntries(files.map((f, i) => [f.name, { rows: tables[f.name].length, sha256: tamperHash && i === 0 ? 'e'.repeat(64) : sha(f.body) }])),
+    schema: { functions: { rows: 0, sha256: sha('[]') } },
+  };
+  return makeZip([
+    { name: './', data: '', method: 0 },
+    { name: './tables/', data: '', method: 0 },
+    { name: './manifest.json', data: JSON.stringify(manifest, null, 2) },
+    ...files.map((f) => ({ name: `./tables/${f.name}.json`, data: f.body })),
+    { name: './schema/functions.json', data: '[]' },
+  ]);
+}
+
 function makeArchive(tables, { manifestPatch = {}, withHashes = true } = {}) {
   const files = Object.entries(tables).map(([name, rows]) => ({ name: `tables/${name}.json`, body: json(rows) }));
   const manifest = {
@@ -117,6 +140,9 @@ function makeArchive(tables, { manifestPatch = {}, withHashes = true } = {}) {
   check('zip', 'قنبلة ضغط (حجم معلن أصغر من الحقيقي) تُرفض',
     await throwsWith(() => readZip(makeZip([{ name: 'a', data: Buffer.alloc(100000, 7), declaredSize: 10 }])), ZipError));
   check('zip', 'عدد عناصر يتجاوز الحد يُرفض', await throwsWith(() => readZip(zip, { maxEntries: 1 }), ZipError, /الحد/));
+  const dotted = readZip(makeZip([{ name: './', data: '', method: 0 }, { name: './tables/', data: '', method: 0 }, { name: './manifest.json', data: '{}' }, { name: './././tables/a.json', data: '[]' }]));
+  check('zip', 'بادئة "./" (من tar -a) تُحذف والمجلدات تُتجاهل', dotted.has('manifest.json') && dotted.has('tables/a.json') && dotted.size === 2, [...dotted.keys()].join(','));
+  check('zip', '"./../evil" ما زال يُرفض بعد حذف "./"', await throwsWith(() => readZip(makeZip([{ name: './../evil.json', data: '{}' }])), ZipError, /غير آمن/));
 }
 
 // ── 2. archive validation ───────────────────────────────────────────────────────────────────────────────
@@ -152,6 +178,43 @@ function makeArchive(tables, { manifestPatch = {}, withHashes = true } = {}) {
   } else {
     check('archive', 'أرشيف Rust النموذجي موجود', false, 'scripts/fixtures/cold-backup-v1.zip غير موجود');
   }
+}
+
+// ── 2b. the archive `npm run db:snapshot` writes (the manual backup taken before any migration) ──────────────
+{
+  const snap = parseArchive(makeSnapshotArchive({ branches: [{ id: 'b1', name: 'الفرع' }], categories: [] }));
+  check('snapshot', 'أرشيف db:snapshot (صيغة +schema وبيان tables وأسماء "./") يُقبل', snap.tables.size === 2 && snap.manifest.format === 'fluxen-cold-backup-v1+schema');
+  check('snapshot', 'ويُتحقق من بصمة كل جدول فيه', await throwsWith(() => parseArchive(makeSnapshotArchive({ branches: [{ id: 'b1' }], categories: [] }, { tamperHash: true })), RestoreError, /SHA-256/));
+  check('snapshot', 'وعدد الصفوف المعلَن', await throwsWith(() => parseArchive(makeZip([
+    { name: './manifest.json', data: JSON.stringify({ format: 'fluxen-cold-backup-v1+schema', tables: { branches: { rows: 9 } } }) },
+    { name: './tables/branches.json', data: '[{"id":"1"}]' }])), RestoreError, /لا يطابق/));
+  const bsdtar = resolve('scripts/fixtures/snapshot-bsdtar-v1.zip');
+  check('snapshot', 'ملف حقيقي كتبه bsdtar (نفس tar.exe في ويندوز) يُقرأ ويُتحقق منه', existsSync(bsdtar) && (() => {
+    const a = parseArchive(readFileSync(bsdtar));
+    return a.tables.size === 2 && a.tables.get('branches')[0].name === 'الفرع الرئيسي';
+  })());
+}
+
+// ── 2c. the command line (no database needed for --verify-only) ─────────────────────────────────────────────────
+{
+  const CLI = resolve('scripts/restore-cold-backup.mjs');
+  const cli = (args) => spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', env: { ...process.env, DIRECT_URL: '', DATABASE_URL: '' } });
+  const rust = resolve('scripts/fixtures/cold-backup-v1.zip');
+  const snapZip = resolve('scripts/fixtures/snapshot-bsdtar-v1.zip');
+  let r = cli([rust, '--verify-only']);
+  check('cli', '--verify-only يقبل نسخة التطبيق دون أي قاعدة بيانات', r.status === 0 && /Archive is intact/.test(r.stdout), `${r.status} ${r.stderr}`);
+  r = cli([snapZip, '--verify-only']);
+  check('cli', '--verify-only يقبل نسخة npm run db:snapshot', r.status === 0 && /Archive is intact/.test(r.stdout), `${r.status} ${r.stderr}`);
+  const broken = join(tmpdir(), `fluxen-broken-${process.pid}.zip`);
+  writeFileSync(broken, readFileSync(rust).subarray(0, 300));
+  r = cli([broken, '--verify-only']);
+  check('cli', 'ملف مبتور يُرفض برمز 1 ورسالة واضحة', r.status === 1 && /الأرشيف مرفوض/.test(r.stderr), `${r.status} ${r.stderr}`);
+  r = cli([]);
+  check('cli', 'بلا وسائط: شرح الاستعمال ورمز 1', r.status === 1 && /Usage/.test(r.stderr));
+  r = cli([rust, '--bogus']);
+  check('cli', 'خيار غير معروف يُرفض', r.status === 1 && /خيار غير معروف/.test(r.stderr));
+  r = cli([rust]);
+  check('cli', 'استعادة فعلية بلا DIRECT_URL تتوقف قبل أي اتصال', r.status === 1 && /DIRECT_URL/.test(r.stderr), r.stderr);
 }
 
 // ── 3. ordering ─────────────────────────────────────────────────────────────────────────────────────────
@@ -389,6 +452,14 @@ if (restored.ok) {
   withColumn.branches = withColumn.branches.map((b) => ({ ...b, legacy_column: 'x' }));
   const r4 = await attempt(() => restoreArchive(DST, parseArchive(makeArchive(withColumn)), { eraseExisting: true }));
   check('guard', 'عمود في الأرشيف غير موجود في الهدف يُفشل الاستعادة (لا فقدان صامت)', !r4.ok && r4.error.details.failures.some((f) => f.kind === 'unknown-columns'));
+}
+
+// 4d. the manual backup (db:snapshot shape) restores exactly like the app's backup
+{
+  const viaSnapshot = await attempt(() => restoreArchive(DST, parseArchive(makeSnapshotArchive(backup)), { eraseExisting: true }));
+  check('snapshot', 'استعادة أرشيف db:snapshot (أسماء "./" وبيان tables) تعطي حالة المصدر نفسها',
+    viaSnapshot.ok && viaSnapshot.value.failureCount === 0 && JSON.stringify(await stateOf(SRC)) === JSON.stringify(await stateOf(DST)),
+    viaSnapshot.error?.message ?? '');
 }
 
 // ── report ──────────────────────────────────────────────────────────────────────────────────────────────

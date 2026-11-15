@@ -2,10 +2,11 @@
 /**
  * Emergency restore of a Fluxen cold-backup ZIP into a Postgres / Supabase database.
  *
+ *   node scripts/restore-cold-backup.mjs <backup.zip> --verify-only     # check the file only; no database needed
  *   node scripts/restore-cold-backup.mjs <backup.zip> [--dry-run] [--allow-partial] [--erase-existing-data]
  *
- * Environment:
- *   DIRECT_URL (or DATABASE_URL)  Postgres connection string, direct connection (not the pooler).
+ * Environment (not needed for --verify-only):
+ *   DIRECT_URL (or DATABASE_URL)  Postgres connection string.
  *
  * Read this before running:
  *  - Restore onto a NEW, BLANK project after applying the schema migrations. The tool empties the restored
@@ -13,7 +14,9 @@
  *    database already contains transactions, journal entries or contacts, unless --erase-existing-data.
  *  - `profiles.id` references auth.users: create the matching Auth users first, or those rows are reported
  *    as failures.
- *  - Run with --dry-run first. It performs the whole load inside a transaction and rolls it back, so every
+ *  - Works on both archives the project writes: the desktop app's backup and `npm run db:snapshot`.
+ *  - Run with --verify-only to prove a backup file is intact (ZIP CRC, SHA-256 and row count of every table) without
+ *    touching any database, and with --dry-run before a real restore. It performs the whole load inside a transaction and rolls it back, so every
  *    problem shows up without touching the database.
  *  - Any failure rolls the WHOLE restore back (exit code 2). --allow-partial commits what loaded and lists
  *    the failures (exit code 3); use it only when you know what is missing.
@@ -30,7 +33,7 @@ import { ZipError } from './lib/zip-reader.mjs';
 const args = process.argv.slice(2);
 const flags = new Set(args.filter((a) => a.startsWith('--')));
 const files = args.filter((a) => !a.startsWith('--'));
-const KNOWN = new Set(['--dry-run', '--allow-partial', '--erase-existing-data']);
+const KNOWN = new Set(['--verify-only', '--dry-run', '--allow-partial', '--erase-existing-data']);
 
 function die(message, code = 1) {
   console.error(message);
@@ -39,14 +42,11 @@ function die(message, code = 1) {
 
 for (const flag of flags) if (!KNOWN.has(flag)) die(`خيار غير معروف: ${flag}`);
 if (files.length !== 1) {
-  die('Usage: node scripts/restore-cold-backup.mjs <backup.zip> [--dry-run] [--allow-partial] [--erase-existing-data]');
+  die('Usage: node scripts/restore-cold-backup.mjs <backup.zip> [--verify-only | --dry-run] [--allow-partial] [--erase-existing-data]');
 }
 
 const zipPath = resolve(files[0]);
 if (!existsSync(zipPath)) die(`File not found: ${zipPath}`);
-
-const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
-if (!connectionString) die('Set DIRECT_URL (or DATABASE_URL) to the target Postgres connection string.');
 
 let archive;
 try {
@@ -59,7 +59,15 @@ try {
 const { manifest } = archive;
 console.log(`Backup ${manifest.id ?? '?'} · ${manifest.createdAt ?? '?'} · app ${manifest.appVersion ?? '?'}`);
 console.log(`Archive verified: ${archive.tables.size} tables, ${[...archive.tables.values()].reduce((n, r) => n + r.length, 0)} rows.`);
-if (!manifest.tableSha256) console.log('Note: this archive has no per-table SHA-256 (older app version); ZIP CRC and row counts were checked.');
+const hashed = Boolean(manifest.tableSha256) || Object.values(manifest.tables ?? {}).some((t) => typeof t?.sha256 === 'string');
+if (!hashed) console.log('Note: this archive has no per-table SHA-256 (older app version); ZIP CRC and row counts were checked.');
+if (flags.has('--verify-only')) {
+  console.log('Archive is intact. Nothing was restored and no database was contacted.');
+  process.exit(0);
+}
+
+const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
+if (!connectionString) die('Set DIRECT_URL (or DATABASE_URL) to the target Postgres connection string.');
 
 // Supabase needs TLS; honour an explicit sslmode in the URL, skip it for localhost, otherwise require it
 // without verifying the certificate chain (set PGSSLROOTCERT-style verification yourself for strict checks).

@@ -26,6 +26,31 @@ import { createHash } from 'node:crypto';
 import { readZip } from './zip-reader.mjs';
 
 export const ARCHIVE_FORMAT = 'fluxen-cold-backup-v1';
+/**
+ * Two writers produce this archive: the desktop app ("fluxen-cold-backup-v1", manifest keys tableCounts and
+ * tableSha256) and scripts/backup-database-snapshot.mjs ("fluxen-cold-backup-v1+schema": same tables, plus a
+ * schema/ folder, manifest key `tables` = { name: { rows, sha256 } }). Both are accepted and both are verified.
+ */
+const KNOWN_FORMATS = new Set([ARCHIVE_FORMAT, `${ARCHIVE_FORMAT}+schema`]);
+
+const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+/** Declared row counts per table, from whichever manifest shape the archive has (or null). */
+function declaredCounts(manifest) {
+  if (isPlainObject(manifest.tableCounts)) return manifest.tableCounts;
+  if (isPlainObject(manifest.tables)) return Object.fromEntries(Object.entries(manifest.tables).map(([t, v]) => [t, v?.rows]));
+  return null;
+}
+
+/** Declared SHA-256 per table, from whichever manifest shape the archive has (or null). */
+function declaredHashes(manifest) {
+  if (isPlainObject(manifest.tableSha256)) return manifest.tableSha256;
+  if (isPlainObject(manifest.tables)) {
+    const entries = Object.entries(manifest.tables).filter(([, v]) => typeof v?.sha256 === 'string');
+    return entries.length ? Object.fromEntries(entries.map(([t, v]) => [t, v.sha256])) : null;
+  }
+  return null;
+}
 const TABLE_NAME = /^[a-z][a-z0-9_]{0,62}$/;
 
 /**
@@ -66,11 +91,12 @@ export function parseArchive(buffer) {
   } catch (error) {
     throw new RestoreError(`manifest.json تالف: ${error.message}`);
   }
-  if (manifest?.format !== ARCHIVE_FORMAT) {
+  if (!KNOWN_FORMATS.has(manifest?.format)) {
     throw new RestoreError(`صيغة الأرشيف غير معروفة: ${manifest?.format ?? '(بلا صيغة)'}`);
   }
 
-  const hashes = manifest.tableSha256 && typeof manifest.tableSha256 === 'object' ? manifest.tableSha256 : null;
+  const hashes = declaredHashes(manifest);
+  const counts = declaredCounts(manifest);
   const tables = new Map();
 
   for (const [entryName, data] of entries) {
@@ -95,14 +121,14 @@ export function parseArchive(buffer) {
     if (rows.some((row) => row === null || typeof row !== 'object' || Array.isArray(row))) {
       throw new RestoreError(`ملف الجدول ${table} يحوي عنصراً ليس صفاً`);
     }
-    const declared = manifest.tableCounts?.[table];
+    const declared = counts?.[table];
     if (Number.isInteger(declared) && declared !== rows.length) {
       throw new RestoreError(`عدد صفوف ${table} (${rows.length}) لا يطابق البيان (${declared}): أرشيف مبتور`);
     }
     tables.set(table, rows);
   }
 
-  for (const declaredTable of Object.keys(manifest.tableCounts ?? {})) {
+  for (const declaredTable of Object.keys(counts ?? {})) {
     if (!tables.has(declaredTable)) throw new RestoreError(`الجدول ${declaredTable} مذكور في البيان وملفه غير موجود: أرشيف ناقص`);
   }
   return { manifest, tables };

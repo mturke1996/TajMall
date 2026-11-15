@@ -119,6 +119,10 @@ pg_restore --no-owner --no-privileges -L toc.txt -d "<connection-string>" fluxen
 3. من جهاز فيه Node و`DIRECT_URL` للقاعدة **الجديدة** (اتصال مباشر لا pooler):
 
 ```bash
+# أولاً، ومن أي جهاز ودون أي قاعدة بيانات: تحقق أن ملف النسخة سليم
+# (CRC لكل ملف، وبصمة SHA-256 وعدد صفوف كل جدول). يقبل نسخة التطبيق ونسخة npm run db:snapshot
+npm run backup:restore-cold -- path\to\backup.zip --verify-only
+
 # PowerShell
 $env:DIRECT_URL="postgresql://postgres:[PASSWORD]@db.[REF].supabase.co:5432/postgres"
 
