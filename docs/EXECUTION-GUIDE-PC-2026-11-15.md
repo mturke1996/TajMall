@@ -165,9 +165,10 @@ claude
       **انسخ الملف إلى مكان ثانٍ خارج الجهاز** (قرص خارجي أو تخزين مشفّر): فيه بيانات أشخاص. لا ترفعه إلى GitHub.
 - [ ] **0.3 لقطة «قبل».** احفظ تقريرَي التدقيق خارج المستودع (فيهما أعداد ومبالغ فقط):
       ```powershell
-      npm run audit:integrity > "$env:USERPROFILE\audit-integrity-before.txt"
-      npm run audit:security  > "$env:USERPROFILE\audit-security-before.txt"
+      npm run audit:integrity | Out-File -Encoding utf8 "$env:USERPROFILE\audit-integrity-before.txt"
+      npm run audit:security  | Out-File -Encoding utf8 "$env:USERPROFILE\audit-security-before.txt"
       ```
+      (`Out-File -Encoding utf8` يحفظ العربية سليمة في PowerShell القديم.)
 - [ ] **0.4 إعدادات Supabase** (الترتيب في `SECURITY.md` ← «ما يحتاج إجراءً منك»):
       - [ ] Authentication ← Sign In / Providers ← Email: أطفئ **Allow new users to sign up**، وأطفئ **Anonymous sign-ins**.
       - [ ] Authentication ← Policies: فعّل **Leaked password protection** و**Secure password change**؛ راجع Redirect URLs وأزل أي `*`.

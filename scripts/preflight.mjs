@@ -8,7 +8,7 @@
  *
  * Exit code 1 only when something blocks all work (Node, npm, git, or an env file that git would commit).
  */
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import net from 'node:net';
 import { join, resolve } from 'node:path';
@@ -18,15 +18,18 @@ const isWindows = process.platform === 'win32';
 const rows = [];
 const add = (level, title, detail = '', fix = '') => rows.push({ level, title, detail, fix });
 
-/** Runs a command and returns its output, or null when it is missing or fails. */
+/**
+ * Runs a fixed command line and returns its output, or null when it is missing or exits non-zero.
+ * (A single string, not an argument array: on Windows npm is npm.cmd and needs the shell, and newer Node
+ * versions warn about passing an argument array together with a shell. Every command here is a constant.)
+ */
 function run(command, args) {
   try {
-    return execFileSync(command, args, {
+    return execSync([command, ...args].join(' '), {
       cwd: root,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
       timeout: 20000,
-      shell: isWindows, // npm is npm.cmd on Windows
     }).trim();
   } catch {
     return null;
