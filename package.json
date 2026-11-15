@@ -81,7 +81,9 @@
     "verify:service-worker": "node scripts/verify-service-worker.mjs",
     "e2e:offline-shell": "node scripts/e2e-offline-shell.mjs",
     "test:desktop": "cargo test --locked --manifest-path src-tauri/Cargo.toml",
-    "audit:deps": "npm audit --omit=dev --audit-level=high"
+    "audit:deps": "npm audit --omit=dev --audit-level=high",
+    "preflight": "node scripts/preflight.mjs",
+    "ci:local": "node scripts/ci-local.mjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.0",

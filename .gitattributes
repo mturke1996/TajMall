@@ -1,0 +1,14 @@
+# Line endings: the repository stores LF only (every tracked text file is LF today). Windows checkouts keep LF too,
+# so scripts, SQL, lock files and test fixtures behave the same on every machine and in CI.
+* text=auto eol=lf
+
+# binary files are never touched (the cold-backup fixture is a real ZIP written by the Rust code)
+*.zip binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.icns binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
